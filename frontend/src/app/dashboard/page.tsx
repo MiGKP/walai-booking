@@ -5,21 +5,23 @@ import { useRouter } from 'next/navigation';
 import { User, Mail, Phone, Save, Lock } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, isAuthenticated, updateUser } = useAuthStore();
+  const { ready, user } = useAuthGuard();
+  const { updateUser } = useAuthStore();
   const [profile, setProfile] = useState({ name: '', phone: '' });
   const [passwords, setPasswords] = useState({ current_password: '', new_password: '', confirm: '' });
   const [saving, setSaving] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) { router.push('/auth/login'); return; }
-    if (user) setProfile({ name: user.name, phone: user.phone || '' });
-  }, [isAuthenticated, user]);
+    if (!ready || !user) return;
+    setProfile({ name: user.name, phone: user.phone || '' });
+  }, [ready, user]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();

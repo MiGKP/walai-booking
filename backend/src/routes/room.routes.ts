@@ -8,6 +8,8 @@ import {
   createRoomAmenity,
   updateRoom,
   deleteRoom,
+  getAmenities,
+  getAllSingleRooms
 } from '../controllers/room.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 
@@ -15,6 +17,8 @@ const router = Router();
 
 router.get('/', getAllRooms);
 router.get('/availability', checkRoomAvailability);
+router.get('/amenities/all', getAmenities);
+router.get('/single/all', getAllSingleRooms);
 router.get('/:id', getRoomById);
 
 // Admin Routes

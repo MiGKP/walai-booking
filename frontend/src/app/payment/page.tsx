@@ -4,14 +4,14 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CreditCard, Upload, CheckCircle, ArrowLeft } from 'lucide-react';
 import api from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
 function PaymentContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { ready } = useAuthGuard();
   const booking_type = searchParams.get('booking_type');
   const booking_id = searchParams.get('booking_id');
 
@@ -23,10 +23,10 @@ function PaymentContent() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) { router.push('/auth/login'); return; }
+    if (!ready) return;
     if (!booking_type || !booking_id) { router.push('/'); return; }
     createPayment();
-  }, [isAuthenticated, booking_type, booking_id]);
+  }, [ready, booking_type, booking_id]);
 
   const createPayment = async () => {
     try {

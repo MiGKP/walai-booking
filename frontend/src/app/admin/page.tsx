@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Users, CalendarDays, Anchor, CreditCard, CheckCircle, PlusCircle, Home, Sailboat } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 
 const statusLabel: Record<string, string> = { pending: 'รอดำเนินการ', paid: 'รอตรวจสอบชำระเงิน', approved: 'ยืนยันแล้ว', cancelled: 'ยกเลิก', rejected: 'ถูกปฏิเสธ' };
@@ -12,7 +13,7 @@ const statusClass: Record<string, string> = { pending: 'bg-orange-100 text-orang
 
 export default function AdminPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { ready, user } = useAuthGuard({ allowedRoles: ['admin'] });
   const [tab, setTab] = useState<'bookings' | 'kayaks' | 'payments'>('bookings');
   const [roomBookings, setRoomBookings] = useState<any[]>([]);
   const [kayakBookings, setKayakBookings] = useState<any[]>([]);
@@ -21,9 +22,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'admin') { router.push('/'); return; }
+    if (!ready) return;
     fetchAll();
-  }, [isAuthenticated, user]);
+  }, [ready]);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -75,7 +76,9 @@ export default function AdminPage() {
 
   const managementMenus = [
     { label: 'จัดการพนักงาน', icon: <Users size={32} />, desc: 'เพิ่ม ลบ แก้ไข ข้อมูลพนักงาน', path: '/admin/staff', color: 'bg-indigo-100 text-indigo-700', hover: 'hover:bg-indigo-50 hover:border-indigo-200' },
-    { label: 'จัดการห้องพัก', icon: <Home size={32} />, desc: 'เพิ่มประเภทห้อง และห้องพัก', path: '/admin/rooms', color: 'bg-teal-100 text-teal-700', hover: 'hover:bg-teal-50 hover:border-teal-200' },
+    { label: 'จัดการประเภทห้องพัก', icon: <Home size={32} />, desc: 'เพิ่มประเภทห้องพัก', path: '/admin/rooms/types', color: 'bg-teal-100 text-teal-700', hover: 'hover:bg-teal-50 hover:border-teal-200' },
+    { label: 'จัดการสิ่งอำนวยความสะดวก', icon: <CheckCircle size={32} />, desc: 'เพิ่มสิ่งอำนวยความสะดวกในห้องพัก', path: '/admin/rooms/amenities', color: 'bg-green-100 text-green-700', hover: 'hover:bg-green-50 hover:border-green-200' },
+    { label: 'จัดการหมายเลขห้องพัก', icon: <PlusCircle size={32} />, desc: 'เพิ่มหมายเลขห้องพักรายห้อง', path: '/admin/rooms/single', color: 'bg-blue-100 text-blue-700', hover: 'hover:bg-blue-50 hover:border-blue-200' },
     { label: 'จัดการเรือ/คายัค', icon: <Anchor size={32} />, desc: 'เพิ่มประเภทเรือ และรอบเวลา', path: '/admin/boats', color: 'bg-cyan-100 text-cyan-700', hover: 'hover:bg-cyan-50 hover:border-cyan-200' },
   ];
 

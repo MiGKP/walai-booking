@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Anchor, Clock } from 'lucide-react';
 import api from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 
 export default function BoatManagementPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { ready, user } = useAuthGuard({ allowedRoles: ['admin', 'boat_staff'] });
   const [boatTypes, setBoatTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -17,9 +17,9 @@ export default function BoatManagementPage() {
   const [boatRoundForm, setBoatRoundForm] = useState({ boat_type_id: '', start_time: '', end_time: '' });
 
   useEffect(() => {
-    if (!isAuthenticated || !['admin', 'boat_staff'].includes(user?.role || '')) { router.push('/'); return; }
+    if (!ready) return;
     fetchBoats();
-  }, [isAuthenticated, user]);
+  }, [ready]);
 
   const fetchBoats = async () => {
     setLoading(true);

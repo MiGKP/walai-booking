@@ -1,34 +1,81 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, Anchor, XCircle, CreditCard } from 'lucide-react';
+import { CalendarDays, Anchor, XCircle, CreditCard, Timer } from 'lucide-react';
 import api from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+
+const PAYMENT_DEADLINE_MINUTES = 15;
+
+function useCountdown(createdAt: string, onExpire: () => void) {
+  const [secondsLeft, setSecondsLeft] = useState<number>(0);
+  const expiredRef = useRef(false);
+
+  useEffect(() => {
+    expiredRef.current = false;
+    const createdMs = new Date(createdAt).getTime();
+    const deadlineMs = createdMs + PAYMENT_DEADLINE_MINUTES * 60 * 1000;
+
+    const tick = () => {
+      const diff = Math.floor((deadlineMs - Date.now()) / 1000);
+      if (diff <= 0) {
+        setSecondsLeft(0);
+        if (!expiredRef.current) {
+          expiredRef.current = true;
+          onExpire();
+        }
+        return;
+      }
+      setSecondsLeft(diff);
+    };
+
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [createdAt]);
+
+  const mins = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+  const secs = String(secondsLeft % 60).padStart(2, '0');
+  return { display: `${mins}:${secs}`, isExpired: secondsLeft === 0 };
+}
+
+function CountdownCell({ createdAt, bookingId, onExpired }: { createdAt: string; bookingId: number; onExpired: (id: number) => void }) {
+  const handleExpire = useCallback(() => onExpired(bookingId), [bookingId]);
+  const { display, isExpired } = useCountdown(createdAt, handleExpire);
+  if (isExpired) return <span className="text-xs text-red-500 font-medium">หมดเวลา</span>;
+  const mins = Number(display.split(':')[0]);
+  const color = mins <= 5 ? 'text-red-600' : mins <= 10 ? 'text-orange-500' : 'text-teal-600';
+  return (
+    <span className={`flex items-center gap-1 text-sm font-bold ${color}`}>
+      <Timer size={14} />{display}
+    </span>
+  );
+}
 
 const statusLabel: Record<string, string> = { pending: 'รอดำเนินการ', paid: 'รอตรวจสอบชำระเงิน', approved: 'ยืนยันแล้ว', cancelled: 'ยกเลิก', rejected: 'ถูกปฏิเสธ' };
 const statusClass: Record<string, string> = { pending: 'bg-orange-100 text-orange-700', paid: 'bg-blue-100 text-blue-700', approved: 'bg-green-100 text-green-700', cancelled: 'bg-gray-100 text-gray-700', rejected: 'bg-red-100 text-red-700' };
 
 export default function BookingsPage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { ready } = useAuthGuard();
   const [tab, setTab] = useState<'room' | 'kayak'>('room');
   const [roomBookings, setRoomBookings] = useState<any[]>([]);
   const [kayakBookings, setKayakBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated) { router.push('/auth/login'); return; }
+    if (!ready) return;
     fetchBookings();
-  }, [isAuthenticated]);
+  }, [ready]);
 
   const fetchBookings = async () => {
     setLoading(true);
     try {
       const [roomRes, kayakRes] = await Promise.all([
-        api.get('/bookings/room/my'), // We might need to adjust backend endpoint if needed
+        api.get('/bookings/room/my'),
         api.get('/kayaks/bookings/my').catch(() => ({ data: { data: [] } })),
       ]);
       setRoomBookings(roomRes.data?.data || []);
@@ -43,7 +90,7 @@ export default function BookingsPage() {
   const handleCancel = async (type: 'room' | 'kayak', id: number) => {
     if (!confirm('ต้องการยกเลิกการจองนี้?')) return;
     try {
-      if (type === 'room') await api.put(`/bookings/room/${id}/cancel`);
+      if (type === 'room') await api.put(`/bookings/${id}/cancel`);
       else await api.put(`/kayaks/bookings/${id}/cancel`);
       toast.success('ยกเลิกการจองสำเร็จ');
       fetchBookings();
@@ -51,6 +98,16 @@ export default function BookingsPage() {
       toast.error(err.response?.data?.message || 'ยกเลิกไม่สำเร็จ');
     }
   };
+
+  const handleExpiredBooking = useCallback(async (id: number) => {
+    try {
+      await api.put(`/bookings/${id}/cancel`);
+      toast.error('การจองถูกยกเลิกอัตโนมัติเนื่องจากหมดเวลาชำระเงิน');
+      fetchBookings();
+    } catch {
+      fetchBookings();
+    }
+  }, []);
 
   const bookings = tab === 'room' ? roomBookings : kayakBookings;
 
@@ -131,22 +188,42 @@ export default function BookingsPage() {
                     <p className="text-xs text-gray-400 mt-1">#{b.id || b.room_booking_id || b.boat_booking_id}</p>
                   </div>
                 </div>
-                {b.status === 'pending' && (
-                  <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">
-                    <Link
-                      href={`/payment?booking_type=${tab}&booking_id=${b.id || b.room_booking_id || b.boat_booking_id}`}
-                      className="flex items-center gap-2 text-sm font-medium text-teal-600 hover:text-teal-700"
-                    >
-                      <CreditCard size={15} /> ชำระเงิน
-                    </Link>
-                    <button
-                      onClick={() => handleCancel(tab, b.id || b.room_booking_id || b.boat_booking_id)}
-                      className="flex items-center gap-2 text-sm font-medium text-red-500 hover:text-red-600"
-                    >
-                      <XCircle size={15} /> ยกเลิก
-                    </button>
-                  </div>
-                )}
+                {b.status === 'pending' && (() => {
+                  const bid = b.id || b.room_booking_id || b.boat_booking_id;
+                  const createdAt = b.created_at;
+                  const deadlineMs = new Date(createdAt).getTime() + PAYMENT_DEADLINE_MINUTES * 60 * 1000;
+                  const isExpired = Date.now() > deadlineMs;
+                  return (
+                    <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                      {/* Countdown */}
+                      <div className="flex items-center justify-between bg-orange-50 rounded-xl px-4 py-2.5">
+                        <span className="text-xs text-orange-700 font-medium">⏳ ชำระเงินภายใน</span>
+                        {!isExpired ? (
+                          <CountdownCell createdAt={createdAt} bookingId={bid} onExpired={handleExpiredBooking} />
+                        ) : (
+                          <span className="text-xs text-red-500 font-medium">หมดเวลาแล้ว</span>
+                        )}
+                      </div>
+                      {/* Action Buttons */}
+                      {!isExpired && (
+                        <div className="flex gap-3">
+                          <Link
+                            href={`/payment?booking_type=${tab}&booking_id=${bid}`}
+                            className="flex-1 flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+                          >
+                            <CreditCard size={15} /> ชำระเงิน
+                          </Link>
+                          <button
+                            onClick={() => handleCancel(tab, bid)}
+                            className="flex items-center justify-center gap-2 border border-red-300 text-red-500 hover:bg-red-50 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
+                          >
+                            <XCircle size={15} /> ยกเลิก
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>

@@ -9,7 +9,13 @@ export const getAllRooms = async (req: Request, res: Response): Promise<void> =>
       SELECT rt.id, rt.room_name, rt.type_name, rt.description, 
              rt.price as price_per_night, rt.capacity, rt.room_image as main_image, rt.status,
              (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as images,
-             (SELECT COUNT(*) FROM rooms r WHERE r.room_type_id = rt.id AND r.status = 'available') as available_count
+             (SELECT COUNT(*) FROM rooms r WHERE r.room_type_id = rt.id AND r.status = 'available') as available_count,
+             (
+                SELECT json_agg(json_build_object('id', a.id, 'name', a.name))
+                FROM room_amenities_mapping ram
+                JOIN room_amenities a ON ram.amenity_id = a.id
+                WHERE ram.room_type_id = rt.id
+             ) as amenities
       FROM room_types rt 
       WHERE rt.status = true
     `;
@@ -104,23 +110,24 @@ export const checkRoomAvailability = async (req: Request, res: Response): Promis
 
 export const createRoom = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { room_name, type_name, description, capacity, price, room_image, amenity_id, quantity } = req.body;
+    const { type_name, description, capacity, price, room_image, amenities } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO room_types (room_name, type_name, description, capacity, price, room_image, amenity_id, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, true) RETURNING *`,
-      [room_name, type_name, description, capacity, price, room_image, amenity_id]
+      `INSERT INTO room_types (room_name, type_name, description, capacity, price, room_image, status)
+       VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING *`,
+      [type_name, type_name, description, capacity, price, room_image]
     );
 
     const roomType = result.rows[0];
-    const qty = quantity || 1;
     
-    // Auto generate actual rooms based on quantity
-    for(let i=1; i<=qty; i++) {
-      await pool.query(
-        `INSERT INTO rooms (room_type_id, room_number, status) VALUES ($1, $2, 'available')`,
-        [roomType.id, `${roomType.room_name}-${i}`]
-      );
+    // Insert amenities mapping if provided
+    if (amenities && Array.isArray(amenities) && amenities.length > 0) {
+      for (const amenity_id of amenities) {
+        await pool.query(
+          `INSERT INTO room_amenities_mapping (room_type_id, amenity_id) VALUES ($1, $2)`,
+          [roomType.id, amenity_id]
+        );
+      }
     }
 
     res.status(201).json({ success: true, message: 'Room type created', data: roomType });
@@ -195,6 +202,31 @@ export const deleteRoom = async (req: Request, res: Response): Promise<void> => 
     res.json({ success: true, message: 'Room type deactivated' });
   } catch (error) {
     console.error('Delete room error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const getAmenities = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await pool.query('SELECT id, name, status FROM room_amenities ORDER BY id ASC');
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('Get amenities error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const getAllSingleRooms = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await pool.query(`
+      SELECT r.room_id, r.room_number, r.status, rt.room_name, rt.type_name 
+      FROM rooms r 
+      JOIN room_types rt ON r.room_type_id = rt.id 
+      ORDER BY r.room_number ASC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('Get single rooms error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

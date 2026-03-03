@@ -1,0 +1,127 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Trash2, PlusCircle } from 'lucide-react';
+import api from '@/lib/api';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
+import toast from 'react-hot-toast';
+import Link from 'next/link';
+
+export default function AmenitiesPage() {
+  const router = useRouter();
+  const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
+  const [amenities, setAmenities] = useState<any[]>([]); 
+  const [loading, setLoading] = useState(true);
+
+  const [form, setForm] = useState({ 
+    name: '', 
+    icon: '' 
+  });
+
+  useEffect(() => {
+    if (!ready) return;
+    fetchAmenities();
+  }, [ready]);
+
+  const fetchAmenities = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/rooms/amenities/all');
+      setAmenities(res.data?.data || []);
+    } catch {
+      toast.error('ไม่สามารถโหลดข้อมูลสิ่งอำนวยความสะดวกได้ (หรือยังไม่มี API)');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post('/rooms/amenity', form);
+      toast.success('เพิ่มสิ่งอำนวยความสะดวกสำเร็จ');
+      setForm({ name: '', icon: '' });
+      fetchAmenities();
+    } catch {
+      toast.error('เพิ่มสิ่งอำนวยความสะดวกไม่สำเร็จ');
+    }
+  };
+
+  return (
+    <div className="min-h-screen pt-16 bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center gap-4 mb-8">
+          <button onClick={() => router.push('/admin')} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+            <ArrowLeft className="text-gray-600" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">จัดการสิ่งอำนวยความสะดวก</h1>
+            <p className="text-gray-500 mt-1">เพิ่มและแก้ไขสิ่งอำนวยความสะดวกในห้องพัก</p>
+          </div>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex gap-2 mb-6 bg-white p-2 rounded-xl shadow-sm w-fit border border-gray-100">
+          <Link href="/admin/rooms/types" className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">ประเภทห้องพัก</Link>
+          <Link href="/admin/rooms/single" className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">จัดการรายห้อง</Link>
+          <Link href="/admin/rooms/amenities" className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-50 text-indigo-700">สิ่งอำนวยความสะดวก</Link>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Create Form */}
+          <div className="card p-6 lg:col-span-1 h-fit">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <PlusCircle size={20} className="text-indigo-600" />
+              เพิ่มสิ่งอำนวยความสะดวก
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อสิ่งอำนวยความสะดวก (เช่น Wi-Fi)</label>
+                <input type="text" required className="input-field" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              </div>
+              <button type="submit" className="btn-primary w-full mt-2 bg-indigo-600 hover:bg-indigo-700">บันทึกข้อมูล</button>
+            </form>
+          </div>
+          
+          {/* Table */}
+          <div className="lg:col-span-2">
+            <div className="card overflow-hidden">
+              <div className="p-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-700">
+                รายการสิ่งอำนวยความสะดวกทั้งหมด
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-white border-b border-gray-100">
+                    <tr>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-600">ไอดี</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-600">ชื่อ</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-600">สถานะ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 bg-white">
+                    {loading ? (
+                       <tr><td colSpan={3} className="p-4 text-center text-gray-500">กำลังโหลด...</td></tr>
+                    ) : amenities.length === 0 ? (
+                       <tr><td colSpan={3} className="p-4 text-center text-gray-500">ยังไม่มีข้อมูล</td></tr>
+                    ) : (
+                      amenities.map((am: any) => (
+                        <tr key={am.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 font-medium text-gray-900">{am.id}</td>
+                          <td className="px-4 py-3 text-gray-900">{am.name}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${am.status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{am.status ? 'ใช้งานอยู่' : 'ปิดใช้งาน'}</span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

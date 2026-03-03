@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, UserPlus, Eye, Power, PowerOff, X } from 'lucide-react';
 import api from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 
 export default function StaffManagementPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { ready, user } = useAuthGuard({ allowedRoles: ['admin'] });
   const [staffList, setStaffList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [staffForm, setStaffForm] = useState({ 
@@ -22,9 +22,9 @@ export default function StaffManagementPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'admin') { router.push('/'); return; }
+    if (!ready) return;
     fetchStaff();
-  }, [isAuthenticated, user]);
+  }, [ready]);
 
   const fetchStaff = async () => {
     setLoading(true);

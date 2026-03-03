@@ -12,7 +12,9 @@ import { authenticate, authorize } from '../middleware/auth.middleware';
 const router = Router();
 
 router.post('/', authenticate, createRoomBooking);
+router.post('/room', authenticate, createRoomBooking);
 router.get('/my', authenticate, getUserRoomBookings);
+router.get('/room/my', authenticate, getUserRoomBookings);
 router.get('/:id', authenticate, getRoomBookingById);
 router.put('/:id/cancel', authenticate, cancelRoomBooking);
 

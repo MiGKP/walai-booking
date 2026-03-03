@@ -1,13 +1,14 @@
 import { Request, Response } from 'express';
 import QRCode from 'qrcode';
+import generatePayload from 'promptpay-qr';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
 
 const BANK_ACCOUNT = {
   promptpay: process.env.PROMPTPAY_ID || '0000000000',
-  bank_name: 'Kasikorn Bank',
+  bank_name: 'กสิกรไทย',
   account_number: process.env.BANK_ACCOUNT_NUMBER || '000-0-00000-0',
-  account_name: 'Walai Floating Resort',
+  account_name: 'วาลัย ฟลอติ้ง รีสอร์ท',
 };
 
 export const createPayment = async (req: Request, res: Response): Promise<void> => {
@@ -41,8 +42,8 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const qrData = generatePromptPayQR(BANK_ACCOUNT.promptpay, Number(booking.total_price));
-    const qrCodeDataUrl = await QRCode.toDataURL(qrData);
+    const qrData = generatePayload(BANK_ACCOUNT.promptpay, { amount: Number(booking.total_price) });
+    const qrCodeDataUrl = await QRCode.toDataURL(qrData, { errorCorrectionLevel: 'M', width: 300 });
 
     res.status(201).json({
       success: true,
@@ -224,11 +225,3 @@ export const getAllPayments = async (req: Request, res: Response): Promise<void>
   }
 };
 
-function generatePromptPayQR(promptPayId: string, amount: number): string {
-  const formattedId = promptPayId.replace(/-/g, '');
-  const idField = `0016A000000677010111${formattedId.length.toString().padStart(2, '0')}${formattedId}`;
-  const amountStr = amount.toFixed(2);
-  const transactionAmount = `54${amountStr.length.toString().padStart(2, '0')}${amountStr}`;
-  const payload = `000201${idField}5303764${transactionAmount}5802TH6304`;
-  return payload;
-}
