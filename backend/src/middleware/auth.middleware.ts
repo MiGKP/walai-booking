@@ -1,0 +1,37 @@
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import { AuthPayload } from '../types';
+
+export interface AuthRequest extends Request {
+  user?: AuthPayload;
+}
+
+export const authenticate = (req: Request, res: Response, next: NextFunction): void => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({ success: false, message: 'Unauthorized' });
+    return;
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'walai_super_secret_jwt_key_change_in_production') as AuthPayload;
+    (req as AuthRequest).user = decoded;
+    next();
+  } catch (error) {
+    res.status(401).json({ success: false, message: 'Invalid token' });
+  }
+};
+
+export const authorize = (...roles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const authReq = req as AuthRequest;
+    if (!authReq.user || !roles.includes(authReq.user.role)) {
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+    next();
+  };
+};
