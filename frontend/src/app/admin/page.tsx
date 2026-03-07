@@ -79,7 +79,8 @@ export default function AdminPage() {
     { label: 'จัดการประเภทห้องพัก', icon: <Home size={32} />, desc: 'เพิ่มประเภทห้องพัก', path: '/admin/rooms/types', color: 'bg-teal-100 text-teal-700', hover: 'hover:bg-teal-50 hover:border-teal-200' },
     { label: 'จัดการสิ่งอำนวยความสะดวก', icon: <CheckCircle size={32} />, desc: 'เพิ่มสิ่งอำนวยความสะดวกในห้องพัก', path: '/admin/rooms/amenities', color: 'bg-green-100 text-green-700', hover: 'hover:bg-green-50 hover:border-green-200' },
     { label: 'จัดการหมายเลขห้องพัก', icon: <PlusCircle size={32} />, desc: 'เพิ่มหมายเลขห้องพักรายห้อง', path: '/admin/rooms/single', color: 'bg-blue-100 text-blue-700', hover: 'hover:bg-blue-50 hover:border-blue-200' },
-    { label: 'จัดการเรือ/คายัค', icon: <Anchor size={32} />, desc: 'เพิ่มประเภทเรือ และรอบเวลา', path: '/admin/boats', color: 'bg-cyan-100 text-cyan-700', hover: 'hover:bg-cyan-50 hover:border-cyan-200' },
+    { label: 'จัดการประเภทเรือ', icon: <Anchor size={32} />, desc: 'เพิ่มประเภทเรือและคายัค', path: '/admin/boats/types', color: 'bg-cyan-100 text-cyan-700', hover: 'hover:bg-cyan-50 hover:border-cyan-200' },
+    { label: 'จัดการรอบเวลาเรือ', icon: <Sailboat size={32} />, desc: 'เพิ่มรอบเวลาสำหรับเรือ', path: '/admin/boats/rounds', color: 'bg-sky-100 text-sky-700', hover: 'hover:bg-sky-50 hover:border-sky-200' },
   ];
 
   return (

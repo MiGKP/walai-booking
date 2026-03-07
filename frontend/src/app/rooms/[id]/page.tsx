@@ -8,6 +8,8 @@ import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
+type RoomAmenity = string | { id: number; name: string };
+
 export default function RoomDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -95,14 +97,22 @@ export default function RoomDetailPage() {
               <div className="card p-6">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">สิ่งอำนวยความสะดวก</h2>
                 <div className="grid grid-cols-2 gap-3">
-                  {room.amenities.map((a: string, i: number) => (
-                    <div key={i} className="flex items-center gap-2 text-gray-700">
+                  {room.amenities.map((a: RoomAmenity, i: number) => {
+                    const amenityName = typeof a === 'string' ? a : a?.name;
+
+                    if (!amenityName) {
+                      return null;
+                    }
+
+                    return (
+                    <div key={typeof a === 'string' ? `${a}-${i}` : a.id} className="flex items-center gap-2 text-gray-700">
                       <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
                         <Check size={14} className="text-teal-600" />
                       </div>
-                      {a}
+                      {amenityName}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

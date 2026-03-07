@@ -18,7 +18,8 @@ router.get('/room/my', authenticate, getUserRoomBookings);
 router.get('/:id', authenticate, getRoomBookingById);
 router.put('/:id/cancel', authenticate, cancelRoomBooking);
 
-router.get('/', authenticate, authorize('admin'), getAllRoomBookings);
-router.put('/:id/status', authenticate, authorize('admin'), updateRoomBookingStatus);
+// Admin + room_staff routes
+router.get('/', authenticate, authorize('admin', 'room_staff'), getAllRoomBookings);
+router.put('/:id/status', authenticate, authorize('admin', 'room_staff'), updateRoomBookingStatus);
 
 export default router;

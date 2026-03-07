@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
 
+// สร้างรายการจองห้องพักใหม่ โดยตรวจสอบว่าห้องประเภทที่เลือกมีอยู่จริงและยังมีห้องว่างในช่วงวันที่ต้องการ
 export const createRoomBooking = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -48,6 +49,7 @@ export const createRoomBooking = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// ดึงรายการจองห้องพักทั้งหมดของ member ที่ login อยู่ เพื่อแสดงในหน้าประวัติการจองของผู้ใช้
 export const getUserRoomBookings = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -70,6 +72,7 @@ export const getUserRoomBookings = async (req: Request, res: Response): Promise<
   }
 };
 
+// ดึงรายละเอียดการจองห้องพักรายรายการตาม id โดยอนุญาตให้เจ้าของรายการหรือ admin เข้าถึงได้
 export const getRoomBookingById = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -103,6 +106,7 @@ export const getRoomBookingById = async (req: Request, res: Response): Promise<v
   }
 };
 
+// ยกเลิกการจองห้องพักของ member เฉพาะรายการที่เป็นของตัวเอง และป้องกันการยกเลิกซ้ำ
 export const cancelRoomBooking = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -132,12 +136,17 @@ export const cancelRoomBooking = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// ดึงรายการจองห้องพักทั้งหมดในระบบสำหรับ admin หรือ room staff เพื่อใช้ตรวจสอบและอนุมัติการจอง
 export const getAllRoomBookings = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(
-      `SELECT rb.room_booking_id as id, rb.check_in as check_in_date, rb.check_out as check_out_date,
-              rb.guest_count as guests, rb.total_price, rb.status, rb.created_at,
-              rt.room_name, m.first_name || ' ' || m.last_name as user_name, m.email as user_email
+      `SELECT rb.room_booking_id, rb.room_booking_id as id,
+              rb.check_in, rb.check_out,
+              rb.check_in as check_in_date, rb.check_out as check_out_date,
+              rb.guest_count as guests, rb.total_price, rb.status,
+              rb.payment_status, rb.payment_slip, rb.created_at,
+              rt.type_name as room_name, r.room_number,
+              m.first_name || ' ' || m.last_name as user_name, m.email as user_email
        FROM room_bookings rb
        JOIN rooms r ON rb.room_id = r.room_id
        JOIN room_types rt ON r.room_type_id = rt.id
@@ -151,6 +160,7 @@ export const getAllRoomBookings = async (req: Request, res: Response): Promise<v
   }
 };
 
+// อัปเดตสถานะการจองห้องพัก เช่น approved, rejected หรือ pending จากฝั่งพนักงานหรือผู้ดูแลระบบ
 export const updateRoomBookingStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;

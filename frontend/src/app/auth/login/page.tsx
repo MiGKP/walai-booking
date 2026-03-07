@@ -26,7 +26,7 @@ export default function LoginPage() {
       const res = await api.post('/auth/login', form);
       const { user, token, redirectUrl } = res.data.data;
       login(user, token);
-      toast.success(`ยินดีต้อนรับ, ${user.name}!`);
+      toast.success(`ยินดีต้อนรับ, ${(user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim()) || user.email}!`);
       router.push(redirectUrl || '/dashboard');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'เข้าสู่ระบบไม่สำเร็จ');
@@ -100,6 +100,11 @@ export default function LoginPage() {
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
+              </div>
+              <div className="mt-2 text-right">
+                <Link href="/auth/forgot-password" className="text-sm text-teal-600 font-medium hover:text-teal-700">
+                  ลืมรหัสผ่าน?
+                </Link>
               </div>
             </div>
             <button type="submit" disabled={loading} className="btn-primary w-full mt-2 disabled:opacity-60 disabled:cursor-not-allowed">

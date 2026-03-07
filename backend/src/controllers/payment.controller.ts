@@ -4,6 +4,7 @@ import generatePayload from 'promptpay-qr';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
 
+// เก็บข้อมูลบัญชีรับชำระที่ใช้สร้าง QR Code และส่งกลับไปให้ frontend แสดงในหน้าชำระเงิน
 const BANK_ACCOUNT = {
   promptpay: process.env.PROMPTPAY_ID || '0000000000',
   bank_name: 'กสิกรไทย',
@@ -11,6 +12,7 @@ const BANK_ACCOUNT = {
   account_name: 'วาลัย ฟลอติ้ง รีสอร์ท',
 };
 
+// สร้างข้อมูลสำหรับหน้าชำระเงินของการจองห้องหรือเรือ โดยดึงยอดจริงจากฐานข้อมูลและสร้าง PromptPay QR Code แบบ Data URL
 export const createPayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -65,6 +67,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
   }
 };
 
+// รับไฟล์สลิปจาก member แล้วผูกสลิปเข้ากับรายการจองที่เป็นเจ้าของอยู่ พร้อมอัปเดตสถานะเป็นรอตรวจสอบการชำระเงิน
 export const uploadPaymentSlip = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -80,15 +83,23 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     const slipPath = `/uploads/${file.filename}`;
     
     if (bType === 'room') {
-      await pool.query(
-        `UPDATE room_bookings SET payment_slip = $1, payment_status = 'pending' WHERE room_booking_id = $2 AND member_id = $3`,
+      const updated = await pool.query(
+        `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE room_booking_id = $2 AND member_id = $3 RETURNING room_booking_id`,
         [slipPath, bId, user.id]
       );
+      if (updated.rowCount === 0) {
+        res.status(404).json({ success: false, message: 'Booking not found or unauthorized' });
+        return;
+      }
     } else if (bType === 'kayak') {
-      await pool.query(
-        `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'pending' WHERE boat_booking_id = $2 AND member_id = $3`,
+      const updated = await pool.query(
+        `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3 RETURNING boat_booking_id`,
         [slipPath, bId, user.id]
       );
+      if (updated.rowCount === 0) {
+        res.status(404).json({ success: false, message: 'Booking not found or unauthorized' });
+        return;
+      }
     } else {
       res.status(400).json({ success: false, message: 'Invalid payment ID format' });
       return;
@@ -101,6 +112,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// ให้เจ้าหน้าที่หรือผู้ดูแลระบบยืนยันการชำระเงิน แล้วเปลี่ยนสถานะ booking จาก paid ไปเป็น approved
 export const confirmPayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -132,6 +144,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
   }
 };
 
+// ดึงข้อมูลการชำระเงินรายรายการตาม id เพื่อใช้ดูสถานะ, สลิป และรายละเอียดประกอบการตรวจสอบหรือแสดงผล
 export const getPaymentById = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -170,6 +183,7 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
   }
 };
 
+// ดึงประวัติการชำระเงินทั้งหมดของ member คนที่ login อยู่ โดยรวมทั้งการจองห้องและการจองเรือไว้ในรายการเดียว
 export const getUserPayments = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -188,6 +202,7 @@ export const getUserPayments = async (req: Request, res: Response): Promise<void
   }
 };
 
+// ดึงรายการชำระเงินทั้งหมดในระบบสำหรับฝั่งผู้ดูแลหรือเจ้าหน้าที่ เพื่อใช้ตรวจสอบสลิปและสถานะการชำระเงินรวม
 export const getAllPayments = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(

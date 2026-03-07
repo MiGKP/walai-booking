@@ -1,15 +1,32 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import pool from '../config/database';
+import { sendPasswordResetEmail } from '../services/mail.service';
 import { AuthPayload } from '../types';
 
+// สร้าง JWT token สำหรับใช้ยืนยันตัวตนหลังจาก login หรือ register สำเร็จ โดยเก็บ id, email และ role ของผู้ใช้ไว้ใน token
 const generateToken = (payload: AuthPayload): string => {
   return jwt.sign(payload, process.env.JWT_SECRET || 'walai_super_secret_jwt_key_change_in_production', {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   } as jwt.SignOptions);
 };
 
+const buildDisplayName = (firstName?: string | null, lastName?: string | null): string => {
+  return `${firstName || ''} ${lastName || ''}`.trim();
+};
+
+const createPasswordResetToken = () => {
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresInMinutes = Number(process.env.PASSWORD_RESET_EXPIRES_MINUTES || '30');
+  const expiresAt = new Date(Date.now() + 1000 * 60 * expiresInMinutes);
+
+  return { rawToken, hashedToken, expiresAt };
+};
+
+// สมัครสมาชิกใหม่ด้วย email/password พร้อม hash รหัสผ่านก่อนบันทึกลงฐานข้อมูล และส่ง token กลับไปให้ frontend ใช้งานต่อทันที
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { first_name, last_name, email, password, phone } = req.body;
@@ -37,6 +54,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+// เข้าสู่ระบบโดยตรวจสอบ staff ก่อน แล้วจึงตรวจ member เพื่อรองรับหลาย role และกำหนด redirect ปลายทางให้ตรงกับสิทธิ์ของผู้ใช้
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
@@ -55,14 +73,22 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       
       let redirectUrl = '/dashboard';
       if (staff.role === 'admin') redirectUrl = '/admin';
-      else if (staff.role === 'room_staff') redirectUrl = '/admin/rooms';
-      else if (staff.role === 'boat_staff') redirectUrl = '/admin/boats';
+      else if (staff.role === 'room_staff') redirectUrl = '/staff/rooms/dashboard';
+      else if (staff.role === 'boat_staff') redirectUrl = '/staff/boats/dashboard';
 
       res.json({
         success: true,
         message: 'Login successful',
         data: { 
-          user: { id: staff.staff_id, name: `${staff.first_name || ''} ${staff.last_name || ''}`.trim(), email: staff.email, role: staff.role, phone: staff.phone }, 
+          user: {
+            id: staff.staff_id,
+            first_name: staff.first_name || '',
+            last_name: staff.last_name || '',
+            name: buildDisplayName(staff.first_name, staff.last_name),
+            email: staff.email,
+            role: staff.role,
+            phone: staff.phone
+          }, 
           token,
           redirectUrl
         },
@@ -96,7 +122,18 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       success: true,
       message: 'Login successful',
       data: { 
-        user: { id: member.member_id, name: `${member.first_name || ''} ${member.last_name || ''}`.trim(), email: member.email, role: 'customer', phone: member.phone, avatar: member.avatar_url }, 
+        user: { 
+          id: member.member_id, 
+          first_name: member.first_name || '',
+          last_name: member.last_name || '',
+          name: buildDisplayName(member.first_name, member.last_name), 
+          email: member.email, 
+          role: 'customer', 
+          phone: member.phone, 
+          avatar: member.avatar_url,
+          has_password: member.password != null,
+          auth_provider: member.auth_provider || 'email'
+        }, 
         token,
         redirectUrl: '/dashboard'
       },
@@ -107,6 +144,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+// รับผลลัพธ์จาก Google OAuth หลัง Passport ยืนยันตัวตนสำเร็จ แล้วสร้าง JWT ของระบบเราเพื่อส่งกลับไปที่ frontend
 export const googleCallback = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as any; // from passport
@@ -124,6 +162,7 @@ export const googleCallback = async (req: Request, res: Response): Promise<void>
   }
 };
 
+// ใช้สร้าง admin คนแรกของระบบในกรณีที่ยังไม่มี admin อยู่เลย เพื่อปิดช่องให้สร้าง admin ซ้ำโดยไม่จำเป็น
 export const initAdmin = async (req: Request, res: Response): Promise<void> => {
   try {
     // Check if an admin already exists to prevent unauthorized creation later
@@ -163,6 +202,7 @@ export const initAdmin = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+// ให้ admin สร้างบัญชี staff ใหม่ในระบบ โดยกำหนด role ได้ เช่น room_staff หรือ boat_staff และ hash password ก่อนบันทึก
 export const createStaff = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -198,6 +238,7 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+// ดึงรายการ staff ทั้งหมดสำหรับหน้า admin เพื่อใช้แสดงข้อมูลบัญชีพนักงานและสถานะการเปิดใช้งาน
 export const getAllStaff = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -224,6 +265,7 @@ export const getAllStaff = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+// ดึงข้อมูล staff รายคนตาม id เพื่อใช้แสดงรายละเอียดหรือเตรียมข้อมูลสำหรับแก้ไขในฝั่ง admin
 export const getStaffById = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -258,6 +300,7 @@ export const getStaffById = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+// เปิดหรือปิดการใช้งานบัญชี staff โดย admin และป้องกันไม่ให้ admin ปิดบัญชีของตัวเองโดยตรง
 export const toggleStaffStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -292,6 +335,7 @@ export const toggleStaffStatus = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// ลบบัญชี staff ออกจากระบบแบบถาวร โดยมีการป้องกันการลบตัวเองและจัดการกรณีที่มีข้อมูลอ้างอิงอยู่ในฐานข้อมูล
 export const deleteStaff = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -339,12 +383,14 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
       );
       
       const data = result.rows[0];
-      const name = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+      const name = buildDisplayName(data.first_name, data.last_name);
       
       res.json({ 
         success: true, 
         data: {
           id: data.id,
+          first_name: data.first_name || '',
+          last_name: data.last_name || '',
           name: name,
           email: data.email,
           phone: data.phone,
@@ -361,14 +407,16 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
       );
       
       const data = result.rows[0];
-      const name = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+      const name = buildDisplayName(data.first_name, data.last_name);
       
       res.json({ 
         success: true, 
         data: {
           ...data,
+          first_name: data.first_name || '',
+          last_name: data.last_name || '',
           name: name,
-          has_password: true // Staff always have passwords
+          has_password: true
         } 
       });
     }
@@ -378,6 +426,7 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+// อัปเดตข้อมูลพื้นฐานของโปรไฟล์ เช่น ชื่อ นามสกุล และเบอร์โทร โดยอิงจาก user ที่ login อยู่ในปัจจุบัน
 export const updateProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -395,13 +444,23 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
       );
     }
 
-    res.json({ success: true, message: 'Profile updated successfully' });
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        first_name: first_name || '',
+        last_name: last_name || '',
+        name: buildDisplayName(first_name, last_name),
+        phone: phone || ''
+      }
+    });
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
+// ตั้งรหัสผ่านครั้งแรกสำหรับผู้ใช้ที่สมัครผ่าน Google และยังไม่มี password ในระบบ
 export const setPassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -413,7 +472,6 @@ export const setPassword = async (req: Request, res: Response): Promise<void> =>
     }
 
     if (authUser.role === 'customer') {
-      // Check if user already has a password
       const result = await pool.query('SELECT password FROM members WHERE member_id = $1', [authUser.id]);
       if (result.rows[0]?.password) {
         res.status(400).json({ success: false, message: 'Password is already set. Please use change password.' });
@@ -433,6 +491,8 @@ export const setPassword = async (req: Request, res: Response): Promise<void> =>
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
+
+// เปลี่ยนรหัสผ่านของผู้ใช้โดยต้องตรวจสอบรหัสผ่านเดิมก่อน เพื่อป้องกันการเปลี่ยนรหัสผ่านโดยไม่ได้รับอนุญาต
 export const changePassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -463,6 +523,102 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
     res.json({ success: true, message: 'Password changed successfully' });
   } catch (error) {
     console.error('Change password error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const email = String(req.body.email || '').trim().toLowerCase();
+
+    if (!email) {
+      res.status(400).json({ success: false, message: 'Email is required' });
+      return;
+    }
+
+    const memberResult = await pool.query(
+      'SELECT member_id as id, first_name, last_name, email FROM members WHERE LOWER(email) = $1 LIMIT 1',
+      [email]
+    );
+
+    if (memberResult.rows.length === 0) {
+      res.json({ success: true, message: 'If the email exists, a reset link has been generated.', data: null });
+      return;
+    }
+
+    const member = memberResult.rows[0];
+    const { rawToken, hashedToken, expiresAt } = createPasswordResetToken();
+
+    await pool.query(
+      `UPDATE members 
+       SET reset_token = $1, reset_token_expires_at = $2 
+       WHERE member_id = $3`,
+      [hashedToken, expiresAt, member.id]
+    );
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const resetUrl = `${frontendUrl}/auth/reset-password?token=${rawToken}`;
+
+    await sendPasswordResetEmail({
+      to: member.email,
+      recipientName: buildDisplayName(member.first_name, member.last_name),
+      resetUrl,
+    });
+
+    res.json({
+      success: true,
+      message: 'If the email exists, a password reset email has been sent.',
+      data: null
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    res.status(500).json({ success: false, message });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const token = String(req.body.token || '').trim();
+    const newPassword = String(req.body.new_password || '');
+
+    if (!token || !newPassword) {
+      res.status(400).json({ success: false, message: 'Token and new password are required' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+      return;
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    const resetResult = await pool.query(
+      `SELECT member_id
+       FROM members
+       WHERE reset_token = $1 AND reset_token_expires_at > NOW()
+       LIMIT 1`,
+      [hashedToken]
+    );
+
+    if (resetResult.rows.length === 0) {
+      res.status(400).json({ success: false, message: 'Reset token is invalid or expired' });
+      return;
+    }
+
+    const memberId = resetResult.rows[0].member_id;
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await pool.query(
+      `UPDATE members 
+       SET password = $1, reset_token = NULL, reset_token_expires_at = NULL 
+       WHERE member_id = $2`,
+      [passwordHash, memberId]
+    );
+
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

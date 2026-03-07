@@ -12,7 +12,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <title>วาลัย - ที่พักลอยน้ำ</title>
         <meta name="description" content="วาลัย ที่พักลอยน้ำสุดพิเศษ พร้อมกิจกรรมเรือคายัค" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
       </head>
       <body>
         <Navbar />

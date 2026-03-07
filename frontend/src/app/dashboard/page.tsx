@@ -9,20 +9,22 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
+// หน้าโปรไฟล์ของผู้ใช้ ใช้สำหรับแก้ไขข้อมูลส่วนตัว และจัดการรหัสผ่านตามประเภทการสมัครของ member
 export default function DashboardPage() {
   const router = useRouter();
   const { ready, user } = useAuthGuard();
   const { updateUser } = useAuthStore();
-  const [profile, setProfile] = useState({ name: '', phone: '' });
+  const [profile, setProfile] = useState({ first_name: '', last_name: '', phone: '' });
   const [passwords, setPasswords] = useState({ current_password: '', new_password: '', confirm: '' });
   const [saving, setSaving] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
 
   useEffect(() => {
     if (!ready || !user) return;
-    setProfile({ name: user.name, phone: user.phone || '' });
+    setProfile({ first_name: user.first_name, last_name: user.last_name, phone: user.phone || '' });
   }, [ready, user]);
 
+  // บันทึกการแก้ไขข้อมูลโปรไฟล์ เช่น ชื่อและเบอร์โทร แล้ว sync ข้อมูลใหม่กลับเข้า auth store
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -37,6 +39,7 @@ export default function DashboardPage() {
     }
   };
 
+  // เปลี่ยนรหัสผ่านสำหรับผู้ใช้ที่มีรหัสผ่านเดิมอยู่แล้ว โดยตรวจสอบความถูกต้องของข้อมูลก่อนส่งไป backend
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwords.new_password !== passwords.confirm) { toast.error('รหัสผ่านใหม่ไม่ตรงกัน'); return; }
@@ -53,6 +56,7 @@ export default function DashboardPage() {
     }
   };
 
+  // ตั้งรหัสผ่านครั้งแรกสำหรับผู้ใช้ที่สมัครผ่าน Google และยังไม่มี password ในระบบ
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwords.new_password !== passwords.confirm) { toast.error('รหัสผ่านไม่ตรงกัน'); return; }
@@ -92,13 +96,13 @@ export default function DashboardPage() {
           <div className="flex items-center gap-5 mb-6">
             <div className="w-20 h-20 rounded-2xl bg-teal-100 flex items-center justify-center overflow-hidden">
               {user.avatar ? (
-                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                <img src={user.avatar} alt={`${user.first_name} ${user.last_name}`} className="w-full h-full object-cover" />
               ) : (
                 <User size={36} className="text-teal-600" />
               )}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{user.name}</h2>
+              <h2 className="text-xl font-bold text-gray-900">{user.first_name} {user.last_name}</h2>
               <p className="text-gray-500 text-sm">{user.email}</p>
               <span className={`inline-block mt-1 text-xs font-medium px-2.5 py-1 rounded-full ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-teal-100 text-teal-700'}`}>
                 {user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ลูกค้า'}
@@ -107,12 +111,16 @@ export default function DashboardPage() {
           </div>
 
           <form onSubmit={handleSaveProfile} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">ชื่อ-นามสกุล</label>
-              <div className="relative">
-                <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input type="text" required className="input-field pl-10" value={profile.name || ''}
-                  onChange={(e) => setProfile({ ...profile, name: e.target.value })} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">ชื่อ</label>
+                <input type="text" required className="input-field" value={profile.first_name || ''}
+                  onChange={(e) => setProfile({ ...profile, first_name: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">นามสกุล</label>
+                <input type="text" required className="input-field" value={profile.last_name || ''}
+                  onChange={(e) => setProfile({ ...profile, last_name: e.target.value })} />
               </div>
             </div>
             <div>
@@ -136,41 +144,64 @@ export default function DashboardPage() {
           </form>
         </div>
 
-        {/* Change or Set Password */}
-        <div className="card p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-5 flex items-center gap-2">
-            <Lock size={20} className="text-teal-600" /> {user.has_password ? 'เปลี่ยนรหัสผ่าน' : 'ตั้งรหัสผ่านใหม่ (สำหรับล็อกอินครั้งหน้า)'}
-          </h2>
-          
-          {!user.has_password && (
-            <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm">
-              คุณล็อกอินด้วย Google อยู่ คุณสามารถตั้งรหัสผ่านเพื่อใช้ล็อกอินด้วยอีเมลในครั้งต่อไปได้
-            </div>
-          )}
-
-          <form onSubmit={user.has_password ? handleChangePassword : handleSetPassword} className="space-y-4">
-            {user.has_password && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">รหัสผ่านปัจจุบัน</label>
-                <input type="password" required className="input-field" value={passwords.current_password}
-                  onChange={(e) => setPasswords({ ...passwords, current_password: e.target.value })} />
-              </div>
+        {/* Password Section: only show for customers */}
+        {user.role === 'customer' && (
+          <div className="card p-6">
+            {user.auth_provider === 'google' && !user.has_password ? (
+              /* Google user — offer to set a password */
+              <>
+                <h2 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  <Lock size={20} className="text-teal-600" /> ตั้งรหัสผ่าน
+                </h2>
+                <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm">
+                  คุณล็อกอินด้วย Google อยู่ คุณสามารถตั้งรหัสผ่านเพื่อใช้ล็อกอินด้วยอีเมลในครั้งต่อไปได้
+                </div>
+                <form onSubmit={handleSetPassword} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">รหัสผ่านใหม่</label>
+                    <input type="password" required minLength={6} className="input-field" value={passwords.new_password}
+                      onChange={(e) => setPasswords({ ...passwords, new_password: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">ยืนยันรหัสผ่านใหม่</label>
+                    <input type="password" required minLength={6} className="input-field" value={passwords.confirm}
+                      onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })} />
+                  </div>
+                  <button type="submit" disabled={changingPw} className="btn-outline flex items-center gap-2 disabled:opacity-60">
+                    <Lock size={16} /> {changingPw ? 'กำลังบันทึก...' : 'ตั้งรหัสผ่าน'}
+                  </button>
+                </form>
+              </>
+            ) : (
+              /* Email user (or Google user that already set password) — change password */
+              <>
+                <h2 className="text-lg font-bold text-gray-900 mb-5 flex items-center gap-2">
+                  <Lock size={20} className="text-teal-600" /> เปลี่ยนรหัสผ่าน
+                </h2>
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">รหัสผ่านปัจจุบัน</label>
+                    <input type="password" required className="input-field" value={passwords.current_password}
+                      onChange={(e) => setPasswords({ ...passwords, current_password: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">รหัสผ่านใหม่</label>
+                    <input type="password" required minLength={6} className="input-field" value={passwords.new_password}
+                      onChange={(e) => setPasswords({ ...passwords, new_password: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">ยืนยันรหัสผ่านใหม่</label>
+                    <input type="password" required minLength={6} className="input-field" value={passwords.confirm}
+                      onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })} />
+                  </div>
+                  <button type="submit" disabled={changingPw} className="btn-outline flex items-center gap-2 disabled:opacity-60">
+                    <Lock size={16} /> {changingPw ? 'กำลังบันทึก...' : 'เปลี่ยนรหัสผ่าน'}
+                  </button>
+                </form>
+              </>
             )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">รหัสผ่านใหม่</label>
-              <input type="password" required className="input-field" value={passwords.new_password}
-                onChange={(e) => setPasswords({ ...passwords, new_password: e.target.value })} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">ยืนยันรหัสผ่านใหม่</label>
-              <input type="password" required className="input-field" value={passwords.confirm}
-                onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })} />
-            </div>
-            <button type="submit" disabled={changingPw} className="btn-outline flex items-center gap-2 disabled:opacity-60">
-              <Lock size={16} /> {changingPw ? 'กำลังบันทึก...' : (user.has_password ? 'เปลี่ยนรหัสผ่าน' : 'ตั้งรหัสผ่าน')}
-            </button>
-          </form>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

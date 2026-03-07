@@ -13,7 +13,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const { login } = useAuthStore();
   const { ready } = useAuthGuard({ guestOnly: true });
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', phone: '' });
+  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', password: '', confirmPassword: '', phone: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +32,8 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const res = await api.post('/auth/register', {
-        name: form.name,
+        first_name: form.first_name,
+        last_name: form.last_name,
         email: form.email,
         password: form.password,
         phone: form.phone,
@@ -83,12 +84,16 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">ชื่อ-นามสกุล</label>
-              <div className="relative">
-                <User size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input type="text" required className="input-field pl-11" placeholder="ชื่อของคุณ"
-                  value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">ชื่อ</label>
+                <input type="text" required className="input-field" placeholder="ชื่อ"
+                  value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">นามสกุล</label>
+                <input type="text" required className="input-field" placeholder="นามสกุล"
+                  value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
               </div>
             </div>
             <div>

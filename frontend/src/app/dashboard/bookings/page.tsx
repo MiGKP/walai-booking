@@ -60,7 +60,7 @@ const statusClass: Record<string, string> = { pending: 'bg-orange-100 text-orang
 
 export default function BookingsPage() {
   const router = useRouter();
-  const { ready } = useAuthGuard();
+  const { ready, user } = useAuthGuard();
   const [tab, setTab] = useState<'room' | 'kayak'>('room');
   const [roomBookings, setRoomBookings] = useState<any[]>([]);
   const [kayakBookings, setKayakBookings] = useState<any[]>([]);
@@ -117,6 +117,11 @@ export default function BookingsPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">การจองของฉัน</h1>
           <p className="text-gray-500 mt-1">ประวัติและสถานะการจองทั้งหมด</p>
+          {user && (
+            <p className="text-sm text-gray-600 mt-2">
+              ผู้ใช้: {user.first_name || ''} {user.last_name || ''}
+            </p>
+          )}
         </div>
 
         {/* Nav Tabs */}

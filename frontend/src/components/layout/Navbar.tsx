@@ -46,19 +46,19 @@ export default function Navbar() {
                   className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"
                 >
                   {user.avatar ? (
-                    <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full object-cover" />
+                    <img src={user.avatar} alt={`${user.first_name} ${user.last_name}`} className="w-8 h-8 rounded-full object-cover" />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
                       <User size={16} className="text-teal-600" />
                     </div>
                   )}
-                  <span className="font-medium text-gray-700 max-w-[120px] truncate">{user.name}</span>
+                  <span className="font-medium text-gray-700 max-w-[120px] truncate">{user.first_name} {user.last_name}</span>
                   <ChevronDown size={16} className="text-gray-400" />
                 </button>
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-50">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate">{user.first_name} {user.last_name}</p>
                       <p className="text-xs text-gray-500 truncate">{user.email}</p>
                     </div>
                     <Link href="/dashboard" className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setDropdownOpen(false)}>

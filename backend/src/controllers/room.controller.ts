@@ -1,6 +1,27 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 
+const normalizeAmenityIds = (value: unknown): number[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item > 0);
+};
+
+const normalizeImagePaths = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => String(item || '').trim())
+    .filter((item) => item.length > 0);
+};
+
+// ดึงรายการประเภทห้องพักทั้งหมดที่เปิดใช้งานอยู่ พร้อมรูป, จำนวนห้องว่าง และสิ่งอำนวยความสะดวกสำหรับหน้าแสดงผลฝั่งลูกค้า
 export const getAllRooms = async (req: Request, res: Response): Promise<void> => {
   try {
     const { min_price, max_price, capacity } = req.query;
@@ -11,10 +32,9 @@ export const getAllRooms = async (req: Request, res: Response): Promise<void> =>
              (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as images,
              (SELECT COUNT(*) FROM rooms r WHERE r.room_type_id = rt.id AND r.status = 'available') as available_count,
              (
-                SELECT json_agg(json_build_object('id', a.id, 'name', a.name))
-                FROM room_amenities_mapping ram
-                JOIN room_amenities a ON ram.amenity_id = a.id
-                WHERE ram.room_type_id = rt.id
+                SELECT json_agg(json_build_object('id', a.id, 'name', a.name) ORDER BY a.id)
+                FROM room_amenities a
+                WHERE a.id = ANY(COALESCE(rt.amenity_ids, ARRAY[]::integer[]))
              ) as amenities
       FROM room_types rt 
       WHERE rt.status = true
@@ -37,6 +57,7 @@ export const getAllRooms = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+// ดึงรายละเอียดของห้องพักตาม room type id เพื่อใช้ในหน้ารายละเอียดห้อง รวมถึงรูปและรายการห้องย่อยที่เกี่ยวข้อง
 export const getRoomById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -46,6 +67,11 @@ export const getRoomById = async (req: Request, res: Response): Promise<void> =>
       SELECT rt.id, rt.room_name, rt.type_name, rt.description, 
              rt.price as price_per_night, rt.capacity, rt.room_image as main_image, rt.status,
              (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as images,
+             (
+               SELECT json_agg(json_build_object('id', a.id, 'name', a.name) ORDER BY a.id)
+               FROM room_amenities a
+               WHERE a.id = ANY(COALESCE(rt.amenity_ids, ARRAY[]::integer[]))
+             ) as amenities,
              (SELECT json_agg(json_build_object('room_id', r.room_id, 'room_number', r.room_number, 'status', r.status)) 
               FROM rooms r WHERE r.room_type_id = rt.id) as rooms
       FROM room_types rt 
@@ -56,23 +82,15 @@ export const getRoomById = async (req: Request, res: Response): Promise<void> =>
       res.status(404).json({ success: false, message: 'Room type not found' });
       return;
     }
-    
-    // Attempt to fetch amenities (if linked to room_amenities)
-    let amenities: string[] = [];
-    const roomType = rtResult.rows[0];
-    const amResult = await pool.query('SELECT name FROM room_amenities WHERE status = true');
-    if (amResult.rows.length > 0) {
-      // Temporary mock since relation requires mapping tables or JSON
-      amenities = amResult.rows.map(r => r.name); 
-    }
 
-    res.json({ success: true, data: { ...roomType, amenities } });
+    res.json({ success: true, data: rtResult.rows[0] });
   } catch (error) {
     console.error('Get room error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
+// ตรวจสอบว่าห้องประเภทที่เลือกยังมีห้องว่างในช่วงวันที่ต้องการหรือไม่ โดยตัดรายการที่ชนกับ booking เดิมออก
 export const checkRoomAvailability = async (req: Request, res: Response): Promise<void> => {
   try {
     const { room_type_id, check_in_date, check_out_date } = req.query;
@@ -108,26 +126,32 @@ export const checkRoomAvailability = async (req: Request, res: Response): Promis
   }
 };
 
+// สร้างประเภทห้องพักใหม่ในระบบ และบันทึกความสัมพันธ์กับสิ่งอำนวยความสะดวกที่เลือกไว้
 export const createRoom = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { type_name, description, capacity, price, room_image, amenities } = req.body;
+    const { type_name, description, capacity, price, room_image, amenities, gallery_images } = req.body;
+    const amenityIds = normalizeAmenityIds(amenities);
+    const galleryImages = normalizeImagePaths(gallery_images);
+
+    if (!room_image) {
+      res.status(400).json({ success: false, message: 'Room cover image is required' });
+      return;
+    }
 
     const result = await pool.query(
-      `INSERT INTO room_types (room_name, type_name, description, capacity, price, room_image, status)
-       VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING *`,
-      [type_name, type_name, description, capacity, price, room_image]
+      `INSERT INTO room_types (room_name, type_name, description, capacity, price, room_image, amenity_ids, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, true) RETURNING *`,
+      [type_name, type_name, description, capacity, price, room_image, amenityIds]
     );
 
     const roomType = result.rows[0];
-    
-    // Insert amenities mapping if provided
-    if (amenities && Array.isArray(amenities) && amenities.length > 0) {
-      for (const amenity_id of amenities) {
-        await pool.query(
-          `INSERT INTO room_amenities_mapping (room_type_id, amenity_id) VALUES ($1, $2)`,
-          [roomType.id, amenity_id]
-        );
-      }
+
+    for (const imagePath of galleryImages) {
+      await pool.query(
+        `INSERT INTO room_images (room_type_id, image_path)
+         VALUES ($1, $2)`,
+        [roomType.id, imagePath]
+      );
     }
 
     res.status(201).json({ success: true, message: 'Room type created', data: roomType });
@@ -137,6 +161,7 @@ export const createRoom = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+// สร้างห้องจริงรายห้องภายใต้ประเภทห้องที่มีอยู่แล้ว เช่น ห้องหมายเลข 101, 102 เพื่อใช้จองจริงในระบบ
 export const createSingleRoom = async (req: Request, res: Response): Promise<void> => {
   try {
     const { room_type_id, room_number } = req.body;
@@ -153,6 +178,7 @@ export const createSingleRoom = async (req: Request, res: Response): Promise<voi
   }
 };
 
+// สร้างสิ่งอำนวยความสะดวกใหม่ เช่น Wi-Fi, เครื่องปรับอากาศ เพื่อนำไปผูกกับประเภทห้องภายหลัง
 export const createRoomAmenity = async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, icon } = req.body;
@@ -172,22 +198,36 @@ export const createRoomAmenity = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// อัปเดตข้อมูลประเภทห้องพักเดิม เช่น ชื่อ รายละเอียด ราคา สถานะ และข้อมูลประกอบอื่น ๆ
 export const updateRoom = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { room_name, type_name, description, capacity, price, room_image, amenity_id, status } = req.body;
+    const { room_name, type_name, description, capacity, price, room_image, amenity_ids, amenities, gallery_images, status } = req.body;
+    const normalizedAmenityIds = normalizeAmenityIds(amenity_ids ?? amenities);
+    const galleryImages = normalizeImagePaths(gallery_images);
 
     const result = await pool.query(
       `UPDATE room_types SET room_name=$1, type_name=$2, description=$3, capacity=$4, price=$5,
-       room_image=$6, amenity_id=$7, status=$8
+       room_image=$6, amenity_ids=$7, status=$8
        WHERE id=$9 RETURNING *`,
-      [room_name, type_name, description, capacity, price, room_image, amenity_id, status, id]
+      [room_name, type_name, description, capacity, price, room_image, normalizedAmenityIds, status, id]
     );
 
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'Room type not found' });
       return;
     }
+
+    await pool.query('DELETE FROM room_images WHERE room_type_id = $1', [id]);
+
+    for (const imagePath of galleryImages) {
+      await pool.query(
+        `INSERT INTO room_images (room_type_id, image_path)
+         VALUES ($1, $2)`,
+        [id, imagePath]
+      );
+    }
+
     res.json({ success: true, message: 'Room type updated', data: result.rows[0] });
   } catch (error) {
     console.error('Update room error:', error);
@@ -195,6 +235,7 @@ export const updateRoom = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+// ปิดการใช้งานประเภทห้องแบบ soft delete โดยเปลี่ยน status เป็น false แทนการลบข้อมูลจริงออกจากฐานข้อมูล
 export const deleteRoom = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -206,6 +247,7 @@ export const deleteRoom = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+// ดึงรายการสิ่งอำนวยความสะดวกทั้งหมดเพื่อใช้ในหน้า form ฝั่ง admin และหน้าแสดงรายละเอียดห้องพัก
 export const getAmenities = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query('SELECT id, name, status FROM room_amenities ORDER BY id ASC');
@@ -216,6 +258,7 @@ export const getAmenities = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+// ดึงห้องย่อยทั้งหมดในระบบพร้อมชื่อประเภทห้อง เพื่อให้ admin ใช้ตรวจสอบหมายเลขห้องและสถานะการใช้งาน
 export const getAllSingleRooms = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(`

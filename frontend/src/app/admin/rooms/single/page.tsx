@@ -10,7 +10,7 @@ import Link from 'next/link';
 
 export default function SingleRoomsPage() {
   const router = useRouter();
-  const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
+  const { ready } = useAuthGuard({ allowedRoles: ['admin'] });
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [singleRooms, setSingleRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

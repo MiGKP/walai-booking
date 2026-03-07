@@ -8,6 +8,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
+// component หลักของหน้าชำระเงิน ทำหน้าที่โหลดข้อมูล payment, แสดง QR, รับสลิป และส่งสลิปไป backend
 function PaymentContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -28,6 +29,7 @@ function PaymentContent() {
     createPayment();
   }, [ready, booking_type, booking_id]);
 
+  // เรียก backend เพื่อสร้างหรือดึงข้อมูล payment ของ booking ปัจจุบัน รวมถึง QR Code และข้อมูลบัญชีรับเงิน
   const createPayment = async () => {
     try {
       const res = await api.post('/payments', { booking_type, booking_id: Number(booking_id) });
@@ -42,6 +44,7 @@ function PaymentContent() {
     }
   };
 
+  // รับไฟล์สลิปจาก input แล้วสร้าง preview ให้ผู้ใช้เห็นก่อนกดยืนยันอัปโหลด
   const handleSlipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -50,6 +53,7 @@ function PaymentContent() {
     }
   };
 
+  // ส่งสลิปการโอนเงินไปยัง backend ในรูปแบบ multipart/form-data แล้วอัปเดตหน้าจอเป็นสถานะส่งสำเร็จ
   const handleUploadSlip = async () => {
     if (!slip || !payment) return;
     setUploading(true);
@@ -192,6 +196,7 @@ function PaymentContent() {
   );
 }
 
+// ครอบ PaymentContent ด้วย Suspense เพื่อรองรับ useSearchParams ใน Next.js App Router อย่างปลอดภัย
 export default function PaymentPage() {
   return (
     <Suspense fallback={<div className="min-h-screen pt-16 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-600 border-t-transparent" /></div>}>

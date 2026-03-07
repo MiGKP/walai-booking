@@ -10,7 +10,7 @@ import Link from 'next/link';
 
 export default function AmenitiesPage() {
   const router = useRouter();
-  const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
+  const { ready } = useAuthGuard({ allowedRoles: ['admin'] });
   const [amenities, setAmenities] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
 

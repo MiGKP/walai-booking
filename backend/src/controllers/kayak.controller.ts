@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
 
+// ดึงรายการประเภทเรือทั้งหมดที่เปิดใช้งานอยู่ พร้อมข้อมูลที่ frontend ใช้แสดง เช่น ความจุ ราคา และรูปหลัก
 export const getAllKayaks = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(`
@@ -27,6 +28,7 @@ export const getAllKayaks = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+// ดึงรายละเอียดของเรือรายประเภทตาม id เพื่อใช้ในหน้ารายละเอียดก่อนตัดสินใจจอง
 export const getKayakById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -49,6 +51,7 @@ export const getKayakById = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+// ตรวจสอบความพร้อมใช้งานของเรือในวันและรอบเวลาที่เลือก โดยเทียบจำนวนที่ถูกจองไปแล้วกับจำนวนเรือทั้งหมด
 export const checkKayakAvailability = async (req: Request, res: Response): Promise<void> => {
   try {
     const { kayak_id, booking_date, boat_round_id } = req.query;
@@ -73,6 +76,7 @@ export const checkKayakAvailability = async (req: Request, res: Response): Promi
   }
 };
 
+// ดึงรอบเวลาของเรือที่เปิดใช้งานอยู่ เพื่อให้ลูกค้าเลือกช่วงเวลาจองได้ถูกต้อง
 export const getKayakSchedule = async (req: Request, res: Response): Promise<void> => {
   try {
     // Return available rounds for a boat type
@@ -93,6 +97,7 @@ export const getKayakSchedule = async (req: Request, res: Response): Promise<voi
   }
 };
 
+// สร้างการจองเรือใหม่ โดยตรวจสอบราคารอบจองและความพร้อมของเรือก่อนบันทึกลงฐานข้อมูล
 export const createKayakBooking = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -139,6 +144,7 @@ export const createKayakBooking = async (req: Request, res: Response): Promise<v
   }
 };
 
+// ดึงรายการจองเรือทั้งหมดของ member ที่ login อยู่ พร้อมชื่อเรือ รูป และรอบเวลาที่จอง
 export const getUserKayakBookings = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -160,6 +166,7 @@ export const getUserKayakBookings = async (req: Request, res: Response): Promise
   }
 };
 
+// ยกเลิกการจองเรือของผู้ใช้เฉพาะรายการที่เป็นเจ้าของ และป้องกันการยกเลิกซ้ำ
 export const cancelKayakBooking = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -189,13 +196,17 @@ export const cancelKayakBooking = async (req: Request, res: Response): Promise<v
   }
 };
 
+// ดึงรายการจองเรือทั้งหมดในระบบสำหรับ admin หรือ boat staff เพื่อใช้ตรวจสอบและอนุมัติการจอง
 export const getAllKayakBookings = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(
-      `SELECT bb.*, bt.type_name as kayak_name, m.first_name || ' ' || m.last_name as user_name, m.email as user_email
+      `SELECT bb.*, bt.type_name as kayak_name,
+              m.first_name || ' ' || m.last_name as user_name, m.email as user_email,
+              br.start_time, br.end_time
        FROM boat_bookings bb
        JOIN boat_types bt ON bb.boat_type_id = bt.boat_type_id
        JOIN members m ON bb.member_id = m.member_id
+       LEFT JOIN boat_rounds br ON bb.boat_round_id = br.boat_round_id
        ORDER BY bb.created_at DESC`
     );
     res.json({ success: true, data: result.rows });
@@ -205,6 +216,7 @@ export const getAllKayakBookings = async (req: Request, res: Response): Promise<
   }
 };
 
+// สร้างประเภทเรือใหม่ในระบบ เช่น เรือ 1 ที่นั่ง หรือ 2 ที่นั่ง พร้อมจำนวนและราคา
 export const createKayak = async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, description, capacity, price_per_hour, quantity } = req.body;
@@ -220,6 +232,7 @@ export const createKayak = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+// สร้างรอบเวลาใหม่ของเรือแต่ละประเภท เช่น 09:00-10:00 เพื่อใช้กับระบบจองเรือ
 export const createBoatRound = async (req: Request, res: Response): Promise<void> => {
   try {
     const { boat_type_id, start_time, end_time } = req.body;
@@ -235,6 +248,35 @@ export const createBoatRound = async (req: Request, res: Response): Promise<void
   }
 };
 
+// อัปเดตสถานะการจองเรือจากฝั่งพนักงานหรือผู้ดูแล เช่น approved, rejected หรือ pending
+export const updateKayakBookingStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const authUser = req.user as AuthPayload;
+
+    const allowed = ['approved', 'rejected', 'pending'];
+    if (!allowed.includes(status)) {
+      res.status(400).json({ success: false, message: 'Invalid status' });
+      return;
+    }
+
+    const result = await pool.query(
+      `UPDATE boat_bookings SET status = $1, updated_at = NOW() WHERE boat_booking_id = $2 RETURNING *`,
+      [status, id]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Booking not found' });
+      return;
+    }
+    res.json({ success: true, message: 'Booking status updated', data: result.rows[0] });
+  } catch (error) {
+    console.error('Update kayak booking status error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// อัปเดตข้อมูลประเภทเรือเดิม เช่น ชื่อ รายละเอียด จำนวน ราคา และสถานะการเปิดใช้งาน
 export const updateKayak = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;

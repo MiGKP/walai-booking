@@ -3,6 +3,8 @@ import passport from 'passport';
 import {
   register,
   login,
+  forgotPassword,
+  resetPassword,
   googleCallback,
   getProfile,
   updateProfile,
@@ -29,6 +31,8 @@ router.delete('/staff/:id', authenticate, authorize('admin'), deleteStaff);
 
 router.post('/register', register);
 router.post('/login', login);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 router.get(
@@ -37,7 +41,8 @@ router.get(
   googleCallback
 );
 router.get('/google/failed', (req, res) => {
-  res.status(401).json({ success: false, message: 'Google authentication failed' });
+  const error = req.query.error as string || 'Google authentication failed';
+  res.redirect(`${process.env.FRONTEND_URL}/auth/login?error=${encodeURIComponent(error)}`);
 });
 
 router.get('/profile', authenticate, getProfile);

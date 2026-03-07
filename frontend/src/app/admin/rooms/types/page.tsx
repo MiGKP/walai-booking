@@ -10,10 +10,11 @@ import Link from 'next/link';
 
 export default function RoomTypesPage() {
   const router = useRouter();
-  const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
+  const { ready } = useAuthGuard({ allowedRoles: ['admin'] });
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [amenities, setAmenities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({ 
     type_name: '', 
@@ -21,8 +22,11 @@ export default function RoomTypesPage() {
     capacity: 2, 
     price: 0, 
     room_image: '', 
+    gallery_images: [] as string[],
     amenities: [] as number[]
   });
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
 
   useEffect(() => {
     if (!ready) return;
@@ -56,15 +60,44 @@ export default function RoomTypesPage() {
     });
   };
 
+  const uploadImage = async (file: File) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const res = await api.post('/uploads/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data.data.url as string;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!coverFile) {
+      toast.error('กรุณาเลือกรูปปกห้องพัก');
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      await api.post('/rooms/type', form);
+      const roomImage = await uploadImage(coverFile);
+      const galleryImages = galleryFiles.length > 0
+        ? await Promise.all(galleryFiles.map((file) => uploadImage(file)))
+        : [];
+
+      await api.post('/rooms/type', {
+        ...form,
+        room_image: roomImage,
+        gallery_images: galleryImages,
+      });
+
       toast.success('สร้างประเภทห้องพักสำเร็จ');
-      setForm({ type_name: '', description: '', capacity: 2, price: 0, room_image: '', amenities: [] });
+      setForm({ type_name: '', description: '', capacity: 2, price: 0, room_image: '', gallery_images: [], amenities: [] });
+      setCoverFile(null);
+      setGalleryFiles([]);
       fetchData();
-    } catch {
-      toast.error('สร้างประเภทห้องพักไม่สำเร็จ');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'สร้างประเภทห้องพักไม่สำเร็จ');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -125,6 +158,36 @@ export default function RoomTypesPage() {
                   <input type="number" required min="0" className="input-field" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">รูปปกห้องพัก</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  required
+                  className="input-field"
+                  onChange={(e) => setCoverFile(e.target.files?.[0] || null)}
+                />
+                {coverFile && <p className="mt-1 text-xs text-gray-500">ไฟล์ที่เลือก: {coverFile.name}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">รูปเพิ่มเติมสำหรับ member</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="input-field"
+                  onChange={(e) => setGalleryFiles(Array.from(e.target.files || []))}
+                />
+                {galleryFiles.length > 0 && (
+                  <div className="mt-2 space-y-1 text-xs text-gray-500">
+                    {galleryFiles.map((file) => (
+                      <p key={`${file.name}-${file.lastModified}`}>{file.name}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
               
               {/* Amenities Multi-select */}
               <div>
@@ -150,7 +213,9 @@ export default function RoomTypesPage() {
                 )}
               </div>
 
-              <button type="submit" className="btn-primary w-full mt-4 bg-teal-600 hover:bg-teal-700">บันทึกข้อมูล</button>
+              <button type="submit" disabled={submitting} className="btn-primary w-full mt-4 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 disabled:cursor-not-allowed">
+                {submitting ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+              </button>
             </form>
           </div>
           

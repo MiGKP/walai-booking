@@ -6,12 +6,14 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// กลยุทธ์ JWT ใช้ตรวจสอบ token ของผู้ใช้ทุกครั้งที่เรียก protected route และดึงข้อมูล user จริงจากฐานข้อมูลอีกชั้น
 passport.use(
   new JwtStrategy(
     {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: process.env.JWT_SECRET || 'walai_super_secret_jwt_key_change_in_production',
     },
+    // callback นี้จะทำงานหลังจากถอด JWT สำเร็จ เพื่อยืนยันว่า user ใน token ยังมีอยู่จริงในระบบ
     async (payload, done) => {
       try {
         let result;
@@ -30,6 +32,7 @@ passport.use(
   )
 );
 
+// กลยุทธ์ Google OAuth ใช้รับข้อมูลโปรไฟล์จาก Google แล้วหรือลงทะเบียน member ให้โดยอัตโนมัติ
 passport.use(
   new GoogleStrategy(
     {
@@ -37,6 +40,7 @@ passport.use(
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
       callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
     },
+    // callback นี้เป็นหัวใจของ social login โดยจะ map บัญชี Google ให้ตรงกับ member ในฐานข้อมูล
     async (accessToken, refreshToken, profile, done) => {
       try {
         const email = profile.emails?.[0]?.value;
@@ -52,6 +56,11 @@ passport.use(
 
         if (existing.rows.length > 0) {
           const user = existing.rows[0];
+          // If this email was registered via email/password, block Google login to prevent account merge
+          if (user.auth_provider === 'email' && !user.google_id) {
+            return done(new Error('This email is already registered. Please login with your email and password.'), false);
+          }
+          // If already linked to Google or has google_id, allow login
           if (!user.google_id) {
             await pool.query('UPDATE members SET google_id = $1, avatar_url = $2 WHERE member_id = $3', [
               profile.id,
@@ -78,12 +87,14 @@ passport.use(
   )
 );
 
+// serialize ใช้เก็บ id ของผู้ใช้ลง session เมื่อ Passport ต้องจัดการ session-based auth
 passport.serializeUser((user: any, done) => {
   // Handle both members and staff
   const id = user.member_id || user.staff_id;
   done(null, id);
 });
 
+// deserialize ใช้ดึงข้อมูลผู้ใช้กลับจาก id ที่เก็บไว้ใน session เมื่อมี request ครั้งถัดไป
 passport.deserializeUser(async (id: number, done) => {
   try {
     // Try members first, then staff
@@ -97,4 +108,5 @@ passport.deserializeUser(async (id: number, done) => {
   }
 });
 
+// export passport instance ที่ถูกติดตั้ง strategy แล้ว เพื่อใช้ใน route และไฟล์เริ่มต้นของเซิร์ฟเวอร์
 export default passport;
