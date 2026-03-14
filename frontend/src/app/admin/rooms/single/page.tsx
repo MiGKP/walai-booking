@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Edit, Trash2, PlusCircle } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, PlusCircle, X } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
@@ -15,10 +15,9 @@ export default function SingleRoomsPage() {
   const [singleRooms, setSingleRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [form, setForm] = useState({ 
-    room_type_id: '', 
-    room_number: '' 
-  });
+  const [form, setForm] = useState({ room_type_id: '', room_number: '' });
+  const [editingRoom, setEditingRoom] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -50,6 +49,36 @@ export default function SingleRoomsPage() {
       fetchData();
     } catch {
       toast.error('สร้างห้องพักย่อยไม่สำเร็จ');
+    }
+  };
+
+  const handleDelete = async (id: number, roomNumber: string) => {
+    if (!confirm(`ต้องการลบห้อง "${roomNumber}" ใช่หรือไม่?`)) return;
+    try {
+      await api.delete(`/rooms/single/${id}`);
+      toast.success('ลบห้องพักสำเร็จ');
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'ลบไม่สำเร็จ');
+    }
+  };
+
+  const openEditModal = (sr: any) => {
+    setEditingRoom({ id: sr.room_id, room_number: sr.room_number, status: sr.status });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRoom) return;
+    try {
+      await api.put(`/rooms/single/${editingRoom.id}`, { room_number: editingRoom.room_number, status: editingRoom.status });
+      toast.success('แก้ไขห้องพักสำเร็จ');
+      setShowEditModal(false);
+      setEditingRoom(null);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'แก้ไขไม่สำเร็จ');
     }
   };
 
@@ -111,13 +140,14 @@ export default function SingleRoomsPage() {
                       <th className="text-left px-4 py-3 font-semibold text-gray-600">หมายเลขห้อง</th>
                       <th className="text-left px-4 py-3 font-semibold text-gray-600">ประเภทห้อง</th>
                       <th className="text-left px-4 py-3 font-semibold text-gray-600">สถานะ</th>
+                      <th className="text-right px-4 py-3 font-semibold text-gray-600">จัดการ</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 bg-white">
                     {loading ? (
-                       <tr><td colSpan={3} className="p-4 text-center text-gray-500">กำลังโหลด...</td></tr>
+                       <tr><td colSpan={4} className="p-4 text-center text-gray-500">กำลังโหลด...</td></tr>
                     ) : singleRooms.length === 0 ? (
-                       <tr><td colSpan={3} className="p-4 text-center text-gray-500">ยังไม่มีข้อมูล</td></tr>
+                       <tr><td colSpan={4} className="p-4 text-center text-gray-500">ยังไม่มีข้อมูล</td></tr>
                     ) : (
                       singleRooms.map((sr: any) => (
                         <tr key={sr.room_id} className="hover:bg-gray-50 transition-colors">
@@ -135,6 +165,16 @@ export default function SingleRoomsPage() {
                                sr.status === 'maintenance' ? 'ปิดปรับปรุง' : sr.status}
                             </span>
                           </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <button onClick={() => openEditModal(sr)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="แก้ไข">
+                                <Edit2 size={16} />
+                              </button>
+                              <button onClick={() => handleDelete(sr.room_id, sr.room_number)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="ลบ">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -145,6 +185,38 @@ export default function SingleRoomsPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Single Room Modal */}
+      {showEditModal && editingRoom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+              <h3 className="text-lg font-bold text-gray-900">แก้ไขห้องพัก</h3>
+              <button onClick={() => { setShowEditModal(false); setEditingRoom(null); }} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateRoom} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">หมายเลขห้อง</label>
+                <input type="text" required className="input-field" value={editingRoom.room_number} onChange={(e) => setEditingRoom({ ...editingRoom, room_number: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+                <select className="input-field" value={editingRoom.status} onChange={(e) => setEditingRoom({ ...editingRoom, status: e.target.value })}>
+                  <option value="available">ว่าง</option>
+                  <option value="occupied">มีผู้เข้าพัก</option>
+                  <option value="maintenance">ปิดปรับปรุง</option>
+                </select>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => { setShowEditModal(false); setEditingRoom(null); }} className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-colors">ยกเลิก</button>
+                <button type="submit" className="flex-1 btn-primary bg-blue-600 hover:bg-blue-700">บันทึก</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,9 +1,65 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Waves, Anchor, CreditCard, Star, MapPin, Phone } from 'lucide-react';
+import api from '@/lib/api';
+
+interface ResortInfo {
+  name?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  facebook?: string;
+  line_id?: string;
+  operating_days?: string;
+  operating_hours?: string;
+}
+
+interface RoomType {
+  name: string;
+  price: string;
+  color: string;
+  capacity: string;
+}
+
+interface Review {
+  name: string;
+  rating: number;
+  text: string;
+}
+
+interface Stat {
+  number: string;
+  label: string;
+}
+
+interface Feature {
+  icon: JSX.Element;
+  title: string;
+  desc: string;
+}
 
 export default function HomePage() {
+  const [resortInfo, setResortInfo] = useState<ResortInfo>({});
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [stats, setStats] = useState<Stat[]>([]);
+  const [features, setFeatures] = useState<Feature[]>([]);
+
+  useEffect(() => {
+    const fetchResortInfo = async () => {
+      try {
+        const response = await api.get('/settings/resort');
+        setResortInfo(response.data?.data || {});
+      } catch (error) {
+        console.error('Failed to fetch resort info:', error);
+      }
+    };
+
+    fetchResortInfo();
+  }, []);
+
   return (
     <div className="bg-white">
       {/* Hero Section */}
@@ -21,7 +77,8 @@ export default function HomePage() {
             <span>ที่พักลอยน้ำแห่งแรกในภูมิภาค</span>
           </div>
           <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-            วาลัย
+            {resortInfo.name || 'สวนวลัยรุกขเวช'}
+            <br />
             <br />
             <span className="text-cyan-300">ที่พักลอยน้ำ</span>
           </h1>
@@ -79,7 +136,7 @@ export default function HomePage() {
           <div className="text-center mb-14">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">ประสบการณ์ที่แตกต่าง</h2>
             <p className="text-gray-600 text-lg max-w-xl mx-auto">
-              ที่วาลัย เราออกแบบทุกประสบการณ์เพื่อให้คุณได้พักผ่อนอย่างแท้จริง
+              ที่{resortInfo.name || 'สวนวลัยรุกขเวช'} เราออกแบบทุกประสบการณ์เพื่อให้คุณได้พักผ่อนอย่างแท้จริง
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
@@ -177,6 +234,68 @@ export default function HomePage() {
                 <div className="font-semibold text-gray-900">{review.name}</div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Location / Map */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">ที่ตั้งของเรา</h2>
+            <p className="text-gray-600 text-lg max-w-xl mx-auto">มาเยือนวลัย ที่พักลอยน้ำท่ามกลางธรรมชาติ</p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-10 items-center max-w-5xl mx-auto">
+            <div className="space-y-5">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center shrink-0">
+                  <MapPin size={20} className="text-teal-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">ที่อยู่</p>
+                  <p className="text-gray-500 text-sm mt-0.5">{resortInfo.address || 'สวนวลัยรุกขเวช สถาบันวิจัยวลัยรุกขเวช มหาวิทยาลัยมหาสารคาม<br />จ.มหาสารคาม ประเทศไทย'}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center shrink-0">
+                  <Phone size={20} className="text-teal-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">ติดต่อ</p>
+                  <p className="text-gray-500 text-sm mt-0.5">
+                    {resortInfo.phone && `โทร: ${resortInfo.phone}`}
+                    {resortInfo.phone && resortInfo.line_id && <br />}
+                    {resortInfo.line_id && `Line: ${resortInfo.line_id}`}
+                    {!resortInfo.phone && !resortInfo.line_id && 'โทร: 08x-xxx-xxxx<br />Line: @walai'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center shrink-0">
+                  <Waves size={20} className="text-teal-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">เวลาเปิด-ปิด</p>
+                  <p className="text-gray-500 text-sm mt-0.5">
+                    {resortInfo.operating_days && resortInfo.operating_hours 
+                      ? `${resortInfo.operating_days} ${resortInfo.operating_hours}`
+                      : 'เปิดทุกวัน 08:00 – 20:00 น.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl overflow-hidden shadow-lg border border-gray-100 h-72 md:h-80">
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3831.017633003897!2d103.32662857469161!3d16.219533184481886!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3122a5c428f5b683%3A0xdae6c58fa05c39c!2z4Liq4Lin4LiZ4Lin4Lil4Lix4Lii4Lij4Li44LiB4LiC4LmA4Lin4LiKIOC4quC4luC4suC4muC4seC4meC4p-C4tOC4iOC4seC4ouC4p-C4peC4seC4ouC4o-C4uOC4geC4guC5gOC4p-C4iiDguKHguKvguLLguKfguLTguJfguKLguLLguKXguLHguKLguKHguKvguLLguKrguLLguKPguITguLLguKE!5e0!3m2!1sth!2sth!4v1773388013866!5m2!1sth!2sth"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="สวนวลัยรุกขเวช สถาบันวิจัยวลัยรุกขเวช มหาวิทยาลัยมหาสารคาม"
+              />
+            </div>
           </div>
         </div>
       </section>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Home, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Home, Edit2, Trash2, X } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
@@ -27,6 +27,12 @@ export default function RoomTypesPage() {
   });
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+
+  const [editingRoom, setEditingRoom] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editCoverFile, setEditCoverFile] = useState<File | null>(null);
+  const [editGalleryFiles, setEditGalleryFiles] = useState<File[]>([]);
+  const [editUploading, setEditUploading] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -109,6 +115,66 @@ export default function RoomTypesPage() {
       fetchData();
     } catch {
       toast.error('ลบไม่สำเร็จ');
+    }
+  };
+
+  const openEditRoom = (rt: any) => {
+    setEditingRoom({
+      id: rt.id,
+      type_name: rt.type_name,
+      description: rt.description || '',
+      capacity: rt.capacity,
+      price: rt.price_per_night,
+      room_image: rt.main_image || '',
+      amenity_ids: (rt.amenities || []).map((a: any) => a.id),
+      existing_gallery: Array.isArray(rt.images) ? rt.images.filter((img: string) => img !== rt.main_image) : [],
+    });
+    setEditCoverFile(null);
+    setEditGalleryFiles([]);
+    setShowEditModal(true);
+  };
+
+  const editAmenityToggle = (id: number) => {
+    setEditingRoom((prev: any) => {
+      const has = prev.amenity_ids.includes(id);
+      return { ...prev, amenity_ids: has ? prev.amenity_ids.filter((a: number) => a !== id) : [...prev.amenity_ids, id] };
+    });
+  };
+
+  const handleUpdateRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRoom) return;
+    setEditUploading(true);
+    try {
+      let roomImage = editingRoom.room_image;
+      if (editCoverFile) {
+        roomImage = await uploadImage(editCoverFile);
+      }
+      const newGalleryUrls = editGalleryFiles.length > 0
+        ? await Promise.all(editGalleryFiles.map((f) => uploadImage(f)))
+        : [];
+      const finalGallery = [...(editingRoom.existing_gallery || []), ...newGalleryUrls];
+      await api.put(`/rooms/${editingRoom.id}`, {
+        type_name: editingRoom.type_name,
+        room_name: editingRoom.type_name,
+        description: editingRoom.description,
+        capacity: editingRoom.capacity,
+        price: editingRoom.price,
+        room_image: roomImage,
+        amenity_ids: editingRoom.amenity_ids,
+        gallery_images: finalGallery,
+        status: true,
+      });
+      toast.success('แก้ไขประเภทห้องพักสำเร็จ');
+      setShowEditModal(false);
+      setEditingRoom(null);
+      setEditCoverFile(null);
+      setEditGalleryFiles([]);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'แก้ไขไม่สำเร็จ');
+    } finally {
+      setEditUploading(false);
     }
   };
 
@@ -232,26 +298,29 @@ export default function RoomTypesPage() {
                       <th className="text-left px-4 py-3 font-semibold text-gray-600">ประเภทห้อง</th>
                       <th className="text-left px-4 py-3 font-semibold text-gray-600">ผู้เข้าพัก</th>
                       <th className="text-left px-4 py-3 font-semibold text-gray-600">ราคา</th>
-                      <th className="text-left px-4 py-3 font-semibold text-gray-600">ห้องว่าง</th>
                       <th className="text-right px-4 py-3 font-semibold text-gray-600">จัดการ</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50 bg-white">
                     {loading ? (
-                       <tr><td colSpan={5} className="p-4 text-center text-gray-500">กำลังโหลด...</td></tr>
+                       <tr><td colSpan={4} className="p-4 text-center text-gray-500">กำลังโหลด...</td></tr>
                     ) : roomTypes.length === 0 ? (
-                       <tr><td colSpan={5} className="p-4 text-center text-gray-500">ยังไม่มีข้อมูล</td></tr>
+                       <tr><td colSpan={4} className="p-4 text-center text-gray-500">ยังไม่มีข้อมูล</td></tr>
                     ) : (
                       roomTypes.map((rt: any) => (
                         <tr key={rt.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-3 font-medium text-gray-900">{rt.type_name}</td>
                           <td className="px-4 py-3 text-gray-600">{rt.capacity} คน</td>
                           <td className="px-4 py-3 text-teal-600 font-semibold">฿{Number(rt.price_per_night).toLocaleString()}</td>
-                          <td className="px-4 py-3">{rt.available_count} ห้อง</td>
                           <td className="px-4 py-3 text-right">
-                            <button onClick={() => handleDelete(rt.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="ลบ">
-                              <Trash2 size={16} />
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              <button onClick={() => openEditRoom(rt)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="แก้ไข">
+                                <Edit2 size={16} />
+                              </button>
+                              <button onClick={() => handleDelete(rt.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="ลบ">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -263,6 +332,118 @@ export default function RoomTypesPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Room Type Modal */}
+      {showEditModal && editingRoom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+              <h3 className="text-lg font-bold text-gray-900">แก้ไขประเภทห้องพัก</h3>
+              <button onClick={() => { setShowEditModal(false); setEditingRoom(null); }} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateRoom} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ประเภทห้อง</label>
+                <input type="text" required className="input-field" value={editingRoom.type_name} onChange={(e) => setEditingRoom({ ...editingRoom, type_name: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">รายละเอียด</label>
+                <textarea className="input-field" rows={3} value={editingRoom.description} onChange={(e) => setEditingRoom({ ...editingRoom, description: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ผู้เข้าพัก (คน)</label>
+                  <input type="number" required min="1" className="input-field" value={editingRoom.capacity} onChange={(e) => setEditingRoom({ ...editingRoom, capacity: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ราคา/คืน</label>
+                  <input type="number" required min="0" className="input-field" value={editingRoom.price} onChange={(e) => setEditingRoom({ ...editingRoom, price: Number(e.target.value) })} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">รูปปกห้องพัก</label>
+                {editingRoom.room_image && !editCoverFile && (
+                  <div className="mb-2 relative w-full h-32 rounded-xl overflow-hidden border border-gray-200">
+                    <img src={`http://localhost:5000${editingRoom.room_image}`} alt="รูปปัจจุบัน" className="w-full h-full object-cover" />
+                    <span className="absolute bottom-1 left-2 text-xs text-white bg-black/50 px-2 py-0.5 rounded-full">รูปปัจจุบัน</span>
+                  </div>
+                )}
+                {editCoverFile && (
+                  <div className="mb-2 relative w-full h-32 rounded-xl overflow-hidden border border-teal-300">
+                    <img src={URL.createObjectURL(editCoverFile)} alt="รูปใหม่" className="w-full h-full object-cover" />
+                    <span className="absolute bottom-1 left-2 text-xs text-white bg-teal-600/80 px-2 py-0.5 rounded-full">รูปใหม่</span>
+                  </div>
+                )}
+                <input type="file" accept="image/*" className="input-field" onChange={(e) => setEditCoverFile(e.target.files?.[0] || null)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">รูปภาพเพิ่มเติม (Gallery)</label>
+                {editingRoom.existing_gallery && editingRoom.existing_gallery.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-gray-500 mb-1.5">รูปปัจจุบัน — hover เพื่อลบ</p>
+                    <div className="flex flex-wrap gap-2">
+                      {editingRoom.existing_gallery.map((img: string, idx: number) => (
+                        <div key={idx} className="relative w-20 h-16 rounded-lg overflow-hidden border border-gray-200 group">
+                          <img src={`http://localhost:5000${img}`} alt={`gallery ${idx + 1}`} className="w-full h-full object-cover" />
+                          <button type="button"
+                            className="absolute inset-0 bg-red-600/70 text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                            onClick={() => setEditingRoom((prev: any) => ({ ...prev, existing_gallery: prev.existing_gallery.filter((_: string, i: number) => i !== idx) }))}>
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {editGalleryFiles.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-xs text-teal-600 mb-1.5">รูปใหม่ที่จะเพิ่ม</p>
+                    <div className="flex flex-wrap gap-2">
+                      {editGalleryFiles.map((f, idx) => (
+                        <div key={idx} className="relative w-20 h-16 rounded-lg overflow-hidden border border-teal-300 group">
+                          <img src={URL.createObjectURL(f)} alt={`new ${idx}`} className="w-full h-full object-cover" />
+                          <button type="button"
+                            className="absolute inset-0 bg-red-600/70 text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                            onClick={() => setEditGalleryFiles((prev) => prev.filter((_, i) => i !== idx))}>
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <input type="file" accept="image/*" multiple className="input-field"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setEditGalleryFiles((prev) => [...prev, ...files]);
+                    e.target.value = '';
+                  }} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">สิ่งอำนวยความสะดวก</label>
+                {amenities.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto p-3 border border-gray-200 rounded-xl bg-gray-50">
+                    {amenities.map(am => (
+                      <label key={am.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-white p-1 rounded">
+                        <input type="checkbox" className="rounded text-teal-600" checked={editingRoom.amenity_ids.includes(am.id)} onChange={() => editAmenityToggle(am.id)} />
+                        <span className="text-gray-700">{am.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => { setShowEditModal(false); setEditingRoom(null); setEditCoverFile(null); }} className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-colors">ยกเลิก</button>
+                <button type="submit" disabled={editUploading} className="flex-1 btn-primary bg-teal-600 hover:bg-teal-700 disabled:opacity-60">
+                  {editUploading ? 'กำลังบันทึก...' : 'บันทึก'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

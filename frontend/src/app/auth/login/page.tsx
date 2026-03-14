@@ -4,14 +4,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Waves, Mail, Lock } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
+import { useAuth } from '@/hooks/useAuth';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuthStore();
+  const { login } = useAuth();
   const { ready } = useAuthGuard({ guestOnly: true });
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
@@ -25,7 +25,7 @@ export default function LoginPage() {
     try {
       const res = await api.post('/auth/login', form);
       const { user, token, redirectUrl } = res.data.data;
-      login(user, token);
+      await login(token);
       toast.success(`ยินดีต้อนรับ, ${(user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim()) || user.email}!`);
       router.push(redirectUrl || '/dashboard');
     } catch (err: any) {
@@ -97,9 +97,6 @@ export default function LoginPage() {
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
               </div>
               <div className="mt-2 text-right">
                 <Link href="/auth/forgot-password" className="text-sm text-teal-600 font-medium hover:text-teal-700">

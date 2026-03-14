@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, CalendarDays, Anchor, CreditCard, CheckCircle, PlusCircle, Home, Sailboat } from 'lucide-react';
+import { Users, Anchor, CreditCard, CheckCircle, PlusCircle, Home, Sailboat, TrendingUp, BarChart3, MessageSquare, Building2, Phone, Clock, UserCheck } from 'lucide-react';
 import api from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 
@@ -13,11 +12,10 @@ const statusClass: Record<string, string> = { pending: 'bg-orange-100 text-orang
 
 export default function AdminPage() {
   const router = useRouter();
-  const { ready, user } = useAuthGuard({ allowedRoles: ['admin'] });
-  const [tab, setTab] = useState<'bookings' | 'kayaks' | 'payments'>('bookings');
+  const { ready } = useAuthGuard({ allowedRoles: ['admin'] });
+  const [tab, setTab] = useState<'bookings' | 'kayaks'>('bookings');
   const [roomBookings, setRoomBookings] = useState<any[]>([]);
   const [kayakBookings, setKayakBookings] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,15 +27,13 @@ export default function AdminPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [rb, kb, pmt, st] = await Promise.all([
+      const [rb, kb, st] = await Promise.all([
         api.get('/bookings'),
         api.get('/kayaks/bookings/all').catch(() => ({ data: { data: [] } })),
-        api.get('/payments'),
         api.get('/auth/staff').catch(() => ({ data: { data: [] } })),
       ]);
       setRoomBookings(rb.data?.data || []);
       setKayakBookings(kb.data?.data || []);
-      setPayments(pmt.data?.data || []);
       setStaffList(st.data?.data || []);
     } catch {
       toast.error('ไม่สามารถโหลดข้อมูลได้');
@@ -46,32 +42,17 @@ export default function AdminPage() {
     }
   };
 
-  const updateBookingStatus = async (type: 'room' | 'kayak', id: number, status: string) => {
-    try {
-      if (type === 'room') await api.put(`/bookings/${id}/status`, { status });
-      // else await api.put(`/kayaks/bookings/${id}/status`, { status }); // if implemented
-      toast.success('อัปเดตสถานะสำเร็จ');
-      fetchAll();
-    } catch {
-      toast.error('อัปเดตสถานะไม่สำเร็จ');
-    }
-  };
-
-  const confirmPayment = async (id: string) => {
-    try {
-      await api.put(`/payments/${id}/confirm`, { transaction_ref: `TXN-${Date.now()}` });
-      toast.success('ยืนยันการชำระเงินสำเร็จ');
-      fetchAll();
-    } catch {
-      toast.error('ยืนยันการชำระเงินไม่สำเร็จ');
-    }
-  };
+  const totalRoomRevenue = roomBookings.filter((b: any) => b.status === 'approved').reduce((sum: number, b: any) => sum + Number(b.total_price || 0), 0);
+  const totalKayakRevenue = kayakBookings.filter((b: any) => b.status === 'approved').reduce((sum: number, b: any) => sum + Number(b.total_price || 0), 0);
+  const pendingSlip = roomBookings.filter((b: any) => b.status === 'paid').length;
+  const approvedRoom = roomBookings.filter((b: any) => b.status === 'approved').length;
+  const approvedKayak = kayakBookings.filter((b: any) => b.status === 'approved').length;
 
   const stats = [
-    { label: 'การจองห้องพัก', value: roomBookings.length, icon: <CalendarDays size={24} />, color: 'text-teal-600 bg-teal-50' },
-    { label: 'การจองเรือ', value: kayakBookings.length, icon: <Anchor size={24} />, color: 'text-cyan-600 bg-cyan-50' },
-    { label: 'รายการชำระเงินทั้งหมด', value: payments.length, icon: <CreditCard size={24} />, color: 'text-blue-600 bg-blue-50' },
-    { label: 'พนักงานระบบ', value: staffList.length, icon: <Users size={24} />, color: 'text-indigo-600 bg-indigo-50' },
+    { label: 'รายได้จากห้องพัก', value: `฿${totalRoomRevenue.toLocaleString()}`, icon: <TrendingUp size={24} />, color: 'text-teal-600 bg-teal-50', sub: `${approvedRoom} การจอง` },
+    { label: 'รายได้จากเรือคายัค', value: `฿${totalKayakRevenue.toLocaleString()}`, icon: <Anchor size={24} />, color: 'text-cyan-600 bg-cyan-50', sub: `${approvedKayak} การจอง` },
+    { label: 'รอตรวจสอบสลิป', value: pendingSlip, icon: <CreditCard size={24} />, color: 'text-orange-600 bg-orange-50', sub: 'รายการยังไม่ยืนยัน' },
+    { label: 'พนักงานระบบ', value: staffList.length, icon: <Users size={24} />, color: 'text-indigo-600 bg-indigo-50', sub: 'ทุกบทบาท' },
   ];
 
   const managementMenus = [
@@ -81,27 +62,94 @@ export default function AdminPage() {
     { label: 'จัดการหมายเลขห้องพัก', icon: <PlusCircle size={32} />, desc: 'เพิ่มหมายเลขห้องพักรายห้อง', path: '/admin/rooms/single', color: 'bg-blue-100 text-blue-700', hover: 'hover:bg-blue-50 hover:border-blue-200' },
     { label: 'จัดการประเภทเรือ', icon: <Anchor size={32} />, desc: 'เพิ่มประเภทเรือและคายัค', path: '/admin/boats/types', color: 'bg-cyan-100 text-cyan-700', hover: 'hover:bg-cyan-50 hover:border-cyan-200' },
     { label: 'จัดการรอบเวลาเรือ', icon: <Sailboat size={32} />, desc: 'เพิ่มรอบเวลาสำหรับเรือ', path: '/admin/boats/rounds', color: 'bg-sky-100 text-sky-700', hover: 'hover:bg-sky-50 hover:border-sky-200' },
+    { label: 'ดูรีวิวจากผู้เข้าพัก', icon: <MessageSquare size={32} />, desc: 'รีวิวทั้งหมด พร้อม filter และสถิติ', path: '/admin/reviews', color: 'bg-yellow-100 text-yellow-700', hover: 'hover:bg-yellow-50 hover:border-yellow-200' },
+    { label: 'จัดการสมาชิก', icon: <UserCheck size={32} />, desc: 'ค้นหา toggle สถานะบัญชีสมาชิก', path: '/admin/members', color: 'bg-violet-100 text-violet-700', hover: 'hover:bg-violet-50 hover:border-violet-200' },
+    { label: 'ข้อมูลสวนวลัยรุกขเวช', icon: <Building2 size={32} />, desc: 'แก้ไขข้อมูลสวน บัญชีธนาคาร เงื่อนไขการจอง', path: '/admin/site-info', color: 'bg-orange-100 text-orange-700', hover: 'hover:bg-orange-50 hover:border-orange-200' },
+    { label: 'ข้อมูลติดต่อ', icon: <Phone size={32} />, desc: 'แก้ไขเบอร์โทร Line Facebook ที่อยู่', path: '/admin/contact', color: 'bg-pink-100 text-pink-700', hover: 'hover:bg-pink-50 hover:border-pink-200' },
+    { label: 'เวลาทำการเรือ', icon: <Clock size={32} />, desc: 'ตั้งเวลาเปิด-ปิดบริการเรือแต่ละวัน', path: '/admin/boat-hours', color: 'bg-sky-100 text-sky-700', hover: 'hover:bg-sky-50 hover:border-sky-200' },
+    { label: 'รายงานสถิติ', icon: <BarChart3 size={32} />, desc: 'รายได้และจำนวนการจองรายวัน/เดือน', path: '/admin/stats', color: 'bg-rose-100 text-rose-700', hover: 'hover:bg-rose-50 hover:border-rose-200' },
   ];
 
   return (
     <div className="min-h-screen pt-16 bg-gray-50">
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">แผงควบคุม Admin</h1>
-          <p className="text-gray-500 mt-1">ภาพรวมระบบและการจัดการ</p>
+        {/* Header */}
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">แผงควบคุม Admin</h1>
+            <p className="text-gray-500 mt-1">ภาพรวมธุรกิจและการจัดการระบบ</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-400">รายได้รวม (ที่อนุมัติแล้ว)</p>
+            <p className="text-2xl font-bold text-teal-600">฿{(totalRoomRevenue + totalKayakRevenue).toLocaleString()}</p>
+          </div>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {stats.map((s, i) => (
             <div key={i} className="card p-5 flex items-center gap-4 border border-transparent hover:border-gray-200 transition-colors">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${s.color}`}>{s.icon}</div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{s.value}</p>
-                <p className="text-xs text-gray-500">{s.label}</p>
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${s.color}`}>{s.icon}</div>
+              <div className="min-w-0">
+                <p className="text-xl font-bold text-gray-900">{s.value}</p>
+                <p className="text-xs text-gray-500 leading-tight">{s.label}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Revenue Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="card p-5 bg-gradient-to-br from-teal-50 to-teal-100 border border-teal-200">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-teal-700">การจองห้องพักทั้งหมด</p>
+              <BarChart3 size={18} className="text-teal-600" />
+            </div>
+            <p className="text-2xl font-bold text-teal-800">{roomBookings.length}</p>
+            <div className="mt-2 flex gap-3 text-xs">
+              <span className="text-green-700 bg-green-100 px-2 py-0.5 rounded-full">ยืนยัน {approvedRoom}</span>
+              <span className="text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">รอสลิป {pendingSlip}</span>
+              <span className="text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">รอจ่าย {roomBookings.filter((b:any)=>b.status==='pending').length}</span>
+            </div>
+          </div>
+          <div className="card p-5 bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-200">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-cyan-700">การจองเรือคายัคทั้งหมด</p>
+              <Anchor size={18} className="text-cyan-600" />
+            </div>
+            <p className="text-2xl font-bold text-cyan-800">{kayakBookings.length}</p>
+            <div className="mt-2 flex gap-3 text-xs">
+              <span className="text-green-700 bg-green-100 px-2 py-0.5 rounded-full">ยืนยัน {approvedKayak}</span>
+              <span className="text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">รอดำเนินการ {kayakBookings.filter((b:any)=>b.status==='pending').length}</span>
+            </div>
+          </div>
+          <div className="card p-5 bg-gradient-to-br from-indigo-50 to-indigo-100 border border-indigo-200">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-indigo-700">สัดส่วนรายได้</p>
+              <TrendingUp size={18} className="text-indigo-600" />
+            </div>
+            <div className="space-y-2">
+              <div>
+                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                  <span>ห้องพัก</span>
+                  <span>฿{totalRoomRevenue.toLocaleString()}</span>
+                </div>
+                <div className="h-2 bg-white rounded-full overflow-hidden">
+                  <div className="h-full bg-teal-500 rounded-full transition-all" style={{ width: totalRoomRevenue + totalKayakRevenue > 0 ? `${Math.round(totalRoomRevenue/(totalRoomRevenue+totalKayakRevenue)*100)}%` : '0%' }} />
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-xs text-gray-600 mb-1">
+                  <span>เรือคายัค</span>
+                  <span>฿{totalKayakRevenue.toLocaleString()}</span>
+                </div>
+                <div className="h-2 bg-white rounded-full overflow-hidden">
+                  <div className="h-full bg-cyan-500 rounded-full transition-all" style={{ width: totalRoomRevenue + totalKayakRevenue > 0 ? `${Math.round(totalKayakRevenue/(totalRoomRevenue+totalKayakRevenue)*100)}%` : '0%' }} />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Management Quick Links */}
@@ -127,12 +175,12 @@ export default function AdminPage() {
         </div>
 
         {/* Tabs for Data Tables */}
-        <h2 className="text-lg font-bold text-gray-900 mb-4">รายการจองและชำระเงิน</h2>
+        <h2 className="text-lg font-bold text-gray-900 mb-4">รายการจองทั้งหมด <span className="text-sm font-normal text-gray-400">(อ่านอย่างเดียว — การตรวจสอบสลิปจัดการโดย room/boat staff)</span></h2>
         <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-xl w-fit overflow-x-auto">
-          {(['bookings', 'kayaks', 'payments'] as const).map((t) => (
+          {(['bookings', 'kayaks'] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>
-              {t === 'bookings' ? 'รายการจองห้องพัก' : t === 'kayaks' ? 'รายการจองเรือ' : 'ตรวจสอบการชำระเงิน'}
+              {t === 'bookings' ? `รายการจองห้องพัก (${roomBookings.length})` : `รายการจองเรือ (${kayakBookings.length})`}
             </button>
           ))}
         </div>
@@ -147,7 +195,7 @@ export default function AdminPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b border-gray-100">
-                      <tr>{['#', 'ลูกค้า', 'ห้อง', 'เช็คอิน', 'เช็คเอาต์', 'ราคา', 'สถานะ', 'จัดการ'].map((h) => (
+                      <tr>{['#', 'ลูกค้า', 'ห้อง', 'เช็คอิน', 'เช็คเอาต์', 'ราคา', 'สถานะ'].map((h) => (
                         <th key={h} className="text-left px-4 py-3 font-semibold text-gray-600">{h}</th>
                       ))}</tr>
                     </thead>
@@ -164,12 +212,6 @@ export default function AdminPage() {
                           <td className="px-4 py-3 text-gray-600">{new Date(b.check_out_date).toLocaleDateString('th-TH')}</td>
                           <td className="px-4 py-3 font-semibold text-teal-600">฿{Number(b.total_price).toLocaleString()}</td>
                           <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-bold ${statusClass[b.status] || 'bg-gray-100 text-gray-600'}`}>{statusLabel[b.status] || b.status}</span></td>
-                          <td className="px-4 py-3">
-                            {b.status === 'pending' && (
-                              <button onClick={() => updateBookingStatus('room', b.id, 'approved')}
-                                className="text-xs text-teal-600 hover:text-teal-700 font-medium">ยืนยัน</button>
-                            )}
-                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -209,48 +251,6 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* Payments */}
-            {tab === 'payments' && (
-              <div className="card overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-100">
-                      <tr>{['# ID', 'ลูกค้า', 'ประเภท', 'ยอด', 'สถานะ', 'สลิป', 'จัดการ'].map((h) => (
-                        <th key={h} className="text-left px-4 py-3 font-semibold text-gray-600">{h}</th>
-                      ))}</tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {payments.map((p: any) => (
-                        <tr key={p.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-gray-400">{p.id}</td>
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-gray-900">{p.user_name}</p>
-                            <p className="text-xs text-gray-400">{p.user_email}</p>
-                          </td>
-                          <td className="px-4 py-3 text-gray-700">{p.booking_type === 'room' ? 'ห้องพัก' : 'เรือ'}</td>
-                          <td className="px-4 py-3 font-semibold text-teal-600">฿{Number(p.amount).toLocaleString()}</td>
-                          <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-bold ${statusClass[p.status] || 'bg-gray-100 text-gray-600'}`}>{statusLabel[p.status] || p.status}</span></td>
-                          <td className="px-4 py-3">
-                            {p.slip_image ? (
-                              <a href={`http://localhost:5000${p.slip_image}`} target="_blank" rel="noopener noreferrer"
-                                className="text-teal-600 hover:text-teal-700 text-xs font-medium">ดูสลิป</a>
-                            ) : <span className="text-gray-300 text-xs">-</span>}
-                          </td>
-                          <td className="px-4 py-3">
-                            {p.status === 'pending' && p.slip_image && (
-                              <button onClick={() => confirmPayment(p.id)}
-                                className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium">
-                                <CheckCircle size={14} /> ยืนยันสลิป
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>

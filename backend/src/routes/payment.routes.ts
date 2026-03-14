@@ -10,6 +10,8 @@ import {
   getAllPayments,
 } from '../controllers/payment.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
+import { validate } from '../middleware/validate.middleware';
+import { createPaymentValidator } from '../middleware/validators';
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -38,7 +40,7 @@ const upload = multer({
 
 const router = Router();
 
-router.post('/', authenticate, createPayment);
+router.post('/', authenticate, createPaymentValidator, validate, createPayment);
 router.post('/:id/slip', authenticate, upload.single('slip'), uploadPaymentSlip);
 router.get('/my', authenticate, getUserPayments);
 router.get('/:id', authenticate, getPaymentById);

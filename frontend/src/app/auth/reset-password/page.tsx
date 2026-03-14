@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, Lock, Waves } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, Waves } from 'lucide-react';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -12,8 +12,8 @@ export default function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { ready } = useAuthGuard({ guestOnly: true });
-  const token = useMemo(() => searchParams.get('token') || '', [searchParams]);
-  const [form, setForm] = useState({ new_password: '', confirm_password: '' });
+  const initialEmail = useMemo(() => searchParams.get('email') || '', [searchParams]);
+  const [form, setForm] = useState({ email: initialEmail, otp: '', new_password: '', confirm_password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -21,8 +21,8 @@ export default function ResetPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) {
-      toast.error('ลิงก์รีเซ็ตไม่ถูกต้อง');
+    if (!form.email || !form.otp) {
+      toast.error('กรุณากรอกอีเมลและ OTP');
       return;
     }
     if (form.new_password !== form.confirm_password) {
@@ -36,7 +36,7 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     try {
-      await api.post('/auth/reset-password', { token, new_password: form.new_password });
+      await api.post('/auth/reset-password', { email: form.email, otp: form.otp, new_password: form.new_password });
       toast.success('ตั้งรหัสผ่านใหม่สำเร็จ');
       router.push('/auth/login');
     } catch (err: any) {
@@ -55,10 +55,37 @@ export default function ResetPasswordPage() {
               <Waves size={32} className="text-teal-600" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">ตั้งรหัสผ่านใหม่</h1>
-            <p className="text-gray-500 mt-1">กรอกรหัสผ่านใหม่ของคุณ</p>
+            <p className="text-gray-500 mt-1">กรอกอีเมล, OTP และรหัสผ่านใหม่ของคุณ</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">อีเมล</label>
+              <div className="relative">
+                <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="email"
+                  required
+                  className="input-field pl-11"
+                  placeholder="your@email.com"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">OTP</label>
+              <input
+                type="text"
+                required
+                inputMode="numeric"
+                maxLength={6}
+                className="input-field"
+                placeholder="กรอกรหัส OTP 6 หลัก"
+                value={form.otp}
+                onChange={(e) => setForm({ ...form, otp: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">รหัสผ่านใหม่</label>
               <div className="relative">

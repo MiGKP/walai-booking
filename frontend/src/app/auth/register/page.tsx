@@ -3,17 +3,17 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Waves, Mail, Lock, User, Phone } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
+import { Eye, EyeOff, Waves, Mail, Lock, Phone } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { login } = useAuthStore();
+  const { login } = useAuth();
   const { ready } = useAuthGuard({ guestOnly: true });
-  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', password: '', confirmPassword: '', phone: '' });
+  const [form, setForm] = useState({ first_name: '', last_name: '', email: '', password: '', confirmPassword: '', phone: '', line_id: '', facebook: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -37,9 +37,11 @@ export default function RegisterPage() {
         email: form.email,
         password: form.password,
         phone: form.phone,
+        line_id: form.line_id,
+        facebook: form.facebook,
       });
-      const { user, token } = res.data.data;
-      login(user, token);
+      const { token } = res.data.data;
+      await login(token);
       toast.success('สมัครสมาชิกสำเร็จ!');
       router.push('/dashboard');
     } catch (err: any) {
@@ -111,6 +113,16 @@ export default function RegisterPage() {
                 <input type="tel" className="input-field pl-11" placeholder="08X-XXX-XXXX"
                   value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">LINE ID</label>
+              <input type="text" className="input-field" placeholder="เช่น walai_user"
+                value={form.line_id} onChange={(e) => setForm({ ...form, line_id: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Facebook</label>
+              <input type="text" className="input-field" placeholder="ลิงก์หรือชื่อบัญชี Facebook"
+                value={form.facebook} onChange={(e) => setForm({ ...form, facebook: e.target.value })} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">รหัสผ่าน</label>

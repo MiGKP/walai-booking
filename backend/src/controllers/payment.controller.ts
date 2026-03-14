@@ -4,19 +4,20 @@ import generatePayload from 'promptpay-qr';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
 
-// เก็บข้อมูลบัญชีรับชำระที่ใช้สร้าง QR Code และส่งกลับไปให้ frontend แสดงในหน้าชำระเงิน
-const BANK_ACCOUNT = {
-  promptpay: process.env.PROMPTPAY_ID || '0000000000',
-  bank_name: 'กสิกรไทย',
-  account_number: process.env.BANK_ACCOUNT_NUMBER || '000-0-00000-0',
-  account_name: 'วาลัย ฟลอติ้ง รีสอร์ท',
-};
-
 // สร้างข้อมูลสำหรับหน้าชำระเงินของการจองห้องหรือเรือ โดยดึงยอดจริงจากฐานข้อมูลและสร้าง PromptPay QR Code แบบ Data URL
 export const createPayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
     const { booking_type, booking_id } = req.body;
+
+    // ดึงข้อมูลบัญชีธนาคารจาก resort_info (admin แก้ไขได้ผ่าน /admin/site-info)
+    const resortRes = await pool.query(`SELECT bank_account_no, bank_account_name, promptpay_id FROM resort_info LIMIT 1`);
+    const resort = resortRes.rows[0] || {};
+    const bankInfo = {
+      promptpay: resort.promptpay_id || process.env.PROMPTPAY_ID || '0000000000',
+      account_number: resort.bank_account_no || process.env.BANK_ACCOUNT_NUMBER || '000-0-00000-0',
+      account_name: resort.bank_account_name || process.env.BANK_ACCOUNT_NAME || 'ชื่อบัญชี',
+    };
 
     let booking: any;
     if (booking_type === 'room') {
@@ -44,7 +45,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const qrData = generatePayload(BANK_ACCOUNT.promptpay, { amount: Number(booking.total_price) });
+    const qrData = generatePayload(bankInfo.promptpay, { amount: Number(booking.total_price) });
     const qrCodeDataUrl = await QRCode.toDataURL(qrData, { errorCorrectionLevel: 'M', width: 300 });
 
     res.status(201).json({
@@ -58,7 +59,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
         status: booking.payment_status,
         slip_image: booking.payment_slip,
         qr_code_url: qrCodeDataUrl,
-        bank_info: BANK_ACCOUNT,
+        bank_info: bankInfo,
       },
     });
   } catch (error) {
@@ -83,23 +84,39 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     const slipPath = `/uploads/${file.filename}`;
     
     if (bType === 'room') {
-      const updated = await pool.query(
-        `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE room_booking_id = $2 AND member_id = $3 RETURNING room_booking_id`,
-        [slipPath, bId, user.id]
+      const existing = await pool.query(
+        `SELECT status FROM room_bookings WHERE room_booking_id = $1 AND member_id = $2`,
+        [bId, user.id]
       );
-      if (updated.rowCount === 0) {
+      if (existing.rowCount === 0) {
         res.status(404).json({ success: false, message: 'Booking not found or unauthorized' });
         return;
       }
+      if (!['pending', 'approved'].includes(existing.rows[0].status)) {
+        res.status(400).json({ success: false, message: 'Cannot upload slip for a booking with status: ' + existing.rows[0].status });
+        return;
+      }
+      await pool.query(
+        `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE room_booking_id = $2 AND member_id = $3`,
+        [slipPath, bId, user.id]
+      );
     } else if (bType === 'kayak') {
-      const updated = await pool.query(
-        `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3 RETURNING boat_booking_id`,
-        [slipPath, bId, user.id]
+      const existing = await pool.query(
+        `SELECT status FROM boat_bookings WHERE boat_booking_id = $1 AND member_id = $2`,
+        [bId, user.id]
       );
-      if (updated.rowCount === 0) {
+      if (existing.rowCount === 0) {
         res.status(404).json({ success: false, message: 'Booking not found or unauthorized' });
         return;
       }
+      if (!['pending', 'approved'].includes(existing.rows[0].status)) {
+        res.status(400).json({ success: false, message: 'Cannot upload slip for a booking with status: ' + existing.rows[0].status });
+        return;
+      }
+      await pool.query(
+        `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3`,
+        [slipPath, bId, user.id]
+      );
     } else {
       res.status(400).json({ success: false, message: 'Invalid payment ID format' });
       return;
@@ -116,12 +133,23 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
 export const confirmPayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { transaction_ref } = req.body;
     const authUser = req.user as AuthPayload;
     
     const [bType, bId] = id.split('_');
 
     if (bType === 'room') {
+      const bookingCheck = await pool.query(
+        `SELECT payment_slip FROM room_bookings WHERE room_booking_id = $1`,
+        [bId]
+      );
+      if (bookingCheck.rows.length === 0) {
+        res.status(404).json({ success: false, message: 'Booking not found' });
+        return;
+      }
+      if (!bookingCheck.rows[0].payment_slip) {
+        res.status(400).json({ success: false, message: 'Cannot approve: no payment slip uploaded yet' });
+        return;
+      }
       await pool.query(
         `UPDATE room_bookings 
          SET payment_status = 'paid', status = 'approved', payment_date = NOW(), verify_by_staff_id = $1
@@ -129,12 +157,27 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
         [authUser.id, bId]
       );
     } else if (bType === 'kayak') {
+      const bookingCheck = await pool.query(
+        `SELECT payment_slip FROM boat_bookings WHERE boat_booking_id = $1`,
+        [bId]
+      );
+      if (bookingCheck.rows.length === 0) {
+        res.status(404).json({ success: false, message: 'Booking not found' });
+        return;
+      }
+      if (!bookingCheck.rows[0].payment_slip) {
+        res.status(400).json({ success: false, message: 'Cannot approve: no payment slip uploaded yet' });
+        return;
+      }
       await pool.query(
         `UPDATE boat_bookings 
          SET payment_status = 'paid', status = 'approved'
          WHERE boat_booking_id = $1`,
         [bId]
       );
+    } else {
+      res.status(400).json({ success: false, message: 'Invalid payment ID format' });
+      return;
     }
 
     res.json({ success: true, message: 'Payment confirmed and booking approved' });
@@ -173,9 +216,17 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
       return;
     }
 
+    const resortRes2 = await pool.query(`SELECT bank_account_no, bank_account_name, promptpay_id FROM resort_info LIMIT 1`);
+    const resort2 = resortRes2.rows[0] || {};
+    const bankInfo2 = {
+      promptpay: resort2.promptpay_id || process.env.PROMPTPAY_ID || '0000000000',
+      account_number: resort2.bank_account_no || process.env.BANK_ACCOUNT_NUMBER || '000-0-00000-0',
+      account_name: resort2.bank_account_name || process.env.BANK_ACCOUNT_NAME || 'ชื่อบัญชี',
+    };
+
     res.json({
       success: true,
-      data: { ...payment, id, booking_type: bType, bank_info: BANK_ACCOUNT },
+      data: { ...payment, id, booking_type: bType, bank_info: bankInfo2 },
     });
   } catch (error) {
     console.error('Get payment error:', error);

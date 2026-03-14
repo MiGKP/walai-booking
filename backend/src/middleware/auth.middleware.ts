@@ -17,9 +17,14 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
   }
 
   const token = authHeader.split(' ')[1];
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    res.status(500).json({ success: false, message: 'Server configuration error' });
+    return;
+  }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'walai_super_secret_jwt_key_change_in_production') as AuthPayload;
+    const decoded = jwt.verify(token, secret) as AuthPayload;
     (req as AuthRequest).user = decoded;
     next();
   } catch (error) {

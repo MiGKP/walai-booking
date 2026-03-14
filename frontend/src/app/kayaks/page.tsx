@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Anchor, Users, ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
 
 interface BoatType {
@@ -29,18 +28,35 @@ const typeColors: Record<string, string> = { single: 'from-cyan-400 to-cyan-600'
 
 export default function KayaksPage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
   const [boats, setBoats] = useState<BoatType[]>([]);
   const [rounds, setRounds] = useState<BoatRound[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBoat, setSelectedBoat] = useState<BoatType | null>(null);
   const [booking, setBooking] = useState({ booking_date: '', boat_round_id: '', num_passengers: 1 });
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [availability, setAvailability] = useState<{ remaining: number; total: number; booked: number; available: boolean; total_slots: number | null; pool_booked: number } | null>(null);
+  const [availLoading, setAvailLoading] = useState(false);
 
   useEffect(() => {
     fetchBoats();
-    fetchRounds();
   }, []);
+
+  useEffect(() => {
+    if (selectedBoat) {
+      fetchRounds(selectedBoat.id);
+    } else {
+      fetchRounds();
+    }
+    setAvailability(null);
+  }, [selectedBoat]);
+
+  useEffect(() => {
+    if (selectedBoat && booking.booking_date && booking.boat_round_id) {
+      fetchAvailability();
+    } else {
+      setAvailability(null);
+    }
+  }, [booking.booking_date, booking.boat_round_id]);
 
   const fetchBoats = async () => {
     try {
@@ -53,9 +69,25 @@ export default function KayaksPage() {
     }
   };
 
-  const fetchRounds = async () => {
+  const fetchAvailability = async () => {
+    if (!selectedBoat || !booking.booking_date || !booking.boat_round_id) return;
+    setAvailLoading(true);
     try {
-      const res = await api.get('/kayaks/schedule');
+      const res = await api.get('/kayaks/availability', {
+        params: { kayak_id: selectedBoat.id, booking_date: booking.booking_date, boat_round_id: booking.boat_round_id },
+      });
+      setAvailability(res.data.data);
+    } catch {
+      setAvailability(null);
+    } finally {
+      setAvailLoading(false);
+    }
+  };
+
+  const fetchRounds = async (boatId?: number) => {
+    try {
+      const url = boatId ? `/kayaks/schedule?kayak_id=${boatId}` : '/kayaks/schedule';
+      const res = await api.get(url);
       setRounds(res.data.data);
     } catch {
       // ignore silently if rounds fail
@@ -64,7 +96,7 @@ export default function KayaksPage() {
 
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAuthenticated) { toast.error('กรุณาเข้าสู่ระบบก่อน'); router.push('/auth/login'); return; }
+    if (typeof window !== 'undefined' && !localStorage.getItem('token')) { toast.error('กรุณาเข้าสู่ระบบก่อน'); router.push('/auth/login'); return; }
     if (!selectedBoat) return;
     if (!booking.boat_round_id) { toast.error('กรุณาเลือกรอบเวลา'); return; }
     
@@ -110,7 +142,14 @@ export default function KayaksPage() {
                 {boats.map((boat) => (
                   <div
                     key={boat.id}
-                    onClick={() => setSelectedBoat(selectedBoat?.id === boat.id ? null : boat)}
+                    onClick={() => {
+                      const newBoat = selectedBoat?.id === boat.id ? null : boat;
+                      setSelectedBoat(newBoat);
+                      // Reset booking when switching boats
+                      if (newBoat?.id !== selectedBoat?.id) {
+                        setBooking({ booking_date: '', boat_round_id: '', num_passengers: 1 });
+                      }
+                    }}
                     className={`card cursor-pointer transition-all duration-300 hover:shadow-lg ${selectedBoat?.id === boat.id ? 'ring-2 ring-teal-500 shadow-lg' : ''}`}
                   >
                     <div className={`h-44 bg-gray-200 flex items-center justify-center relative overflow-hidden`}>
@@ -187,6 +226,37 @@ export default function KayaksPage() {
                         </option>
                       ))}
                     </select>
+                    {booking.boat_round_id && booking.booking_date && (
+                      <div className="mt-2">
+                        {availLoading ? (
+                          <p className="text-xs text-gray-400">กำลังตรวจสอบ...</p>
+                        ) : availability ? (
+                          <div className={`flex flex-col gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg ${
+                            availability.remaining === 0 ? 'bg-red-50 text-red-600' :
+                            availability.remaining <= 2 ? 'bg-orange-50 text-orange-600' :
+                            'bg-green-50 text-green-700'
+                          }`}>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                availability.remaining === 0 ? 'bg-red-500' :
+                                availability.remaining <= 2 ? 'bg-orange-500' :
+                                'bg-green-500'
+                              }`} />
+                              {availability.remaining === 0
+                                ? 'เรือเต็มแล้วในวันนี้'
+                                : `เหลือ ${availability.remaining} ลำ (ประเภทนี้จองแล้ว ${availability.booked}/${availability.total} ลำ)`
+                              }
+                            </div>
+                            {availability.total_slots !== null && (
+                              <div className="flex items-center gap-1.5 text-gray-500 font-normal">
+                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+                                ท่าเรือรวม: ใช้ไป {availability.pool_booked}/{availability.total_slots} ลำ (ทุกประเภท)
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">จำนวนผู้โดยสาร (สูงสุด {selectedBoat.capacity} คน)</label>

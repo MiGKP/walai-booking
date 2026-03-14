@@ -1,56 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, Anchor, XCircle, CreditCard, Timer } from 'lucide-react';
+import { CalendarDays, Anchor, XCircle, CreditCard, Timer, Star } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
-const PAYMENT_DEADLINE_MINUTES = 15;
-
-function useCountdown(createdAt: string, onExpire: () => void) {
-  const [secondsLeft, setSecondsLeft] = useState<number>(0);
-  const expiredRef = useRef(false);
-
-  useEffect(() => {
-    expiredRef.current = false;
-    const createdMs = new Date(createdAt).getTime();
-    const deadlineMs = createdMs + PAYMENT_DEADLINE_MINUTES * 60 * 1000;
-
-    const tick = () => {
-      const diff = Math.floor((deadlineMs - Date.now()) / 1000);
-      if (diff <= 0) {
-        setSecondsLeft(0);
-        if (!expiredRef.current) {
-          expiredRef.current = true;
-          onExpire();
-        }
-        return;
-      }
-      setSecondsLeft(diff);
-    };
-
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [createdAt]);
-
-  const mins = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
-  const secs = String(secondsLeft % 60).padStart(2, '0');
-  return { display: `${mins}:${secs}`, isExpired: secondsLeft === 0 };
-}
-
-function CountdownCell({ createdAt, bookingId, onExpired }: { createdAt: string; bookingId: number; onExpired: (id: number) => void }) {
-  const handleExpire = useCallback(() => onExpired(bookingId), [bookingId]);
-  const { display, isExpired } = useCountdown(createdAt, handleExpire);
-  if (isExpired) return <span className="text-xs text-red-500 font-medium">หมดเวลา</span>;
-  const mins = Number(display.split(':')[0]);
-  const color = mins <= 5 ? 'text-red-600' : mins <= 10 ? 'text-orange-500' : 'text-teal-600';
+function DeadlineCell({ createdAt, dueDays }: { createdAt: string; dueDays: number }) {
+  const deadlineMs = new Date(createdAt).getTime() + dueDays * 24 * 60 * 60 * 1000;
+  const deadline = new Date(deadlineMs);
+  const isExpired = Date.now() > deadlineMs;
+  if (isExpired) return <span className="text-xs text-red-500 font-medium">หมดเวลาแล้ว</span>;
   return (
-    <span className={`flex items-center gap-1 text-sm font-bold ${color}`}>
-      <Timer size={14} />{display}
+    <span className="flex items-center gap-1 text-xs text-teal-600">
+      <Timer size={13} /> ชำระภายใน {deadline.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
     </span>
   );
 }
@@ -64,6 +29,7 @@ export default function BookingsPage() {
   const [tab, setTab] = useState<'room' | 'kayak'>('room');
   const [roomBookings, setRoomBookings] = useState<any[]>([]);
   const [kayakBookings, setKayakBookings] = useState<any[]>([]);
+  const [paymentDueDays, setPaymentDueDays] = useState<number>(3);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,6 +46,8 @@ export default function BookingsPage() {
       ]);
       setRoomBookings(roomRes.data?.data || []);
       setKayakBookings(kayakRes.data?.data || []);
+      const dueDays = Number(roomRes.data?.payment_due_days);
+      if (dueDays > 0) setPaymentDueDays(dueDays);
     } catch {
       toast.error('ไม่สามารถโหลดข้อมูลการจองได้');
     } finally {
@@ -99,15 +67,6 @@ export default function BookingsPage() {
     }
   };
 
-  const handleExpiredBooking = useCallback(async (id: number) => {
-    try {
-      await api.put(`/bookings/${id}/cancel`);
-      toast.error('การจองถูกยกเลิกอัตโนมัติเนื่องจากหมดเวลาชำระเงิน');
-      fetchBookings();
-    } catch {
-      fetchBookings();
-    }
-  }, []);
 
   const bookings = tab === 'room' ? roomBookings : kayakBookings;
 
@@ -193,21 +152,27 @@ export default function BookingsPage() {
                     <p className="text-xs text-gray-400 mt-1">#{b.id || b.room_booking_id || b.boat_booking_id}</p>
                   </div>
                 </div>
+                {tab === 'room' && b.status === 'approved' && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <Link
+                      href="/reviews"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-yellow-600 hover:text-yellow-700 bg-yellow-50 hover:bg-yellow-100 px-4 py-2 rounded-xl transition-colors"
+                    >
+                      <Star size={14} className="fill-yellow-400 text-yellow-400" /> เขียนรีวิวการพักนี้
+                    </Link>
+                  </div>
+                )}
                 {b.status === 'pending' && (() => {
                   const bid = b.id || b.room_booking_id || b.boat_booking_id;
                   const createdAt = b.created_at;
-                  const deadlineMs = new Date(createdAt).getTime() + PAYMENT_DEADLINE_MINUTES * 60 * 1000;
+                  const deadlineMs = new Date(createdAt).getTime() + paymentDueDays * 24 * 60 * 60 * 1000;
                   const isExpired = Date.now() > deadlineMs;
                   return (
                     <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
-                      {/* Countdown */}
+                      {/* Deadline */}
                       <div className="flex items-center justify-between bg-orange-50 rounded-xl px-4 py-2.5">
                         <span className="text-xs text-orange-700 font-medium">⏳ ชำระเงินภายใน</span>
-                        {!isExpired ? (
-                          <CountdownCell createdAt={createdAt} bookingId={bid} onExpired={handleExpiredBooking} />
-                        ) : (
-                          <span className="text-xs text-red-500 font-medium">หมดเวลาแล้ว</span>
-                        )}
+                        <DeadlineCell createdAt={createdAt} dueDays={paymentDueDays} />
                       </div>
                       {/* Action Buttons */}
                       {!isExpired && (

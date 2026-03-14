@@ -16,8 +16,12 @@ import bookingRoutes from './routes/booking.routes';
 import kayakRoutes from './routes/kayak.routes';
 import paymentRoutes from './routes/payment.routes';
 import uploadRoutes from './routes/upload.routes';
+import reviewRoutes from './routes/review.routes';
+import settingsRoutes from './routes/settings.routes';
 
 import './config/passport';
+import { startReviewReminderJob } from './services/review-reminder.service';
+import { startAutoCancelJob } from './services/auto-cancel.service';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -45,11 +49,24 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+const authLimiter = rateLimit({
+  windowMs: 1 * 1,
+  max: 1,
+  message: 'Too many auth attempts, please try again later.',
+  skipSuccessfulRequests: true,
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/auth/reset-password', authLimiter);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) throw new Error('SESSION_SECRET environment variable is not set');
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'walai_session_secret',
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: { secure: process.env.NODE_ENV === 'production' },
@@ -69,6 +86,8 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/kayaks', kayakRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/settings', settingsRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Walai Booking API is running' });
@@ -84,6 +103,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 app.listen(PORT, () => {
   console.log(`🌊 Walai Booking API running on port ${PORT}`);
+  startReviewReminderJob();
+  startAutoCancelJob();
 });
 
 export default app;

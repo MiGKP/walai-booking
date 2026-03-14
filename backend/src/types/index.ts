@@ -41,7 +41,7 @@ export interface RoomType {
   price: number;
   capacity?: number;
   description?: string;
-  amenity_id?: number;
+  amenity_ids: number[];
   status: boolean;
 }
 

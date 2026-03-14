@@ -11,7 +11,7 @@ passport.use(
   new JwtStrategy(
     {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: process.env.JWT_SECRET || 'walai_super_secret_jwt_key_change_in_production',
+      secretOrKey: process.env.JWT_SECRET || (() => { throw new Error('JWT_SECRET environment variable is not set'); })(),
     },
     // callback นี้จะทำงานหลังจากถอด JWT สำเร็จ เพื่อยืนยันว่า user ใน token ยังมีอยู่จริงในระบบ
     async (payload, done) => {

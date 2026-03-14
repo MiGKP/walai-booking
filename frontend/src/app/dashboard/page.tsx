@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Phone, Save, Lock } from 'lucide-react';
+import { User, Mail, Phone, Save, Lock, Upload } from 'lucide-react';
 import api from '@/lib/api';
-import { useAuthStore } from '@/store/authStore';
+import { useAuth } from '@/hooks/useAuth';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { resolveAvatarUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
@@ -13,15 +14,22 @@ import Link from 'next/link';
 export default function DashboardPage() {
   const router = useRouter();
   const { ready, user } = useAuthGuard();
-  const { updateUser } = useAuthStore();
-  const [profile, setProfile] = useState({ first_name: '', last_name: '', phone: '' });
+  const { updateUser } = useAuth();
+  const [profile, setProfile] = useState({ first_name: '', last_name: '', phone: '', line_id: '', facebook: '' });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [passwords, setPasswords] = useState({ current_password: '', new_password: '', confirm: '' });
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
+  const displayAvatarSrc = useMemo(() => (avatarLoadError ? '' : avatarPreview), [avatarLoadError, avatarPreview]);
 
   useEffect(() => {
     if (!ready || !user) return;
-    setProfile({ first_name: user.first_name, last_name: user.last_name, phone: user.phone || '' });
+    setProfile({ first_name: user.first_name, last_name: user.last_name, phone: user.phone || '', line_id: user.line_id || '', facebook: user.facebook || '' });
+    setAvatarPreview(resolveAvatarUrl(user.avatar));
+    setAvatarLoadError(false);
   }, [ready, user]);
 
   // บันทึกการแก้ไขข้อมูลโปรไฟล์ เช่น ชื่อและเบอร์โทร แล้ว sync ข้อมูลใหม่กลับเข้า auth store
@@ -36,6 +44,39 @@ export default function DashboardPage() {
       toast.error(err.response?.data?.message || 'บันทึกไม่สำเร็จ');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarFile(file);
+    setAvatarLoadError(false);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const handleUploadAvatar = async () => {
+    if (!avatarFile) {
+      toast.error('กรุณาเลือกรูปโปรไฟล์ก่อน');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+      const res = await api.post('/auth/profile/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      updateUser({ avatar: res.data.data.avatar });
+      setAvatarLoadError(false);
+      setAvatarPreview(resolveAvatarUrl(res.data.data.avatar));
+      setAvatarFile(null);
+      toast.success('อัปเดตรูปโปรไฟล์สำเร็จ');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'อัปโหลดรูปโปรไฟล์ไม่สำเร็จ');
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -95,8 +136,8 @@ export default function DashboardPage() {
         <div className="card p-6 mb-5">
           <div className="flex items-center gap-5 mb-6">
             <div className="w-20 h-20 rounded-2xl bg-teal-100 flex items-center justify-center overflow-hidden">
-              {user.avatar ? (
-                <img src={user.avatar} alt={`${user.first_name} ${user.last_name}`} className="w-full h-full object-cover" />
+              {displayAvatarSrc ? (
+                <img src={displayAvatarSrc} alt={`${user.first_name} ${user.last_name}`} className="w-full h-full object-cover" onError={() => setAvatarLoadError(true)} />
               ) : (
                 <User size={36} className="text-teal-600" />
               )}
@@ -109,6 +150,18 @@ export default function DashboardPage() {
               </span>
             </div>
           </div>
+
+          {user.role === 'customer' && (
+            <div className="mb-6 rounded-xl border border-gray-200 p-4 bg-gray-50">
+              <label className="block text-sm font-medium text-gray-700 mb-2">รูปโปรไฟล์</label>
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <input type="file" accept="image/*" onChange={handleAvatarChange} className="block w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-teal-100 file:px-4 file:py-2 file:text-teal-700" />
+                <button type="button" onClick={handleUploadAvatar} disabled={uploadingAvatar || !avatarFile} className="btn-outline flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                  <Upload size={16} /> {uploadingAvatar ? 'กำลังอัปโหลด...' : 'อัปโหลดรูป'}
+                </button>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSaveProfile} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -137,6 +190,16 @@ export default function DashboardPage() {
                 <input type="tel" className="input-field pl-10" placeholder="08X-XXX-XXXX" value={profile.phone}
                   onChange={(e) => setProfile({ ...profile, phone: e.target.value })} />
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">LINE ID</label>
+              <input type="text" className="input-field" placeholder="เช่น walai_user" value={profile.line_id}
+                onChange={(e) => setProfile({ ...profile, line_id: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Facebook</label>
+              <input type="text" className="input-field" placeholder="ลิงก์หรือชื่อบัญชี Facebook" value={profile.facebook}
+                onChange={(e) => setProfile({ ...profile, facebook: e.target.value })} />
             </div>
             <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2 disabled:opacity-60">
               <Save size={16} /> {saving ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}

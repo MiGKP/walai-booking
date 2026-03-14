@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, UserPlus, Eye, Power, PowerOff, X } from 'lucide-react';
+import { ArrowLeft, UserPlus, Eye, Power, PowerOff, X, Edit2 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
@@ -17,9 +17,13 @@ export default function StaffManagementPage() {
     address: '', subdistrict: '', district: '', province: '', postal_code: ''
   });
 
-  // Modal State
+  // View Modal State
   const [selectedStaff, setSelectedStaff] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Edit Modal State
+  const [editingStaff, setEditingStaff] = useState<any>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -91,6 +95,36 @@ export default function StaffManagementPage() {
   const closeStaffDetails = () => {
     setIsModalOpen(false);
     setSelectedStaff(null);
+  };
+
+  const openEditModal = (staff: any) => {
+    setEditingStaff({
+      id: staff.id,
+      name: `${staff.first_name} ${staff.last_name}`.trim(),
+      email: staff.email,
+      phone: staff.phone || '',
+      role: staff.role,
+      address: staff.address || '',
+      subdistrict: staff.subdistrict || '',
+      district: staff.district || '',
+      province: staff.province || '',
+      postal_code: staff.postal_code || '',
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStaff) return;
+    try {
+      await api.put(`/auth/staff/${editingStaff.id}`, editingStaff);
+      toast.success('แก้ไขข้อมูลพนักงานสำเร็จ');
+      setIsEditModalOpen(false);
+      setEditingStaff(null);
+      fetchStaff();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'แก้ไขข้อมูลไม่สำเร็จ');
+    }
   };
 
   return (
@@ -217,6 +251,9 @@ export default function StaffManagementPage() {
                              <button onClick={() => openStaffDetails(s)} className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="ดูข้อมูลพนักงาน">
                                 <Eye size={18} />
                              </button>
+                             <button onClick={() => openEditModal(s)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors" title="แก้ไขข้อมูล">
+                                <Edit2 size={18} />
+                             </button>
                              {s.id !== user?.id && (
                                 <>
                                     <button 
@@ -239,6 +276,75 @@ export default function StaffManagementPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Staff Modal */}
+      {isEditModalOpen && editingStaff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+              <h3 className="text-lg font-bold text-gray-900">แก้ไขข้อมูลพนักงาน</h3>
+              <button onClick={() => { setIsEditModalOpen(false); setEditingStaff(null); }} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateStaff} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล</label>
+                <input type="text" required className="input-field" value={editingStaff.name} onChange={(e) => setEditingStaff({ ...editingStaff, name: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
+                <input type="email" required className="input-field" value={editingStaff.email} onChange={(e) => setEditingStaff({ ...editingStaff, email: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label>
+                <input type="tel" className="input-field" value={editingStaff.phone} onChange={(e) => setEditingStaff({ ...editingStaff, phone: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ตำแหน่ง</label>
+                <select className="input-field" value={editingStaff.role} onChange={(e) => setEditingStaff({ ...editingStaff, role: e.target.value })}>
+                  <option value="room_staff">พนักงานจัดการห้องพัก</option>
+                  <option value="boat_staff">พนักงานจัดการเรือ</option>
+                  <option value="admin">ผู้ดูแลระบบ (Admin)</option>
+                </select>
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-sm font-semibold text-gray-600 mb-3">ที่อยู่</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">ที่อยู่</label>
+                    <input type="text" className="input-field" placeholder="บ้านเลขที่, ซอย, ถนน" value={editingStaff.address} onChange={(e) => setEditingStaff({ ...editingStaff, address: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ตำบล/แขวง</label>
+                      <input type="text" className="input-field" value={editingStaff.subdistrict} onChange={(e) => setEditingStaff({ ...editingStaff, subdistrict: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">อำเภอ/เขต</label>
+                      <input type="text" className="input-field" value={editingStaff.district} onChange={(e) => setEditingStaff({ ...editingStaff, district: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">จังหวัด</label>
+                      <input type="text" className="input-field" value={editingStaff.province} onChange={(e) => setEditingStaff({ ...editingStaff, province: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">รหัสไปรษณีย์</label>
+                      <input type="text" maxLength={5} className="input-field" value={editingStaff.postal_code} onChange={(e) => setEditingStaff({ ...editingStaff, postal_code: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => { setIsEditModalOpen(false); setEditingStaff(null); }} className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-colors">ยกเลิก</button>
+                <button type="submit" className="flex-1 btn-primary">บันทึก</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Staff Details Modal */}
       {isModalOpen && selectedStaff && (

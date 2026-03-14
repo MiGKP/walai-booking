@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Anchor, CheckCircle, XCircle, Clock, Eye, X } from 'lucide-react';
+import { Anchor, CheckCircle, XCircle, Clock, Eye, X, BarChart3, Phone, Timer } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
@@ -31,6 +31,8 @@ export default function BoatStaffDashboard() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'has_slip' | 'pending' | 'approved'>('has_slip');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [slipModal, setSlipModal] = useState<{ open: boolean; url: string; name: string }>({ open: false, url: '', name: '' });
 
   useEffect(() => {
@@ -65,11 +67,13 @@ export default function BoatStaffDashboard() {
   };
 
   const filtered = (() => {
-    if (filter === 'all') return bookings;
-    if (filter === 'has_slip') return bookings.filter(b => b.payment_slip && b.status !== 'approved' && b.status !== 'rejected');
-    if (filter === 'pending') return bookings.filter(b => !b.payment_slip && b.status === 'pending');
-    if (filter === 'approved') return bookings.filter(b => b.status === 'approved');
-    return bookings;
+    let list = bookings;
+    if (filter === 'has_slip') list = list.filter(b => b.payment_slip && b.status !== 'approved' && b.status !== 'rejected');
+    else if (filter === 'pending') list = list.filter(b => !b.payment_slip && b.status === 'pending');
+    else if (filter === 'approved') list = list.filter(b => b.status === 'approved');
+    if (dateFrom) list = list.filter(b => b.booking_date && new Date(b.booking_date) >= new Date(dateFrom));
+    if (dateTo) list = list.filter(b => b.booking_date && new Date(b.booking_date) <= new Date(dateTo));
+    return list;
   })();
 
   const counts = {
@@ -94,9 +98,20 @@ export default function BoatStaffDashboard() {
               <p className="text-gray-500 mt-0.5">จัดการและยืนยันการจองเรือและคายัค</p>
             </div>
           </div>
-          <span className="text-sm text-gray-500 bg-white px-3 py-1.5 rounded-full border border-gray-200">
-            {user?.role === 'admin' ? 'ผู้ดูแลระบบ' : 'พนักงานเรือ'}
-          </span>
+          <div className="flex items-center gap-2">
+            <Link href="/admin/boat-hours" className="flex items-center gap-1.5 text-xs bg-sky-50 text-sky-700 hover:bg-sky-100 px-3 py-1.5 rounded-xl border border-sky-200 transition-colors">
+              <Clock size={13} /> เวลาทำการ
+            </Link>
+            <Link href="/admin/contact" className="flex items-center gap-1.5 text-xs bg-pink-50 text-pink-700 hover:bg-pink-100 px-3 py-1.5 rounded-xl border border-pink-200 transition-colors">
+              <Phone size={13} /> ติดต่อ
+            </Link>
+            <Link href="/admin/stats" className="flex items-center gap-1.5 text-xs bg-rose-50 text-rose-700 hover:bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200 transition-colors">
+              <BarChart3 size={13} /> สถิติ
+            </Link>
+            <span className="text-sm text-gray-500 bg-white px-3 py-1.5 rounded-full border border-gray-200">
+              {user?.role === 'admin' ? 'ผู้ดูแลระบบ' : 'พนักงานเรือ'}
+            </span>
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -128,6 +143,17 @@ export default function BoatStaffDashboard() {
               <p className="text-2xl font-bold text-green-600">{counts.approved}</p>
             </div>
           </div>
+        </div>
+
+        {/* Date Range Filter */}
+        <div className="flex gap-3 mb-4 items-center flex-wrap">
+          <span className="text-sm text-gray-500">ช่วงวันจอง:</span>
+          <input type="date" className="input-field text-sm py-1.5" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+          <span className="text-sm text-gray-400">–</span>
+          <input type="date" className="input-field text-sm py-1.5" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+          {(dateFrom || dateTo) && (
+            <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-xs text-red-500 hover:text-red-700 underline">ล้าง</button>
+          )}
         </div>
 
         {/* Filter Tabs */}

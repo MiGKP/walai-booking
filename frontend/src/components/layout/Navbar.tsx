@@ -1,17 +1,35 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Waves, Menu, X, User, LogOut, ChevronDown } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
+import { Waves, Menu, X, User, LogOut, ChevronDown, Star } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { resolveAvatarUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
+  const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const avatarSrc = useMemo(() => resolveAvatarUrl(user?.avatar), [user?.avatar]);
+
+  useEffect(() => {
+    setAvatarLoadError(false);
+  }, [avatarSrc]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    if (dropdownOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [dropdownOpen]);
 
   const handleLogout = () => {
     logout();
@@ -27,7 +45,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 font-bold text-xl text-teal-700">
             <Waves size={28} className="text-teal-500" />
-            วาลัย
+            วลัย
           </Link>
 
           {/* Desktop Nav */}
@@ -40,13 +58,13 @@ export default function Navbar() {
           {/* Auth */}
           <div className="hidden md:flex items-center gap-3">
             {isAuthenticated && user ? (
-              <div className="relative">
+              <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"
                 >
-                  {user.avatar ? (
-                    <img src={user.avatar} alt={`${user.first_name} ${user.last_name}`} className="w-8 h-8 rounded-full object-cover" />
+                  {avatarSrc && !avatarLoadError ? (
+                    <img src={avatarSrc} alt={`${user.first_name} ${user.last_name}`} className="w-8 h-8 rounded-full object-cover" onError={() => setAvatarLoadError(true)} />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
                       <User size={16} className="text-teal-600" />
@@ -67,10 +85,50 @@ export default function Navbar() {
                     <Link href="/dashboard/bookings" className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setDropdownOpen(false)}>
                       การจองของฉัน
                     </Link>
+                    <Link href="/reviews" className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setDropdownOpen(false)}>
+                      <Star size={16} /> รีวิวของฉัน
+                    </Link>
                     {user.role === 'admin' && (
-                      <Link href="/admin" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
-                        แผงควบคุม Admin
-                      </Link>
+                      <>
+                        <Link href="/admin" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                          แผงควบคุม Admin
+                        </Link>
+                        <Link href="/admin/stats" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                          รายงานสถิติ
+                        </Link>
+                      </>
+                    )}
+                    {user.role === 'room_staff' && (
+                      <>
+                        <Link href="/staff/rooms/dashboard" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                          แดชบอร์ดห้องพัก
+                        </Link>
+                        <Link href="/admin/reviews" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                          รีวิวจากผู้เข้าพัก
+                        </Link>
+                        <Link href="/admin/contact" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                          ข้อมูลติดต่อ
+                        </Link>
+                        <Link href="/admin/stats" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                          รายงานสถิติ
+                        </Link>
+                      </>
+                    )}
+                    {user.role === 'boat_staff' && (
+                      <>
+                        <Link href="/staff/boats/dashboard" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                          แดชบอร์ดเรือ
+                        </Link>
+                        <Link href="/admin/boat-hours" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                          เวลาทำการเรือ
+                        </Link>
+                        <Link href="/admin/contact" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                          ข้อมูลติดต่อ
+                        </Link>
+                        <Link href="/admin/stats" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                          รายงานสถิติ
+                        </Link>
+                      </>
                     )}
                     <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 w-full">
                       <LogOut size={16} /> ออกจากระบบ
@@ -102,6 +160,8 @@ export default function Navbar() {
           {isAuthenticated ? (
             <>
               <Link href="/dashboard" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>โปรไฟล์ของฉัน</Link>
+              <Link href="/dashboard/bookings" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>การจองของฉัน</Link>
+              <Link href="/reviews" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>รีวิวของฉัน</Link>
               <button onClick={() => { handleLogout(); setIsOpen(false); }} className="w-full text-left py-3 px-4 rounded-xl text-red-600 hover:bg-red-50 font-medium">ออกจากระบบ</button>
             </>
           ) : (

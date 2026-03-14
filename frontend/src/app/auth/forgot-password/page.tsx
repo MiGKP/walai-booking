@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Mail, Waves } from 'lucide-react';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const { ready } = useAuthGuard({ guestOnly: true });
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,9 +23,9 @@ export default function ForgotPasswordPage() {
     try {
       await api.post('/auth/forgot-password', { email });
       setSubmitted(true);
-      toast.success('หากอีเมลนี้มีอยู่ในระบบ เราได้ส่งลิงก์รีเซ็ตรหัสผ่านให้แล้ว');
+      toast.success('หากอีเมลนี้มีอยู่ในระบบ เราได้ส่ง OTP สำหรับรีเซ็ตรหัสผ่านให้แล้ว');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'ไม่สามารถสร้างลิงก์รีเซ็ตได้');
+      toast.error(err.response?.data?.message || 'ไม่สามารถส่ง OTP ได้');
     } finally {
       setLoading(false);
     }
@@ -38,7 +40,7 @@ export default function ForgotPasswordPage() {
               <Waves size={32} className="text-teal-600" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">กู้รหัสผ่าน</h1>
-            <p className="text-gray-500 mt-1">กรอกอีเมลเพื่อสร้างลิงก์ตั้งรหัสผ่านใหม่</p>
+            <p className="text-gray-500 mt-1">กรอกอีเมลเพื่อรับ OTP สำหรับตั้งรหัสผ่านใหม่</p>
           </div>
 
           {submitted ? (
@@ -49,8 +51,15 @@ export default function ForgotPasswordPage() {
               <h2 className="text-lg font-bold text-gray-900">เช็กอีเมลของคุณ</h2>
               <p className="mt-2 text-sm leading-6 text-gray-600">
                 หากอีเมล <span className="font-semibold text-gray-900">{email}</span> มีอยู่ในระบบ
-                เราได้ส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ให้แล้ว
+                เราได้ส่ง OTP สำหรับตั้งรหัสผ่านใหม่ให้แล้ว
               </p>
+              <button
+                type="button"
+                onClick={() => router.push(`/auth/reset-password?email=${encodeURIComponent(email)}`)}
+                className="mt-4 btn-primary w-full"
+              >
+                ไปหน้ากรอก OTP
+              </button>
               <button
                 type="button"
                 onClick={() => setSubmitted(false)}
@@ -76,7 +85,7 @@ export default function ForgotPasswordPage() {
                 </div>
               </div>
               <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60 disabled:cursor-not-allowed">
-                {loading ? 'กำลังส่งอีเมล...' : 'ส่งลิงก์รีเซ็ตรหัสผ่าน'}
+                {loading ? 'กำลังส่ง OTP...' : 'ส่ง OTP ไปยังอีเมล'}
               </button>
             </form>
           )}

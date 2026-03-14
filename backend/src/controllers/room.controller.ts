@@ -22,15 +22,37 @@ const normalizeImagePaths = (value: unknown): string[] => {
 };
 
 // ดึงรายการประเภทห้องพักทั้งหมดที่เปิดใช้งานอยู่ พร้อมรูป, จำนวนห้องว่าง และสิ่งอำนวยความสะดวกสำหรับหน้าแสดงผลฝั่งลูกค้า
+// รับ check_in/check_out เพื่อคำนวณ available_count ตามช่วงวันจริง
 export const getAllRooms = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { min_price, max_price, capacity } = req.query;
+    const { min_price, max_price, capacity, check_in, check_out } = req.query;
     
+    const params: any[] = [];
+    let idx = 1;
+
+    // Build available_count subquery — ถ้าส่ง check_in/check_out มาให้นับเฉพาะห้องที่ไม่ถูกจองช่วงนั้น
+    let availableCountSubquery: string;
+    if (check_in && check_out) {
+      availableCountSubquery = `(
+        SELECT COUNT(*) FROM rooms r
+        WHERE r.room_type_id = rt.id AND r.status != 'maintenance'
+        AND r.room_id NOT IN (
+          SELECT rb.room_id FROM room_bookings rb
+          WHERE rb.status NOT IN ('cancelled', 'rejected')
+          AND rb.check_in < $${idx} AND rb.check_out > $${idx + 1}
+        )
+      )`;
+      params.push(check_out, check_in); // check_out=$idx, check_in=$idx+1
+      idx += 2;
+    } else {
+      availableCountSubquery = `(SELECT COUNT(*) FROM rooms r WHERE r.room_type_id = rt.id AND r.status = 'available')`;
+    }
+
     let query = `
       SELECT rt.id, rt.room_name, rt.type_name, rt.description, 
              rt.price as price_per_night, rt.capacity, rt.room_image as main_image, rt.status,
              (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as images,
-             (SELECT COUNT(*) FROM rooms r WHERE r.room_type_id = rt.id AND r.status = 'available') as available_count,
+             ${availableCountSubquery} as available_count,
              (
                 SELECT json_agg(json_build_object('id', a.id, 'name', a.name) ORDER BY a.id)
                 FROM room_amenities a
@@ -39,9 +61,6 @@ export const getAllRooms = async (req: Request, res: Response): Promise<void> =>
       FROM room_types rt 
       WHERE rt.status = true
     `;
-    
-    const params: any[] = [];
-    let idx = 1;
 
     if (min_price) { query += ` AND rt.price >= $${idx++}`; params.push(Number(min_price)); }
     if (max_price) { query += ` AND rt.price <= $${idx++}`; params.push(Number(max_price)); }
@@ -181,14 +200,16 @@ export const createSingleRoom = async (req: Request, res: Response): Promise<voi
 // สร้างสิ่งอำนวยความสะดวกใหม่ เช่น Wi-Fi, เครื่องปรับอากาศ เพื่อนำไปผูกกับประเภทห้องภายหลัง
 export const createRoomAmenity = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, icon } = req.body;
-    
-    // Assuming table structure: room_amenities (amenity_id, name, icon, status)
-    // Check if table exists and create amenity
-    // Note: If icon is not in schema, we just insert name and status=true
+    const { name } = req.body;
+
+    if (!String(name || '').trim()) {
+      res.status(400).json({ success: false, message: 'Amenity name is required' });
+      return;
+    }
+
     const result = await pool.query(
       `INSERT INTO room_amenities (name, status) VALUES ($1, true) RETURNING *`,
-      [name]
+      [String(name).trim()]
     );
     
     res.status(201).json({ success: true, message: 'Amenity created', data: result.rows[0] });
@@ -254,6 +275,91 @@ export const getAmenities = async (req: Request, res: Response): Promise<void> =
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get amenities error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// อัปเดตข้อมูลห้องย่อย เช่น หมายเลขห้องหรือสถานะ
+export const updateSingleRoom = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { room_number, status } = req.body;
+    const result = await pool.query(
+      `UPDATE rooms SET room_number = COALESCE($1, room_number), status = COALESCE($2, status)
+       WHERE room_id = $3 RETURNING *`,
+      [room_number || null, status || null, id]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Room not found' });
+      return;
+    }
+    res.json({ success: true, message: 'Room updated', data: result.rows[0] });
+  } catch (error) {
+    console.error('Update single room error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// ลบห้องย่อยออกจากระบบ
+export const deleteSingleRoom = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const bookingCheck = await pool.query(
+      `SELECT COUNT(*) as count FROM room_bookings WHERE room_id = $1 AND status NOT IN ('cancelled', 'rejected')`,
+      [id]
+    );
+    if (Number(bookingCheck.rows[0].count) > 0) {
+      res.status(400).json({ success: false, message: 'ไม่สามารถลบได้ เนื่องจากมีการจองที่ยังค้างอยู่' });
+      return;
+    }
+    const result = await pool.query('DELETE FROM rooms WHERE room_id = $1 RETURNING *', [id]);
+    if (result.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Room not found' });
+      return;
+    }
+    res.json({ success: true, message: 'Room deleted' });
+  } catch (error) {
+    console.error('Delete single room error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// อัปเดตชื่อสิ่งอำนวยความสะดวก
+export const updateAmenity = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+    if (!String(name || '').trim()) {
+      res.status(400).json({ success: false, message: 'Amenity name is required' });
+      return;
+    }
+    const result = await pool.query(
+      `UPDATE room_amenities SET name = $1 WHERE id = $2 RETURNING *`,
+      [String(name).trim(), id]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Amenity not found' });
+      return;
+    }
+    res.json({ success: true, message: 'Amenity updated', data: result.rows[0] });
+  } catch (error) {
+    console.error('Update amenity error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// ลบสิ่งอำนวยความสะดวกออกจากระบบ
+export const deleteAmenity = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM room_amenities WHERE id = $1 RETURNING *', [id]);
+    if (result.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Amenity not found' });
+      return;
+    }
+    res.json({ success: true, message: 'Amenity deleted' });
+  } catch (error) {
+    console.error('Delete amenity error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

@@ -11,7 +11,7 @@ export default function Footer() {
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2 font-bold text-xl text-white mb-4">
               <Waves size={28} className="text-teal-400" />
-              วาลัย
+              วลัย
             </Link>
             <p className="text-sm leading-relaxed text-gray-400">
               ที่พักลอยน้ำสุดพิเศษ ท่ามกลางธรรมชาติอันงดงาม พร้อมกิจกรรมเรือคายัคสนุกสนาน
@@ -64,7 +64,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="border-t border-gray-800 py-5 text-center text-sm text-gray-500">
-        © 2024 วาลัย ที่พักลอยน้ำ. สงวนลิขสิทธิ์ทุกประการ
+        © 2024 วลัย ที่พักลอยน้ำ. สงวนลิขสิทธิ์ทุกประการ
       </div>
     </footer>
   );
