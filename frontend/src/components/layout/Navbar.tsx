@@ -61,6 +61,9 @@ export default function Navbar() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
+                  aria-label="เมนูผู้ใช้"
+                  aria-expanded={dropdownOpen}
+                  aria-haspopup="true"
                   className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"
                 >
                   {avatarSrc && !avatarLoadError ? (
@@ -71,10 +74,14 @@ export default function Navbar() {
                     </div>
                   )}
                   <span className="font-medium text-gray-700 max-w-[120px] truncate">{user.first_name} {user.last_name}</span>
-                  <ChevronDown size={16} className="text-gray-400" />
+                  <ChevronDown
+                    size={16}
+                    className="text-gray-400 transition-transform duration-200"
+                    style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  />
                 </button>
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+                  <div className="animate-dropdown absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-50">
                       <p className="text-sm font-semibold text-gray-900 truncate">{user.first_name} {user.last_name}</p>
                       <p className="text-xs text-gray-500 truncate">{user.email}</p>
@@ -106,9 +113,6 @@ export default function Navbar() {
                         <Link href="/admin/reviews" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
                           รีวิวจากผู้เข้าพัก
                         </Link>
-                        <Link href="/admin/contact" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
-                          ข้อมูลติดต่อ
-                        </Link>
                         <Link href="/admin/stats" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
                           รายงานสถิติ
                         </Link>
@@ -121,9 +125,6 @@ export default function Navbar() {
                         </Link>
                         <Link href="/admin/boat-hours" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
                           เวลาทำการเรือ
-                        </Link>
-                        <Link href="/admin/contact" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
-                          ข้อมูลติดต่อ
                         </Link>
                         <Link href="/admin/stats" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
                           รายงานสถิติ
@@ -145,7 +146,12 @@ export default function Navbar() {
           </div>
 
           {/* Mobile menu button */}
-          <button onClick={() => setIsOpen(!isOpen)} className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            aria-label={isOpen ? 'ปิดเมนู' : 'เปิดเมนู'}
+            aria-expanded={isOpen}
+            className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+          >
             {isOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
@@ -153,7 +159,7 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-2">
+        <div className="animate-mobile-menu md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-2">
           <Link href="/" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>หน้าแรก</Link>
           <Link href="/rooms" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>ห้องพัก</Link>
           <Link href="/kayaks" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>เรือคายัค</Link>

@@ -77,7 +77,7 @@ export default function HomePage() {
             <span>ที่พักลอยน้ำแห่งแรกในภูมิภาค</span>
           </div>
           <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-            {resortInfo.name || 'สวนวลัยรุกขเวช'}
+            {'สวนวลัยรุกขเวช'}
             <br />
             <br />
             <span className="text-cyan-300">ที่พักลอยน้ำ</span>

@@ -126,7 +126,7 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
     res.json({ success: true, data: result.rows[0] });
   } catch (error: any) {
     console.error('Upsert resort info error:', error?.message || error);
-    res.status(500).json({ success: false, message: error?.message || 'Internal server error' });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 

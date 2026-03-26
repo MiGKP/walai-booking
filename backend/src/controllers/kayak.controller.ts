@@ -265,8 +265,8 @@ export const cancelKayakBooking = async (req: Request, res: Response): Promise<v
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;
     }
-    if (booking.rows[0].status === 'cancelled') {
-      res.status(400).json({ success: false, message: 'Booking already cancelled' });
+    if (booking.rows[0].status !== 'pending') {
+      res.status(400).json({ success: false, message: `Cannot cancel booking with status: ${booking.rows[0].status}` });
       return;
     }
 

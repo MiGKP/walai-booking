@@ -22,7 +22,7 @@ const buildDisplayName = (firstName?: string | null, lastName?: string | null): 
 const createPasswordResetOtp = () => {
   const otpCode = crypto.randomInt(100000, 1000000).toString();
   const hashedOtp = crypto.createHash('sha256').update(otpCode).digest('hex');
-  const expiresInMinutes = Number(process.env.PASSWORD_RESET_EXPIRES_MINUTES || '10');
+  const expiresInMinutes = Number(process.env.PASSWORD_RESET_EXPIRES_MINUTES || '30');
   const expiresAt = new Date(Date.now() + 1000 * 60 * expiresInMinutes);
 
   return { otpCode, hashedOtp, expiresAt };
@@ -46,7 +46,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
        RETURNING member_id, first_name, last_name, email, phone, line_id, facebook`,
       [first_name, last_name, email, password_hash, phone || null, line_id || null, facebook || null]
     );
-
     const token = generateToken({ id: result.rows[0].member_id, email, role: 'customer' });
     const { password: _, ...userSafe } = result.rows[0];
 
@@ -544,8 +543,8 @@ export const setPassword = async (req: Request, res: Response): Promise<void> =>
     const authUser = req.user as AuthPayload;
     const { new_password } = req.body;
 
-    if (!new_password || new_password.length < 6) {
-      res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    if (!new_password || new_password.length < 8) {
+      res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
       return;
     }
 

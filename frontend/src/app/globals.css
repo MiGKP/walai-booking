@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -8,28 +8,45 @@
   --foreground-rgb: 15, 23, 42;
   --background-start-rgb: 240, 249, 255;
   --background-end-rgb: 255, 255, 255;
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 body {
-  font-family: 'Sarabun', 'Inter', sans-serif;
+  font-family: "Sarabun", "Inter", sans-serif;
   color: rgb(var(--foreground-rgb));
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 px-6 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md active:scale-95;
+    @apply bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 px-6 rounded-xl shadow-sm hover:shadow-md active:scale-95;
+    transition:
+      background-color 200ms var(--ease-out-quart),
+      box-shadow 200ms var(--ease-out-quart),
+      transform 100ms var(--ease-out-quart);
   }
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-700 font-semibold py-2.5 px-6 rounded-xl border border-gray-200 transition-all duration-200 shadow-sm hover:shadow-md active:scale-95;
+    @apply bg-white hover:bg-gray-50 text-gray-700 font-semibold py-2.5 px-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md active:scale-95;
+    transition:
+      background-color 200ms var(--ease-out-quart),
+      box-shadow 200ms var(--ease-out-quart),
+      transform 100ms var(--ease-out-quart);
   }
   .btn-outline {
-    @apply border-2 border-teal-600 text-teal-600 hover:bg-teal-600 hover:text-white font-semibold py-2.5 px-6 rounded-xl transition-all duration-200 active:scale-95;
+    @apply border-2 border-teal-600 text-teal-600 hover:bg-teal-600 hover:text-white font-semibold py-2.5 px-6 rounded-xl active:scale-95;
+    transition:
+      background-color 200ms var(--ease-out-quart),
+      color 200ms var(--ease-out-quart),
+      transform 100ms var(--ease-out-quart);
   }
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden;
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100;
   }
   .input-field {
-    @apply w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200 bg-white;
+    @apply w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white;
+    transition:
+      border-color 150ms var(--ease-out-quart),
+      box-shadow 150ms var(--ease-out-quart);
   }
   .badge-pending {
     @apply bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-1 rounded-full;
@@ -45,5 +62,59 @@ body {
   }
   .badge-paid {
     @apply bg-green-100 text-green-800 text-xs font-medium px-2.5 py-1 rounded-full;
+  }
+
+  /* Dropdown / slide-down animation */
+  .animate-dropdown {
+    animation: dropdownIn 220ms var(--ease-out-expo) both;
+  }
+  @keyframes dropdownIn {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* Mobile menu slide-down */
+  .animate-mobile-menu {
+    animation: mobileMenuIn 250ms var(--ease-out-expo) both;
+  }
+  @keyframes mobileMenuIn {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Fade-in utility */
+  .animate-fade-in {
+    animation: fadeIn 300ms var(--ease-out-quart) both;
+  }
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

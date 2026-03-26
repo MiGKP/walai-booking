@@ -34,6 +34,7 @@ import {
   changePasswordValidator,
   setPasswordValidator,
   createStaffValidator,
+  initAdminValidator,
 } from '../middleware/validators';
 
 const router = Router();
@@ -64,7 +65,7 @@ const uploadAvatar = multer({
 });
 
 // Admin Staff Management
-router.post('/init-admin', initAdmin); // No auth required, but checks if admin already exists
+router.post('/init-admin', initAdminValidator, validate, initAdmin); // No auth required, but checks if admin already exists
 router.post('/staff', authenticate, authorize('admin'), createStaffValidator, validate, createStaff);
 router.get('/staff', authenticate, authorize('admin'), getAllStaff);
 router.get('/staff/:id', authenticate, authorize('admin'), getStaffById);
