@@ -126,8 +126,8 @@ export const createKayakBookingValidator = [
 export const updateKayakBookingStatusValidator = [
   param('id').isInt({ min: 1 }).withMessage('Valid booking ID is required'),
   body('status')
-    .isIn(['approved', 'rejected', 'pending'])
-    .withMessage('Status must be approved, rejected, or pending'),
+    .isIn(['approved', 'rejected', 'pending', 'checked_out'])
+    .withMessage('Status must be approved, rejected, pending, or checked_out'),
 ];
 
 export const createKayakValidator = [
@@ -152,4 +152,47 @@ export const createPaymentValidator = [
     .isIn(['room', 'kayak'])
     .withMessage('booking_type must be room or kayak'),
   body('booking_id').isInt({ min: 1 }).withMessage('Valid booking_id is required'),
+];
+
+// ─── Promotion ────────────────────────────────────────────────────────────────
+
+export const createPromotionValidator = [
+  body('code').trim().notEmpty().withMessage('Promotion code is required')
+    .isLength({ min: 2, max: 50 }).withMessage('Code must be 2–50 characters'),
+  body('name').trim().notEmpty().withMessage('Promotion name is required'),
+  body('description').optional({ nullable: true, checkFalsy: true }).trim(),
+  body('discount_type')
+    .isIn(['percent', 'fixed'])
+    .withMessage('discount_type must be percent or fixed'),
+  body('discount_value')
+    .isFloat({ min: 0 })
+    .withMessage('discount_value must be a positive number'),
+  body('min_nights').optional({ nullable: true }).isInt({ min: 1 }).withMessage('min_nights must be a positive integer'),
+  body('min_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('min_price must be a positive number'),
+  body('max_discount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('max_discount must be a positive number'),
+  body('start_date').optional({ nullable: true }).isISO8601().withMessage('start_date must be a valid date'),
+  body('end_date').optional({ nullable: true }).isISO8601().withMessage('end_date must be a valid date'),
+  body('usage_limit').optional({ nullable: true }).isInt({ min: 1 }).withMessage('usage_limit must be a positive integer'),
+  body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
+];
+
+export const updatePromotionValidator = [
+  body('code').optional().trim().isLength({ min: 2, max: 50 }).withMessage('Code must be 2–50 characters'),
+  body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
+  body('description').optional({ nullable: true, checkFalsy: true }).trim(),
+  body('discount_type').optional().isIn(['percent', 'fixed']).withMessage('discount_type must be percent or fixed'),
+  body('discount_value').optional().isFloat({ min: 0 }).withMessage('discount_value must be a positive number'),
+  body('min_nights').optional({ nullable: true }).isInt({ min: 1 }).withMessage('min_nights must be a positive integer'),
+  body('min_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('min_price must be a positive number'),
+  body('max_discount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('max_discount must be a positive number'),
+  body('start_date').optional({ nullable: true }).isISO8601().withMessage('start_date must be a valid date'),
+  body('end_date').optional({ nullable: true }).isISO8601().withMessage('end_date must be a valid date'),
+  body('usage_limit').optional({ nullable: true }).isInt({ min: 1 }).withMessage('usage_limit must be a positive integer'),
+  body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
+];
+
+export const validatePromoCodeValidator = [
+  body('code').trim().notEmpty().withMessage('Promotion code is required'),
+  body('price').optional().isFloat({ min: 0 }).withMessage('price must be a positive number'),
+  body('nights').optional().isInt({ min: 1 }).withMessage('nights must be a positive integer'),
 ];

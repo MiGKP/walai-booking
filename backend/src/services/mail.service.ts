@@ -104,3 +104,55 @@ export const sendPasswordResetEmail = async (params: {
     `,
   });
 };
+
+export const sendPaymentSlipNotificationEmail = async (params: {
+  to: string;
+  customerName: string;
+  bookingType: 'room' | 'kayak';
+  bookingId: number;
+  amount: number;
+  adminDashboardUrl: string;
+}) => {
+  const missingEnv = getMissingMailEnv();
+  if (missingEnv.length > 0) {
+    console.warn('[mail] Skipping slip notification — missing env:', missingEnv.join(', '));
+    return;
+  }
+  const transporter = createTransporter();
+  const appName = process.env.APP_NAME || 'Walai Booking';
+  const bookingTypeLabel = params.bookingType === 'room' ? 'ห้องพัก' : 'เรือคายัค';
+
+  try {
+    await transporter.verify();
+    await transporter.sendMail({
+      from: getMailFrom(),
+      to: params.to,
+      subject: `[${appName}] มีสลิปใหม่รอตรวจสอบ — ${params.customerName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; background: #f5f7fb; padding: 24px; color: #1f2937;">
+          <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 32px; border: 1px solid #e5e7eb;">
+            <div style="margin-bottom: 24px;">
+              <div style="display: inline-block; background: #fef3c7; color: #d97706; font-weight: 700; padding: 10px 14px; border-radius: 999px;">🔔 แจ้งเตือนสลิปใหม่</div>
+            </div>
+            <h1 style="font-size: 22px; margin: 0 0 16px; color: #111827;">มีสลิปการชำระเงินรอตรวจสอบ</h1>
+            <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
+              ลูกค้า <strong>${params.customerName}</strong> ได้อัปโหลดสลิปการชำระเงินสำหรับการจอง${bookingTypeLabel}
+            </p>
+            <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 24px; font-size: 14px; line-height: 1.8;">
+              <div>📋 <strong>ประเภท:</strong> ${bookingTypeLabel}</div>
+              <div>🔢 <strong>รหัสการจอง:</strong> #${params.bookingId}</div>
+              <div>💰 <strong>ยอดชำระ:</strong> ฿${Number(params.amount).toLocaleString()}</div>
+            </div>
+            <a href="${params.adminDashboardUrl}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 16px;">
+              ไปตรวจสอบสลิป →
+            </a>
+            <p style="font-size: 13px; color: #9ca3af; margin: 16px 0 0;">อีเมลนี้ส่งโดยอัตโนมัติจากระบบ ${appName}</p>
+          </div>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error('[mail] Failed to send slip notification email:', err);
+  }
+};
+

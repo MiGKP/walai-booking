@@ -45,7 +45,7 @@ router.post('/:id/slip', authenticate, upload.single('slip'), uploadPaymentSlip)
 router.get('/my', authenticate, getUserPayments);
 router.get('/:id', authenticate, getPaymentById);
 
-router.get('/', authenticate, authorize('admin'), getAllPayments);
-router.put('/:id/confirm', authenticate, authorize('admin'), confirmPayment);
+router.get('/', authenticate, authorize('admin', 'room_staff', 'boat_staff'), getAllPayments);
+router.put('/:id/confirm', authenticate, authorize('admin', 'room_staff', 'boat_staff'), confirmPayment);
 
 export default router;

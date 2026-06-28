@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Anchor, CheckCircle, XCircle, Clock, Eye, X, BarChart3, Phone, Timer } from 'lucide-react';
+import { Anchor, CheckCircle, XCircle, Clock, Eye, X, BarChart3, Phone, Timer, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
@@ -15,6 +15,7 @@ const statusLabel: Record<string, string> = {
   approved: 'ยืนยันแล้ว',
   cancelled: 'ยกเลิก',
   rejected: 'ถูกปฏิเสธ',
+  checked_out: 'เช็คเอาต์แล้ว',
 };
 const statusClass: Record<string, string> = {
   pending: 'bg-orange-100 text-orange-700',
@@ -22,6 +23,7 @@ const statusClass: Record<string, string> = {
   approved: 'bg-green-100 text-green-700',
   cancelled: 'bg-gray-100 text-gray-600',
   rejected: 'bg-red-100 text-red-700',
+  checked_out: 'bg-teal-100 text-teal-700',
 };
 
 // หน้าแดชบอร์ดของ boat staff สำหรับตรวจสอบสลิป ดูรายการจอง และอนุมัติหรือปฏิเสธการจองเรือ
@@ -30,10 +32,16 @@ export default function BoatStaffDashboard() {
   const { ready, user } = useAuthGuard({ allowedRoles: ['admin', 'boat_staff'] });
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'has_slip' | 'pending' | 'approved'>('has_slip');
+  const [filter, setFilter] = useState<'all' | 'has_slip' | 'pending' | 'approved' | 'checked_out'>('has_slip');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [slipModal, setSlipModal] = useState<{ open: boolean; url: string; name: string }>({ open: false, url: '', name: '' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, dateFrom, dateTo]);
 
   useEffect(() => {
     if (!ready) return;
@@ -66,11 +74,23 @@ export default function BoatStaffDashboard() {
     }
   };
 
+  const handleCheckout = async (id: number) => {
+    if (!confirm('ยืนยันเช็คเอาต์?')) return;
+    try {
+      await api.put(`/kayaks/bookings/${id}/checkout`);
+      toast.success('เช็คเอาต์สำเร็จ');
+      fetchBookings();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'เช็คเอาต์ไม่สำเร็จ');
+    }
+  };
+
   const filtered = (() => {
     let list = bookings;
     if (filter === 'has_slip') list = list.filter(b => b.payment_slip && b.status !== 'approved' && b.status !== 'rejected');
     else if (filter === 'pending') list = list.filter(b => !b.payment_slip && b.status === 'pending');
     else if (filter === 'approved') list = list.filter(b => b.status === 'approved');
+    else if (filter === 'checked_out') list = list.filter(b => b.status === 'checked_out');
     if (dateFrom) list = list.filter(b => b.booking_date && new Date(b.booking_date) >= new Date(dateFrom));
     if (dateTo) list = list.filter(b => b.booking_date && new Date(b.booking_date) <= new Date(dateTo));
     return list;
@@ -80,7 +100,11 @@ export default function BoatStaffDashboard() {
     has_slip: bookings.filter(b => b.payment_slip && b.status !== 'approved' && b.status !== 'rejected').length,
     pending: bookings.filter(b => !b.payment_slip && b.status === 'pending').length,
     approved: bookings.filter(b => b.status === 'approved').length,
+    checked_out: bookings.filter(b => b.status === 'checked_out').length,
   };
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedBookings = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (!ready) return null;
 
@@ -162,7 +186,8 @@ export default function BoatStaffDashboard() {
             ['all', 'ทั้งหมด', bookings.length],
             ['has_slip', 'รอตรวจสอบสลิป', counts.has_slip],
             ['pending', 'รอดำเนินการ (ยังไม่จ่าย)', counts.pending],
-            ['approved', 'ยืนยันแล้ว', counts.approved],
+            ['approved', 'ยืนยันแล้ว (รอ check-out)', counts.approved],
+            ['checked_out', 'เช็คเอาต์แล้ว', counts.checked_out],
           ] as const).map(([val, label, count]) => (
             <button
               key={val}
@@ -194,10 +219,10 @@ export default function BoatStaffDashboard() {
               <tbody className="divide-y divide-gray-50 bg-white">
                 {loading ? (
                   <tr><td colSpan={9} className="p-8 text-center text-gray-400">กำลังโหลด...</td></tr>
-                ) : filtered.length === 0 ? (
+                ) : paginatedBookings.length === 0 ? (
                   <tr><td colSpan={9} className="p-8 text-center text-gray-400">ไม่มีรายการ</td></tr>
                 ) : (
-                  filtered.map((b: any) => (
+                  paginatedBookings.map((b: any) => (
                     <tr key={b.boat_booking_id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 text-gray-400 text-xs">#{b.boat_booking_id}</td>
                       <td className="px-4 py-3">
@@ -213,9 +238,16 @@ export default function BoatStaffDashboard() {
                       </td>
                       <td className="px-4 py-3 font-semibold text-cyan-600">฿{Number(b.total_price || 0).toLocaleString()}</td>
                       <td className="px-4 py-3">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${statusClass[b.status] || 'bg-gray-100 text-gray-600'}`}>
-                          {statusLabel[b.status] || b.status}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${statusClass[b.status] || 'bg-gray-100 text-gray-600'}`}>
+                            {statusLabel[b.status] || b.status}
+                          </span>
+                          {b.approved_by_name && (b.status === 'approved' || b.status === 'rejected' || b.status === 'checked_out') && (
+                            <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                              โดย: {b.approved_by_name}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         {b.payment_slip ? (
@@ -245,8 +277,15 @@ export default function BoatStaffDashboard() {
                               <XCircle size={13} /> ปฏิเสธ
                             </button>
                           </div>
+                        ) : b.status === 'approved' ? (
+                          <button
+                            onClick={() => handleCheckout(b.boat_booking_id)}
+                            className="flex items-center gap-1 text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 font-medium px-2.5 py-1.5 rounded-lg transition-colors"
+                          >
+                            ✅ Check-out
+                          </button>
                         ) : (
-                          <span className="text-xs text-gray-300">{b.status === 'approved' ? 'ยืนยันแล้ว' : b.status === 'rejected' ? 'ปฏิเสธแล้ว' : '-'}</span>
+                          <span className="text-xs text-gray-300">{b.status === 'checked_out' ? 'เช็คเอาต์แล้ว' : b.status === 'rejected' ? 'ปฏิเสธแล้ว' : '-'}</span>
                         )}
                       </td>
                     </tr>
@@ -255,6 +294,39 @@ export default function BoatStaffDashboard() {
               </tbody>
             </table>
           </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-100">
+              <span className="text-sm text-gray-500">
+                แสดง {(currentPage - 1) * itemsPerPage + 1} ถึง {Math.min(currentPage * itemsPerPage, filtered.length)} จาก {filtered.length} รายการ
+              </span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 rounded-lg border border-gray-200 text-gray-600 disabled:opacity-50 hover:bg-gray-50 transition-colors"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-cyan-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-1 rounded-lg border border-gray-200 text-gray-600 disabled:opacity-50 hover:bg-gray-50 transition-colors"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

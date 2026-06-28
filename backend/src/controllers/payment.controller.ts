@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import generatePayload from 'promptpay-qr';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
+import { sendPaymentSlipNotificationEmail } from '../services/mail.service';
 
 // สร้างข้อมูลสำหรับหน้าชำระเงินของการจองห้องหรือเรือ โดยดึงยอดจริงจากฐานข้อมูลและสร้าง PromptPay QR Code แบบ Data URL
 export const createPayment = async (req: Request, res: Response): Promise<void> => {
@@ -69,6 +70,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
 };
 
 // รับไฟล์สลิปจาก member แล้วผูกสลิปเข้ากับรายการจองที่เป็นเจ้าของอยู่ พร้อมอัปเดตสถานะเป็นรอตรวจสอบการชำระเงิน
+// และส่งอีเมลแจ้ง admin/staff ให้มาตรวจสอบสลิป
 export const uploadPaymentSlip = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -82,10 +84,15 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     }
 
     const slipPath = `/uploads/${file.filename}`;
-    
+    let totalPrice = 0;
+    let memberName = '';
+
     if (bType === 'room') {
       const existing = await pool.query(
-        `SELECT status FROM room_bookings WHERE room_booking_id = $1 AND member_id = $2`,
+        `SELECT rb.status, rb.total_price, m.first_name, m.last_name
+         FROM room_bookings rb
+         JOIN members m ON rb.member_id = m.member_id
+         WHERE rb.room_booking_id = $1 AND rb.member_id = $2`,
         [bId, user.id]
       );
       if (existing.rowCount === 0) {
@@ -96,13 +103,18 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
         res.status(400).json({ success: false, message: 'Cannot upload slip for a booking with status: ' + existing.rows[0].status });
         return;
       }
+      totalPrice = Number(existing.rows[0].total_price);
+      memberName = `${existing.rows[0].first_name || ''} ${existing.rows[0].last_name || ''}`.trim();
       await pool.query(
         `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE room_booking_id = $2 AND member_id = $3`,
         [slipPath, bId, user.id]
       );
     } else if (bType === 'kayak') {
       const existing = await pool.query(
-        `SELECT status FROM boat_bookings WHERE boat_booking_id = $1 AND member_id = $2`,
+        `SELECT bb.status, bb.total_price, m.first_name, m.last_name
+         FROM boat_bookings bb
+         JOIN members m ON bb.member_id = m.member_id
+         WHERE bb.boat_booking_id = $1 AND bb.member_id = $2`,
         [bId, user.id]
       );
       if (existing.rowCount === 0) {
@@ -113,6 +125,8 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
         res.status(400).json({ success: false, message: 'Cannot upload slip for a booking with status: ' + existing.rows[0].status });
         return;
       }
+      totalPrice = Number(existing.rows[0].total_price);
+      memberName = `${existing.rows[0].first_name || ''} ${existing.rows[0].last_name || ''}`.trim();
       await pool.query(
         `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3`,
         [slipPath, bId, user.id]
@@ -121,6 +135,31 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       res.status(400).json({ success: false, message: 'Invalid payment ID format' });
       return;
     }
+
+    // ส่งอีเมลแจ้งเตือน admin / staff ให้มาตรวจสอบสลิป (fire-and-forget)
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const dashboardUrl = bType === 'room'
+      ? `${frontendUrl}/admin/rooms/dashboard`
+      : `${frontendUrl}/admin/boats/dashboard`;
+
+    // ดึง email ของ admin และ staff ที่เกี่ยวข้องเพื่อส่งแจ้งเตือน
+    const staffRole = bType === 'room' ? ['admin', 'room_staff'] : ['admin', 'boat_staff'];
+    pool.query(
+      `SELECT email FROM staff WHERE role = ANY($1) AND status = true`,
+      [staffRole]
+    ).then(staffRes => {
+      const emails = staffRes.rows.map((r: any) => r.email).filter(Boolean);
+      if (emails.length > 0) {
+        sendPaymentSlipNotificationEmail({
+          to: emails.join(','),
+          customerName: memberName || user.email,
+          bookingType: bType as 'room' | 'kayak',
+          bookingId: Number(bId),
+          amount: totalPrice,
+          adminDashboardUrl: dashboardUrl,
+        }).catch(console.error);
+      }
+    }).catch(console.error);
 
     res.json({ success: true, message: 'Payment slip uploaded, awaiting confirmation', data: { slip_image: slipPath } });
   } catch (error) {

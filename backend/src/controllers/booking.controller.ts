@@ -48,6 +48,13 @@ export const createRoomBooking = async (req: Request, res: Response): Promise<vo
       [user.id, room_id, check_in_date, check_out_date, guests, special_requests, promotion_id || null]
     );
 
+    if (promotion_id) {
+      await client.query(
+        'UPDATE promotions SET usage_count = usage_count + 1 WHERE id = $1',
+        [promotion_id]
+      );
+    }
+
     await client.query('COMMIT');
     res.status(201).json({ success: true, message: 'Booking created', data: result.rows[0] });
   } catch (error) {
@@ -169,11 +176,13 @@ export const getAllRoomBookings = async (req: Request, res: Response): Promise<v
               rb.guest_count as guests, rb.total_price, rb.status,
               rb.payment_status, rb.payment_slip, rb.created_at,
               rt.type_name as room_name, r.room_number,
-              m.first_name || ' ' || m.last_name as user_name, m.email as user_email
+              m.first_name || ' ' || m.last_name as user_name, m.email as user_email,
+              s.first_name || ' ' || s.last_name as approved_by_name
        FROM room_bookings rb
        JOIN rooms r ON rb.room_id = r.room_id
        JOIN room_types rt ON r.room_type_id = rt.id
        JOIN members m ON rb.member_id = m.member_id
+       LEFT JOIN staff s ON rb.approved_by_staff_id = s.staff_id
        ORDER BY rb.created_at DESC`
     );
     res.json({ success: true, data: result.rows });
@@ -183,22 +192,31 @@ export const getAllRoomBookings = async (req: Request, res: Response): Promise<v
   }
 };
 
-// อัปเดตสถานะการจองห้องพัก เช่น approved, rejected หรือ pending จากฝั่งพนักงานหรือผู้ดูแลระบบ
+// อัปเดตสถานะการจองห้องพัก เช่น approved, rejected, pending, cancelled, checked_out จากฝั่งพนักงานหรือผู้ดูแลระบบ
 export const updateRoomBookingStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    const user = req.user as AuthPayload;
 
-    const allowed = ['approved', 'rejected', 'pending', 'cancelled'];
+    const allowed = ['approved', 'rejected', 'pending', 'cancelled', 'checked_out'];
     if (!allowed.includes(status)) {
       res.status(400).json({ success: false, message: 'Invalid status' });
       return;
     }
 
-    const result = await pool.query(
-      `UPDATE room_bookings SET status = $1 WHERE room_booking_id = $2 RETURNING *`,
-      [status, id]
-    );
+    let query = `UPDATE room_bookings SET status = $1, updated_at = NOW()`;
+    const params: any[] = [status];
+
+    if (status === 'approved' || status === 'rejected') {
+      query += `, approved_by_staff_id = $2`;
+      params.push(user.id);
+    }
+
+    params.push(id);
+    query += ` WHERE room_booking_id = $${params.length} RETURNING *`;
+
+    const result = await pool.query(query, params);
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;
@@ -206,6 +224,38 @@ export const updateRoomBookingStatus = async (req: Request, res: Response): Prom
     res.json({ success: true, message: 'Booking status updated', data: result.rows[0] });
   } catch (error) {
     console.error('Update booking status error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// บันทึกการ check out ห้องพัก — เปลี่ยนสถานะเป็น checked_out และบันทึกเวลาออก
+export const checkoutRoomBooking = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const booking = await pool.query(
+      'SELECT status FROM room_bookings WHERE room_booking_id = $1',
+      [id]
+    );
+    if (booking.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Booking not found' });
+      return;
+    }
+    if (booking.rows[0].status !== 'approved') {
+      res.status(400).json({
+        success: false,
+        message: `ไม่สามารถ checkout ได้ เนื่องจากสถานะปัจจุบันคือ: ${booking.rows[0].status}`,
+      });
+      return;
+    }
+
+    await pool.query(
+      `UPDATE room_bookings SET status = 'checked_out', checkout_at = NOW(), updated_at = NOW() WHERE room_booking_id = $1`,
+      [id]
+    );
+    res.json({ success: true, message: 'เช็คเอาต์สำเร็จ' });
+  } catch (error) {
+    console.error('Checkout room booking error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

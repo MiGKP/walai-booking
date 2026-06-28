@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Waves, Menu, X, User, LogOut, ChevronDown, Star } from 'lucide-react';
+import { Menu, X, User, LogOut, ChevronDown, Star } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveAvatarUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
@@ -12,6 +12,7 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -31,6 +32,13 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [dropdownOpen]);
 
+  /* Track scroll to add subtle shadow */
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   const handleLogout = () => {
     logout();
     toast.success('ออกจากระบบเรียบร้อย');
@@ -39,20 +47,55 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm">
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${
+        scrolled
+          ? 'bg-cream-100/95 backdrop-blur-md shadow-[0_1px_3px_rgba(18,60,48,0.06)]'
+          : 'bg-cream-100/80 backdrop-blur-sm'
+      }`}
+      style={{ borderBottom: '1px solid var(--color-stone-200)' }}
+    >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl text-teal-700">
-            <Waves size={28} className="text-teal-500" />
-            วลัย
+          <Link href="/" className="flex items-center gap-2.5 group">
+            {/* Custom leaf/water logomark */}
+            <svg width="30" height="30" viewBox="0 0 30 30" fill="none" className="transition-transform duration-300 group-hover:scale-105">
+              <path
+                d="M15 2C15 2 6 8 6 17C6 22 10 26 15 28C20 26 24 22 24 17C24 8 15 2 15 2Z"
+                fill="#123C30"
+                opacity="0.9"
+              />
+              <path
+                d="M15 8C15 8 10 12 10 18C10 21 12 24 15 25C18 24 20 21 20 18C20 12 15 8 15 8Z"
+                fill="#4E878C"
+                opacity="0.7"
+              />
+              <path
+                d="M15 14C15 14 13 16 13 19C13 20.5 14 22 15 22.5C16 22 17 20.5 17 19C17 16 15 14 15 14Z"
+                fill="#D9A05B"
+                opacity="0.8"
+              />
+            </svg>
+            <span className="font-display text-xl font-semibold text-forest-800 tracking-tight">วลัย</span>
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-8">
-            <Link href="/" className="text-gray-600 hover:text-teal-600 font-medium transition-colors">หน้าแรก</Link>
-            <Link href="/rooms" className="text-gray-600 hover:text-teal-600 font-medium transition-colors">ห้องพัก</Link>
-            <Link href="/kayaks" className="text-gray-600 hover:text-teal-600 font-medium transition-colors">เรือคายัค</Link>
+          <div className="hidden md:flex items-center gap-1">
+            {[
+              { href: '/', label: 'หน้าแรก' },
+              { href: '/rooms', label: 'ห้องพัก' },
+              { href: '/kayaks', label: 'เรือคายัค' },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="relative px-4 py-2 text-charcoal-600 hover:text-forest-800 font-medium transition-colors duration-200 group"
+              >
+                {link.label}
+                <span className="absolute bottom-0 left-4 right-4 h-[2px] bg-bamboo-400 scale-x-0 group-hover:scale-x-100 transition-transform duration-250 origin-left" />
+              </Link>
+            ))}
           </div>
 
           {/* Auth */}
@@ -64,74 +107,74 @@ export default function Navbar() {
                   aria-label="เมนูผู้ใช้"
                   aria-expanded={dropdownOpen}
                   aria-haspopup="true"
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-forest-50 transition-colors duration-200"
                 >
                   {avatarSrc && !avatarLoadError ? (
-                    <img src={avatarSrc} alt={`${user.first_name} ${user.last_name}`} className="w-8 h-8 rounded-full object-cover" onError={() => setAvatarLoadError(true)} />
+                    <img src={avatarSrc} alt={`${user.first_name} ${user.last_name}`} className="w-8 h-8 rounded-full object-cover ring-2 ring-cream-200" onError={() => setAvatarLoadError(true)} />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
-                      <User size={16} className="text-teal-600" />
+                    <div className="w-8 h-8 rounded-full bg-forest-100 flex items-center justify-center">
+                      <User size={16} className="text-forest-700" />
                     </div>
                   )}
-                  <span className="font-medium text-gray-700 max-w-[120px] truncate">{user.first_name} {user.last_name}</span>
+                  <span className="font-medium text-charcoal max-w-[120px] truncate">{user.first_name} {user.last_name}</span>
                   <ChevronDown
                     size={16}
-                    className="text-gray-400 transition-transform duration-200"
+                    className="text-charcoal-400 transition-transform duration-200"
                     style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
                   />
                 </button>
                 {dropdownOpen && (
-                  <div className="animate-dropdown absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-50">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{user.first_name} {user.last_name}</p>
-                      <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                  <div className="animate-dropdown absolute right-0 mt-2 w-52 bg-cream-100 rounded-2xl overflow-hidden" style={{ border: '1px solid var(--color-stone-200)', boxShadow: '0 8px 24px rgba(18,60,48,0.08)' }}>
+                    <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--color-stone-200)' }}>
+                      <p className="text-sm font-semibold text-charcoal truncate">{user.first_name} {user.last_name}</p>
+                      <p className="text-xs text-charcoal-400 truncate">{user.email}</p>
                     </div>
-                    <Link href="/dashboard" className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setDropdownOpen(false)}>
+                    <Link href="/dashboard" className="flex items-center gap-2 px-4 py-3 text-sm text-charcoal hover:bg-forest-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                       <User size={16} /> โปรไฟล์ของฉัน
                     </Link>
-                    <Link href="/dashboard/bookings" className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setDropdownOpen(false)}>
+                    <Link href="/dashboard/bookings" className="flex items-center gap-2 px-4 py-3 text-sm text-charcoal hover:bg-forest-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                       การจองของฉัน
                     </Link>
-                    <Link href="/reviews" className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setDropdownOpen(false)}>
+                    <Link href="/reviews" className="flex items-center gap-2 px-4 py-3 text-sm text-charcoal hover:bg-forest-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                       <Star size={16} /> รีวิวของฉัน
                     </Link>
                     {user.role === 'admin' && (
                       <>
-                        <Link href="/admin" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                        <Link href="/admin" className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                           แผงควบคุม Admin
                         </Link>
-                        <Link href="/admin/stats" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                        <Link href="/admin/stats" className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                           รายงานสถิติ
                         </Link>
                       </>
                     )}
                     {user.role === 'room_staff' && (
                       <>
-                        <Link href="/staff/rooms/dashboard" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                        <Link href="/staff/rooms/dashboard" className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                           แดชบอร์ดห้องพัก
                         </Link>
-                        <Link href="/admin/reviews" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                        <Link href="/admin/reviews" className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                           รีวิวจากผู้เข้าพัก
                         </Link>
-                        <Link href="/admin/stats" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                        <Link href="/admin/stats" className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                           รายงานสถิติ
                         </Link>
                       </>
                     )}
                     {user.role === 'boat_staff' && (
                       <>
-                        <Link href="/staff/boats/dashboard" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                        <Link href="/staff/boats/dashboard" className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                           แดชบอร์ดเรือ
                         </Link>
-                        <Link href="/admin/boat-hours" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                        <Link href="/admin/boat-hours" className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                           เวลาทำการเรือ
                         </Link>
-                        <Link href="/admin/stats" className="flex items-center gap-2 px-4 py-3 text-sm text-teal-600 hover:bg-teal-50" onClick={() => setDropdownOpen(false)}>
+                        <Link href="/admin/stats" className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors" onClick={() => setDropdownOpen(false)}>
                           รายงานสถิติ
                         </Link>
                       </>
                     )}
-                    <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 w-full">
+                    <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 w-full transition-colors">
                       <LogOut size={16} /> ออกจากระบบ
                     </button>
                   </div>
@@ -139,7 +182,7 @@ export default function Navbar() {
               </div>
             ) : (
               <>
-                <Link href="/auth/login" className="text-gray-600 hover:text-teal-600 font-medium transition-colors px-4 py-2">เข้าสู่ระบบ</Link>
+                <Link href="/auth/login" className="text-charcoal-600 hover:text-forest-800 font-medium transition-colors px-4 py-2">เข้าสู่ระบบ</Link>
                 <Link href="/auth/register" className="btn-primary text-sm py-2 px-5">สมัครสมาชิก</Link>
               </>
             )}
@@ -150,7 +193,7 @@ export default function Navbar() {
             onClick={() => setIsOpen(!isOpen)}
             aria-label={isOpen ? 'ปิดเมนู' : 'เปิดเมนู'}
             aria-expanded={isOpen}
-            className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+            className="md:hidden p-2 rounded-lg text-charcoal hover:bg-forest-50 transition-colors"
           >
             {isOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -159,21 +202,21 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="animate-mobile-menu md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-2">
-          <Link href="/" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>หน้าแรก</Link>
-          <Link href="/rooms" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>ห้องพัก</Link>
-          <Link href="/kayaks" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>เรือคายัค</Link>
+        <div className="animate-mobile-menu md:hidden bg-cream-100 px-4 py-4 space-y-1" style={{ borderTop: '1px solid var(--color-stone-200)' }}>
+          <Link href="/" className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors" onClick={() => setIsOpen(false)}>หน้าแรก</Link>
+          <Link href="/rooms" className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors" onClick={() => setIsOpen(false)}>ห้องพัก</Link>
+          <Link href="/kayaks" className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors" onClick={() => setIsOpen(false)}>เรือคายัค</Link>
           {isAuthenticated ? (
             <>
-              <Link href="/dashboard" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>โปรไฟล์ของฉัน</Link>
-              <Link href="/dashboard/bookings" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>การจองของฉัน</Link>
-              <Link href="/reviews" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>รีวิวของฉัน</Link>
-              <button onClick={() => { handleLogout(); setIsOpen(false); }} className="w-full text-left py-3 px-4 rounded-xl text-red-600 hover:bg-red-50 font-medium">ออกจากระบบ</button>
+              <Link href="/dashboard" className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors" onClick={() => setIsOpen(false)}>โปรไฟล์ของฉัน</Link>
+              <Link href="/dashboard/bookings" className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors" onClick={() => setIsOpen(false)}>การจองของฉัน</Link>
+              <Link href="/reviews" className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors" onClick={() => setIsOpen(false)}>รีวิวของฉัน</Link>
+              <button onClick={() => { handleLogout(); setIsOpen(false); }} className="w-full text-left py-3 px-4 rounded-xl text-red-600 hover:bg-red-50 font-medium transition-colors">ออกจากระบบ</button>
             </>
           ) : (
             <>
-              <Link href="/auth/login" className="block py-3 px-4 rounded-xl text-gray-700 hover:bg-gray-50 font-medium" onClick={() => setIsOpen(false)}>เข้าสู่ระบบ</Link>
-              <Link href="/auth/register" className="block py-3 px-4 rounded-xl bg-teal-600 text-white font-medium text-center" onClick={() => setIsOpen(false)}>สมัครสมาชิก</Link>
+              <Link href="/auth/login" className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors" onClick={() => setIsOpen(false)}>เข้าสู่ระบบ</Link>
+              <Link href="/auth/register" className="block py-3 px-4 rounded-xl bg-forest-800 text-cream-100 font-medium text-center transition-colors" onClick={() => setIsOpen(false)}>สมัครสมาชิก</Link>
             </>
           )}
         </div>

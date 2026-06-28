@@ -6,6 +6,7 @@ import {
   cancelRoomBooking,
   getAllRoomBookings,
   updateRoomBookingStatus,
+  checkoutRoomBooking,
 } from '../controllers/booking.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
@@ -23,5 +24,6 @@ router.put('/:id/cancel', authenticate, cancelRoomBooking);
 // Admin + room_staff routes
 router.get('/', authenticate, authorize('admin', 'room_staff'), getAllRoomBookings);
 router.put('/:id/status', authenticate, authorize('admin', 'room_staff'), updateRoomBookingStatusValidator, validate, updateRoomBookingStatus);
+router.put('/:id/checkout', authenticate, authorize('admin', 'room_staff'), checkoutRoomBooking);
 
 export default router;

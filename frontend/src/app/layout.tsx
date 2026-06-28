@@ -10,11 +10,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="th">
       <head>
-        <title>สวนวลัยรุกขเวช</title>
-        <meta name="description" content="สวนวลัยรุกขเวช ที่พักลอยน้ำสุดพิเศษ พร้อมกิจกรรมเรือคายัค" />
+        <title>สวนวลัยรุกขเวช — ที่พักลอยน้ำ</title>
+        <meta name="description" content="สวนวลัยรุกขเวช ที่พักลอยน้ำสุดพิเศษท่ามกลางธรรมชาติ พร้อมกิจกรรมเรือคายัค จ.มหาสารคาม" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
-      <body>
+      <body className="bg-cream-100 text-charcoal antialiased">
         <AuthProvider>
           <Navbar />
           <main className="min-h-screen">{children}</main>

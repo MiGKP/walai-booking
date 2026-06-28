@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, Anchor, CreditCard, CheckCircle, PlusCircle, Home, Sailboat, TrendingUp, BarChart3, MessageSquare, Building2, Phone, Clock, UserCheck } from 'lucide-react';
+import { Users, Anchor, CreditCard, CheckCircle, PlusCircle, Home, Sailboat, TrendingUp, BarChart3, MessageSquare, Building2, Phone, Clock, UserCheck, Tag } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
@@ -62,6 +62,7 @@ export default function AdminPage() {
     { label: 'จัดการหมายเลขห้องพัก', icon: <PlusCircle size={32} />, desc: 'เพิ่มหมายเลขห้องพักรายห้อง', path: '/admin/rooms/single', color: 'bg-blue-100 text-blue-700', hover: 'hover:bg-blue-50 hover:border-blue-200' },
     { label: 'จัดการประเภทเรือ', icon: <Anchor size={32} />, desc: 'เพิ่มประเภทเรือและคายัค', path: '/admin/boats/types', color: 'bg-cyan-100 text-cyan-700', hover: 'hover:bg-cyan-50 hover:border-cyan-200' },
     { label: 'จัดการรอบเวลาเรือ', icon: <Sailboat size={32} />, desc: 'เพิ่มรอบเวลาสำหรับเรือ', path: '/admin/boats/rounds', color: 'bg-sky-100 text-sky-700', hover: 'hover:bg-sky-50 hover:border-sky-200' },
+    { label: 'จัดการโปรโมชั่น', icon: <Tag size={32} />, desc: 'สร้างโค้ดส่วนลดสำหรับการจองห้องพัก', path: '/admin/promotions', color: 'bg-purple-100 text-purple-700', hover: 'hover:bg-purple-50 hover:border-purple-200' },
     { label: 'ดูรีวิวจากผู้เข้าพัก', icon: <MessageSquare size={32} />, desc: 'รีวิวทั้งหมด พร้อม filter และสถิติ', path: '/admin/reviews', color: 'bg-yellow-100 text-yellow-700', hover: 'hover:bg-yellow-50 hover:border-yellow-200' },
     { label: 'จัดการสมาชิก', icon: <UserCheck size={32} />, desc: 'ค้นหา toggle สถานะบัญชีสมาชิก', path: '/admin/members', color: 'bg-violet-100 text-violet-700', hover: 'hover:bg-violet-50 hover:border-violet-200' },
     { label: 'ข้อมูลสวนวลัยรุกขเวช', icon: <Building2 size={32} />, desc: 'แก้ไขข้อมูลสวน บัญชีธนาคาร เงื่อนไขการจอง', path: '/admin/site-info', color: 'bg-orange-100 text-orange-700', hover: 'hover:bg-orange-50 hover:border-orange-200' },

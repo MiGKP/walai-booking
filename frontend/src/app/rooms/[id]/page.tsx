@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Users, Check, ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, X, Images, Star } from 'lucide-react';
+import { Users, Check, ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, X, Images, Star, Tag, CheckCircle } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -29,6 +29,9 @@ export default function RoomDetailPage() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [avgRating, setAvgRating] = useState<number | null>(null);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [appliedPromo, setAppliedPromo] = useState<{ id: number; name: string; discount_amount: number; final_price: number } | null>(null);
 
   const nights =
     booking.check_in_date && booking.check_out_date
@@ -49,7 +52,9 @@ export default function RoomDetailPage() {
     if (nights <= 0) { toast.error('กรุณาเลือกวันที่ถูกต้อง'); return; }
     setBookingLoading(true);
     try {
-      const res = await api.post('/bookings/room', { room_type_id: id, ...booking });
+      const payload: any = { room_type_id: id, ...booking };
+      if (appliedPromo) payload.promotion_id = appliedPromo.id;
+      const res = await api.post('/bookings/room', payload);
       const bookingId = res.data.data.room_booking_id;
       toast.success('จองห้องพักสำเร็จ!');
       router.push(`/payment?booking_type=room&booking_id=${bookingId}`);
@@ -57,6 +62,23 @@ export default function RoomDetailPage() {
       toast.error(err.response?.data?.message || 'จองห้องพักไม่สำเร็จ (ห้องอาจเต็ม)');
     } finally {
       setBookingLoading(false);
+    }
+  };
+
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return;
+    const baseTotal = room?.price_per_night * nights;
+    if (!baseTotal || nights <= 0) { toast.error('กรุณาเลือกวันที่ก่อน'); return; }
+    setPromoLoading(true);
+    try {
+      const res = await api.post('/promotions/validate', { code: promoCode, price: baseTotal, nights });
+      const data = res.data.data;
+      setAppliedPromo({ id: data.id, name: data.name, discount_amount: data.discount_amount, final_price: data.final_price });
+      toast.success(`ใช้โค้ด "${data.code}" สำเร็จ — ลด ฿${data.discount_amount.toLocaleString()}`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'โค้ดไม่ถูกต้อง');
+    } finally {
+      setPromoLoading(false);
     }
   };
 
@@ -225,14 +247,65 @@ export default function RoomDetailPage() {
                     onChange={(e) => setBooking({ ...booking, special_requests: e.target.value })} />
                 </div>
                 {nights > 0 && (
-                  <div className="bg-teal-50 rounded-xl p-4 space-y-1">
-                    <div className="flex justify-between text-sm text-gray-600">
-                      <span>฿{Number(room.price_per_night).toLocaleString()} × {nights} คืน</span>
-                      <span>฿{(room.price_per_night * nights).toLocaleString()}</span>
+                  <div className="space-y-3">
+                    {/* Promo Code */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        <span className="flex items-center gap-1"><Tag size={13} /> โค้ดโปรโมชั่น</span>
+                      </label>
+                      {appliedPromo ? (
+                        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-3 py-2">
+                          <CheckCircle size={14} className="text-green-600 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-green-800">{appliedPromo.name}</p>
+                            <p className="text-xs text-green-600">ลด ฿{appliedPromo.discount_amount.toLocaleString()}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setAppliedPromo(null); setPromoCode(''); }}
+                            className="text-green-400 hover:text-red-500 transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input
+                            className="input-field flex-1 font-mono uppercase text-sm"
+                            placeholder="ใส่โค้ดส่วนลด..."
+                            value={promoCode}
+                            onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleApplyPromo())}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleApplyPromo}
+                            disabled={promoLoading || !promoCode.trim()}
+                            className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-50"
+                          >
+                            {promoLoading ? '...' : 'ใช้'}
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-teal-200">
-                      <span>ราคารวม</span>
-                      <span className="text-teal-600">฿{(room.price_per_night * nights).toLocaleString()}</span>
+                    {/* Price Summary */}
+                    <div className="bg-teal-50 rounded-xl p-4 space-y-1">
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>฿{Number(room.price_per_night).toLocaleString()} × {nights} คืน</span>
+                        <span>฿{(room.price_per_night * nights).toLocaleString()}</span>
+                      </div>
+                      {appliedPromo && (
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>ส่วนลด</span>
+                          <span>-฿{appliedPromo.discount_amount.toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-teal-200">
+                        <span>ราคารวม</span>
+                        <span className="text-teal-600">
+                          ฿{appliedPromo ? appliedPromo.final_price.toLocaleString() : (room.price_per_night * nights).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}

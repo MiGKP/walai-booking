@@ -20,8 +20,8 @@ function DeadlineCell({ createdAt, dueDays }: { createdAt: string; dueDays: numb
   );
 }
 
-const statusLabel: Record<string, string> = { pending: 'รอดำเนินการ', paid: 'รอตรวจสอบชำระเงิน', approved: 'ยืนยันแล้ว', cancelled: 'ยกเลิก', rejected: 'ถูกปฏิเสธ' };
-const statusClass: Record<string, string> = { pending: 'bg-orange-100 text-orange-700', paid: 'bg-blue-100 text-blue-700', approved: 'bg-green-100 text-green-700', cancelled: 'bg-gray-100 text-gray-700', rejected: 'bg-red-100 text-red-700' };
+const statusLabel: Record<string, string> = { pending: 'รอดำเนินการ', paid: 'รอตรวจสอบชำระเงิน', approved: 'ยืนยันแล้ว', cancelled: 'ยกเลิก', rejected: 'ถูกปฏิเสธ', checked_out: 'เช็คเอาต์แล้ว' };
+const statusClass: Record<string, string> = { pending: 'bg-orange-100 text-orange-700', paid: 'bg-blue-100 text-blue-700', approved: 'bg-green-100 text-green-700', cancelled: 'bg-gray-100 text-gray-700', rejected: 'bg-red-100 text-red-700', checked_out: 'bg-teal-100 text-teal-700' };
 
 export default function BookingsPage() {
   const router = useRouter();

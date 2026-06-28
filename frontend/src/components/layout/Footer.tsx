@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Waves, MapPin, Phone, Mail, Facebook } from 'lucide-react';
+import { MapPin, Phone, Mail, Facebook } from 'lucide-react';
 import api from '@/lib/api';
 
 interface ResortContact {
@@ -26,15 +26,19 @@ export default function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="bg-gray-900 text-gray-300">
+    <footer className="bg-forest-800 text-cream-300">
       <div className="container mx-auto px-4 py-14">
         <div className="grid md:grid-cols-4 gap-10">
           <div className="md:col-span-1">
-            <Link href="/" className="flex items-center gap-2 font-bold text-xl text-white mb-4">
-              <Waves size={28} className="text-teal-400" />
-              {info.name || 'วลัย'}
+            <Link href="/" className="flex items-center gap-2.5 mb-4 group">
+              {/* Logomark */}
+              <svg width="28" height="28" viewBox="0 0 30 30" fill="none">
+                <path d="M15 2C15 2 6 8 6 17C6 22 10 26 15 28C20 26 24 22 24 17C24 8 15 2 15 2Z" fill="#D9A05B" opacity="0.9" />
+                <path d="M15 8C15 8 10 12 10 18C10 21 12 24 15 25C18 24 20 21 20 18C20 12 15 8 15 8Z" fill="#FDFCF7" opacity="0.5" />
+              </svg>
+              <span className="font-display text-xl font-semibold text-cream-100">{info.name || 'วลัย'}</span>
             </Link>
-            <p className="text-sm leading-relaxed text-gray-400">
+            <p className="text-sm leading-relaxed text-cream-400 max-w-[260px]">
               ที่พักลอยน้ำสุดพิเศษ ท่ามกลางธรรมชาติอันงดงาม พร้อมกิจกรรมเรือคายัคสนุกสนาน
             </p>
             {info.facebook && (
@@ -44,7 +48,7 @@ export default function Footer() {
                   aria-label="Facebook"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center hover:bg-teal-600 transition-colors"
+                  className="w-9 h-9 rounded-full bg-forest-700 flex items-center justify-center hover:bg-bamboo-400 hover:text-forest-900 transition-colors duration-200"
                 >
                   <Facebook size={16} />
                 </a>
@@ -53,59 +57,59 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="font-semibold text-white mb-4">บริการของเรา</h4>
-            <ul className="space-y-2 text-sm">
-              <li><Link href="/rooms" className="hover:text-teal-400 transition-colors">ห้องพักลอยน้ำ</Link></li>
-              <li><Link href="/kayaks" className="hover:text-teal-400 transition-colors">เรือคายัค</Link></li>
-              <li><Link href="/dashboard/bookings" className="hover:text-teal-400 transition-colors">การจองของฉัน</Link></li>
+            <h4 className="font-display font-semibold text-cream-100 mb-4 text-lg">บริการ</h4>
+            <ul className="space-y-2.5 text-sm">
+              <li><Link href="/rooms" className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200">ห้องพักลอยน้ำ</Link></li>
+              <li><Link href="/kayaks" className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200">เรือคายัค</Link></li>
+              <li><Link href="/dashboard/bookings" className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200">การจองของฉัน</Link></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-semibold text-white mb-4">บัญชีผู้ใช้</h4>
-            <ul className="space-y-2 text-sm">
-              <li><Link href="/auth/login" className="hover:text-teal-400 transition-colors">เข้าสู่ระบบ</Link></li>
-              <li><Link href="/auth/register" className="hover:text-teal-400 transition-colors">สมัครสมาชิก</Link></li>
-              <li><Link href="/dashboard" className="hover:text-teal-400 transition-colors">โปรไฟล์</Link></li>
+            <h4 className="font-display font-semibold text-cream-100 mb-4 text-lg">บัญชีผู้ใช้</h4>
+            <ul className="space-y-2.5 text-sm">
+              <li><Link href="/auth/login" className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200">เข้าสู่ระบบ</Link></li>
+              <li><Link href="/auth/register" className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200">สมัครสมาชิก</Link></li>
+              <li><Link href="/dashboard" className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200">โปรไฟล์</Link></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-semibold text-white mb-4">ติดต่อเรา</h4>
+            <h4 className="font-display font-semibold text-cream-100 mb-4 text-lg">ติดต่อ</h4>
             <ul className="space-y-3 text-sm">
               {info.address && (
-                <li className="flex items-start gap-2">
-                  <MapPin size={16} className="text-teal-400 mt-0.5 shrink-0" />
-                  <span>{info.address}</span>
+                <li className="flex items-start gap-2.5">
+                  <MapPin size={16} className="text-bamboo-400 mt-0.5 shrink-0" />
+                  <span className="text-cream-400">{info.address}</span>
                 </li>
               )}
               {info.phone && (
-                <li className="flex items-center gap-2">
-                  <Phone size={16} className="text-teal-400 shrink-0" />
-                  <a href={`tel:${info.phone.replace(/[^0-9+]/g, '')}`} className="hover:text-teal-400 transition-colors">{info.phone}</a>
+                <li className="flex items-center gap-2.5">
+                  <Phone size={16} className="text-bamboo-400 shrink-0" />
+                  <a href={`tel:${info.phone.replace(/[^0-9+]/g, '')}`} className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200">{info.phone}</a>
                 </li>
               )}
               {info.email && (
-                <li className="flex items-center gap-2">
-                  <Mail size={16} className="text-teal-400 shrink-0" />
-                  <a href={`mailto:${info.email}`} className="hover:text-teal-400 transition-colors">{info.email}</a>
+                <li className="flex items-center gap-2.5">
+                  <Mail size={16} className="text-bamboo-400 shrink-0" />
+                  <a href={`mailto:${info.email}`} className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200">{info.email}</a>
                 </li>
               )}
               {info.line_id && (
-                <li className="flex items-center gap-2">
-                  <span className="text-teal-400 text-xs font-bold shrink-0">LINE</span>
-                  <span>{info.line_id}</span>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-bamboo-400 text-xs font-bold shrink-0">LINE</span>
+                  <span className="text-cream-400">{info.line_id}</span>
                 </li>
               )}
               {!info.address && !info.phone && !info.email && !info.line_id && (
-                <li className="text-gray-600 text-xs italic">ยังไม่ได้ตั้งค่าข้อมูลติดต่อ</li>
+                <li className="text-cream-500 text-xs italic">ยังไม่ได้ตั้งค่าข้อมูลติดต่อ</li>
               )}
             </ul>
           </div>
         </div>
       </div>
-      <div className="border-t border-gray-800 py-5 text-center text-sm text-gray-500">
-        © {year} {info.name || 'วลัย'} ที่พักลอยน้ำ. สงวนลิขสิทธิ์ทุกประการ
+      <div className="py-5 text-center text-sm text-cream-500" style={{ borderTop: '1px solid rgba(253,252,247,0.1)' }}>
+        © {year} {info.name || 'วลัย'} ที่พักลอยน้ำ — สงวนลิขสิทธิ์ทุกประการ
       </div>
     </footer>
   );

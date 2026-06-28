@@ -18,6 +18,7 @@ import paymentRoutes from './routes/payment.routes';
 import uploadRoutes from './routes/upload.routes';
 import reviewRoutes from './routes/review.routes';
 import settingsRoutes from './routes/settings.routes';
+import promotionRoutes from './routes/promotion.routes';
 
 import './config/passport';
 import { startReviewReminderJob } from './services/review-reminder.service';
@@ -32,11 +33,12 @@ app.use(helmet({
 }));
 app.use(cors({
   origin: function (origin, callback) {
+    console.log('CORS check: origin =', origin, 'FRONTEND_URL =', process.env.FRONTEND_URL);
     const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001'];
     if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.FRONTEND_URL === origin) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error(`Not allowed by CORS: origin = ${origin}, FRONTEND_URL = ${process.env.FRONTEND_URL}`));
     }
   },
   credentials: true,
@@ -88,6 +90,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/promotions', promotionRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Walai Booking API is running' });

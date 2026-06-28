@@ -9,6 +9,7 @@ import {
   cancelKayakBooking,
   getAllKayakBookings,
   updateKayakBookingStatus,
+  checkoutKayakBooking,
   createKayak,
   createBoatRound,
   updateKayak,
@@ -45,6 +46,7 @@ router.get('/bookings/my', authenticate, getUserKayakBookings);
 router.get('/bookings/all', authenticate, authorize('admin', 'boat_staff'), getAllKayakBookings);
 router.put('/bookings/:id/cancel', authenticate, cancelKayakBooking);
 router.put('/bookings/:id/status', authenticate, authorize('admin', 'boat_staff'), updateKayakBookingStatusValidator, validate, updateKayakBookingStatus);
+router.put('/bookings/:id/checkout', authenticate, authorize('admin', 'boat_staff'), checkoutKayakBooking);
 
 // Rounds routes (specific before dynamic)
 router.post('/rounds', authenticate, authorize('admin', 'boat_staff'), createBoatRoundValidator, validate, createBoatRound);

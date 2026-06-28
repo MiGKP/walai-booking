@@ -287,11 +287,13 @@ export const getAllKayakBookings = async (req: Request, res: Response): Promise<
     const result = await pool.query(
       `SELECT bb.*, bt.type_name as kayak_name,
               m.first_name || ' ' || m.last_name as user_name, m.email as user_email,
-              br.start_time, br.end_time
+              br.start_time, br.end_time,
+              s.first_name || ' ' || s.last_name as approved_by_name
        FROM boat_bookings bb
        JOIN boat_types bt ON bb.boat_type_id = bt.boat_type_id
        JOIN members m ON bb.member_id = m.member_id
        LEFT JOIN boat_rounds br ON bb.boat_round_id = br.boat_round_id
+       LEFT JOIN staff s ON bb.approved_by_staff_id = s.staff_id
        ORDER BY bb.created_at DESC`
     );
     res.json({ success: true, data: result.rows });
@@ -366,17 +368,26 @@ export const updateKayakBookingStatus = async (req: Request, res: Response): Pro
   try {
     const { id } = req.params;
     const { status } = req.body;
+    const user = req.user as AuthPayload;
 
-    const allowed = ['approved', 'rejected', 'pending'];
+    const allowed = ['approved', 'rejected', 'pending', 'checked_out'];
     if (!allowed.includes(status)) {
       res.status(400).json({ success: false, message: 'Invalid status' });
       return;
     }
 
-    const result = await pool.query(
-      `UPDATE boat_bookings SET status = $1, updated_at = NOW() WHERE boat_booking_id = $2 RETURNING *`,
-      [status, id]
-    );
+    let query = `UPDATE boat_bookings SET status = $1, updated_at = NOW()`;
+    const params: any[] = [status];
+
+    if (status === 'approved' || status === 'rejected') {
+      query += `, approved_by_staff_id = $2`;
+      params.push(user.id);
+    }
+
+    params.push(id);
+    query += ` WHERE boat_booking_id = $${params.length} RETURNING *`;
+
+    const result = await pool.query(query, params);
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;
@@ -387,6 +398,39 @@ export const updateKayakBookingStatus = async (req: Request, res: Response): Pro
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
+
+// บันทึกการ check out เรือคายัค — เปลี่ยนสถานะเป็น checked_out
+export const checkoutKayakBooking = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const booking = await pool.query(
+      'SELECT status FROM boat_bookings WHERE boat_booking_id = $1',
+      [id]
+    );
+    if (booking.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Booking not found' });
+      return;
+    }
+    if (booking.rows[0].status !== 'approved') {
+      res.status(400).json({
+        success: false,
+        message: `ไม่สามารถ checkout ได้ เนื่องจากสถานะปัจจุบันคือ: ${booking.rows[0].status}`,
+      });
+      return;
+    }
+
+    await pool.query(
+      `UPDATE boat_bookings SET status = 'checked_out', updated_at = NOW() WHERE boat_booking_id = $1`,
+      [id]
+    );
+    res.json({ success: true, message: 'เช็คเอาต์สำเร็จ' });
+  } catch (error) {
+    console.error('Checkout kayak booking error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 
 // อัปเดตข้อมูลประเภทเรือเดิม เช่น ชื่อ รายละเอียด จำนวน ราคา และสถานะการเปิดใช้งาน
 export const updateKayak = async (req: Request, res: Response): Promise<void> => {
