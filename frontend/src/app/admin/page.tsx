@@ -71,6 +71,8 @@ export default function AdminPage() {
     { label: 'รายงานสถิติ', icon: <BarChart3 size={32} />, desc: 'รายได้และจำนวนการจองรายวัน/เดือน', path: '/admin/stats', color: 'bg-rose-100 text-rose-700', hover: 'hover:bg-rose-50 hover:border-rose-200' },
   ];
 
+  const [slipModal, setSlipModal] = useState<{ open: boolean; url: string; name: string }>({ open: false, url: '', name: '' });
+
   return (
     <div className="min-h-screen pt-16 bg-gray-50">
       <div className="container mx-auto px-4 py-8">
@@ -105,7 +107,9 @@ export default function AdminPage() {
           <div className="card p-5 bg-gradient-to-br from-teal-50 to-teal-100 border border-teal-200">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-semibold text-teal-700">การจองห้องพักทั้งหมด</p>
-              <BarChart3 size={18} className="text-teal-600" />
+              <button onClick={() => router.push('/admin/rooms/dashboard')} className="text-xs font-semibold text-teal-700 hover:text-teal-900 underline">
+                ไปที่แดชบอร์ด →
+              </button>
             </div>
             <p className="text-2xl font-bold text-teal-800">{roomBookings.length}</p>
             <div className="mt-2 flex gap-3 text-xs">
@@ -117,7 +121,9 @@ export default function AdminPage() {
           <div className="card p-5 bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-200">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-semibold text-cyan-700">การจองเรือคายัคทั้งหมด</p>
-              <Anchor size={18} className="text-cyan-600" />
+              <button onClick={() => router.push('/admin/boats/dashboard')} className="text-xs font-semibold text-cyan-700 hover:text-cyan-900 underline">
+                ไปที่แดชบอร์ด →
+              </button>
             </div>
             <p className="text-2xl font-bold text-cyan-800">{kayakBookings.length}</p>
             <div className="mt-2 flex gap-3 text-xs">
@@ -176,7 +182,18 @@ export default function AdminPage() {
         </div>
 
         {/* Tabs for Data Tables */}
-        <h2 className="text-lg font-bold text-gray-900 mb-4">รายการจองทั้งหมด <span className="text-sm font-normal text-gray-400">(อ่านอย่างเดียว — การตรวจสอบสลิปจัดการโดย room/boat staff)</span></h2>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <h2 className="text-lg font-bold text-gray-900">รายการจองทั้งหมด และพนักงานผู้ยืนยันสลิป</h2>
+          <div className="flex gap-2">
+            <button onClick={() => router.push('/admin/rooms/dashboard')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200 transition-colors">
+              🏠 แดชบอร์ดจัดการการจองห้องพัก
+            </button>
+            <button onClick={() => router.push('/admin/boats/dashboard')} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border border-cyan-200 transition-colors">
+              🛶 แดชบอร์ดจัดการการจองเรือ
+            </button>
+          </div>
+        </div>
+
         <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-xl w-fit overflow-x-auto">
           {(['bookings', 'kayaks'] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
@@ -196,25 +213,54 @@ export default function AdminPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b border-gray-100">
-                      <tr>{['#', 'ลูกค้า', 'ห้อง', 'เช็คอิน', 'เช็คเอาต์', 'ราคา', 'สถานะ'].map((h) => (
+                      <tr>{['#', 'ลูกค้า', 'ห้อง', 'เช็คอิน', 'เช็คเอาต์', 'ราคา', 'สถานะ', 'ผู้ยืนยันสลิป', 'สลิป'].map((h) => (
                         <th key={h} className="text-left px-4 py-3 font-semibold text-gray-600">{h}</th>
                       ))}</tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {roomBookings.map((b: any) => (
-                        <tr key={b.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-gray-400">#{b.id}</td>
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-gray-900">{b.user_name}</p>
-                            <p className="text-xs text-gray-400">{b.user_email}</p>
-                          </td>
-                          <td className="px-4 py-3 text-gray-700">{b.room_name}</td>
-                          <td className="px-4 py-3 text-gray-600">{new Date(b.check_in_date).toLocaleDateString('th-TH')}</td>
-                          <td className="px-4 py-3 text-gray-600">{new Date(b.check_out_date).toLocaleDateString('th-TH')}</td>
-                          <td className="px-4 py-3 font-semibold text-teal-600">฿{Number(b.total_price).toLocaleString()}</td>
-                          <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-bold ${statusClass[b.status] || 'bg-gray-100 text-gray-600'}`}>{statusLabel[b.status] || b.status}</span></td>
-                        </tr>
-                      ))}
+                      {roomBookings.length === 0 ? (
+                        <tr><td colSpan={9} className="p-8 text-center text-gray-400">ไม่มีรายการจอง</td></tr>
+                      ) : (
+                        roomBookings.map((b: any) => (
+                          <tr key={b.id || b.room_booking_id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-gray-400">#{b.id || b.room_booking_id}</td>
+                            <td className="px-4 py-3">
+                              <p className="font-medium text-gray-900">{b.user_name || '-'}</p>
+                              <p className="text-xs text-gray-400">{b.user_email || ''}</p>
+                            </td>
+                            <td className="px-4 py-3 text-gray-700">{b.room_name || b.type_name || '-'}</td>
+                            <td className="px-4 py-3 text-gray-600">{b.check_in_date || b.check_in ? new Date(b.check_in_date || b.check_in).toLocaleDateString('th-TH') : '-'}</td>
+                            <td className="px-4 py-3 text-gray-600">{b.check_out_date || b.check_out ? new Date(b.check_out_date || b.check_out).toLocaleDateString('th-TH') : '-'}</td>
+                            <td className="px-4 py-3 font-semibold text-teal-600">฿{Number(b.total_price || 0).toLocaleString()}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${statusClass[b.status] || 'bg-gray-100 text-gray-600'}`}>
+                                {statusLabel[b.status] || b.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              {b.approved_by_name ? (
+                                <span className="text-xs font-medium text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 inline-block">
+                                  👤 {b.approved_by_name}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-gray-300">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {b.payment_slip ? (
+                                <button
+                                  onClick={() => setSlipModal({ open: true, url: `http://localhost:5000${b.payment_slip}`, name: b.user_name || 'slip' })}
+                                  className="text-xs text-blue-600 hover:text-blue-800 font-medium bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-100 transition-colors inline-block"
+                                >
+                                  ดูสลิป
+                                </button>
+                              ) : (
+                                <span className="text-xs text-gray-300">ไม่มี</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -227,34 +273,82 @@ export default function AdminPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b border-gray-100">
-                      <tr>{['#', 'ลูกค้า', 'เรือ', 'วันที่', 'เวลา', 'ราคา', 'สถานะ'].map((h) => (
+                      <tr>{['#', 'ลูกค้า', 'เรือ', 'วันที่', 'เวลา', 'ราคา', 'สถานะ', 'ผู้ยืนยันสลิป', 'สลิป'].map((h) => (
                         <th key={h} className="text-left px-4 py-3 font-semibold text-gray-600">{h}</th>
                       ))}</tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {kayakBookings.map((b: any) => (
-                        <tr key={b.boat_booking_id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-gray-400">#{b.boat_booking_id}</td>
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-gray-900">{b.user_name}</p>
-                            <p className="text-xs text-gray-400">{b.user_email}</p>
-                          </td>
-                          <td className="px-4 py-3 text-gray-700">{b.kayak_name}</td>
-                          <td className="px-4 py-3 text-gray-600">{new Date(b.booking_date).toLocaleDateString('th-TH')}</td>
-                          <td className="px-4 py-3 text-gray-600">{b.start_time?.slice(0,5)} - {b.end_time?.slice(0,5)}</td>
-                          <td className="px-4 py-3 font-semibold text-teal-600">฿{Number(b.total_price).toLocaleString()}</td>
-                          <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-bold ${statusClass[b.status] || 'bg-gray-100 text-gray-600'}`}>{statusLabel[b.status] || b.status}</span></td>
-                        </tr>
-                      ))}
+                      {kayakBookings.length === 0 ? (
+                        <tr><td colSpan={9} className="p-8 text-center text-gray-400">ไม่มีรายการจอง</td></tr>
+                      ) : (
+                        kayakBookings.map((b: any) => (
+                          <tr key={b.boat_booking_id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-gray-400">#{b.boat_booking_id}</td>
+                            <td className="px-4 py-3">
+                              <p className="font-medium text-gray-900">{b.user_name || '-'}</p>
+                              <p className="text-xs text-gray-400">{b.user_email || ''}</p>
+                            </td>
+                            <td className="px-4 py-3 text-gray-700">{b.kayak_name || '-'}</td>
+                            <td className="px-4 py-3 text-gray-600">{b.booking_date ? new Date(b.booking_date).toLocaleDateString('th-TH') : '-'}</td>
+                            <td className="px-4 py-3 text-gray-600">{b.start_time ? `${b.start_time.slice(0,5)} - ${b.end_time?.slice(0,5)}` : '-'}</td>
+                            <td className="px-4 py-3 font-semibold text-teal-600">฿{Number(b.total_price || 0).toLocaleString()}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${statusClass[b.status] || 'bg-gray-100 text-gray-600'}`}>
+                                {statusLabel[b.status] || b.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              {b.approved_by_name ? (
+                                <span className="text-xs font-medium text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 inline-block">
+                                  👤 {b.approved_by_name}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-gray-300">-</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {b.payment_slip ? (
+                                <button
+                                  onClick={() => setSlipModal({ open: true, url: `http://localhost:5000${b.payment_slip}`, name: b.user_name || 'slip' })}
+                                  className="text-xs text-blue-600 hover:text-blue-800 font-medium bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-100 transition-colors inline-block"
+                                >
+                                  ดูสลิป
+                                </button>
+                              ) : (
+                                <span className="text-xs text-gray-300">ไม่มี</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
             )}
-
           </>
         )}
       </div>
+
+      {/* Slip Modal */}
+      {slipModal.open && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setSlipModal({ open: false, url: '', name: '' })}>
+          <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-900">สลิปการชำระเงิน — {slipModal.name}</h3>
+              <button onClick={() => setSlipModal({ open: false, url: '', name: '' })} className="p-1 hover:bg-gray-100 rounded-full text-gray-500 font-bold px-2">
+                ✕
+              </button>
+            </div>
+            <div className="p-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={slipModal.url} alt="payment slip" className="w-full rounded-xl object-contain max-h-[70vh]"
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

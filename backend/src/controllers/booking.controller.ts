@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
+import { sendBookingConfirmationEmail, sendBookingStatusEmail } from '../services/mail.service';
 
 // สร้างรายการจองห้องพักใหม่ โดยตรวจสอบว่าห้องประเภทที่เลือกมีอยู่จริงและยังมีห้องว่างในช่วงวันที่ต้องการ
 export const createRoomBooking = async (req: Request, res: Response): Promise<void> => {
@@ -56,6 +57,33 @@ export const createRoomBooking = async (req: Request, res: Response): Promise<vo
     }
 
     await client.query('COMMIT');
+
+    // Send confirmation email asynchronously
+    (async () => {
+      try {
+        const memberRes = await pool.query('SELECT email, first_name, last_name FROM members WHERE member_id = $1', [user.id]);
+        const roomRes = await pool.query('SELECT rt.room_name, r.room_number FROM rooms r JOIN room_types rt ON r.room_type_id = rt.id WHERE r.room_id = $1', [room_id]);
+        if (memberRes.rows.length > 0 && roomRes.rows.length > 0) {
+          const m = memberRes.rows[0];
+          const r = roomRes.rows[0];
+          const customerName = `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email;
+          const checkInStr = new Date(check_in_date).toLocaleDateString('th-TH');
+          const checkOutStr = new Date(check_out_date).toLocaleDateString('th-TH');
+          await sendBookingConfirmationEmail({
+            to: m.email,
+            customerName,
+            bookingType: 'room',
+            bookingId: result.rows[0].room_booking_id,
+            details: `${r.room_name} (ห้อง ${r.room_number})`,
+            dateInfo: `${checkInStr} - ${checkOutStr}`,
+            totalPrice: Number(result.rows[0].total_price || 0),
+          });
+        }
+      } catch (err) {
+        console.error('Send booking confirmation mail error:', err);
+      }
+    })();
+
     res.status(201).json({ success: true, message: 'Booking created', data: result.rows[0] });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -221,6 +249,37 @@ export const updateRoomBookingStatus = async (req: Request, res: Response): Prom
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;
     }
+
+    if (status === 'approved' || status === 'rejected') {
+      (async () => {
+        try {
+          const infoRes = await pool.query(
+            `SELECT m.email, m.first_name, m.last_name, rt.room_name, r.room_number
+             FROM room_bookings rb
+             JOIN members m ON rb.member_id = m.member_id
+             JOIN rooms r ON rb.room_id = r.room_id
+             JOIN room_types rt ON r.room_type_id = rt.id
+             WHERE rb.room_booking_id = $1`,
+            [id]
+          );
+          if (infoRes.rows.length > 0) {
+            const info = infoRes.rows[0];
+            const customerName = `${info.first_name || ''} ${info.last_name || ''}`.trim() || info.email;
+            await sendBookingStatusEmail({
+              to: info.email,
+              customerName,
+              bookingType: 'room',
+              bookingId: Number(id),
+              status: status as 'approved' | 'rejected',
+              details: `${info.room_name} (ห้อง ${info.room_number})`,
+            });
+          }
+        } catch (err) {
+          console.error('Send booking status mail error:', err);
+        }
+      })();
+    }
+
     res.json({ success: true, message: 'Booking status updated', data: result.rows[0] });
   } catch (error) {
     console.error('Update booking status error:', error);

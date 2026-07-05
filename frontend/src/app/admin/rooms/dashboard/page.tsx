@@ -87,7 +87,7 @@ export default function RoomStaffDashboard() {
 
   const filtered = (() => {
     let list = bookings;
-    if (filter === 'has_slip') list = list.filter(b => b.payment_slip && b.status !== 'approved' && b.status !== 'rejected');
+    if (filter === 'has_slip') list = list.filter(b => b.payment_slip && b.status !== 'approved' && b.status !== 'rejected' && b.status !== 'checked_out' && b.status !== 'cancelled');
     else if (filter === 'pending') list = list.filter(b => !b.payment_slip && b.status === 'pending');
     else if (filter === 'approved') list = list.filter(b => b.status === 'approved');
     else if (filter === 'checked_out') list = list.filter(b => b.status === 'checked_out');
@@ -97,7 +97,7 @@ export default function RoomStaffDashboard() {
   })();
 
   const counts = {
-    has_slip: bookings.filter(b => b.payment_slip && b.status !== 'approved' && b.status !== 'rejected').length,
+    has_slip: bookings.filter(b => b.payment_slip && b.status !== 'approved' && b.status !== 'rejected' && b.status !== 'checked_out' && b.status !== 'cancelled').length,
     pending: bookings.filter(b => !b.payment_slip && b.status === 'pending').length,
     approved: bookings.filter(b => b.status === 'approved').length,
     checked_out: bookings.filter(b => b.status === 'checked_out').length,
@@ -262,7 +262,20 @@ export default function RoomStaffDashboard() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {b.payment_slip && b.status !== 'approved' && b.status !== 'rejected' && b.status !== 'cancelled' ? (
+                        {b.status === 'approved' ? (
+                          <button
+                            onClick={() => handleCheckout(b.room_booking_id || b.id)}
+                            className="flex items-center gap-1 text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 font-medium px-2.5 py-1.5 rounded-lg transition-colors"
+                          >
+                            ✅ Check-out
+                          </button>
+                        ) : b.status === 'checked_out' ? (
+                          <span className="text-xs text-teal-600 font-medium bg-teal-50 px-2.5 py-1.5 rounded-lg inline-block">เช็คเอาต์แล้ว</span>
+                        ) : b.status === 'rejected' ? (
+                          <span className="text-xs text-red-500 font-medium bg-red-50 px-2.5 py-1.5 rounded-lg inline-block">ปฏิเสธแล้ว</span>
+                        ) : b.status === 'cancelled' ? (
+                          <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2.5 py-1.5 rounded-lg inline-block">ยกเลิกแล้ว</span>
+                        ) : b.payment_slip ? (
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleStatus(b.room_booking_id || b.id, 'approved')}
@@ -277,15 +290,8 @@ export default function RoomStaffDashboard() {
                               <XCircle size={13} /> ปฏิเสธ
                             </button>
                           </div>
-                        ) : b.status === 'approved' ? (
-                          <button
-                            onClick={() => handleCheckout(b.room_booking_id || b.id)}
-                            className="flex items-center gap-1 text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 font-medium px-2.5 py-1.5 rounded-lg transition-colors"
-                          >
-                            ✅ Check-out
-                          </button>
                         ) : (
-                          <span className="text-xs text-gray-300">{b.status === 'checked_out' ? 'เช็คเอาต์แล้ว' : b.status === 'rejected' ? 'ปฏิเสธแล้ว' : '-'}</span>
+                          <span className="text-xs text-gray-400">รอดำเนินการ</span>
                         )}
                       </td>
                     </tr>

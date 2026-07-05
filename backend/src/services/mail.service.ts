@@ -156,3 +156,123 @@ export const sendPaymentSlipNotificationEmail = async (params: {
   }
 };
 
+export const sendBookingConfirmationEmail = async (params: {
+  to: string;
+  customerName: string;
+  bookingType: 'room' | 'kayak';
+  bookingId: number;
+  details: string;
+  dateInfo: string;
+  totalPrice: number;
+}) => {
+  const missingEnv = getMissingMailEnv();
+  if (missingEnv.length > 0) {
+    console.warn('[mail] Skipping booking confirmation email — missing env:', missingEnv.join(', '));
+    return;
+  }
+  const transporter = createTransporter();
+  const appName = process.env.APP_NAME || 'Walai Booking';
+  const bookingTypeLabel = params.bookingType === 'room' ? 'ห้องพัก' : 'เรือคายัค';
+
+  try {
+    await transporter.verify();
+    await transporter.sendMail({
+      from: getMailFrom(),
+      to: params.to,
+      subject: `[${appName}] สรุปการจอง${bookingTypeLabel} — รหัส #${params.bookingId}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; background: #f5f7fb; padding: 24px; color: #1f2937;">
+          <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 32px; border: 1px solid #e5e7eb;">
+            <div style="margin-bottom: 24px;">
+              <div style="display: inline-block; background: #ccfbf1; color: #0f766e; font-weight: 700; padding: 10px 14px; border-radius: 999px;">🌊 ${appName}</div>
+            </div>
+            <h1 style="font-size: 22px; margin: 0 0 16px; color: #111827;">ขอบคุณสำหรับการจอง${bookingTypeLabel}!</h1>
+            <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
+              สวัสดีคุณ <strong>${params.customerName}</strong><br />
+              ระบบได้รับคำขอจอง${bookingTypeLabel}ของคุณแล้ว รายละเอียดดังนี้:
+            </p>
+            <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 24px; font-size: 14px; line-height: 1.8;">
+              <div>📋 <strong>รหัสการจอง:</strong> #${params.bookingId}</div>
+              <div>🏠 <strong>รายการ:</strong> ${params.details}</div>
+              <div>📅 <strong>วันที่:</strong> ${params.dateInfo}</div>
+              <div>💰 <strong>ราคารวม:</strong> ฿${Number(params.totalPrice).toLocaleString()}</div>
+            </div>
+            <p style="font-size: 14px; line-height: 1.7; margin: 0 0 20px; color: #4b5563;">
+              กรุณาชำระเงินและแนบสลิปผ่านทางหน้าประวัติการจองในเว็บไซต์ เพื่อให้พนักงานดำเนินการยืนยันการเข้าพักครับ
+            </p>
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/bookings" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 16px;">
+              ดูประวัติการจอง & แนบสลิป →
+            </a>
+            <p style="font-size: 13px; color: #9ca3af; margin: 16px 0 0;">อีเมลนี้ส่งโดยอัตโนมัติจากระบบ ${appName}</p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[mail] Booking confirmation email sent to ${params.to} for booking #${params.bookingId}`);
+  } catch (err) {
+    console.error('[mail] Failed to send booking confirmation email:', err);
+  }
+};
+
+export const sendBookingStatusEmail = async (params: {
+  to: string;
+  customerName: string;
+  bookingType: 'room' | 'kayak';
+  bookingId: number;
+  status: 'approved' | 'rejected';
+  details: string;
+}) => {
+  const missingEnv = getMissingMailEnv();
+  if (missingEnv.length > 0) {
+    console.warn('[mail] Skipping booking status email — missing env:', missingEnv.join(', '));
+    return;
+  }
+  const transporter = createTransporter();
+  const appName = process.env.APP_NAME || 'Walai Booking';
+  const bookingTypeLabel = params.bookingType === 'room' ? 'ห้องพัก' : 'เรือคายัค';
+  const isApproved = params.status === 'approved';
+
+  const subject = isApproved
+    ? `[${appName}] การจอง${bookingTypeLabel}ได้รับการยืนยันแล้ว 🎉 — รหัส #${params.bookingId}`
+    : `[${appName}] แจ้งเตือนสถานะการจอง${bookingTypeLabel} — รหัส #${params.bookingId}`;
+
+  const badgeColor = isApproved ? 'background: #dcfce7; color: #15803d;' : 'background: #fee2e2; color: #b91c1c;';
+  const badgeText = isApproved ? '✅ ยืนยันการจองสำเร็จ' : '❌ การจองถูกปฏิเสธ';
+  const titleText = isApproved ? 'การจองของคุณได้รับการยืนยันเรียบร้อยแล้ว!' : 'การจองของคุณไม่ผ่านการอนุมัติ';
+
+  try {
+    await transporter.verify();
+    await transporter.sendMail({
+      from: getMailFrom(),
+      to: params.to,
+      subject,
+      html: `
+        <div style="font-family: Arial, sans-serif; background: #f5f7fb; padding: 24px; color: #1f2937;">
+          <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 32px; border: 1px solid #e5e7eb;">
+            <div style="margin-bottom: 24px;">
+              <div style="display: inline-block; ${badgeColor} font-weight: 700; padding: 10px 14px; border-radius: 999px;">${badgeText}</div>
+            </div>
+            <h1 style="font-size: 22px; margin: 0 0 16px; color: #111827;">${titleText}</h1>
+            <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
+              สวัสดีคุณ <strong>${params.customerName}</strong><br />
+              ${isApproved ? 'พนักงานได้ตรวจสอบการชำระเงินและยืนยันการจองเรียบร้อยแล้ว ยินดีต้อนรับสู่สวนวลัยครับ 🌊' : 'สลิปการชำระเงินหรือรายการจองของคุณไม่ผ่านการตรวจสอบ กรุณาติดต่อพนักงานหรือแนบสลิปใหม่อีกครั้ง'}
+            </p>
+            <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 24px; font-size: 14px; line-height: 1.8;">
+              <div>📋 <strong>รหัสการจอง:</strong> #${params.bookingId}</div>
+              <div>🏠 <strong>รายการ:</strong> ${params.details}</div>
+              <div>📌 <strong>สถานะปัจจุบัน:</strong> ${isApproved ? 'ยืนยันการจองแล้ว (Approved)' : 'ปฏิเสธ (Rejected)'}</div>
+            </div>
+            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/bookings" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 16px;">
+              ดูรายละเอียดการจอง →
+            </a>
+            <p style="font-size: 13px; color: #9ca3af; margin: 16px 0 0;">อีเมลนี้ส่งโดยอัตโนมัติจากระบบ ${appName}</p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[mail] Booking status email sent to ${params.to} for booking #${params.bookingId} (status: ${params.status})`);
+  } catch (err) {
+    console.error('[mail] Failed to send booking status email:', err);
+  }
+};
+

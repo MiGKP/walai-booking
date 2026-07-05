@@ -46,14 +46,14 @@ app.use(cors({
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 5000,
   message: 'Too many requests from this IP, please try again later.',
 });
 app.use('/api/', limiter);
 
 const authLimiter = rateLimit({
-  windowMs: 1 * 1,
-  max: 1,
+  windowMs: 15 * 60 * 1000,
+  max: 20,
   message: 'Too many auth attempts, please try again later.',
   skipSuccessfulRequests: true,
 });

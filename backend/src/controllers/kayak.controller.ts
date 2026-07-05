@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
+import { sendBookingConfirmationEmail, sendBookingStatusEmail } from '../services/mail.service';
 
 // ดึงรายการประเภทเรือทั้งหมดที่เปิดใช้งานอยู่ พร้อมข้อมูลที่ frontend ใช้แสดง เช่น ความจุ ราคา และรูปหลัก
 export const getAllKayaks = async (req: Request, res: Response): Promise<void> => {
@@ -219,6 +220,33 @@ export const createKayakBooking = async (req: Request, res: Response): Promise<v
     );
 
     await client.query('COMMIT');
+
+    // Send confirmation email asynchronously
+    (async () => {
+      try {
+        const memberRes = await pool.query('SELECT email, first_name, last_name FROM members WHERE member_id = $1', [user.id]);
+        const boatRes = await pool.query('SELECT bt.type_name, br.start_time, br.end_time FROM boat_types bt JOIN boat_rounds br ON br.boat_round_id = $2 WHERE bt.boat_type_id = $1', [kayak_id, round_id]);
+        if (memberRes.rows.length > 0 && boatRes.rows.length > 0) {
+          const m = memberRes.rows[0];
+          const b = boatRes.rows[0];
+          const customerName = `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email;
+          const bookingDateStr = new Date(booking_date).toLocaleDateString('th-TH');
+          const timeRange = `${b.start_time || ''} - ${b.end_time || ''}`;
+          await sendBookingConfirmationEmail({
+            to: m.email,
+            customerName,
+            bookingType: 'kayak',
+            bookingId: result.rows[0].boat_booking_id,
+            details: `เรือคายัค ${b.type_name} (รอบเวลา ${timeRange})`,
+            dateInfo: `${bookingDateStr} (${timeRange})`,
+            totalPrice: Number(result.rows[0].total_price || 0),
+          });
+        }
+      } catch (err) {
+        console.error('Send boat booking confirmation mail error:', err);
+      }
+    })();
+
     res.status(201).json({ success: true, message: 'Boat booking created', data: result.rows[0] });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -392,6 +420,38 @@ export const updateKayakBookingStatus = async (req: Request, res: Response): Pro
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;
     }
+
+    if (status === 'approved' || status === 'rejected') {
+      (async () => {
+        try {
+          const infoRes = await pool.query(
+            `SELECT m.email, m.first_name, m.last_name, bt.type_name, br.start_time, br.end_time
+             FROM boat_bookings bb
+             JOIN members m ON bb.member_id = m.member_id
+             JOIN boat_types bt ON bb.boat_type_id = bt.boat_type_id
+             JOIN boat_rounds br ON bb.boat_round_id = br.boat_round_id
+             WHERE bb.boat_booking_id = $1`,
+            [id]
+          );
+          if (infoRes.rows.length > 0) {
+            const info = infoRes.rows[0];
+            const customerName = `${info.first_name || ''} ${info.last_name || ''}`.trim() || info.email;
+            const timeRange = `${info.start_time || ''} - ${info.end_time || ''}`;
+            await sendBookingStatusEmail({
+              to: info.email,
+              customerName,
+              bookingType: 'kayak',
+              bookingId: Number(id),
+              status: status as 'approved' | 'rejected',
+              details: `เรือคายัค ${info.type_name} (รอบเวลา ${timeRange})`,
+            });
+          }
+        } catch (err) {
+          console.error('Send boat booking status mail error:', err);
+        }
+      })();
+    }
+
     res.json({ success: true, message: 'Booking status updated', data: result.rows[0] });
   } catch (error) {
     console.error('Update kayak booking status error:', error);
