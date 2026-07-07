@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Star, MessageSquare, PenLine, Trash2, X, Check } from 'lucide-react';
 import api from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -214,7 +215,7 @@ export default function ReviewsPage() {
                 <div key={booking.room_booking_id} className="card flex flex-col sm:flex-row gap-4 p-5">
                   <div className="w-full sm:w-24 h-40 sm:h-24 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
                     {booking.room_image ? (
-                      <img src={`http://localhost:5000${booking.room_image}`} alt={booking.room_name} className="w-full h-full object-cover" />
+                      <img src={resolveMediaUrl(booking.room_image)} alt={booking.room_name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-400 text-2xl">🌊</div>
                     )}
@@ -249,7 +250,7 @@ export default function ReviewsPage() {
                   <div className="flex gap-4">
                     <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
                       {review.room_image ? (
-                        <img src={`http://localhost:5000${review.room_image}`} alt={review.room_name} className="w-full h-full object-cover" />
+                        <img src={resolveMediaUrl(review.room_image)} alt={review.room_name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400 text-2xl">🌊</div>
                       )}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Anchor, CheckCircle, XCircle, Clock, Eye, X, BarChart3, Phone, Timer, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -252,7 +253,7 @@ export default function BoatStaffDashboard() {
                       <td className="px-4 py-3">
                         {b.payment_slip ? (
                           <button
-                            onClick={() => setSlipModal({ open: true, url: `http://localhost:5000${b.payment_slip}`, name: b.user_name || 'slip' })}
+                            onClick={() => setSlipModal({ open: true, url: resolveMediaUrl(b.payment_slip), name: b.user_name || 'slip' })}
                             className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition-colors"
                           >
                             <Eye size={13} /> ดูสลิป

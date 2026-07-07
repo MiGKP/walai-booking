@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Anchor, LayoutDashboard, Clock, Edit2, Trash2, X, ImagePlus, XCircle } from 'lucide-react';
 import api from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -255,7 +256,7 @@ export default function BoatTypesPage() {
                       <td className="px-4 py-3">
                         {bt.image ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={`http://localhost:5000${bt.image}`} alt={bt.name} className="w-12 h-10 object-cover rounded-lg border border-gray-100" />
+                          <img src={resolveMediaUrl(bt.image)} alt={bt.name} className="w-12 h-10 object-cover rounded-lg border border-gray-100" />
                         ) : (
                           <div className="w-12 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
                             <Anchor size={16} className="text-gray-300" />
@@ -308,7 +309,7 @@ export default function BoatTypesPage() {
                       <div key={img.id} className="relative group">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={`http://localhost:5000${img.image_path}`}
+                          src={resolveMediaUrl(img.image_path)}
                           alt="boat"
                           className="w-16 h-16 object-cover rounded-xl border border-gray-200"
                         />

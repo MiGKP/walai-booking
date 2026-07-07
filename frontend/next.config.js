@@ -4,6 +4,22 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const apiOrigin = apiUrl.replace(/\/api\/?$/, '');
 const isProd = process.env.NODE_ENV === 'production';
 
+function getApiRemotePattern() {
+  try {
+    const parsed = new URL(apiOrigin);
+    return {
+      protocol: parsed.protocol.replace(':', ''),
+      hostname: parsed.hostname,
+      ...(parsed.port ? { port: parsed.port } : {}),
+      pathname: '/**',
+    };
+  } catch {
+    return null;
+  }
+}
+
+const apiRemotePattern = getApiRemotePattern();
+
 function buildContentSecurityPolicy() {
   const connectSrc = ["'self'", apiOrigin];
   const imgSrc = ["'self'", 'data:', 'blob:', 'https://lh3.googleusercontent.com', apiOrigin];
@@ -64,11 +80,7 @@ const nextConfig = {
         hostname: 'lh3.googleusercontent.com',
         pathname: '/**',
       },
-      {
-        protocol: 'https',
-        hostname: 'walai-booking-api.onrender.com',
-        pathname: '/**',
-      },
+      ...(apiRemotePattern && apiRemotePattern.hostname !== 'localhost' ? [apiRemotePattern] : []),
     ],
   },
   env: {

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Users, Check, ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, X, Images, Star, Tag, CheckCircle } from 'lucide-react';
 import api from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
@@ -112,7 +113,7 @@ export default function RoomDetailPage() {
               <div className="h-72 bg-gray-200 flex items-center justify-center relative cursor-pointer group" onClick={() => room.main_image && setLightboxIndex(0)}>
                 {room.main_image ? (
                   <>
-                    <img src={`http://localhost:5000${room.main_image}`} alt={room.room_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <img src={resolveMediaUrl(room.main_image)} alt={room.room_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                       <Images size={32} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
@@ -130,7 +131,7 @@ export default function RoomDetailPage() {
                   {[room.main_image, ...room.images.filter((img: string) => img !== room.main_image)].filter(Boolean).map((img: string, idx: number) => (
                     <button key={idx} onClick={() => setLightboxIndex(idx)}
                       className={`flex-shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 transition-all ${lightboxIndex === idx ? 'border-teal-500' : 'border-transparent hover:border-teal-300'}`}>
-                      <img src={`http://localhost:5000${img}`} alt={`รูปที่ ${idx + 1}`} className="w-full h-full object-cover" />
+                      <img src={resolveMediaUrl(img)} alt={`รูปที่ ${idx + 1}`} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>
@@ -337,7 +338,7 @@ export default function RoomDetailPage() {
             </>
           )}
           <img
-            src={`http://localhost:5000${allImages[lbIdx]}`}
+            src={resolveMediaUrl(allImages[lbIdx])}
             alt={`รูปที่ ${lbIdx + 1}`}
             className="max-h-[85vh] max-w-[85vw] object-contain rounded-xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}

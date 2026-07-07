@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Waves, Users, CalendarDays, Search } from 'lucide-react';
 import api from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
 
 interface RoomType {
@@ -145,7 +146,7 @@ export default function RoomsPage() {
                   <div key={room.id} className={`card hover:shadow-xl transition-all duration-300 group flex flex-col ${!isAvailable ? 'opacity-75' : ''}`}>
                     <div className="h-56 bg-gray-200 relative overflow-hidden flex items-center justify-center">
                       {room.main_image ? (
-                        <img src={`http://localhost:5000${room.main_image}`} alt={room.room_name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        <img src={resolveMediaUrl(room.main_image)} alt={room.room_name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                       ) : (
                         <Waves size={80} className="text-gray-300" />
                       )}

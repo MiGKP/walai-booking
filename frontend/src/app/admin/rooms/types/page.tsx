@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Home, Edit2, Trash2, X } from 'lucide-react';
 import api from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -366,7 +367,7 @@ export default function RoomTypesPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">รูปปกห้องพัก</label>
                 {editingRoom.room_image && !editCoverFile && (
                   <div className="mb-2 relative w-full h-32 rounded-xl overflow-hidden border border-gray-200">
-                    <img src={`http://localhost:5000${editingRoom.room_image}`} alt="รูปปัจจุบัน" className="w-full h-full object-cover" />
+                    <img src={resolveMediaUrl(editingRoom.room_image)} alt="รูปปัจจุบัน" className="w-full h-full object-cover" />
                     <span className="absolute bottom-1 left-2 text-xs text-white bg-black/50 px-2 py-0.5 rounded-full">รูปปัจจุบัน</span>
                   </div>
                 )}
@@ -386,7 +387,7 @@ export default function RoomTypesPage() {
                     <div className="flex flex-wrap gap-2">
                       {editingRoom.existing_gallery.map((img: string, idx: number) => (
                         <div key={idx} className="relative w-20 h-16 rounded-lg overflow-hidden border border-gray-200 group">
-                          <img src={`http://localhost:5000${img}`} alt={`gallery ${idx + 1}`} className="w-full h-full object-cover" />
+                          <img src={resolveMediaUrl(img)} alt={`gallery ${idx + 1}`} className="w-full h-full object-cover" />
                           <button type="button"
                             className="absolute inset-0 bg-red-600/70 text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                             onClick={() => setEditingRoom((prev: any) => ({ ...prev, existing_gallery: prev.existing_gallery.filter((_: string, i: number) => i !== idx) }))}>

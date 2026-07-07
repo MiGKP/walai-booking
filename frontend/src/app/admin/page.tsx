@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, Anchor, CreditCard, CheckCircle, PlusCircle, Home, Sailboat, TrendingUp, BarChart3, MessageSquare, Building2, Phone, Clock, UserCheck, Tag } from 'lucide-react';
 import api from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 
@@ -249,7 +250,7 @@ export default function AdminPage() {
                             <td className="px-4 py-3">
                               {b.payment_slip ? (
                                 <button
-                                  onClick={() => setSlipModal({ open: true, url: `http://localhost:5000${b.payment_slip}`, name: b.user_name || 'slip' })}
+                                  onClick={() => setSlipModal({ open: true, url: resolveMediaUrl(b.payment_slip), name: b.user_name || 'slip' })}
                                   className="text-xs text-blue-600 hover:text-blue-800 font-medium bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-100 transition-colors inline-block"
                                 >
                                   ดูสลิป
@@ -309,7 +310,7 @@ export default function AdminPage() {
                             <td className="px-4 py-3">
                               {b.payment_slip ? (
                                 <button
-                                  onClick={() => setSlipModal({ open: true, url: `http://localhost:5000${b.payment_slip}`, name: b.user_name || 'slip' })}
+                                  onClick={() => setSlipModal({ open: true, url: resolveMediaUrl(b.payment_slip), name: b.user_name || 'slip' })}
                                   className="text-xs text-blue-600 hover:text-blue-800 font-medium bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-100 transition-colors inline-block"
                                 >
                                   ดูสลิป

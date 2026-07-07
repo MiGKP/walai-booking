@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Anchor, Users, ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
 
 interface BoatType {
@@ -154,7 +155,7 @@ export default function KayaksPage() {
                   >
                     <div className={`h-44 bg-gray-200 flex items-center justify-center relative overflow-hidden`}>
                       {boat.image ? (
-                        <img src={`http://localhost:5000${boat.image}`} alt={boat.name} className="w-full h-full object-cover" />
+                        <img src={resolveMediaUrl(boat.image)} alt={boat.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className={`w-full h-full bg-gradient-to-br ${typeColors[boat.type] || 'from-teal-400 to-teal-600'} flex items-center justify-center`}>
                           <Anchor size={60} className="text-white/50" />

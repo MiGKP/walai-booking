@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Star, Trash2, Search, Filter, MessageSquare } from 'lucide-react';
 import api from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 
@@ -192,7 +193,7 @@ export default function AdminReviewsPage() {
                     {r.image_profile ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={`http://localhost:5000${r.image_profile}`}
+                        src={resolveMediaUrl(r.image_profile)}
                         alt={r.first_name}
                         className="w-10 h-10 rounded-full object-cover flex-shrink-0 border border-gray-100"
                       />
