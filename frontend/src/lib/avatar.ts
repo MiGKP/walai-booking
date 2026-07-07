@@ -13,3 +13,5 @@ export const resolveAvatarUrl = (avatar?: string): string => {
 
   return `${apiOrigin}/${avatar}`;
 };
+
+export const resolveMediaUrl = (path?: string): string => resolveAvatarUrl(path);

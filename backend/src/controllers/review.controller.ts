@@ -2,6 +2,31 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
 
+// ดึงรีวิวล่าสุดสำหรับหน้าแรก (public)
+export const getPublicReviews = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 6, 1), 20);
+    const result = await pool.query(
+      `SELECT rv.review_id, rv.rating, rv.comment, rv.review_date,
+              m.first_name, m.last_name, m.image_profile,
+              rt.room_name, rt.type_name
+       FROM reviews rv
+       JOIN members m ON m.member_id = rv.member_id
+       JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
+       JOIN rooms r ON r.room_id = rb.room_id
+       JOIN room_types rt ON rt.id = r.room_type_id
+       WHERE rv.comment IS NOT NULL AND TRIM(rv.comment) <> ''
+       ORDER BY rv.review_date DESC
+       LIMIT $1`,
+      [limit]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('Get public reviews error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 // ดึงรีวิวทั้งหมดของ room_type นั้น (public) พร้อมชื่อผู้รีวิว
 export const getReviewsByRoomType = async (req: Request, res: Response): Promise<void> => {
   try {

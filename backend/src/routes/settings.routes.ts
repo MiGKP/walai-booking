@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getBankAccounts, createBankAccount, updateBankAccount, deleteBankAccount,
   getResortInfo, upsertResortInfo,
+  getLandingStats,
   getBoatHours, upsertBoatHours,
   getStats,
 } from '../controllers/settings.controller';
@@ -20,6 +21,7 @@ router.delete('/bank-accounts/:id', authenticate, authorize('admin'), deleteBank
 
 // Resort info (contact + site info รวมกัน) — read: public, write: admin + room_staff + boat_staff
 router.get('/resort', getResortInfo);
+router.get('/landing-stats', getLandingStats);
 router.put('/resort', authenticate, authorize('admin', 'room_staff', 'boat_staff'), upsertResortInfo);
 
 // Boat operating hours — read: public, write: admin + boat_staff

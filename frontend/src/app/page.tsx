@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Anchor, CreditCard, Star, MapPin, Phone, Waves } from 'lucide-react';
 import api from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/avatar';
 
 interface ResortInfo {
   name?: string;
@@ -14,6 +15,35 @@ interface ResortInfo {
   line_id?: string;
   operating_days?: string;
   operating_hours?: string;
+}
+
+interface LandingRoomType {
+  id: number;
+  room_name: string;
+  type_name: string;
+  description?: string;
+  capacity: number;
+  price_per_night: number;
+  main_image?: string;
+  available_count?: number;
+}
+
+interface LandingReview {
+  review_id: number;
+  rating: number;
+  comment: string;
+  first_name?: string;
+  last_name?: string;
+  room_name?: string;
+  type_name?: string;
+}
+
+interface LandingStats {
+  room_type_count: number;
+  boat_type_count: number;
+  guest_count: number;
+  avg_rating: number | null;
+  review_count: number;
 }
 
 /* ———————————————————————————————
@@ -257,31 +287,49 @@ function StatItem({ number, suffix, label, decimal }: { number: number; suffix: 
   );
 }
 
+function formatPrice(value: number): string {
+  return Number(value).toLocaleString('th-TH');
+}
+
+function getReviewerName(review: LandingReview): string {
+  const fullName = `${review.first_name || ''} ${review.last_name || ''}`.trim();
+  return fullName || 'แขกผู้เข้าพัก';
+}
+
+function getRoomGridSpan(index: number): string {
+  if (index === 0) return 'lg:col-span-6 lg:row-span-2';
+  if (index === 1 || index === 2) return 'lg:col-span-3';
+  return 'lg:col-span-6';
+}
+
 /* ———————————————————————————————
    Review carousel
    ——————————————————————————————— */
-function ReviewCarousel() {
+function ReviewCarousel({ reviews }: { reviews: LandingReview[] }) {
   const [current, setCurrent] = useState(0);
-  const reviews = [
-    { name: 'คุณสมชาย', rating: 5, text: 'ที่พักสวยมาก วิวน้ำสวยงาม เจ้าหน้าที่ใจดี แนะนำเลยครับ ประทับใจมากครับ ธรรมชาติสวยจริงๆ' },
-    { name: 'คุณมาลี', rating: 5, text: 'เล่นเรือคายัคสนุกมาก เจ้าหน้าที่สอนดีมาก ห้องพักสะอาดมากค่ะ บรรยากาศเงียบสงบ' },
-    { name: 'ครอบครัวปิยะ', rating: 5, text: 'พาลูกมาเที่ยวครบทุกกิจกรรม สนุกมาก ราคาคุ้มค่า จะกลับมาอีกแน่นอน ที่พักดีมากๆ' },
-  ];
 
   useEffect(() => {
+    if (reviews.length <= 1) return;
     const timer = setInterval(() => setCurrent((c) => (c + 1) % reviews.length), 5000);
     return () => clearInterval(timer);
   }, [reviews.length]);
 
+  if (reviews.length === 0) {
+    return (
+      <p className="text-center text-charcoal-400 text-lg py-8">
+        ยังไม่มีรีวิวจากแขกผู้เข้าพัก — มาเป็นคนแรกที่แชร์ประสบการณ์กับเรา
+      </p>
+    );
+  }
+
   return (
     <div className="relative max-w-2xl mx-auto text-center">
-      {/* Large quote mark */}
       <span className="font-display text-8xl md:text-9xl text-bamboo-400/30 leading-none select-none absolute -top-10 left-1/2 -translate-x-1/2">"</span>
 
-      <div className="pt-12 min-h-[160px]">
+      <div className="pt-12 min-h-[160px] relative">
         {reviews.map((review, i) => (
           <div
-            key={i}
+            key={review.review_id}
             className={`transition-all duration-500 absolute inset-0 pt-12 ${
               i === current ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
             }`}
@@ -293,30 +341,36 @@ function ReviewCarousel() {
               ))}
             </div>
             <p className="text-lg md:text-xl text-charcoal leading-relaxed font-light mb-6 px-4">
-              {review.text}
+              {review.comment}
             </p>
             <div className="flex items-center justify-center gap-3">
               <div className="w-8 h-[1px] bg-bamboo-400" />
-              <span className="font-display font-semibold text-forest-800">{review.name}</span>
+              <span className="font-display font-semibold text-forest-800">{getReviewerName(review)}</span>
               <div className="w-8 h-[1px] bg-bamboo-400" />
             </div>
+            {(review.room_name || review.type_name) && (
+              <p className="text-sm text-charcoal-400 mt-2">
+                {review.room_name || review.type_name}
+              </p>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Navigation dots */}
-      <div className="flex justify-center gap-2 mt-8">
-        {reviews.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setCurrent(i)}
-            aria-label={`ไปที่รีวิวที่ ${i + 1}`}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              i === current ? 'bg-bamboo-400 w-6' : 'bg-charcoal-200 hover:bg-charcoal-300'
-            }`}
-          />
-        ))}
-      </div>
+      {reviews.length > 1 && (
+        <div className="flex justify-center gap-2 mt-8">
+          {reviews.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrent(i)}
+              aria-label={`ไปที่รีวิวที่ ${i + 1}`}
+              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                i === current ? 'bg-bamboo-400 w-6' : 'bg-charcoal-200 hover:bg-charcoal-300'
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -326,19 +380,57 @@ function ReviewCarousel() {
    ═══════════════════════════════ */
 export default function HomePage() {
   const [resortInfo, setResortInfo] = useState<ResortInfo>({});
+  const [roomTypes, setRoomTypes] = useState<LandingRoomType[]>([]);
+  const [reviews, setReviews] = useState<LandingReview[]>([]);
+  const [landingStats, setLandingStats] = useState<LandingStats>({
+    room_type_count: 0,
+    boat_type_count: 0,
+    guest_count: 0,
+    avg_rating: null,
+    review_count: 0,
+  });
+  const [loadingRooms, setLoadingRooms] = useState(true);
+  const [loadingReviews, setLoadingReviews] = useState(true);
   const revealRef = useRevealOnScroll();
 
   useEffect(() => {
-    const fetchResortInfo = async () => {
-      try {
-        const response = await api.get('/settings/resort');
-        setResortInfo(response.data?.data || {});
-      } catch (error) {
-        console.error('Failed to fetch resort info:', error);
+    const fetchLandingData = async () => {
+      const [resortRes, roomsRes, reviewsRes, statsRes] = await Promise.allSettled([
+        api.get('/settings/resort'),
+        api.get('/rooms'),
+        api.get('/reviews/public', { params: { limit: 6 } }),
+        api.get('/settings/landing-stats'),
+      ]);
+
+      if (resortRes.status === 'fulfilled') {
+        setResortInfo(resortRes.value.data?.data || {});
+      }
+
+      if (roomsRes.status === 'fulfilled') {
+        setRoomTypes(roomsRes.value.data?.data || []);
+      }
+      setLoadingRooms(false);
+
+      if (reviewsRes.status === 'fulfilled') {
+        setReviews(reviewsRes.value.data?.data || []);
+      }
+      setLoadingReviews(false);
+
+      if (statsRes.status === 'fulfilled') {
+        setLandingStats(statsRes.value.data?.data || {
+          room_type_count: 0,
+          boat_type_count: 0,
+          guest_count: 0,
+          avg_rating: null,
+          review_count: 0,
+        });
       }
     };
-    fetchResortInfo();
+
+    fetchLandingData();
   }, []);
+
+  const featuredRooms = roomTypes.slice(0, 4);
 
   return (
     <div className="bg-cream-100">
@@ -419,10 +511,17 @@ export default function HomePage() {
       <section id="stats-section" className="py-10 border-y" style={{ borderColor: 'var(--color-stone-200)' }}>
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x" style={{ borderColor: 'var(--color-stone-200)' }}>
-            <StatItem number={4} suffix="+" label="ประเภทห้องพัก" />
-            <StatItem number={3} suffix="+" label="เรือคายัค" />
-            <StatItem number={500} suffix="+" label="แขกพักอาศัย" />
-            <StatItem number={4.9} suffix="★" label="คะแนนรีวิว" decimal />
+            <StatItem number={landingStats.room_type_count || roomTypes.length} suffix="+" label="ประเภทห้องพัก" />
+            <StatItem number={landingStats.boat_type_count} suffix="+" label="เรือคายัค" />
+            <StatItem number={landingStats.guest_count} suffix="+" label="แขกพักอาศัย" />
+            {landingStats.avg_rating != null ? (
+              <StatItem number={landingStats.avg_rating} suffix="★" label="คะแนนรีวิว" decimal />
+            ) : (
+              <div className="text-center py-4">
+                <span className="font-display text-3xl md:text-4xl font-semibold text-forest-800">—</span>
+                <p className="text-charcoal-400 text-sm mt-1 font-medium">คะแนนรีวิว</p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -497,50 +596,78 @@ export default function HomePage() {
 
           {/* Editorial grid — 1 large + 3 small */}
           <div className="grid md:grid-cols-2 lg:grid-cols-12 gap-6">
-            {[
-              { name: 'Standard', price: '1,500', capacity: '2 คน', span: 'lg:col-span-6 lg:row-span-2' },
-              { name: 'Deluxe', price: '2,500', capacity: '2 คน', span: 'lg:col-span-3' },
-              { name: 'Suite', price: '4,500', capacity: '4 คน', span: 'lg:col-span-3' },
-              { name: 'Family', price: '5,500', capacity: '6 คน', span: 'lg:col-span-6' },
-            ].map((room, i) => (
-              <div
-                key={i}
-                className={`reveal-on-scroll stagger-${i + 1} ${room.span} group`}
-              >
+            {loadingRooms ? (
+              Array.from({ length: 4 }).map((_, i) => (
                 <div
-                  className={`h-full rounded-2xl p-8 flex flex-col justify-between hover:-translate-y-1 transition-all duration-300 ${
-                    i === 0 ? 'min-h-[320px]' : 'min-h-[180px]'
-                  }`}
-                  style={{
-                    border: '1px solid var(--color-stone-200)',
-                    backgroundColor: 'var(--color-cream)',
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.borderColor = '#D9A05B';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-stone-200)';
-                  }}
+                  key={i}
+                  className={`${getRoomGridSpan(i)} min-h-[180px] rounded-2xl animate-pulse bg-stone-200/60`}
+                />
+              ))
+            ) : featuredRooms.length > 0 ? (
+              featuredRooms.map((room, i) => (
+                <div
+                  key={room.id}
+                  className={`reveal-on-scroll stagger-${i + 1} ${getRoomGridSpan(i)} group`}
                 >
-                  <div>
-                    <h3 className="font-display text-2xl font-semibold text-forest-800 mb-1">ห้อง {room.name}</h3>
-                    <p className="text-charcoal-400 text-sm">รองรับ {room.capacity}</p>
-                  </div>
-                  <div className="flex items-end justify-between mt-6">
-                    <div>
-                      <span className="font-display text-3xl font-bold text-bamboo-500">฿{room.price}</span>
-                      <span className="text-charcoal-400 text-sm ml-1">/คืน</span>
+                  <div
+                    className={`h-full rounded-2xl overflow-hidden flex flex-col justify-between hover:-translate-y-1 transition-all duration-300 ${
+                      i === 0 ? 'min-h-[320px]' : 'min-h-[180px]'
+                    }`}
+                    style={{
+                      border: '1px solid var(--color-stone-200)',
+                      backgroundColor: 'var(--color-cream)',
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.borderColor = '#D9A05B';
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-stone-200)';
+                    }}
+                  >
+                    {room.main_image && (
+                      <div className={`relative overflow-hidden ${i === 0 ? 'h-40' : 'h-28'}`}>
+                        <img
+                          src={resolveMediaUrl(room.main_image)}
+                          alt={room.room_name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      </div>
+                    )}
+                    <div className="p-8 flex flex-col justify-between flex-1">
+                      <div>
+                        <h3 className="font-display text-2xl font-semibold text-forest-800 mb-1">
+                          {room.room_name}
+                        </h3>
+                        <p className="text-charcoal-400 text-sm">
+                          {room.type_name} · รองรับ {room.capacity} คน
+                        </p>
+                        {room.description && (
+                          <p className="text-charcoal-400 text-sm mt-2 line-clamp-2">{room.description}</p>
+                        )}
+                      </div>
+                      <div className="flex items-end justify-between mt-6">
+                        <div>
+                          <span className="font-display text-3xl font-bold text-bamboo-500">
+                            ฿{formatPrice(room.price_per_night)}
+                          </span>
+                          <span className="text-charcoal-400 text-sm ml-1">/คืน</span>
+                        </div>
+                        <Link
+                          href={`/rooms/${room.id}`}
+                          className="text-sm font-semibold text-forest-800 hover:text-bamboo-500 flex items-center gap-1 transition-colors duration-200"
+                        >
+                          จองเลย <ArrowRight size={14} />
+                        </Link>
+                      </div>
                     </div>
-                    <Link
-                      href="/rooms"
-                      className="text-sm font-semibold text-forest-800 hover:text-bamboo-500 flex items-center gap-1 transition-colors duration-200"
-                    >
-                      จองเลย <ArrowRight size={14} />
-                    </Link>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="lg:col-span-12 text-center py-12 text-charcoal-400">
+                ยังไม่มีประเภทห้องพักที่เปิดให้บริการ
               </div>
-            ))}
+            )}
           </div>
 
           <div className="text-center mt-12">
@@ -563,7 +690,14 @@ export default function HomePage() {
             </h2>
           </div>
           <div className="reveal-on-scroll stagger-2">
-            <ReviewCarousel />
+            {loadingReviews ? (
+              <div className="max-w-2xl mx-auto py-12">
+                <div className="h-6 w-48 bg-stone-200/70 rounded mx-auto mb-4 animate-pulse" />
+                <div className="h-20 bg-stone-200/60 rounded animate-pulse" />
+              </div>
+            ) : (
+              <ReviewCarousel reviews={reviews} />
+            )}
           </div>
         </div>
       </section>

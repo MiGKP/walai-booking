@@ -30,19 +30,33 @@ import { startAutoCancelJob } from './services/auto-cancel.service';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Render/Vercel sit behind a reverse proxy — needed for rate limiting and secure cookies
+app.set('trust proxy', 1);
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   contentSecurityPolicy: false,
+  hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true } : false,
+  frameguard: { action: 'deny' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
+
+const normalizeOrigin = (value?: string): string => (value || '').replace(/\/$/, '');
+
 app.use(cors({
   origin: function (origin, callback) {
-    console.log('CORS check: origin =', origin, 'FRONTEND_URL =', process.env.FRONTEND_URL);
+    const frontendUrl = normalizeOrigin(process.env.FRONTEND_URL);
     const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001'];
-    if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.FRONTEND_URL === origin) {
+
+    if (!origin || allowedOrigins.indexOf(origin) !== -1 || frontendUrl === normalizeOrigin(origin)) {
       callback(null, true);
     } else {
-      callback(new Error(`Not allowed by CORS: origin = ${origin}, FRONTEND_URL = ${process.env.FRONTEND_URL}`));
+      if (!isProduction) {
+        console.log('CORS rejected: origin =', origin, 'FRONTEND_URL =', process.env.FRONTEND_URL);
+      }
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
@@ -65,8 +79,8 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) throw new Error('SESSION_SECRET environment variable is not set');
@@ -75,7 +89,12 @@ app.use(session({
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === 'production' },
+  cookie: {
+    secure: isProduction,
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000,
+  },
 }));
 
 app.use(passport.initialize());
@@ -102,9 +121,14 @@ app.get('/api/health', (req, res) => {
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
-  res.status(err.status || 500).json({
+  const status = err.status || 500;
+  const message = isProduction && status >= 500
+    ? 'Internal Server Error'
+    : (err.message || 'Internal Server Error');
+
+  res.status(status).json({
     success: false,
-    message: err.message || 'Internal Server Error',
+    message,
   });
 });
 

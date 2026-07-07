@@ -168,6 +168,41 @@ export const upsertBoatHours = async (req: Request, res: Response): Promise<void
   }
 };
 
+// สถิติสรุปสำหรับหน้าแรก (public)
+export const getLandingStats = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const [roomTypesRes, boatTypesRes, guestsRes, reviewsRes] = await Promise.all([
+      pool.query(`SELECT COUNT(*)::int AS total FROM room_types WHERE status = true`),
+      pool.query(`SELECT COUNT(*)::int AS total FROM boat_types WHERE is_active = true`),
+      pool.query(`
+        SELECT COUNT(DISTINCT member_id)::int AS total FROM (
+          SELECT member_id FROM room_bookings WHERE status IN ('approved', 'checked_out', 'paid')
+          UNION
+          SELECT member_id FROM boat_bookings WHERE status IN ('approved', 'checked_out', 'paid')
+        ) guests
+      `),
+      pool.query(`
+        SELECT ROUND(AVG(rating)::numeric, 1) AS avg_rating, COUNT(*)::int AS total
+        FROM reviews
+      `),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        room_type_count: Number(roomTypesRes.rows[0]?.total || 0),
+        boat_type_count: Number(boatTypesRes.rows[0]?.total || 0),
+        guest_count: Number(guestsRes.rows[0]?.total || 0),
+        avg_rating: reviewsRes.rows[0]?.avg_rating != null ? Number(reviewsRes.rows[0].avg_rating) : null,
+        review_count: Number(reviewsRes.rows[0]?.total || 0),
+      },
+    });
+  } catch (error) {
+    console.error('Get landing stats error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 // ─── Statistics ─────────────────────────────────────────────────────────────────
 
 export const getStats = async (req: Request, res: Response): Promise<void> => {

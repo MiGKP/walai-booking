@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  getPublicReviews,
   getReviewsByRoomType,
   getMyReviews,
   getReviewableBookings,
@@ -14,6 +15,7 @@ import { authenticate, authorize } from '../middleware/auth.middleware';
 const router = Router();
 
 // Public — ดูรีวิวของ room type นั้น
+router.get('/public', getPublicReviews);
 router.get('/room-type/:room_type_id', getReviewsByRoomType);
 
 // Member routes
