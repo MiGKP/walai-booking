@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Anchor, CreditCard, Star, MapPin, Phone, Waves } from 'lucide-react';
 import api from '@/lib/api';
@@ -49,9 +49,13 @@ interface LandingStats {
 /* ———————————————————————————————
    Scroll-reveal hook (IntersectionObserver)
    ——————————————————————————————— */
-function useRevealOnScroll() {
-  const observe = useCallback((node: HTMLElement | null) => {
+function useRevealOnScroll(...deps: unknown[]) {
+  const containerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const node = containerRef.current;
     if (!node) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -63,13 +67,17 @@ function useRevealOnScroll() {
       },
       { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
     );
-    // Observe the node and all its children with the reveal class
-    const targets = node.querySelectorAll('.reveal-on-scroll');
+
+    const targets = node.querySelectorAll('.reveal-on-scroll:not(.revealed)');
     targets.forEach((el) => observer.observe(el));
-    if (node.classList.contains('reveal-on-scroll')) observer.observe(node);
+    if (node.classList.contains('reveal-on-scroll') && !node.classList.contains('revealed')) {
+      observer.observe(node);
+    }
+
     return () => observer.disconnect();
-  }, []);
-  return observe;
+  }, deps);
+
+  return containerRef;
 }
 
 /* ———————————————————————————————
@@ -391,7 +399,11 @@ export default function HomePage() {
   });
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(true);
-  const revealRef = useRevealOnScroll();
+  const experienceRef = useRevealOnScroll();
+  const roomsRef = useRevealOnScroll(loadingRooms, roomTypes.length);
+  const testimonialsRef = useRevealOnScroll(loadingReviews, reviews.length);
+  const locationRef = useRevealOnScroll();
+  const ctaRef = useRevealOnScroll();
 
   useEffect(() => {
     const fetchLandingData = async () => {
@@ -529,7 +541,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           EXPERIENCE SECTION
           ═══════════════════════════════ */}
-      <section className="py-24 md:py-32" ref={revealRef}>
+      <section className="py-24 md:py-32" ref={experienceRef}>
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-16 md:gap-20 items-start">
             {/* Left — Title */}
@@ -584,7 +596,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           ROOM TYPES
           ═══════════════════════════════ */}
-      <section className="py-24 md:py-32" style={{ borderTop: '1px solid var(--color-stone-200)' }} ref={revealRef}>
+      <section className="py-24 md:py-32" style={{ borderTop: '1px solid var(--color-stone-200)' }} ref={roomsRef}>
         <div className="container mx-auto px-4">
           <div className="reveal-on-scroll mb-14">
             <div className="w-12 h-[2px] bg-bamboo-400 mb-6" />
@@ -681,7 +693,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           TESTIMONIALS
           ═══════════════════════════════ */}
-      <section className="py-24 md:py-32" style={{ borderTop: '1px solid var(--color-stone-200)' }} ref={revealRef}>
+      <section className="py-24 md:py-32" style={{ borderTop: '1px solid var(--color-stone-200)' }} ref={testimonialsRef}>
         <div className="container mx-auto px-4">
           <div className="reveal-on-scroll text-center mb-16">
             <div className="w-12 h-[2px] bg-bamboo-400 mx-auto mb-6" />
@@ -705,7 +717,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           LOCATION
           ═══════════════════════════════ */}
-      <section className="py-24 md:py-32" style={{ borderTop: '1px solid var(--color-stone-200)' }} ref={revealRef}>
+      <section className="py-24 md:py-32" style={{ borderTop: '1px solid var(--color-stone-200)' }} ref={locationRef}>
         <div className="container mx-auto px-4">
           <div className="reveal-on-scroll mb-12">
             <div className="w-12 h-[2px] bg-bamboo-400 mb-6" />
@@ -772,12 +784,12 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           CTA SECTION
           ═══════════════════════════════ */}
-      <section className="relative py-24 md:py-32 bg-forest-800 text-cream-100 overflow-hidden">
+      <section className="relative py-24 md:py-32 bg-forest-800 text-cream-100 overflow-hidden" ref={ctaRef}>
         {/* Organic pattern overlay */}
         <LeafPattern className="absolute top-[-40px] right-[-40px] text-cream-100 opacity-20 scale-75" />
         <LeafPattern className="absolute bottom-[-60px] left-[-60px] text-bamboo-400 opacity-10 scale-50 rotate-180" />
 
-        <div className="relative container mx-auto px-4 text-center" ref={revealRef}>
+        <div className="relative container mx-auto px-4 text-center">
           <div className="reveal-on-scroll">
             <div className="w-12 h-[2px] bg-bamboo-400 mx-auto mb-6" />
             <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">พร้อมที่จะมาพักแล้วหรือยัง?</h2>
