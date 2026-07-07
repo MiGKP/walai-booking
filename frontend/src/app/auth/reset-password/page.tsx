@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Lock, Mail, Waves } from 'lucide-react';
@@ -8,7 +8,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { ready } = useAuthGuard({ guestOnly: true });
@@ -131,5 +131,13 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen pt-16 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-600 border-t-transparent" /></div>}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }
