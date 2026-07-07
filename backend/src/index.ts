@@ -7,8 +7,12 @@ import passport from 'passport';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 
 dotenv.config();
+
+const uploadsDir = path.join(__dirname, '../uploads');
+fs.mkdirSync(uploadsDir, { recursive: true });
 
 import authRoutes from './routes/auth.routes';
 import roomRoutes from './routes/room.routes';
