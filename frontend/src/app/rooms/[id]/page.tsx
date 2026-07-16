@@ -235,12 +235,23 @@ export default function RoomDetailPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">จำนวนผู้เข้าพัก</label>
-                  <select className="input-field" value={booking.guests} onChange={(e) => setBooking({ ...booking, guests: Number(e.target.value) })}>
-                    {Array.from({ length: room.capacity }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={n}>{n} คน</option>
-                    ))}
-                  </select>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    จำนวนผู้เข้าพัก (สูงสุด {room.capacity} คน)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    max={room.capacity}
+                    className="input-field"
+                    value={booking.guests}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      if (!Number.isFinite(value)) return;
+                      const clamped = Math.min(Math.max(value, 1), room.capacity);
+                      setBooking({ ...booking, guests: clamped });
+                    }}
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">คำขอพิเศษ (ถ้ามี)</label>
