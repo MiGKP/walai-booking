@@ -226,35 +226,38 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       chartWhereClause = whereClause;
     }
 
+    // รายได้รวมการจองที่ยืนยันแล้ว + เช็คเอาต์แล้ว (checked_out = จบงานแล้วแต่เคยอนุมัติชำระเงิน)
+    const revenueStatusFilter = `status IN ('approved', 'checked_out')`;
+
     const summaryRoomQuery = `
       SELECT 
-        COUNT(*) FILTER (WHERE status = 'approved')::int as approved_count,
+        COUNT(*) FILTER (WHERE ${revenueStatusFilter})::int as approved_count,
         COUNT(*) FILTER (WHERE status = 'pending')::int as pending_count,
         COUNT(*) FILTER (WHERE status = 'cancelled')::int as cancelled_count,
-        COALESCE(SUM(total_price) FILTER (WHERE status = 'approved'), 0)::numeric as revenue
+        COALESCE(SUM(total_price) FILTER (WHERE ${revenueStatusFilter}), 0)::numeric as revenue
       FROM room_bookings ${whereClause}`;
 
     const summaryKayakQuery = `
       SELECT 
-        COUNT(*) FILTER (WHERE status = 'approved')::int as approved_count,
+        COUNT(*) FILTER (WHERE ${revenueStatusFilter})::int as approved_count,
         COUNT(*) FILTER (WHERE status = 'pending')::int as pending_count,
         COUNT(*) FILTER (WHERE status = 'cancelled')::int as cancelled_count,
-        COALESCE(SUM(total_price) FILTER (WHERE status = 'approved'), 0)::numeric as revenue
+        COALESCE(SUM(total_price) FILTER (WHERE ${revenueStatusFilter}), 0)::numeric as revenue
       FROM boat_bookings ${whereClause}`;
 
     const chartRoomQuery = chartWhereClause ? `
       SELECT 
         TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as day,
-        COALESCE(SUM(total_price) FILTER (WHERE status = 'approved'), 0)::numeric as revenue,
-        COUNT(*) FILTER (WHERE status = 'approved')::int as approved_count
+        COALESCE(SUM(total_price) FILTER (WHERE ${revenueStatusFilter}), 0)::numeric as revenue,
+        COUNT(*) FILTER (WHERE ${revenueStatusFilter})::int as approved_count
       FROM room_bookings ${chartWhereClause}
       GROUP BY DATE(created_at) ORDER BY day ASC` : null;
 
     const chartKayakQuery = chartWhereClause ? `
       SELECT 
         TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as day,
-        COALESCE(SUM(total_price) FILTER (WHERE status = 'approved'), 0)::numeric as revenue,
-        COUNT(*) FILTER (WHERE status = 'approved')::int as approved_count
+        COALESCE(SUM(total_price) FILTER (WHERE ${revenueStatusFilter}), 0)::numeric as revenue,
+        COUNT(*) FILTER (WHERE ${revenueStatusFilter})::int as approved_count
       FROM boat_bookings ${chartWhereClause}
       GROUP BY DATE(created_at) ORDER BY day ASC` : null;
 
