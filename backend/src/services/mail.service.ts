@@ -2,29 +2,55 @@ import nodemailer from 'nodemailer';
 
 const requiredMailEnv = ['MAIL_HOST', 'MAIL_PORT', 'MAIL_USER', 'MAIL_PASS'] as const;
 
-const getMissingMailEnv = () => {
+const getMissingMailEnv = (): string[] => {
   return requiredMailEnv.filter((key) => !process.env[key]);
 };
 
-const getMailFrom = () => {
+const getMailFrom = (): string => {
   return process.env.MAIL_FROM || `${process.env.APP_NAME || 'Walai Booking'} <${process.env.MAIL_USER}>`;
 };
 
-const createTransporter = () => {
+const createTransporter = (): nodemailer.Transporter => {
   const missingEnv = getMissingMailEnv();
   if (missingEnv.length > 0) {
     throw new Error(`Missing mail configuration: ${missingEnv.join(', ')}`);
   }
 
+  const host = String(process.env.MAIL_HOST);
+  const isGmail = host.includes('gmail.com');
+
+  // Timeouts กัน SMTP ค้างบน Render (เดิม verify/send ไม่มี timeout ทำให้ API hang)
+  if (isGmail) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
+      },
+      connectionTimeout: 12_000,
+      greetingTimeout: 12_000,
+      socketTimeout: 20_000,
+    });
+  }
+
   return nodemailer.createTransport({
-    host: process.env.MAIL_HOST,
+    host,
     port: Number(process.env.MAIL_PORT),
     secure: String(process.env.MAIL_SECURE || 'false') === 'true',
     auth: {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS,
     },
+    connectionTimeout: 12_000,
+    greetingTimeout: 12_000,
+    socketTimeout: 20_000,
   });
+};
+
+const sendMailSafely = async (options: nodemailer.SendMailOptions): Promise<void> => {
+  const transporter = createTransporter();
+  // ไม่เรียก verify() ก่อนส่ง — บน Render มัก hang นานและไม่จำเป็นสำหรับ App Password
+  await transporter.sendMail(options);
 };
 
 export const sendReviewReminderEmail = async (params: {
@@ -34,30 +60,28 @@ export const sendReviewReminderEmail = async (params: {
   checkIn: string;
   checkOut: string;
   reviewUrl: string;
-}) => {
-  const transporter = createTransporter();
+}): Promise<void> => {
   const appName = process.env.APP_NAME || 'Walai Booking';
   const recipientName = params.recipientName?.trim() || 'คุณลูกค้า';
-  await transporter.verify();
 
-  await transporter.sendMail({
+  await sendMailSafely({
     from: getMailFrom(),
     to: params.to,
-    subject: `ขอบคุณที่เข้าพักกับ ${appName} — รบกวนรีวิวสักนิดนะครับ 🙏`,
+    subject: `ขอบคุณที่เข้าพักกับ ${appName} — รบกวนรีวิวสักนิดนะครับ`,
     html: `
       <div style="font-family: Arial, sans-serif; background: #f5f7fb; padding: 24px; color: #1f2937;">
         <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 32px; border: 1px solid #e5e7eb;">
           <div style="margin-bottom: 24px;">
             <div style="display: inline-block; background: #ccfbf1; color: #0f766e; font-weight: 700; padding: 10px 14px; border-radius: 999px;">${appName}</div>
           </div>
-          <h1 style="font-size: 22px; margin: 0 0 12px; color: #111827;">ขอบคุณที่เข้าพักกับเรา 🌊</h1>
+          <h1 style="font-size: 22px; margin: 0 0 12px; color: #111827;">ขอบคุณที่เข้าพักกับเรา</h1>
           <p style="font-size: 15px; line-height: 1.7; margin: 0 0 8px;">สวัสดี ${recipientName}</p>
           <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
             ขอบคุณที่เลือกพัก <strong>${params.roomName}</strong> กับวลัย<br />
             ช่วง <strong>${params.checkIn}</strong> – <strong>${params.checkOut}</strong>
           </p>
           <p style="font-size: 15px; line-height: 1.7; margin: 0 0 20px;">
-            หวังว่าคุณจะได้รับประสบการณ์ที่ดี หากมีเวลา รบกวนรีวิวการเข้าพักของคุณสักนิดนะครับ — ความคิดเห็นของคุณมีค่ามากสำหรับเรา ⭐
+            หวังว่าคุณจะได้รับประสบการณ์ที่ดี หากมีเวลา รบกวนรีวิวการเข้าพักของคุณสักนิดนะครับ — ความคิดเห็นของคุณมีค่ามากสำหรับเรา
           </p>
           <a href="${params.reviewUrl}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 24px;">
             เขียนรีวิว
@@ -73,14 +97,12 @@ export const sendPasswordResetEmail = async (params: {
   to: string;
   recipientName?: string;
   otpCode: string;
-}) => {
-  const transporter = createTransporter();
+}): Promise<void> => {
   const appName = process.env.APP_NAME || 'Walai Booking';
   const recipientName = params.recipientName?.trim() || 'คุณลูกค้า';
   const expiresInMinutes = Number(process.env.PASSWORD_RESET_EXPIRES_MINUTES || '30');
-  await transporter.verify();
 
-  await transporter.sendMail({
+  await sendMailSafely({
     from: getMailFrom(),
     to: params.to,
     subject: `รีเซ็ตรหัสผ่าน ${appName}`,
@@ -123,7 +145,6 @@ export const sendPaymentSlipNotificationEmail = async (params: {
   const bookingTypeLabel = params.bookingType === 'room' ? 'ห้องพัก' : 'เรือคายัค';
 
   try {
-    await transporter.verify();
     await transporter.sendMail({
       from: getMailFrom(),
       to: params.to,
@@ -175,7 +196,6 @@ export const sendBookingConfirmationEmail = async (params: {
   const bookingTypeLabel = params.bookingType === 'room' ? 'ห้องพัก' : 'เรือคายัค';
 
   try {
-    await transporter.verify();
     await transporter.sendMail({
       from: getMailFrom(),
       to: params.to,
@@ -241,7 +261,6 @@ export const sendBookingStatusEmail = async (params: {
   const titleText = isApproved ? 'การจองของคุณได้รับการยืนยันเรียบร้อยแล้ว!' : 'การจองของคุณไม่ผ่านการอนุมัติ';
 
   try {
-    await transporter.verify();
     await transporter.sendMail({
       from: getMailFrom(),
       to: params.to,

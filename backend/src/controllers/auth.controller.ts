@@ -649,11 +649,11 @@ export const toggleMemberStatus = async (req: Request, res: Response): Promise<v
 
 export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   try {
-    const genericForgotPasswordMessage = 'If the email exists, a password reset OTP has been sent.';
+    const genericForgotPasswordMessage = 'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่ง OTP สำหรับรีเซ็ตรหัสผ่านให้แล้ว';
     const email = String(req.body.email || '').trim().toLowerCase();
 
     if (!email) {
-      res.status(400).json({ success: false, message: 'Email is required' });
+      res.status(400).json({ success: false, message: 'กรุณากรอกอีเมล' });
       return;
     }
 
@@ -663,6 +663,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     );
 
     if (memberResult.rows.length === 0) {
+      // ไม่เปิดเผยว่าอีเมลมีในระบบหรือไม่
       res.json({ success: true, message: genericForgotPasswordMessage, data: null });
       return;
     }
@@ -677,23 +678,31 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
       [hashedOtp, expiresAt, member.id]
     );
 
-    await sendPasswordResetEmail({
-      to: member.email,
-      recipientName: buildDisplayName(member.first_name, member.last_name),
-      otpCode,
-    });
+    try {
+      await sendPasswordResetEmail({
+        to: member.email,
+        recipientName: buildDisplayName(member.first_name, member.last_name),
+        otpCode,
+      });
+    } catch (mailError) {
+      console.error('Forgot password mail error:', mailError);
+      res.status(503).json({
+        success: false,
+        message: 'ไม่สามารถส่งอีเมล OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง หรือติดต่อเจ้าหน้าที่',
+      });
+      return;
+    }
 
     res.json({
       success: true,
       message: genericForgotPasswordMessage,
       data: {
         email: member.email,
-      }
+      },
     });
   } catch (error) {
     console.error('Forgot password error:', error);
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ success: false, message });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่' });
   }
 };
 
