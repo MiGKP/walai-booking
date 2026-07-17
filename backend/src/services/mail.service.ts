@@ -29,6 +29,63 @@ interface MailPayload {
   text?: string;
 }
 
+interface BrevoSender {
+  email: string;
+  name: string;
+}
+
+const getBrevoSender = (): BrevoSender => {
+  const mailFrom = getMailFrom();
+  const namedAddress = mailFrom.match(/^\s*(.*?)\s*<([^<>]+)>\s*$/);
+  const email = stripQuotes(
+    process.env.BREVO_FROM_EMAIL || namedAddress?.[2] || mailFrom
+  );
+  const name = stripQuotes(
+    process.env.BREVO_FROM_NAME ||
+      namedAddress?.[1] ||
+      process.env.APP_NAME ||
+      'Walai Booking'
+  );
+
+  if (!email.includes('@')) {
+    throw new Error('BREVO_FROM_EMAIL or MAIL_FROM must contain a valid sender email');
+  }
+
+  return { email, name };
+};
+
+const sendViaBrevo = async (payload: MailPayload): Promise<void> => {
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY is missing');
+  }
+
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'api-key': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: getBrevoSender(),
+      to: [{ email: payload.to }],
+      subject: payload.subject,
+      htmlContent: payload.html,
+      textContent: payload.text,
+    }),
+    // HTTPS avoids outbound SMTP port restrictions on Render.
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Brevo API error ${response.status}: ${body}`);
+  }
+
+  console.log(`[mail] Sent via Brevo API to ${payload.to}`);
+};
+
 const sendViaResend = async (payload: MailPayload): Promise<boolean> => {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) return false;
@@ -132,15 +189,13 @@ const sendViaSmtp = async (payload: MailPayload): Promise<void> => {
   throw lastError instanceof Error ? lastError : new Error('Gmail SMTP send failed');
 };
 
-const getMailProvider = (): 'resend' | 'smtp' => {
+const getMailProvider = (): 'brevo' | 'resend' | 'smtp' => {
   const explicit = stripQuotes(String(process.env.MAIL_PROVIDER || '')).toLowerCase();
-  if (explicit === 'brevo' || explicit === 'smtp') return 'smtp';
+  if (explicit === 'brevo') return 'brevo';
+  if (explicit === 'smtp') return 'smtp';
   if (explicit === 'resend') return 'resend';
 
-  const host = stripQuotes(String(process.env.MAIL_HOST || '')).toLowerCase();
-  // Brevo / Sendinblue SMTP → ส่งหาใครก็ได้หลัง verify sender (ไม่ต้องมีโดเมน)
-  if (host.includes('brevo.com') || host.includes('sendinblue.com')) return 'smtp';
-
+  if (process.env.BREVO_API_KEY?.trim()) return 'brevo';
   if (process.env.RESEND_API_KEY?.trim()) return 'resend';
   return 'smtp';
 };
@@ -155,6 +210,11 @@ const sendMailSafely = async (options: nodemailer.SendMailOptions): Promise<void
 
   const provider = getMailProvider();
   console.log(`[mail] provider=${provider}`);
+
+  if (provider === 'brevo') {
+    await sendViaBrevo(payload);
+    return;
+  }
 
   if (provider === 'resend') {
     const sent = await sendViaResend(payload);
