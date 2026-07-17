@@ -6,51 +6,150 @@ const getMissingMailEnv = (): string[] => {
   return requiredMailEnv.filter((key) => !process.env[key]);
 };
 
+const stripQuotes = (value: string): string => value.replace(/^["']|["']$/g, '').trim();
+
 const getMailFrom = (): string => {
-  return process.env.MAIL_FROM || `${process.env.APP_NAME || 'Walai Booking'} <${process.env.MAIL_USER}>`;
+  const raw =
+    process.env.MAIL_FROM ||
+    `${process.env.APP_NAME || 'Walai Booking'} <${process.env.MAIL_USER}>`;
+  return stripQuotes(raw);
 };
 
-const createTransporter = (): nodemailer.Transporter => {
+const getMailPass = (): string => {
+  // App Password บางทีมีช่องว่างตอน copy จาก Google
+  return stripQuotes(String(process.env.MAIL_PASS || '')).replace(/\s+/g, '');
+};
+
+const getMailUser = (): string => stripQuotes(String(process.env.MAIL_USER || ''));
+
+interface MailPayload {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}
+
+const sendViaResend = async (payload: MailPayload): Promise<boolean> => {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) return false;
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      // Free tier: ใช้ onboarding@resend.dev จนกว่าจะ verify domain
+      from: process.env.RESEND_FROM?.trim() || 'Walai Booking <onboarding@resend.dev>',
+      to: [payload.to],
+      subject: payload.subject,
+      html: payload.html,
+      text: payload.text,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Resend error ${response.status}: ${body}`);
+  }
+
+  console.log(`[mail] Sent via Resend to ${payload.to}`);
+  return true;
+};
+
+const createGmailTransporter = (secure: boolean): nodemailer.Transporter => {
+  const port = secure ? 465 : 587;
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port,
+    secure,
+    auth: {
+      user: getMailUser(),
+      pass: getMailPass(),
+    },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+    tls: {
+      minVersion: 'TLSv1.2',
+    },
+  });
+};
+
+const createGenericTransporter = (): nodemailer.Transporter => {
+  return nodemailer.createTransport({
+    host: String(process.env.MAIL_HOST),
+    port: Number(process.env.MAIL_PORT),
+    secure: String(process.env.MAIL_SECURE || 'false') === 'true',
+    auth: {
+      user: getMailUser(),
+      pass: getMailPass(),
+    },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  });
+};
+
+const sendViaSmtp = async (payload: MailPayload): Promise<void> => {
   const missingEnv = getMissingMailEnv();
   if (missingEnv.length > 0) {
     throw new Error(`Missing mail configuration: ${missingEnv.join(', ')}`);
   }
 
-  const host = String(process.env.MAIL_HOST);
+  const host = String(process.env.MAIL_HOST || '');
   const isGmail = host.includes('gmail.com');
+  const mailOptions: nodemailer.SendMailOptions = {
+    from: getMailFrom(),
+    to: payload.to,
+    subject: payload.subject,
+    html: payload.html,
+    text: payload.text,
+  };
 
-  // Timeouts กัน SMTP ค้างบน Render (เดิม verify/send ไม่มี timeout ทำให้ API hang)
-  if (isGmail) {
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS,
-      },
-      connectionTimeout: 12_000,
-      greetingTimeout: 12_000,
-      socketTimeout: 20_000,
-    });
+  if (!isGmail) {
+    await createGenericTransporter().sendMail(mailOptions);
+    console.log(`[mail] Sent via SMTP to ${payload.to}`);
+    return;
   }
 
-  return nodemailer.createTransport({
-    host,
-    port: Number(process.env.MAIL_PORT),
-    secure: String(process.env.MAIL_SECURE || 'false') === 'true',
-    auth: {
-      user: process.env.MAIL_USER,
-      pass: process.env.MAIL_PASS,
-    },
-    connectionTimeout: 12_000,
-    greetingTimeout: 12_000,
-    socketTimeout: 20_000,
-  });
+  // Gmail จาก Render: ลอง 465 (SSL) ก่อน แล้วค่อย 587 (STARTTLS)
+  const attempts = [true, false];
+  let lastError: unknown;
+
+  for (const secure of attempts) {
+    try {
+      await createGmailTransporter(secure).sendMail(mailOptions);
+      console.log(`[mail] Sent via Gmail SMTP port ${secure ? 465 : 587} to ${payload.to}`);
+      return;
+    } catch (error) {
+      lastError = error;
+      console.warn(`[mail] Gmail SMTP port ${secure ? 465 : 587} failed:`, error);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Gmail SMTP send failed');
 };
 
 const sendMailSafely = async (options: nodemailer.SendMailOptions): Promise<void> => {
-  const transporter = createTransporter();
-  // ไม่เรียก verify() ก่อนส่ง — บน Render มัก hang นานและไม่จำเป็นสำหรับ App Password
-  await transporter.sendMail(options);
+  const payload: MailPayload = {
+    to: String(options.to),
+    subject: String(options.subject || ''),
+    html: String(options.html || ''),
+    text: options.text ? String(options.text) : undefined,
+  };
+
+  // 1) Resend (HTTPS) ทำงานบน Render ได้เสถียรกว่า Gmail SMTP
+  try {
+    const sent = await sendViaResend(payload);
+    if (sent) return;
+  } catch (error) {
+    console.warn('[mail] Resend failed, falling back to SMTP:', error);
+  }
+
+  // 2) SMTP fallback
+  await sendViaSmtp(payload);
 };
 
 export const sendReviewReminderEmail = async (params: {
@@ -134,19 +233,12 @@ export const sendPaymentSlipNotificationEmail = async (params: {
   bookingId: number;
   amount: number;
   adminDashboardUrl: string;
-}) => {
-  const missingEnv = getMissingMailEnv();
-  if (missingEnv.length > 0) {
-    console.warn('[mail] Skipping slip notification — missing env:', missingEnv.join(', '));
-    return;
-  }
-  const transporter = createTransporter();
+}): Promise<void> => {
   const appName = process.env.APP_NAME || 'Walai Booking';
   const bookingTypeLabel = params.bookingType === 'room' ? 'ห้องพัก' : 'เรือคายัค';
 
   try {
-    await transporter.sendMail({
-      from: getMailFrom(),
+    await sendMailSafely({
       to: params.to,
       subject: `[${appName}] มีสลิปใหม่รอตรวจสอบ — ${params.customerName}`,
       html: `
@@ -185,19 +277,12 @@ export const sendBookingConfirmationEmail = async (params: {
   details: string;
   dateInfo: string;
   totalPrice: number;
-}) => {
-  const missingEnv = getMissingMailEnv();
-  if (missingEnv.length > 0) {
-    console.warn('[mail] Skipping booking confirmation email — missing env:', missingEnv.join(', '));
-    return;
-  }
-  const transporter = createTransporter();
+}): Promise<void> => {
   const appName = process.env.APP_NAME || 'Walai Booking';
   const bookingTypeLabel = params.bookingType === 'room' ? 'ห้องพัก' : 'เรือคายัค';
 
   try {
-    await transporter.sendMail({
-      from: getMailFrom(),
+    await sendMailSafely({
       to: params.to,
       subject: `[${appName}] สรุปการจอง${bookingTypeLabel} — รหัส #${params.bookingId}`,
       html: `
@@ -241,13 +326,7 @@ export const sendBookingStatusEmail = async (params: {
   bookingId: number;
   status: 'approved' | 'rejected';
   details: string;
-}) => {
-  const missingEnv = getMissingMailEnv();
-  if (missingEnv.length > 0) {
-    console.warn('[mail] Skipping booking status email — missing env:', missingEnv.join(', '));
-    return;
-  }
-  const transporter = createTransporter();
+}): Promise<void> => {
   const appName = process.env.APP_NAME || 'Walai Booking';
   const bookingTypeLabel = params.bookingType === 'room' ? 'ห้องพัก' : 'เรือคายัค';
   const isApproved = params.status === 'approved';
@@ -261,8 +340,7 @@ export const sendBookingStatusEmail = async (params: {
   const titleText = isApproved ? 'การจองของคุณได้รับการยืนยันเรียบร้อยแล้ว!' : 'การจองของคุณไม่ผ่านการอนุมัติ';
 
   try {
-    await transporter.sendMail({
-      from: getMailFrom(),
+    await sendMailSafely({
       to: params.to,
       subject,
       html: `

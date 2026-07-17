@@ -688,6 +688,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
       console.error('Forgot password mail error:', mailError);
       res.status(503).json({
         success: false,
+        code: 'MAIL_SEND_FAILED',
         message: 'ไม่สามารถส่งอีเมล OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง หรือติดต่อเจ้าหน้าที่',
       });
       return;
