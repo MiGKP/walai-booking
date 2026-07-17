@@ -117,15 +117,23 @@ UPLOAD_PATH=./uploads
 PROMPTPAY_ID=0956500770
 BANK_ACCOUNT_NUMBER=152-8-68655-5
 
-# SMTP Email Settings (Gmail App Password)
-APP_NAME=Walai Booking
-PASSWORD_RESET_EXPIRES_MINUTES=30
-MAIL_HOST=smtp.gmail.com
+# Email — แนะนำ Brevo (ส่งหาใครก็ได้ ไม่ต้องมีโดเมน)
+# สมัคร: https://www.brevo.com → Settings → SMTP & API → สร้าง SMTP key
+# และ Settings → Senders → เพิ่ม/verify อีเมลผู้ส่ง
+MAIL_PROVIDER=brevo
+MAIL_HOST=smtp-relay.brevo.com
 MAIL_PORT=587
 MAIL_SECURE=false
-MAIL_USER=walaibooking@gmail.com
-MAIL_PASS=your_gmail_app_password
-MAIL_FROM="Walai Booking <walaibooking@gmail.com>"
+MAIL_USER=your_brevo_login_email
+MAIL_PASS=your_brevo_smtp_key
+MAIL_FROM="Walai Booking <your_verified_sender@email.com>"
+APP_NAME=Walai Booking
+PASSWORD_RESET_EXPIRES_MINUTES=30
+
+# (ทางเลือก) Resend — ฟรีส่งได้เฉพาะเมลที่สมัคร จนกว่าจะ verify โดเมน
+# MAIL_PROVIDER=resend
+# RESEND_API_KEY=re_xxx
+# RESEND_FROM=Walai Booking <onboarding@resend.dev>
 ```
 
 ### 2. Frontend (`frontend/.env.local`)

@@ -132,6 +132,19 @@ const sendViaSmtp = async (payload: MailPayload): Promise<void> => {
   throw lastError instanceof Error ? lastError : new Error('Gmail SMTP send failed');
 };
 
+const getMailProvider = (): 'resend' | 'smtp' => {
+  const explicit = stripQuotes(String(process.env.MAIL_PROVIDER || '')).toLowerCase();
+  if (explicit === 'brevo' || explicit === 'smtp') return 'smtp';
+  if (explicit === 'resend') return 'resend';
+
+  const host = stripQuotes(String(process.env.MAIL_HOST || '')).toLowerCase();
+  // Brevo / Sendinblue SMTP → ส่งหาใครก็ได้หลัง verify sender (ไม่ต้องมีโดเมน)
+  if (host.includes('brevo.com') || host.includes('sendinblue.com')) return 'smtp';
+
+  if (process.env.RESEND_API_KEY?.trim()) return 'resend';
+  return 'smtp';
+};
+
 const sendMailSafely = async (options: nodemailer.SendMailOptions): Promise<void> => {
   const payload: MailPayload = {
     to: String(options.to),
@@ -140,11 +153,14 @@ const sendMailSafely = async (options: nodemailer.SendMailOptions): Promise<void
     text: options.text ? String(options.text) : undefined,
   };
 
-  const hasResend = Boolean(process.env.RESEND_API_KEY?.trim());
+  const provider = getMailProvider();
+  console.log(`[mail] provider=${provider}`);
 
-  // มี RESEND_API_KEY = ใช้ Resend อย่างเดียว (อย่า fallback Gmail — บัง error จริง)
-  if (hasResend) {
-    await sendViaResend(payload);
+  if (provider === 'resend') {
+    const sent = await sendViaResend(payload);
+    if (!sent) {
+      throw new Error('RESEND_API_KEY is missing');
+    }
     return;
   }
 
