@@ -140,15 +140,14 @@ const sendMailSafely = async (options: nodemailer.SendMailOptions): Promise<void
     text: options.text ? String(options.text) : undefined,
   };
 
-  // 1) Resend (HTTPS) ทำงานบน Render ได้เสถียรกว่า Gmail SMTP
-  try {
-    const sent = await sendViaResend(payload);
-    if (sent) return;
-  } catch (error) {
-    console.warn('[mail] Resend failed, falling back to SMTP:', error);
+  const hasResend = Boolean(process.env.RESEND_API_KEY?.trim());
+
+  // มี RESEND_API_KEY = ใช้ Resend อย่างเดียว (อย่า fallback Gmail — บัง error จริง)
+  if (hasResend) {
+    await sendViaResend(payload);
+    return;
   }
 
-  // 2) SMTP fallback
   await sendViaSmtp(payload);
 };
 

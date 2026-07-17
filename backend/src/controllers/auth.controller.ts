@@ -686,10 +686,18 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
       });
     } catch (mailError) {
       console.error('Forgot password mail error:', mailError);
+      const mailMessage = mailError instanceof Error ? mailError.message : String(mailError);
+      // Resend ฟรี + onboarding@resend.dev ส่งได้เฉพาะอีเมลเจ้าของบัญชี
+      const isResendRecipientBlocked =
+        /only send testing emails to your own email/i.test(mailMessage) ||
+        /validation_error/i.test(mailMessage);
+
       res.status(503).json({
         success: false,
-        code: 'MAIL_SEND_FAILED',
-        message: 'ไม่สามารถส่งอีเมล OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง หรือติดต่อเจ้าหน้าที่',
+        code: isResendRecipientBlocked ? 'MAIL_RECIPIENT_BLOCKED' : 'MAIL_SEND_FAILED',
+        message: isResendRecipientBlocked
+          ? 'Resend โหมดทดสอบส่งได้เฉพาะอีเมลที่สมัคร Resend เท่านั้น กรุณาใช้เมลนั้น หรือ verify domain'
+          : 'ไม่สามารถส่งอีเมล OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง หรือติดต่อเจ้าหน้าที่',
       });
       return;
     }
