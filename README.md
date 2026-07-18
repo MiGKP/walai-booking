@@ -110,8 +110,11 @@ GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
 # Frontend URL
 FRONTEND_URL=http://localhost:3000
 
-# File Uploads
-UPLOAD_PATH=./uploads
+# Cloudinary Media Storage
+# Cloudinary Dashboard → Settings → API Keys
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 
 # Payment Info
 PROMPTPAY_ID=0956500770
@@ -131,6 +134,14 @@ PASSWORD_RESET_EXPIRES_MINUTES=30
 # RESEND_API_KEY=re_xxx
 # RESEND_FROM=Walai Booking <onboarding@resend.dev>
 ```
+
+ไฟล์รูปใหม่ทั้งหมดถูกส่งจาก backend ไป Cloudinary โดยตรง ค่าทั้งสาม
+`CLOUDINARY_*` ต้องตั้งเฉพาะใน `backend/.env` และ Render Environment เท่านั้น
+ห้ามนำไปใส่ใน frontend หรือ commit ลง Git
+
+ข้อมูลเดิมที่เก็บ path แบบ `/uploads/...` ยังอ่านได้เพื่อรองรับ local development
+แต่ไฟล์ที่หายจาก Render Free แล้วไม่สามารถกู้คืนได้ ต้องอัปโหลดใหม่ผ่านหน้า admin
+หรือหน้าชำระเงิน
 
 ### 2. Frontend (`frontend/.env.local`)
 สร้างไฟล์ `frontend/.env.local` และกำหนดค่าดังนี้:

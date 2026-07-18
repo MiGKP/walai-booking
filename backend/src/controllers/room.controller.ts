@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import { deleteCloudinaryImage } from '../services/cloudinary.service';
 
 const normalizeAmenityIds = (value: unknown): number[] => {
   if (!Array.isArray(value)) {
@@ -19,6 +20,17 @@ const normalizeImagePaths = (value: unknown): string[] => {
   return value
     .map((item) => String(item || '').trim())
     .filter((item) => item.length > 0);
+};
+
+const cleanupRemovedRoomImages = async (urls: string[]): Promise<void> => {
+  const results = await Promise.allSettled(
+    urls.map((url) => deleteCloudinaryImage(url))
+  );
+  results.forEach((result) => {
+    if (result.status === 'rejected') {
+      console.error('Removed room image cleanup error:', result.reason);
+    }
+  });
 };
 
 // ดึงรายการประเภทห้องพักทั้งหมดที่เปิดใช้งานอยู่ พร้อมรูป, จำนวนห้องว่าง และสิ่งอำนวยความสะดวกสำหรับหน้าแสดงผลฝั่งลูกค้า
@@ -227,6 +239,25 @@ export const updateRoom = async (req: Request, res: Response): Promise<void> => 
     const normalizedAmenityIds = normalizeAmenityIds(amenity_ids ?? amenities);
     const galleryImages = normalizeImagePaths(gallery_images);
 
+    const currentRoomResult = await pool.query(
+      'SELECT room_image FROM room_types WHERE id = $1 LIMIT 1',
+      [id]
+    );
+    if (currentRoomResult.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Room type not found' });
+      return;
+    }
+    const currentGalleryResult = await pool.query(
+      'SELECT image_path FROM room_images WHERE room_type_id = $1',
+      [id]
+    );
+    const previousImages = [
+      String(currentRoomResult.rows[0].room_image || ''),
+      ...currentGalleryResult.rows.map(
+        (row: { image_path: string }) => row.image_path
+      ),
+    ].filter(Boolean);
+
     const result = await pool.query(
       `UPDATE room_types SET room_name=$1, type_name=$2, description=$3, capacity=$4, price=$5,
        room_image=$6, amenity_ids=$7, status=$8
@@ -248,6 +279,12 @@ export const updateRoom = async (req: Request, res: Response): Promise<void> => 
         [id, imagePath]
       );
     }
+
+    const retainedImages = new Set([String(room_image || ''), ...galleryImages]);
+    const removedImages = previousImages.filter(
+      (imagePath) => !retainedImages.has(imagePath)
+    );
+    await cleanupRemovedRoomImages(removedImages);
 
     res.json({ success: true, message: 'Room type updated', data: result.rows[0] });
   } catch (error) {

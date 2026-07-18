@@ -1,7 +1,5 @@
 import { Router } from 'express';
 import passport from 'passport';
-import multer from 'multer';
-import path from 'path';
 import {
   register,
   login,
@@ -36,33 +34,10 @@ import {
   createStaffValidator,
   initAdminValidator,
 } from '../middleware/validators';
+import { createImageUpload } from '../middleware/image-upload.middleware';
 
 const router = Router();
-
-const avatarStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../uploads'));
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
-const uploadAvatar = multer({
-  storage: avatarStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|webp/;
-    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mime = allowed.test(file.mimetype);
-    if (ext && mime) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
-    }
-  },
-});
+const uploadAvatar = createImageUpload(5 * 1024 * 1024);
 
 // Admin Staff Management
 router.post('/init-admin', initAdminValidator, validate, initAdmin); // No auth required, but checks if admin already exists

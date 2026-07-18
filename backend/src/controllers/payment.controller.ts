@@ -4,6 +4,11 @@ import generatePayload from 'promptpay-qr';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
 import { sendPaymentSlipNotificationEmail } from '../services/mail.service';
+import {
+  CloudinaryUploadResult,
+  deleteCloudinaryImage,
+  uploadImage,
+} from '../services/cloudinary.service';
 
 // สร้างข้อมูลสำหรับหน้าชำระเงินของการจองห้องหรือเรือ โดยดึงยอดจริงจากฐานข้อมูลและสร้าง PromptPay QR Code แบบ Data URL
 export const createPayment = async (req: Request, res: Response): Promise<void> => {
@@ -83,58 +88,77 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const slipPath = `/uploads/${file.filename}`;
-    let totalPrice = 0;
-    let memberName = '';
+    if (bType !== 'room' && bType !== 'kayak') {
+      res.status(400).json({ success: false, message: 'Invalid payment ID format' });
+      return;
+    }
 
-    if (bType === 'room') {
-      const existing = await pool.query(
+    const existing = bType === 'room'
+      ? await pool.query(
         `SELECT rb.status, rb.total_price, m.first_name, m.last_name
          FROM room_bookings rb
          JOIN members m ON rb.member_id = m.member_id
          WHERE rb.room_booking_id = $1 AND rb.member_id = $2`,
         [bId, user.id]
-      );
-      if (existing.rowCount === 0) {
-        res.status(404).json({ success: false, message: 'Booking not found or unauthorized' });
-        return;
-      }
-      if (!['pending', 'approved'].includes(existing.rows[0].status)) {
-        res.status(400).json({ success: false, message: 'Cannot upload slip for a booking with status: ' + existing.rows[0].status });
-        return;
-      }
-      totalPrice = Number(existing.rows[0].total_price);
-      memberName = `${existing.rows[0].first_name || ''} ${existing.rows[0].last_name || ''}`.trim();
-      await pool.query(
-        `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE room_booking_id = $2 AND member_id = $3`,
-        [slipPath, bId, user.id]
-      );
-    } else if (bType === 'kayak') {
-      const existing = await pool.query(
+      )
+      : await pool.query(
         `SELECT bb.status, bb.total_price, m.first_name, m.last_name
          FROM boat_bookings bb
          JOIN members m ON bb.member_id = m.member_id
          WHERE bb.boat_booking_id = $1 AND bb.member_id = $2`,
         [bId, user.id]
       );
-      if (existing.rowCount === 0) {
-        res.status(404).json({ success: false, message: 'Booking not found or unauthorized' });
-        return;
-      }
-      if (!['pending', 'approved'].includes(existing.rows[0].status)) {
-        res.status(400).json({ success: false, message: 'Cannot upload slip for a booking with status: ' + existing.rows[0].status });
-        return;
-      }
-      totalPrice = Number(existing.rows[0].total_price);
-      memberName = `${existing.rows[0].first_name || ''} ${existing.rows[0].last_name || ''}`.trim();
-      await pool.query(
-        `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3`,
-        [slipPath, bId, user.id]
-      );
-    } else {
-      res.status(400).json({ success: false, message: 'Invalid payment ID format' });
+
+    if (existing.rowCount === 0) {
+      res.status(404).json({ success: false, message: 'Booking not found or unauthorized' });
       return;
     }
+
+    const booking = existing.rows[0];
+    if (!['pending', 'approved'].includes(booking.status)) {
+      res.status(400).json({
+        success: false,
+        message: `Cannot upload slip for a booking with status: ${booking.status}`,
+      });
+      return;
+    }
+
+    let uploadedSlip: CloudinaryUploadResult;
+    try {
+      uploadedSlip = await uploadImage(file.buffer, {
+        folder: 'walai-booking/slips',
+        publicId: `${bType}-${bId}`,
+      });
+    } catch (error) {
+      console.error('Payment slip Cloudinary upload error:', error);
+      res.status(503).json({
+        error: 'Payment slip upload is temporarily unavailable',
+        code: 'UPLOAD_FAILED',
+      });
+      return;
+    }
+
+    try {
+      if (bType === 'room') {
+        await pool.query(
+          `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE room_booking_id = $2 AND member_id = $3`,
+          [uploadedSlip.url, bId, user.id]
+        );
+      } else {
+        await pool.query(
+        `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3`,
+          [uploadedSlip.url, bId, user.id]
+        );
+      }
+    } catch (error) {
+      await deleteCloudinaryImage(uploadedSlip.url).catch((cleanupError: unknown) => {
+        console.error('Payment slip cleanup error:', cleanupError);
+      });
+      throw error;
+    }
+
+    const totalPrice = Number(booking.total_price);
+    const memberName = `${booking.first_name || ''} ${booking.last_name || ''}`.trim();
 
     // ส่งอีเมลแจ้งเตือน admin / staff ให้มาตรวจสอบสลิป (fire-and-forget)
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -148,7 +172,9 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       `SELECT email FROM staff WHERE role = ANY($1) AND status = true`,
       [staffRole]
     ).then(staffRes => {
-      const emails = staffRes.rows.map((r: any) => r.email).filter(Boolean);
+      const emails = staffRes.rows
+        .map((row: { email?: string }) => row.email)
+        .filter((email: string | undefined): email is string => Boolean(email));
       if (emails.length > 0) {
         sendPaymentSlipNotificationEmail({
           to: emails.join(','),
@@ -161,7 +187,11 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       }
     }).catch(console.error);
 
-    res.json({ success: true, message: 'Payment slip uploaded, awaiting confirmation', data: { slip_image: slipPath } });
+    res.json({
+      success: true,
+      message: 'Payment slip uploaded, awaiting confirmation',
+      data: { slip_image: uploadedSlip.url },
+    });
   } catch (error) {
     console.error('Upload slip error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });

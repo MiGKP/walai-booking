@@ -2,9 +2,21 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import { QueryResult } from 'pg';
 import pool from '../config/database';
 import { sendPasswordResetEmail } from '../services/mail.service';
 import { AuthPayload } from '../types';
+import {
+  CloudinaryUploadResult,
+  deleteCloudinaryImage,
+  extractCloudinaryPublicId,
+  uploadImage,
+} from '../services/cloudinary.service';
+
+interface AvatarUpdateRow {
+  id: number;
+  avatar: string;
+}
 
 // สร้าง JWT token สำหรับใช้ยืนยันตัวตนหลังจาก login หรือ register สำเร็จ โดยเก็บ id, email และ role ของผู้ใช้ไว้ใน token
 const generateToken = (payload: AuthPayload): string => {
@@ -514,16 +526,56 @@ export const uploadProfileAvatar = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const avatarPath = `/uploads/${file.filename}`;
-
-    const result = await pool.query(
-      'UPDATE members SET image_profile = $1 WHERE member_id = $2 RETURNING member_id as id, image_profile as avatar',
-      [avatarPath, authUser.id]
+    const memberResult = await pool.query(
+      'SELECT image_profile FROM members WHERE member_id = $1 LIMIT 1',
+      [authUser.id]
     );
+    if (memberResult.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Member not found' });
+      return;
+    }
+
+    const previousAvatar = memberResult.rows[0].image_profile as string | null;
+    let uploadedAvatar: CloudinaryUploadResult;
+    try {
+      uploadedAvatar = await uploadImage(file.buffer, {
+        folder: 'walai-booking/avatars',
+        publicId: `member-${authUser.id}`,
+      });
+    } catch (error) {
+      console.error('Profile avatar Cloudinary upload error:', error);
+      res.status(503).json({
+        error: 'Profile image upload is temporarily unavailable',
+        code: 'UPLOAD_FAILED',
+      });
+      return;
+    }
+
+    let result: QueryResult<AvatarUpdateRow>;
+    try {
+      result = await pool.query(
+        'UPDATE members SET image_profile = $1 WHERE member_id = $2 RETURNING member_id as id, image_profile as avatar',
+        [uploadedAvatar.url, authUser.id]
+      );
+    } catch (error) {
+      await deleteCloudinaryImage(uploadedAvatar.url).catch((cleanupError: unknown) => {
+        console.error('Profile avatar cleanup error:', cleanupError);
+      });
+      throw error;
+    }
 
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'Member not found' });
       return;
+    }
+
+    const previousPublicId = previousAvatar
+      ? extractCloudinaryPublicId(previousAvatar)
+      : null;
+    if (previousPublicId && previousPublicId !== uploadedAvatar.publicId) {
+      deleteCloudinaryImage(previousAvatar).catch((cleanupError: unknown) => {
+        console.error('Previous profile avatar cleanup error:', cleanupError);
+      });
     }
 
     res.json({
