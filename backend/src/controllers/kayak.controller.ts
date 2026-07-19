@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
 import { sendBookingConfirmationEmail, sendBookingStatusEmail } from '../services/mail.service';
+import { deleteCloudinaryImage } from '../services/cloudinary.service';
 
 // ดึงรายการประเภทเรือทั้งหมดที่เปิดใช้งานอยู่ พร้อมข้อมูลที่ frontend ใช้แสดง เช่น ความจุ ราคา และรูปหลัก
 export const getAllKayaks = async (req: Request, res: Response): Promise<void> => {
@@ -593,13 +594,18 @@ export const deleteBoatImage = async (req: Request, res: Response): Promise<void
   try {
     const { imageId } = req.params;
     const result = await pool.query(
-      `DELETE FROM boat_images WHERE boat_image_id = $1 RETURNING boat_image_id`,
+      `DELETE FROM boat_images WHERE boat_image_id = $1 RETURNING boat_image_id, image_path`,
       [imageId]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'Image not found' });
       return;
     }
+    await deleteCloudinaryImage(result.rows[0].image_path).catch(
+      (cleanupError: unknown) => {
+        console.error('Deleted boat image cleanup error:', cleanupError);
+      }
+    );
     res.json({ success: true, message: 'Image deleted' });
   } catch (error) {
     console.error('Delete boat image error:', error);

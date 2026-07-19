@@ -35,8 +35,8 @@ export default function RegisterPage() {
       toast.error("รหัสผ่านไม่ตรงกัน");
       return;
     }
-    if (form.password.length < 6) {
-      toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+    if (form.password.length < 8) {
+      toast.error('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
       return;
     }
     setLoading(true);

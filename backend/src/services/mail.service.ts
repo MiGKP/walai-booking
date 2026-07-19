@@ -2,29 +2,229 @@ import nodemailer from 'nodemailer';
 
 const requiredMailEnv = ['MAIL_HOST', 'MAIL_PORT', 'MAIL_USER', 'MAIL_PASS'] as const;
 
-const getMissingMailEnv = () => {
+const getMissingMailEnv = (): string[] => {
   return requiredMailEnv.filter((key) => !process.env[key]);
 };
 
-const getMailFrom = () => {
-  return process.env.MAIL_FROM || `${process.env.APP_NAME || 'Walai Booking'} <${process.env.MAIL_USER}>`;
+const stripQuotes = (value: string): string => value.replace(/^["']|["']$/g, '').trim();
+
+const getMailFrom = (): string => {
+  const raw =
+    process.env.MAIL_FROM ||
+    `${process.env.APP_NAME || 'Walai Booking'} <${process.env.MAIL_USER}>`;
+  return stripQuotes(raw);
 };
 
-const createTransporter = () => {
+const getMailPass = (): string => {
+  // App Password บางทีมีช่องว่างตอน copy จาก Google
+  return stripQuotes(String(process.env.MAIL_PASS || '')).replace(/\s+/g, '');
+};
+
+const getMailUser = (): string => stripQuotes(String(process.env.MAIL_USER || ''));
+
+interface MailPayload {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}
+
+interface BrevoSender {
+  email: string;
+  name: string;
+}
+
+const getBrevoSender = (): BrevoSender => {
+  const mailFrom = getMailFrom();
+  const namedAddress = mailFrom.match(/^\s*(.*?)\s*<([^<>]+)>\s*$/);
+  const email = stripQuotes(
+    process.env.BREVO_FROM_EMAIL || namedAddress?.[2] || mailFrom
+  );
+  const name = stripQuotes(
+    process.env.BREVO_FROM_NAME ||
+      namedAddress?.[1] ||
+      process.env.APP_NAME ||
+      'Walai Booking'
+  );
+
+  if (!email.includes('@')) {
+    throw new Error('BREVO_FROM_EMAIL or MAIL_FROM must contain a valid sender email');
+  }
+
+  return { email, name };
+};
+
+const sendViaBrevo = async (payload: MailPayload): Promise<void> => {
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY is missing');
+  }
+
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'api-key': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: getBrevoSender(),
+      to: [{ email: payload.to }],
+      subject: payload.subject,
+      htmlContent: payload.html,
+      textContent: payload.text,
+    }),
+    // HTTPS avoids outbound SMTP port restrictions on Render.
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Brevo API error ${response.status}: ${body}`);
+  }
+
+  console.log(`[mail] Sent via Brevo API to ${payload.to}`);
+};
+
+const sendViaResend = async (payload: MailPayload): Promise<boolean> => {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) return false;
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      // Free tier: ใช้ onboarding@resend.dev จนกว่าจะ verify domain
+      from: process.env.RESEND_FROM?.trim() || 'Walai Booking <onboarding@resend.dev>',
+      to: [payload.to],
+      subject: payload.subject,
+      html: payload.html,
+      text: payload.text,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Resend error ${response.status}: ${body}`);
+  }
+
+  console.log(`[mail] Sent via Resend to ${payload.to}`);
+  return true;
+};
+
+const createGmailTransporter = (secure: boolean): nodemailer.Transporter => {
+  const port = secure ? 465 : 587;
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port,
+    secure,
+    auth: {
+      user: getMailUser(),
+      pass: getMailPass(),
+    },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+    tls: {
+      minVersion: 'TLSv1.2',
+    },
+  });
+};
+
+const createGenericTransporter = (): nodemailer.Transporter => {
+  return nodemailer.createTransport({
+    host: String(process.env.MAIL_HOST),
+    port: Number(process.env.MAIL_PORT),
+    secure: String(process.env.MAIL_SECURE || 'false') === 'true',
+    auth: {
+      user: getMailUser(),
+      pass: getMailPass(),
+    },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+  });
+};
+
+const sendViaSmtp = async (payload: MailPayload): Promise<void> => {
   const missingEnv = getMissingMailEnv();
   if (missingEnv.length > 0) {
     throw new Error(`Missing mail configuration: ${missingEnv.join(', ')}`);
   }
 
-  return nodemailer.createTransport({
-    host: process.env.MAIL_HOST,
-    port: Number(process.env.MAIL_PORT),
-    secure: String(process.env.MAIL_SECURE || 'false') === 'true',
-    auth: {
-      user: process.env.MAIL_USER,
-      pass: process.env.MAIL_PASS,
-    },
-  });
+  const host = String(process.env.MAIL_HOST || '');
+  const isGmail = host.includes('gmail.com');
+  const mailOptions: nodemailer.SendMailOptions = {
+    from: getMailFrom(),
+    to: payload.to,
+    subject: payload.subject,
+    html: payload.html,
+    text: payload.text,
+  };
+
+  if (!isGmail) {
+    await createGenericTransporter().sendMail(mailOptions);
+    console.log(`[mail] Sent via SMTP to ${payload.to}`);
+    return;
+  }
+
+  // Gmail จาก Render: ลอง 465 (SSL) ก่อน แล้วค่อย 587 (STARTTLS)
+  const attempts = [true, false];
+  let lastError: unknown;
+
+  for (const secure of attempts) {
+    try {
+      await createGmailTransporter(secure).sendMail(mailOptions);
+      console.log(`[mail] Sent via Gmail SMTP port ${secure ? 465 : 587} to ${payload.to}`);
+      return;
+    } catch (error) {
+      lastError = error;
+      console.warn(`[mail] Gmail SMTP port ${secure ? 465 : 587} failed:`, error);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Gmail SMTP send failed');
+};
+
+const getMailProvider = (): 'brevo' | 'resend' | 'smtp' => {
+  const explicit = stripQuotes(String(process.env.MAIL_PROVIDER || '')).toLowerCase();
+  if (explicit === 'brevo') return 'brevo';
+  if (explicit === 'smtp') return 'smtp';
+  if (explicit === 'resend') return 'resend';
+
+  if (process.env.BREVO_API_KEY?.trim()) return 'brevo';
+  if (process.env.RESEND_API_KEY?.trim()) return 'resend';
+  return 'smtp';
+};
+
+const sendMailSafely = async (options: nodemailer.SendMailOptions): Promise<void> => {
+  const payload: MailPayload = {
+    to: String(options.to),
+    subject: String(options.subject || ''),
+    html: String(options.html || ''),
+    text: options.text ? String(options.text) : undefined,
+  };
+
+  const provider = getMailProvider();
+  console.log(`[mail] provider=${provider}`);
+
+  if (provider === 'brevo') {
+    await sendViaBrevo(payload);
+    return;
+  }
+
+  if (provider === 'resend') {
+    const sent = await sendViaResend(payload);
+    if (!sent) {
+      throw new Error('RESEND_API_KEY is missing');
+    }
+    return;
+  }
+
+  await sendViaSmtp(payload);
 };
 
 export const sendReviewReminderEmail = async (params: {
@@ -34,30 +234,28 @@ export const sendReviewReminderEmail = async (params: {
   checkIn: string;
   checkOut: string;
   reviewUrl: string;
-}) => {
-  const transporter = createTransporter();
+}): Promise<void> => {
   const appName = process.env.APP_NAME || 'Walai Booking';
   const recipientName = params.recipientName?.trim() || 'คุณลูกค้า';
-  await transporter.verify();
 
-  await transporter.sendMail({
+  await sendMailSafely({
     from: getMailFrom(),
     to: params.to,
-    subject: `ขอบคุณที่เข้าพักกับ ${appName} — รบกวนรีวิวสักนิดนะครับ 🙏`,
+    subject: `ขอบคุณที่เข้าพักกับ ${appName} — รบกวนรีวิวสักนิดนะครับ`,
     html: `
       <div style="font-family: Arial, sans-serif; background: #f5f7fb; padding: 24px; color: #1f2937;">
         <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 32px; border: 1px solid #e5e7eb;">
           <div style="margin-bottom: 24px;">
             <div style="display: inline-block; background: #ccfbf1; color: #0f766e; font-weight: 700; padding: 10px 14px; border-radius: 999px;">${appName}</div>
           </div>
-          <h1 style="font-size: 22px; margin: 0 0 12px; color: #111827;">ขอบคุณที่เข้าพักกับเรา 🌊</h1>
+          <h1 style="font-size: 22px; margin: 0 0 12px; color: #111827;">ขอบคุณที่เข้าพักกับเรา</h1>
           <p style="font-size: 15px; line-height: 1.7; margin: 0 0 8px;">สวัสดี ${recipientName}</p>
           <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
             ขอบคุณที่เลือกพัก <strong>${params.roomName}</strong> กับวลัย<br />
             ช่วง <strong>${params.checkIn}</strong> – <strong>${params.checkOut}</strong>
           </p>
           <p style="font-size: 15px; line-height: 1.7; margin: 0 0 20px;">
-            หวังว่าคุณจะได้รับประสบการณ์ที่ดี หากมีเวลา รบกวนรีวิวการเข้าพักของคุณสักนิดนะครับ — ความคิดเห็นของคุณมีค่ามากสำหรับเรา ⭐
+            หวังว่าคุณจะได้รับประสบการณ์ที่ดี หากมีเวลา รบกวนรีวิวการเข้าพักของคุณสักนิดนะครับ — ความคิดเห็นของคุณมีค่ามากสำหรับเรา
           </p>
           <a href="${params.reviewUrl}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 24px;">
             เขียนรีวิว
@@ -73,14 +271,12 @@ export const sendPasswordResetEmail = async (params: {
   to: string;
   recipientName?: string;
   otpCode: string;
-}) => {
-  const transporter = createTransporter();
+}): Promise<void> => {
   const appName = process.env.APP_NAME || 'Walai Booking';
   const recipientName = params.recipientName?.trim() || 'คุณลูกค้า';
   const expiresInMinutes = Number(process.env.PASSWORD_RESET_EXPIRES_MINUTES || '30');
-  await transporter.verify();
 
-  await transporter.sendMail({
+  await sendMailSafely({
     from: getMailFrom(),
     to: params.to,
     subject: `รีเซ็ตรหัสผ่าน ${appName}`,
@@ -112,20 +308,12 @@ export const sendPaymentSlipNotificationEmail = async (params: {
   bookingId: number;
   amount: number;
   adminDashboardUrl: string;
-}) => {
-  const missingEnv = getMissingMailEnv();
-  if (missingEnv.length > 0) {
-    console.warn('[mail] Skipping slip notification — missing env:', missingEnv.join(', '));
-    return;
-  }
-  const transporter = createTransporter();
+}): Promise<void> => {
   const appName = process.env.APP_NAME || 'Walai Booking';
   const bookingTypeLabel = params.bookingType === 'room' ? 'ห้องพัก' : 'เรือคายัค';
 
   try {
-    await transporter.verify();
-    await transporter.sendMail({
-      from: getMailFrom(),
+    await sendMailSafely({
       to: params.to,
       subject: `[${appName}] มีสลิปใหม่รอตรวจสอบ — ${params.customerName}`,
       html: `
@@ -164,20 +352,12 @@ export const sendBookingConfirmationEmail = async (params: {
   details: string;
   dateInfo: string;
   totalPrice: number;
-}) => {
-  const missingEnv = getMissingMailEnv();
-  if (missingEnv.length > 0) {
-    console.warn('[mail] Skipping booking confirmation email — missing env:', missingEnv.join(', '));
-    return;
-  }
-  const transporter = createTransporter();
+}): Promise<void> => {
   const appName = process.env.APP_NAME || 'Walai Booking';
   const bookingTypeLabel = params.bookingType === 'room' ? 'ห้องพัก' : 'เรือคายัค';
 
   try {
-    await transporter.verify();
-    await transporter.sendMail({
-      from: getMailFrom(),
+    await sendMailSafely({
       to: params.to,
       subject: `[${appName}] สรุปการจอง${bookingTypeLabel} — รหัส #${params.bookingId}`,
       html: `
@@ -221,13 +401,7 @@ export const sendBookingStatusEmail = async (params: {
   bookingId: number;
   status: 'approved' | 'rejected';
   details: string;
-}) => {
-  const missingEnv = getMissingMailEnv();
-  if (missingEnv.length > 0) {
-    console.warn('[mail] Skipping booking status email — missing env:', missingEnv.join(', '));
-    return;
-  }
-  const transporter = createTransporter();
+}): Promise<void> => {
   const appName = process.env.APP_NAME || 'Walai Booking';
   const bookingTypeLabel = params.bookingType === 'room' ? 'ห้องพัก' : 'เรือคายัค';
   const isApproved = params.status === 'approved';
@@ -241,9 +415,7 @@ export const sendBookingStatusEmail = async (params: {
   const titleText = isApproved ? 'การจองของคุณได้รับการยืนยันเรียบร้อยแล้ว!' : 'การจองของคุณไม่ผ่านการอนุมัติ';
 
   try {
-    await transporter.verify();
-    await transporter.sendMail({
-      from: getMailFrom(),
+    await sendMailSafely({
       to: params.to,
       subject,
       html: `
