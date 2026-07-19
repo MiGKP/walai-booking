@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "@lordicon/react": "^1.11.0",
     "axios": "^1.6.2",
     "clsx": "^2.0.0",
     "date-fns": "^3.0.6",
