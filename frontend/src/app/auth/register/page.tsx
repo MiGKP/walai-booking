@@ -25,8 +25,8 @@ export default function RegisterPage() {
       toast.error('รหัสผ่านไม่ตรงกัน');
       return;
     }
-    if (form.password.length < 6) {
-      toast.error('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+    if (form.password.length < 8) {
+      toast.error('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
       return;
     }
     setLoading(true);
@@ -129,7 +129,7 @@ export default function RegisterPage() {
               <div className="relative">
                 <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input type={showPassword ? 'text' : 'password'} required className="input-field pl-11 pr-11"
-                  placeholder="อย่างน้อย 6 ตัวอักษร" value={form.password}
+                  placeholder="อย่างน้อย 8 ตัวอักษร" value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })} />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400">
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
