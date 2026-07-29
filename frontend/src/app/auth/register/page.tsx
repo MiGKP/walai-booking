@@ -66,18 +66,17 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F9FC] flex items-center justify-center items-start py-6 px-6 ">
+    <div className="min-h-screen bg-[#F7F9FC] flex items-start justify-center py-6 px-6">
       <div className="w-full max-w-6xl bg-white rounded-[32px] shadow-2xl overflow-hidden grid lg:grid-cols-2">
         {/* logo section */}
-        <div className="relative order-1 lg:order-1 bg-[#EEF5EF] flex flex-col items-center p-12">
+        <div className="order-1 bg-[#EEF5EF] flex flex-col items-center p-12">
           <Link
             href="/"
-            className="self-start flex items-center gap-2 mb-10 text-charcoal-600 hover:text-forest-800 font-medium transition-colors duration-200 group"
+            className="relative self-start flex items-center gap-2 mb-10 text-charcoal-600 hover:text-forest-800 font-medium transition-colors duration-200 group"
           >
             <ArrowLeft size={18} />
             <span>กลับหน้าหลัก</span>
-
-            <span className="absolute bottom-0 left-4 right-4 h-[2px] bg-bamboo-400 scale-x-0 group-hover:scale-x-100 transition-transform duration-250 origin-left" />
+            <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-bamboo-400 scale-x-0 group-hover:scale-x-100 transition-transform duration-250 origin-left" />
           </Link>
 
           <img
