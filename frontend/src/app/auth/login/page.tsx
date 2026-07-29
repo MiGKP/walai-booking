@@ -19,7 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import LoginScene3D from '@/components/auth/LoginScene3D';
+import LoginScene3D from '@/components/auth/Scene3D';
 
 interface LoginResponse {
   data: {
