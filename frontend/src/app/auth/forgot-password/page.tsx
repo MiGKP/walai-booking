@@ -17,25 +17,15 @@ export default function ForgotPasswordPage() {
 
   if (!ready) return null;
 
-  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await api.post(
-        '/auth/forgot-password',
-        { email: email.trim().toLowerCase() },
-        { timeout: 25000 }
-      );
+      await api.post('/auth/forgot-password', { email });
       setSubmitted(true);
-      toast.success('หากอีเมลนี้มีอยู่ในระบบ เราได้ส่ง OTP ให้แล้ว');
-      router.push(`/auth/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`);
-    } catch (err: unknown) {
-      const axiosErr = err as { code?: string; response?: { data?: { message?: string } } };
-      if (axiosErr.code === 'ECONNABORTED') {
-        toast.error('การส่ง OTP ใช้เวลานานเกินไป กรุณาลองใหม่');
-      } else {
-        toast.error(axiosErr.response?.data?.message || 'ไม่สามารถส่ง OTP ได้');
-      }
+      toast.success('หากอีเมลนี้มีอยู่ในระบบ เราได้ส่ง OTP สำหรับรีเซ็ตรหัสผ่านให้แล้ว');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'ไม่สามารถส่ง OTP ได้');
     } finally {
       setLoading(false);
     }
@@ -65,7 +55,7 @@ export default function ForgotPasswordPage() {
               </p>
               <button
                 type="button"
-                onClick={() => router.push(`/auth/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`)}
+                onClick={() => router.push(`/auth/reset-password?email=${encodeURIComponent(email)}`)}
                 className="mt-4 btn-primary w-full"
               >
                 ไปหน้ากรอก OTP
@@ -91,7 +81,6 @@ export default function ForgotPasswordPage() {
                     placeholder="your@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    disabled={loading}
                   />
                 </div>
               </div>
