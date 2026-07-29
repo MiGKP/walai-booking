@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import type { FormEvent } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import { useState } from "react";
+import type { FormEvent } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import axios from "axios";
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,13 +13,12 @@ import {
   LoaderCircle,
   Lock,
   Mail,
-  Waves,
-} from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useAuthGuard } from '@/hooks/useAuthGuard';
-import api from '@/lib/api';
-import toast from 'react-hot-toast';
-import LoginScene3D from '@/components/auth/Scene3D';
+} from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import api from "@/lib/api";
+import toast from "react-hot-toast";
+import LoginScene3D from "@/components/auth/Scene3D";
 
 interface LoginResponse {
   data: {
@@ -40,36 +39,36 @@ interface LoginErrorResponse {
 
 const getLoginErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError<LoginErrorResponse>(error)) {
-    return error.response?.data?.message || 'เข้าสู่ระบบไม่สำเร็จ';
+    return error.response?.data?.message || "เข้าสู่ระบบไม่สำเร็จ";
   }
-  return 'เข้าสู่ระบบไม่สำเร็จ';
+  return "เข้าสู่ระบบไม่สำเร็จ";
 };
 
 export default function LoginPage(): React.ReactElement | null {
   const router = useRouter();
   const { login } = useAuth();
   const { ready } = useAuthGuard({ guestOnly: true });
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   if (!ready) return null;
 
   const handleSubmit = async (
-    event: FormEvent<HTMLFormElement>
+    event: FormEvent<HTMLFormElement>,
   ): Promise<void> => {
     event.preventDefault();
     setLoading(true);
     try {
-      const response = await api.post<LoginResponse>('/auth/login', form);
+      const response = await api.post<LoginResponse>("/auth/login", form);
       const { user, token, redirectUrl } = response.data.data;
       await login(token);
       const displayName =
         user.name ||
-        `${user.first_name || ''} ${user.last_name || ''}`.trim() ||
+        `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
         user.email;
       toast.success(`ยินดีต้อนรับ, ${displayName}!`);
-      router.push(redirectUrl || '/dashboard');
+      router.push(redirectUrl || "/dashboard");
     } catch (error: unknown) {
       toast.error(getLoginErrorMessage(error));
     } finally {
@@ -115,11 +114,8 @@ export default function LoginPage(): React.ReactElement | null {
         <section className="flex items-center justify-center px-6 py-10 sm:px-10 lg:px-14 lg:py-12">
           <div className="w-full max-w-[440px] animate-fade-in">
             <div className="mb-8">
-              <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-full bg-forest-800 text-cream-100">
-                <Waves size={21} aria-hidden="true" />
-              </div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-lagoon-700">
-                Member access
+                Login
               </p>
               <h2 className="text-3xl font-semibold text-charcoal sm:text-4xl">
                 ยินดีต้อนรับกลับ
@@ -172,12 +168,6 @@ export default function LoginPage(): React.ReactElement | null {
                   >
                     รหัสผ่าน
                   </label>
-                  <Link
-                    href="/auth/forgot-password"
-                    className="text-sm font-semibold text-lagoon-700 transition-colors hover:text-forest-800 focus:outline-none focus:underline"
-                  >
-                    ลืมรหัสผ่าน?
-                  </Link>
                 </div>
                 <div className="relative">
                   <Lock
@@ -187,7 +177,7 @@ export default function LoginPage(): React.ReactElement | null {
                   />
                   <input
                     id="login-password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required
                     className="input-field h-[52px] pl-12 pr-12"
@@ -202,18 +192,20 @@ export default function LoginPage(): React.ReactElement | null {
                   />
                   <button
                     type="button"
-                    aria-label={
-                      showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'
-                    }
+                    aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
                     onClick={() => setShowPassword((visible) => !visible)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 rounded-md p-1 text-stone-400 transition-colors hover:text-forest-800 focus:outline-none focus:ring-2 focus:ring-lagoon-400"
                   >
-                    {showPassword ? (
-                      <EyeOff size={18} />
-                    ) : (
-                      <Eye size={18} />
-                    )}
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <Link
+                    href="/auth/forgot-password"
+                    className="text-sm font-semibold text-lagoon-700 transition-colors hover:text-forest-800 focus:outline-none focus:underline"
+                  >
+                    ลืมรหัสผ่าน?
+                  </Link>
                 </div>
               </div>
 
@@ -255,7 +247,12 @@ export default function LoginPage(): React.ReactElement | null {
               onClick={handleGoogleLogin}
               className="flex w-full items-center justify-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 font-semibold text-charcoal transition hover:border-stone-300 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-lagoon-400 focus:ring-offset-2 active:scale-[0.98]"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path
                   fill="#4285F4"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -277,7 +274,7 @@ export default function LoginPage(): React.ReactElement | null {
             </button>
 
             <p className="mt-7 text-center text-sm text-stone-500">
-              ยังไม่มีบัญชี?{' '}
+              ยังไม่มีบัญชี?{" "}
               <Link
                 href="/auth/register"
                 className="font-semibold text-forest-800 transition-colors hover:text-lagoon-700 focus:outline-none focus:underline"
