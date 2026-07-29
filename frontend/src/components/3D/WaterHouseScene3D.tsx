@@ -17,7 +17,7 @@ const disposeMaterial = (material: Material | Material[]): void => {
   material.dispose();
 };
 
-export default function Scene3D(): React.ReactElement {
+export default function WaterHouseScene3D(): React.ReactElement {
   const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,7 +36,6 @@ export default function Scene3D(): React.ReactElement {
         // 1. Scene / Camera / Renderer Setup
         // -----------------------------------------------------------------
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0xaaccce, 0.032);
 
         const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
         camera.position.set(9.5, 6.2, 11.5);
@@ -55,7 +54,8 @@ export default function Scene3D(): React.ReactElement {
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-        renderer.domElement.className = "login-scene-canvas";
+        renderer.domElement.className =
+          "w-full h-full outline-none focus:outline-none focus:ring-0 select-none";
         renderer.domElement.setAttribute("aria-hidden", "true");
         renderer.domElement.tabIndex = -1;
         mount.appendChild(renderer.domElement);
@@ -88,17 +88,17 @@ export default function Scene3D(): React.ReactElement {
             roughness: 0.85,
           }),
           houseWall: new THREE.MeshStandardMaterial({
-            color: 0xf5f2eb,
-            roughness: 0.4,
+            color: 0x1c3a32, // สีโทนเขียวเข้มรีสอร์ต
+            roughness: 0.5,
           }),
           woodDeck: new THREE.MeshStandardMaterial({
             color: 0x8a5a36,
             roughness: 0.6,
           }),
           metalRoof: new THREE.MeshStandardMaterial({
-            color: 0x2b303a,
-            roughness: 0.3,
-            metalness: 0.6,
+            color: 0x5c2f17, // หลังคาสีน้ำตาลไม้ฉลอง
+            roughness: 0.4,
+            metalness: 0.2,
           }),
           pontoonPipes: new THREE.MeshStandardMaterial({
             color: 0x1e252b,
@@ -106,17 +106,17 @@ export default function Scene3D(): React.ReactElement {
             metalness: 0.8,
           }),
           windowGlass: new THREE.MeshPhysicalMaterial({
-            color: 0xffe5b4,
-            emissive: 0xffa042,
-            emissiveIntensity: 1.8,
+            color: 0xadd8e6,
+            emissive: 0x7eb6cb,
+            emissiveIntensity: 0.8,
             roughness: 0.1,
-            transmission: 0.5,
+            transmission: 0.6,
             transparent: true,
             opacity: 0.85,
           }),
           kayakBody: new THREE.MeshStandardMaterial({
-            color: 0xff5500,
-            roughness: 0.25,
+            color: 0xd9a05b, // สีเรือคายัค
+            roughness: 0.3,
             metalness: 0.1,
           }),
           kayakSeat: new THREE.MeshStandardMaterial({
@@ -124,9 +124,16 @@ export default function Scene3D(): React.ReactElement {
             roughness: 0.8,
           }),
           paddleShaft: new THREE.MeshStandardMaterial({
-            color: 0xd4af37,
+            color: 0x3d2314,
             roughness: 0.4,
-            metalness: 0.3,
+          }),
+          personSkin: new THREE.MeshStandardMaterial({
+            color: 0xf5c29b,
+            roughness: 0.6,
+          }),
+          personShirt: new THREE.MeshStandardMaterial({
+            color: 0x1e4a38,
+            roughness: 0.7,
           }),
           water: new THREE.MeshPhysicalMaterial({
             color: 0x2b7a78,
@@ -148,7 +155,7 @@ export default function Scene3D(): React.ReactElement {
         // 3. Water Base (ผิวน้ำ)
         // -----------------------------------------------------------------
         const water = new THREE.Mesh(
-          new THREE.CircleGeometry(10.5, 64),
+          new THREE.CircleGeometry(4.8, 64),
           materials.water,
         );
         water.rotation.x = -Math.PI / 2;
@@ -226,7 +233,7 @@ export default function Scene3D(): React.ReactElement {
         houseGroup.position.set(-0.2, 0, 0.2);
         worldGroup.add(houseGroup);
 
-        // ทุ่นลอยน้ำใต้ตัวบ้าน
+        // ทุ่นลอยน้ำ
         [-1.4, 0, 1.4].forEach((x) => {
           const pontoon = new THREE.Mesh(
             new THREE.CylinderGeometry(0.22, 0.22, 4.2, 16),
@@ -237,7 +244,7 @@ export default function Scene3D(): React.ReactElement {
           houseGroup.add(pontoon);
         });
 
-        // พื้นไม้
+        // พื้นแพไม้
         const mainDeck = new THREE.Mesh(
           new THREE.BoxGeometry(4.2, 0.18, 4.4),
           materials.woodDeck,
@@ -257,85 +264,31 @@ export default function Scene3D(): React.ReactElement {
         houseBody.receiveShadow = true;
         houseGroup.add(houseBody);
 
-        // หลังคา
-        const roof = new THREE.Mesh(
-          new THREE.BoxGeometry(3.5, 0.12, 3.2),
-          materials.metalRoof,
-        );
-        roof.position.set(-0.3, 2.22, -0.4);
-        roof.rotation.z = -0.08;
+        // หลังคาทรงจั่ว
+        const roofGeo = new THREE.ConeGeometry(2.6, 1.4, 4);
+        const roof = new THREE.Mesh(roofGeo, materials.metalRoof);
+        roof.position.set(-0.3, 2.85, -0.4);
+        roof.rotation.y = Math.PI / 4;
+        roof.scale.set(1.2, 1, 1.1);
         roof.castShadow = true;
         houseGroup.add(roof);
 
-        // -------------------------------------------------------------
-        // 🚪 งานประตูบ้าน & 🪟 หน้าต่าง
-        // -------------------------------------------------------------
-        const frameMat = materials.woodDeck;
-        const glassMat = materials.windowGlass;
-        const handleMat = materials.paddleShaft;
-
-        // 1. ฟังก์ชันสร้างประตูสมจริง (มีกรอบ, คิ้วบานซอย, มือจับ)
-        const createDoor = (x: number, y: number, z: number, w: number, h: number) => {
-          const doorGroup = new THREE.Group();
-          doorGroup.position.set(x, y, z);
-
-          const doorLeaf = new THREE.Mesh(
+        // ประตูและหน้าต่าง
+        const createDoor = (
+          x: number,
+          y: number,
+          z: number,
+          w: number,
+          h: number,
+        ) => {
+          const door = new THREE.Mesh(
             new THREE.BoxGeometry(w, h, 0.06),
-            frameMat
+            materials.woodDeck,
           );
-          doorGroup.add(doorLeaf);
-
-          [-0.35, 0.25].forEach((panelY) => {
-            const panel = new THREE.Mesh(
-              new THREE.BoxGeometry(w - 0.16, 0.55, 0.08),
-              frameMat
-            );
-            panel.position.set(0, panelY, 0);
-            doorGroup.add(panel);
-          });
-
-          const handleBase = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.02, 0.02, 0.08, 12),
-            handleMat
-          );
-          handleBase.rotation.x = Math.PI / 2;
-          handleBase.position.set(-w / 2 + 0.12, -0.05, 0.05);
-          doorGroup.add(handleBase);
-
-          const handleLever = new THREE.Mesh(
-            new THREE.BoxGeometry(0.12, 0.025, 0.03),
-            handleMat
-          );
-          handleLever.position.set(-w / 2 + 0.16, -0.05, 0.08);
-          doorGroup.add(handleLever);
-
-          const frameTop = new THREE.Mesh(
-            new THREE.BoxGeometry(w + 0.08, 0.06, 0.08),
-            frameMat
-          );
-          frameTop.position.y = h / 2 + 0.03;
-          doorGroup.add(frameTop);
-
-          const frameLeft = new THREE.Mesh(
-            new THREE.BoxGeometry(0.06, h + 0.06, 0.08),
-            frameMat
-          );
-          frameLeft.position.x = -w / 2 - 0.03;
-          doorGroup.add(frameLeft);
-
-          const frameRight = new THREE.Mesh(
-            new THREE.BoxGeometry(0.06, h + 0.06, 0.08),
-            frameMat
-          );
-          frameRight.position.x = w / 2 + 0.03;
-          doorGroup.add(frameRight);
-
-          houseGroup.add(doorGroup);
+          door.position.set(x, y, z);
+          houseGroup.add(door);
         };
 
-        createDoor(0.8, 0.95, 0.91, 0.75, 1.65);
-
-        // 2. ฟังก์ชันสร้างหน้าต่าง
         const createWindow = (
           x: number,
           y: number,
@@ -344,59 +297,33 @@ export default function Scene3D(): React.ReactElement {
           h: number,
           rotY = 0,
         ) => {
-          const windowGroup = new THREE.Group();
-          windowGroup.position.set(x, y, z);
-          windowGroup.rotation.y = rotY;
-
-          const glass = new THREE.Mesh(
+          const windowMesh = new THREE.Mesh(
             new THREE.BoxGeometry(w, h, 0.05),
-            glassMat,
+            materials.windowGlass,
           );
-          windowGroup.add(glass);
-
-          const frameTopBottom = new THREE.BoxGeometry(w + 0.08, 0.06, 0.07);
-          const frameSides = new THREE.BoxGeometry(0.06, h, 0.07);
-
-          const topFrame = new THREE.Mesh(frameTopBottom, frameMat);
-          topFrame.position.y = h / 2 + 0.03;
-          windowGroup.add(topFrame);
-
-          const bottomFrame = new THREE.Mesh(frameTopBottom, frameMat);
-          bottomFrame.position.y = -h / 2 - 0.03;
-          windowGroup.add(bottomFrame);
-
-          const leftFrame = new THREE.Mesh(frameSides, frameMat);
-          leftFrame.position.x = -w / 2 - 0.03;
-          windowGroup.add(leftFrame);
-
-          const rightFrame = new THREE.Mesh(frameSides, frameMat);
-          rightFrame.position.x = w / 2 + 0.03;
-          windowGroup.add(rightFrame);
-
-          houseGroup.add(windowGroup);
+          windowMesh.position.set(x, y, z);
+          windowMesh.rotation.y = rotY;
+          houseGroup.add(windowMesh);
         };
 
-        createWindow(-0.5, 1.15, 0.91, 1.3, 1.1);
-        createWindow(-1.81, 1.2, -0.4, 0.9, 0.9, -Math.PI / 2);
-        createWindow(1.21, 1.2, -0.4, 0.9, 0.9, Math.PI / 2);
-
-        // แสงไฟอบอุ่นส่องสว่างออกมาจากภายในบ้าน
-        const houseLight = new THREE.PointLight(0xffaa44, 8, 6, 1.8);
-        houseLight.position.set(-0.3, 1.2, -0.2);
-        houseGroup.add(houseLight);
+        createDoor(0.5, 0.85, 0.91, 0.7, 1.5);
+        createWindow(-0.6, 1.15, 0.91, 0.7, 0.9);
+        createWindow(-1.81, 1.2, -0.4, 0.8, 0.8, -Math.PI / 2);
+        createWindow(1.21, 1.2, -0.4, 0.8, 0.8, Math.PI / 2);
 
         // -----------------------------------------------------------------
-        // 6. Kayak Boat
+        // 6. Kayak Boat with Person (เรือคายัคและคนพาย)
         // -----------------------------------------------------------------
         const kayakGroup = new THREE.Group();
-        kayakGroup.position.set(3.6, -0.28, 1.6);
+        kayakGroup.position.set(3.2, -0.28, 1.6);
         kayakGroup.rotation.y = -0.42;
         worldGroup.add(kayakGroup);
 
-        const length = 3.6;
+        // ตัวเรือคายัค
+        const length = 3.2;
         const width = 0.55;
         const height = 0.22;
-        const segments = 32;
+        const segments = 24;
 
         const kayakGeo = new THREE.BufferGeometry();
         const positions: number[] = [];
@@ -415,11 +342,8 @@ export default function Scene3D(): React.ReactElement {
             let y = Math.cos(theta) * height;
             let z = Math.sin(theta) * Math.sin(phi) * width;
 
-            if (y > 0) {
-              y *= 0.2;
-            } else {
-              y *= 0.6;
-            }
+            if (y > 0) y *= 0.2;
+            else y *= 0.6;
 
             const taper = Math.sin(theta);
             x *= Math.pow(taper, 0.2);
@@ -449,68 +373,57 @@ export default function Scene3D(): React.ReactElement {
         const kayakHull = new THREE.Mesh(kayakGeo, materials.kayakBody);
         kayakHull.castShadow = true;
         kayakHull.receiveShadow = true;
-        kayakHull.renderOrder = 2;
         kayakGroup.add(kayakHull);
 
-        const seatPositionsX = [-0.65, 0.55];
+        // โมเดลคนพายเรือ (Person Model)
+        const personGroup = new THREE.Group();
+        personGroup.position.set(0, 0.1, 0);
 
-        seatPositionsX.forEach((posX) => {
-          const holeGeo = new THREE.CylinderGeometry(0.22, 0.2, 0.03, 24);
-          const holeMesh = new THREE.Mesh(holeGeo, materials.kayakSeat);
+        // หัว
+        const head = new THREE.Mesh(
+          new THREE.SphereGeometry(0.12, 16, 16),
+          materials.personSkin,
+        );
+        head.position.y = 0.55;
+        head.castShadow = true;
+        personGroup.add(head);
 
-          holeMesh.position.set(posX, 0.03, 0);
-          holeMesh.scale.set(1.3, 1, 0.85);
-          holeMesh.renderOrder = 3;
-          kayakGroup.add(holeMesh);
+        // ลำตัว
+        const body = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.12, 0.15, 0.4, 12),
+          materials.personShirt,
+        );
+        body.position.y = 0.25;
+        body.castShadow = true;
+        personGroup.add(body);
+
+        kayakGroup.add(personGroup);
+
+        // พายเรือ (Paddle)
+        const paddle = new THREE.Group();
+        paddle.position.set(0, 0.35, 0);
+        paddle.rotation.set(0.2, 0.4, 0.3);
+
+        const shaft = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.016, 0.016, 2.2, 12),
+          materials.paddleShaft,
+        );
+        shaft.rotation.x = Math.PI / 2;
+        paddle.add(shaft);
+
+        [-1.05, 1.05].forEach((z) => {
+          const bladeGeo = new THREE.SphereGeometry(0.14, 16, 16);
+          bladeGeo.scale(0.3, 0.04, 1.0);
+          const blade = new THREE.Mesh(bladeGeo, materials.kayakBody);
+          blade.position.set(0, 0, z);
+          paddle.add(blade);
         });
 
-        const createPaddle = (posX: number, rotY: number) => {
-          const paddle = new THREE.Group();
-          paddle.position.set(posX, 0.06, 0);
-          paddle.rotation.set(0, rotY, 0.03);
-
-          const shaft = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.016, 0.016, 2.4, 12),
-            materials.paddleShaft,
-          );
-          shaft.rotation.x = Math.PI / 2;
-          shaft.renderOrder = 3;
-          paddle.add(shaft);
-
-          [-1.18, 1.18].forEach((z) => {
-            const bladeGeo = new THREE.SphereGeometry(0.16, 16, 16);
-            bladeGeo.scale(0.4, 0.05, 1.1);
-            const blade = new THREE.Mesh(bladeGeo, materials.kayakBody);
-            blade.position.set(0, 0, z);
-            blade.rotation.z = z < 0 ? 0.2 : -0.2;
-            blade.renderOrder = 3;
-            paddle.add(blade);
-          });
-
-          return paddle;
-        };
-
-        kayakGroup.add(createPaddle(-0.65, 0.1));
-        kayakGroup.add(createPaddle(0.55, -0.08));
+        kayakGroup.add(paddle);
 
         // -----------------------------------------------------------------
         // 7. Environment Details
         // -----------------------------------------------------------------
-        [
-          [-4.2, -0.28, -0.5, 0.45],
-          [-4.9, -0.22, -0.8, 0.32],
-          [4.8, -0.32, -2.2, 0.5],
-        ].forEach(([x, y, z, scale]) => {
-          const stone = new THREE.Mesh(
-            new THREE.DodecahedronGeometry(scale, 1),
-            materials.stone,
-          );
-          stone.position.set(x, y, z);
-          stone.rotation.set(x, z, 0);
-          stone.castShadow = true;
-          worldGroup.add(stone);
-        });
-
         const rings: AnimatedRing[] = [0, 1, 2].map((index) => {
           const material = new THREE.MeshBasicMaterial({
             color: 0x9be3de,
@@ -523,8 +436,7 @@ export default function Scene3D(): React.ReactElement {
             material,
           );
           mesh.rotation.x = Math.PI / 2;
-          mesh.position.set(3.6, -0.44, 1.6);
-          mesh.renderOrder = 1;
+          mesh.position.set(3.2, -0.44, 1.6);
           worldGroup.add(mesh);
           return { mesh, material, offset: index / 3 };
         });
@@ -544,8 +456,6 @@ export default function Scene3D(): React.ReactElement {
         sunLight.castShadow = true;
         sunLight.shadow.mapSize.set(2048, 2048);
         sunLight.shadow.bias = -0.0001;
-        sunLight.shadow.camera.near = 0.1;
-        sunLight.shadow.camera.far = 35;
         scene.add(sunLight);
 
         const fillLight = new THREE.DirectionalLight(0x5299a0, 1.8);
@@ -553,7 +463,7 @@ export default function Scene3D(): React.ReactElement {
         scene.add(fillLight);
 
         // -----------------------------------------------------------------
-        // 9. Controls / Physics / Animation Logic
+        // 9. Animation & Controls Logic
         // -----------------------------------------------------------------
         const motionQuery = window.matchMedia(
           "(prefers-reduced-motion: reduce)",
@@ -572,8 +482,8 @@ export default function Scene3D(): React.ReactElement {
         let currentRotationY = 0;
         let velocityY = 0;
 
-        const MAX_ROTATION = Math.PI / 2;
-        const MIN_ROTATION = -Math.PI / 2;
+const MAX_ROTATION = Math.PI / 8;  // 22.5 องศา
+const MIN_ROTATION = -Math.PI / 8; // -22.5 องศา
 
         const renderScene = (): void => {
           renderer.render(scene, camera);
@@ -585,6 +495,7 @@ export default function Scene3D(): React.ReactElement {
           renderer.setSize(width, height, false);
           camera.aspect = width / height;
           camera.updateProjectionMatrix();
+
           const sceneScale =
             width / height < 1.1
               ? 0.68
@@ -651,11 +562,15 @@ export default function Scene3D(): React.ReactElement {
           worldGroup.rotation.y = currentRotationY + pointerX * 0.04;
           worldGroup.rotation.x = pointerY * 0.025;
 
+          // จังหวะการลอยของบ้านและเรือ
           houseGroup.position.y = Math.sin(seconds * 0.9) * 0.035;
           houseGroup.rotation.z = Math.sin(seconds * 0.7) * 0.008;
 
           kayakGroup.position.y = -0.28 + Math.sin(seconds * 1.2 + 0.5) * 0.015;
           kayakGroup.rotation.z = Math.sin(seconds * 1.1) * 0.015;
+
+          // แอนิเมชันไม้พายหมุนตามจังหวะ
+          paddle.rotation.z = Math.sin(seconds * 2.5) * 0.2;
 
           rings.forEach((ring) => {
             const progress = (seconds * 0.25 + ring.offset) % 1;
@@ -730,7 +645,7 @@ export default function Scene3D(): React.ReactElement {
           renderer.domElement.remove();
         };
       } catch (error: unknown) {
-        console.error("Register 3D scene initialization failed:", error);
+        console.error("3D scene initialization failed:", error);
         mount.dataset.sceneState = "fallback";
       }
     };
@@ -746,11 +661,11 @@ export default function Scene3D(): React.ReactElement {
   return (
     <div
       ref={mountRef}
-      className="login-scene-shell cursor-grab active:cursor-grabbing select-none"
+      className="relative w-full h-full cursor-grab active:cursor-grabbing select-none"
       aria-label="ภาพจำลองสามมิติของบ้านลอยน้ำ เรือคายัค และเกาะต้นไม้"
       role="img"
     >
-      <div className="login-scene-glow" aria-hidden="true" />
+      {/* <div className="absolute inset-0 bg-gradient-to-tr from-lagoon-400/10 via-bamboo-300/10 to-transparent blur-3xl pointer-events-none" /> */}
     </div>
   );
 }
