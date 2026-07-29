@@ -1,10 +1,18 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { ArrowRight, Anchor, CreditCard, Star, MapPin, Phone, Waves } from 'lucide-react';
-import api from '@/lib/api';
-import { resolveMediaUrl } from '@/lib/avatar';
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import {
+  ArrowRight,
+  Anchor,
+  CreditCard,
+  Star,
+  MapPin,
+  Phone,
+  Waves,
+} from "lucide-react";
+import api from "@/lib/api";
+import { resolveMediaUrl } from "@/lib/avatar";
 
 interface ResortInfo {
   name?: string;
@@ -60,17 +68,20 @@ function useRevealOnScroll(...deps: unknown[]) {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.classList.add('revealed');
+            entry.target.classList.add("revealed");
             observer.unobserve(entry.target);
           }
         });
       },
-      { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
+      { threshold: 0.15, rootMargin: "0px 0px -40px 0px" },
     );
 
-    const targets = node.querySelectorAll('.reveal-on-scroll:not(.revealed)');
+    const targets = node.querySelectorAll(".reveal-on-scroll:not(.revealed)");
     targets.forEach((el) => observer.observe(el));
-    if (node.classList.contains('reveal-on-scroll') && !node.classList.contains('revealed')) {
+    if (
+      node.classList.contains("reveal-on-scroll") &&
+      !node.classList.contains("revealed")
+    ) {
       observer.observe(node);
     }
 
@@ -85,10 +96,35 @@ function useRevealOnScroll(...deps: unknown[]) {
    ——————————————————————————————— */
 function LeafPattern({ className }: { className?: string }) {
   return (
-    <svg className={className} width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M160 20C160 20 60 80 60 180C60 240 100 280 160 300C220 280 260 240 260 180C260 80 160 20 160 20Z" stroke="currentColor" strokeWidth="1" opacity="0.12" fill="none" />
-      <path d="M160 60C160 60 90 110 90 190C90 230 120 260 160 275C200 260 230 230 230 190C230 110 160 60 160 60Z" stroke="currentColor" strokeWidth="1" opacity="0.08" fill="none" />
-      <path d="M160 100C160 100 120 130 120 190C120 215 135 235 160 245C185 235 200 215 200 190C200 130 160 100 160 100Z" stroke="currentColor" strokeWidth="0.5" opacity="0.06" fill="none" />
+    <svg
+      className={className}
+      width="320"
+      height="320"
+      viewBox="0 0 320 320"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M160 20C160 20 60 80 60 180C60 240 100 280 160 300C220 280 260 240 260 180C260 80 160 20 160 20Z"
+        stroke="currentColor"
+        strokeWidth="1"
+        opacity="0.12"
+        fill="none"
+      />
+      <path
+        d="M160 60C160 60 90 110 90 190C90 230 120 260 160 275C200 260 230 230 230 190C230 110 160 60 160 60Z"
+        stroke="currentColor"
+        strokeWidth="1"
+        opacity="0.08"
+        fill="none"
+      />
+      <path
+        d="M160 100C160 100 120 130 120 190C120 215 135 235 160 245C185 235 200 215 200 190C200 130 160 100 160 100Z"
+        stroke="currentColor"
+        strokeWidth="0.5"
+        opacity="0.06"
+        fill="none"
+      />
     </svg>
   );
 }
@@ -99,77 +135,376 @@ function LeafPattern({ className }: { className?: string }) {
 function HeroIllustration({ className }: { className?: string }) {
   return (
     <div className={className}>
-      <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <svg
+        viewBox="0 0 500 500"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-full h-full"
+      >
         {/* Background organic circles */}
-        <circle cx="250" cy="250" r="220" stroke="#4E878C" strokeWidth="0.8" opacity="0.12" />
-        <circle cx="250" cy="250" r="180" stroke="#4E878C" strokeWidth="0.6" opacity="0.08" />
-        <circle cx="250" cy="250" r="140" stroke="#D9A05B" strokeWidth="0.5" opacity="0.10" />
+        <circle
+          cx="250"
+          cy="250"
+          r="220"
+          stroke="#4E878C"
+          strokeWidth="0.8"
+          opacity="0.12"
+        />
+        <circle
+          cx="250"
+          cy="250"
+          r="180"
+          stroke="#4E878C"
+          strokeWidth="0.6"
+          opacity="0.08"
+        />
+        <circle
+          cx="250"
+          cy="250"
+          r="140"
+          stroke="#D9A05B"
+          strokeWidth="0.5"
+          opacity="0.10"
+        />
 
         {/* Water surface */}
-        <path d="M60 300C120 285 180 310 250 295C320 280 380 305 440 290" stroke="#4E878C" strokeWidth="1.5" opacity="0.25" strokeLinecap="round">
-          <animate attributeName="d" dur="4s" repeatCount="indefinite" values="M60 300C120 285 180 310 250 295C320 280 380 305 440 290;M60 295C120 310 180 285 250 300C320 285 380 310 440 295;M60 300C120 285 180 310 250 295C320 280 380 305 440 290" />
+        <path
+          d="M60 300C120 285 180 310 250 295C320 280 380 305 440 290"
+          stroke="#4E878C"
+          strokeWidth="1.5"
+          opacity="0.25"
+          strokeLinecap="round"
+        >
+          <animate
+            attributeName="d"
+            dur="4s"
+            repeatCount="indefinite"
+            values="M60 300C120 285 180 310 250 295C320 280 380 305 440 290;M60 295C120 310 180 285 250 300C320 285 380 310 440 295;M60 300C120 285 180 310 250 295C320 280 380 305 440 290"
+          />
         </path>
-        <path d="M80 315C140 300 200 325 270 310C340 295 400 320 450 305" stroke="#4E878C" strokeWidth="1" opacity="0.15" strokeLinecap="round">
-          <animate attributeName="d" dur="5s" repeatCount="indefinite" values="M80 315C140 300 200 325 270 310C340 295 400 320 450 305;M80 310C140 325 200 300 270 315C340 300 400 325 450 310;M80 315C140 300 200 325 270 310C340 295 400 320 450 305" />
+        <path
+          d="M80 315C140 300 200 325 270 310C340 295 400 320 450 305"
+          stroke="#4E878C"
+          strokeWidth="1"
+          opacity="0.15"
+          strokeLinecap="round"
+        >
+          <animate
+            attributeName="d"
+            dur="5s"
+            repeatCount="indefinite"
+            values="M80 315C140 300 200 325 270 310C340 295 400 320 450 305;M80 310C140 325 200 300 270 315C340 300 400 325 450 310;M80 315C140 300 200 325 270 310C340 295 400 320 450 305"
+          />
         </path>
-        <path d="M50 330C130 318 200 340 280 325C360 310 420 335 460 320" stroke="#4E878C" strokeWidth="0.8" opacity="0.10" strokeLinecap="round">
-          <animate attributeName="d" dur="6s" repeatCount="indefinite" values="M50 330C130 318 200 340 280 325C360 310 420 335 460 320;M50 325C130 340 200 318 280 330C360 318 420 340 460 325;M50 330C130 318 200 340 280 325C360 310 420 335 460 320" />
+        <path
+          d="M50 330C130 318 200 340 280 325C360 310 420 335 460 320"
+          stroke="#4E878C"
+          strokeWidth="0.8"
+          opacity="0.10"
+          strokeLinecap="round"
+        >
+          <animate
+            attributeName="d"
+            dur="6s"
+            repeatCount="indefinite"
+            values="M50 330C130 318 200 340 280 325C360 310 420 335 460 320;M50 325C130 340 200 318 280 330C360 318 420 340 460 325;M50 330C130 318 200 340 280 325C360 310 420 335 460 320"
+          />
         </path>
 
         {/* Floating house structure */}
         {/* Raft/platform */}
-        <rect x="155" y="260" width="190" height="12" rx="3" fill="#123C30" opacity="0.15" />
-        <rect x="160" y="256" width="180" height="8" rx="2" fill="#D9A05B" opacity="0.30" />
+        <rect
+          x="155"
+          y="260"
+          width="190"
+          height="12"
+          rx="3"
+          fill="#123C30"
+          opacity="0.15"
+        />
+        <rect
+          x="160"
+          y="256"
+          width="180"
+          height="8"
+          rx="2"
+          fill="#D9A05B"
+          opacity="0.30"
+        />
 
         {/* House body */}
-        <rect x="180" y="200" width="140" height="56" rx="4" fill="#123C30" fillOpacity="0.12" stroke="#123C30" strokeWidth="1" strokeOpacity="0.20" />
+        <rect
+          x="180"
+          y="200"
+          width="140"
+          height="56"
+          rx="4"
+          fill="#123C30"
+          fillOpacity="0.12"
+          stroke="#123C30"
+          strokeWidth="1"
+          strokeOpacity="0.20"
+        />
         {/* Roof */}
-        <path d="M170 200L250 155L330 200" stroke="#123C30" strokeWidth="1.5" opacity="0.25" fill="#123C30" fillOpacity="0.06" />
+        <path
+          d="M170 200L250 155L330 200"
+          stroke="#123C30"
+          strokeWidth="1.5"
+          opacity="0.25"
+          fill="#123C30"
+          fillOpacity="0.06"
+        />
         {/* Door */}
-        <rect x="235" y="225" width="30" height="31" rx="2" fill="#D9A05B" opacity="0.20" />
+        <rect
+          x="235"
+          y="225"
+          width="30"
+          height="31"
+          rx="2"
+          fill="#D9A05B"
+          opacity="0.20"
+        />
         {/* Windows */}
-        <rect x="195" y="215" width="22" height="18" rx="2" fill="#4E878C" fillOpacity="0.15" stroke="#4E878C" strokeWidth="0.5" strokeOpacity="0.25" />
-        <rect x="283" y="215" width="22" height="18" rx="2" fill="#4E878C" fillOpacity="0.15" stroke="#4E878C" strokeWidth="0.5" strokeOpacity="0.25" />
+        <rect
+          x="195"
+          y="215"
+          width="22"
+          height="18"
+          rx="2"
+          fill="#4E878C"
+          fillOpacity="0.15"
+          stroke="#4E878C"
+          strokeWidth="0.5"
+          strokeOpacity="0.25"
+        />
+        <rect
+          x="283"
+          y="215"
+          width="22"
+          height="18"
+          rx="2"
+          fill="#4E878C"
+          fillOpacity="0.15"
+          stroke="#4E878C"
+          strokeWidth="0.5"
+          strokeOpacity="0.25"
+        />
 
         {/* Trees on left */}
-        <line x1="110" y1="260" x2="110" y2="210" stroke="#123C30" strokeWidth="2" opacity="0.18" />
-        <ellipse cx="110" cy="200" rx="22" ry="30" fill="#123C30" opacity="0.10" />
-        <ellipse cx="110" cy="195" rx="16" ry="22" fill="#4E878C" opacity="0.08" />
+        <line
+          x1="110"
+          y1="260"
+          x2="110"
+          y2="210"
+          stroke="#123C30"
+          strokeWidth="2"
+          opacity="0.18"
+        />
+        <ellipse
+          cx="110"
+          cy="200"
+          rx="22"
+          ry="30"
+          fill="#123C30"
+          opacity="0.10"
+        />
+        <ellipse
+          cx="110"
+          cy="195"
+          rx="16"
+          ry="22"
+          fill="#4E878C"
+          opacity="0.08"
+        />
 
         {/* Trees on right */}
-        <line x1="395" y1="260" x2="395" y2="195" stroke="#123C30" strokeWidth="2" opacity="0.18" />
-        <ellipse cx="395" cy="185" rx="25" ry="35" fill="#123C30" opacity="0.10" />
-        <ellipse cx="395" cy="180" rx="18" ry="25" fill="#4E878C" opacity="0.08" />
+        <line
+          x1="395"
+          y1="260"
+          x2="395"
+          y2="195"
+          stroke="#123C30"
+          strokeWidth="2"
+          opacity="0.18"
+        />
+        <ellipse
+          cx="395"
+          cy="185"
+          rx="25"
+          ry="35"
+          fill="#123C30"
+          opacity="0.10"
+        />
+        <ellipse
+          cx="395"
+          cy="180"
+          rx="18"
+          ry="25"
+          fill="#4E878C"
+          opacity="0.08"
+        />
 
         {/* Small tree */}
-        <line x1="365" y1="260" x2="365" y2="225" stroke="#123C30" strokeWidth="1.5" opacity="0.15" />
-        <ellipse cx="365" cy="218" rx="14" ry="18" fill="#123C30" opacity="0.08" />
+        <line
+          x1="365"
+          y1="260"
+          x2="365"
+          y2="225"
+          stroke="#123C30"
+          strokeWidth="1.5"
+          opacity="0.15"
+        />
+        <ellipse
+          cx="365"
+          cy="218"
+          rx="14"
+          ry="18"
+          fill="#123C30"
+          opacity="0.08"
+        />
 
         {/* Kayak on water */}
-        <ellipse cx="350" cy="310" rx="30" ry="5" fill="#D9A05B" opacity="0.25" />
-        <line x1="350" y1="310" x2="350" y2="295" stroke="#D9A05B" strokeWidth="1" opacity="0.20" />
-        <line x1="345" y1="295" x2="355" y2="300" stroke="#D9A05B" strokeWidth="0.8" opacity="0.15" />
+        <ellipse
+          cx="350"
+          cy="310"
+          rx="30"
+          ry="5"
+          fill="#D9A05B"
+          opacity="0.25"
+        />
+        <line
+          x1="350"
+          y1="310"
+          x2="350"
+          y2="295"
+          stroke="#D9A05B"
+          strokeWidth="1"
+          opacity="0.20"
+        />
+        <line
+          x1="345"
+          y1="295"
+          x2="355"
+          y2="300"
+          stroke="#D9A05B"
+          strokeWidth="0.8"
+          opacity="0.15"
+        />
 
         {/* Birds */}
-        <path d="M130 140C135 135 140 140 145 135" stroke="#123C30" strokeWidth="1" opacity="0.15" strokeLinecap="round" />
-        <path d="M160 125C165 120 170 125 175 120" stroke="#123C30" strokeWidth="0.8" opacity="0.12" strokeLinecap="round" />
-        <path d="M320 110C325 105 330 110 335 105" stroke="#123C30" strokeWidth="0.8" opacity="0.12" strokeLinecap="round" />
+        <path
+          d="M130 140C135 135 140 140 145 135"
+          stroke="#123C30"
+          strokeWidth="1"
+          opacity="0.15"
+          strokeLinecap="round"
+        />
+        <path
+          d="M160 125C165 120 170 125 175 120"
+          stroke="#123C30"
+          strokeWidth="0.8"
+          opacity="0.12"
+          strokeLinecap="round"
+        />
+        <path
+          d="M320 110C325 105 330 110 335 105"
+          stroke="#123C30"
+          strokeWidth="0.8"
+          opacity="0.12"
+          strokeLinecap="round"
+        />
 
         {/* Water reflections */}
-        <line x1="200" y1="350" x2="220" y2="350" stroke="#4E878C" strokeWidth="0.8" opacity="0.08" />
-        <line x1="260" y1="365" x2="290" y2="365" stroke="#4E878C" strokeWidth="0.8" opacity="0.06" />
-        <line x1="310" y1="345" x2="340" y2="345" stroke="#4E878C" strokeWidth="0.8" opacity="0.08" />
-        <line x1="150" y1="370" x2="175" y2="370" stroke="#4E878C" strokeWidth="0.6" opacity="0.06" />
-        <line x1="360" y1="380" x2="385" y2="380" stroke="#4E878C" strokeWidth="0.6" opacity="0.05" />
+        <line
+          x1="200"
+          y1="350"
+          x2="220"
+          y2="350"
+          stroke="#4E878C"
+          strokeWidth="0.8"
+          opacity="0.08"
+        />
+        <line
+          x1="260"
+          y1="365"
+          x2="290"
+          y2="365"
+          stroke="#4E878C"
+          strokeWidth="0.8"
+          opacity="0.06"
+        />
+        <line
+          x1="310"
+          y1="345"
+          x2="340"
+          y2="345"
+          stroke="#4E878C"
+          strokeWidth="0.8"
+          opacity="0.08"
+        />
+        <line
+          x1="150"
+          y1="370"
+          x2="175"
+          y2="370"
+          stroke="#4E878C"
+          strokeWidth="0.6"
+          opacity="0.06"
+        />
+        <line
+          x1="360"
+          y1="380"
+          x2="385"
+          y2="380"
+          stroke="#4E878C"
+          strokeWidth="0.6"
+          opacity="0.05"
+        />
 
         {/* Ripple circles in water */}
-        <circle cx="180" cy="340" r="15" stroke="#4E878C" strokeWidth="0.5" opacity="0.06" fill="none">
-          <animate attributeName="r" dur="3s" repeatCount="indefinite" values="10;20;10" />
-          <animate attributeName="opacity" dur="3s" repeatCount="indefinite" values="0.08;0.02;0.08" />
+        <circle
+          cx="180"
+          cy="340"
+          r="15"
+          stroke="#4E878C"
+          strokeWidth="0.5"
+          opacity="0.06"
+          fill="none"
+        >
+          <animate
+            attributeName="r"
+            dur="3s"
+            repeatCount="indefinite"
+            values="10;20;10"
+          />
+          <animate
+            attributeName="opacity"
+            dur="3s"
+            repeatCount="indefinite"
+            values="0.08;0.02;0.08"
+          />
         </circle>
-        <circle cx="320" cy="355" r="12" stroke="#4E878C" strokeWidth="0.5" opacity="0.06" fill="none">
-          <animate attributeName="r" dur="4s" repeatCount="indefinite" values="8;18;8" />
-          <animate attributeName="opacity" dur="4s" repeatCount="indefinite" values="0.08;0.02;0.08" />
+        <circle
+          cx="320"
+          cy="355"
+          r="12"
+          stroke="#4E878C"
+          strokeWidth="0.5"
+          opacity="0.06"
+          fill="none"
+        >
+          <animate
+            attributeName="r"
+            dur="4s"
+            repeatCount="indefinite"
+            values="8;18;8"
+          />
+          <animate
+            attributeName="opacity"
+            dur="4s"
+            repeatCount="indefinite"
+            values="0.08;0.02;0.08"
+          />
         </circle>
 
         {/* Sun/moon */}
@@ -185,7 +520,13 @@ function HeroIllustration({ className }: { className?: string }) {
    ——————————————————————————————— */
 function DotsPattern({ className }: { className?: string }) {
   return (
-    <svg className={className} width="120" height="120" viewBox="0 0 120 120" fill="none">
+    <svg
+      className={className}
+      width="120"
+      height="120"
+      viewBox="0 0 120 120"
+      fill="none"
+    >
       {Array.from({ length: 6 }).map((_, row) =>
         Array.from({ length: 6 }).map((_, col) => (
           <circle
@@ -194,9 +535,9 @@ function DotsPattern({ className }: { className?: string }) {
             cy={10 + row * 20}
             r="1.5"
             fill="#D9A05B"
-            opacity={0.15 + Math.random() * 0.1}
+            opacity={0.15 + ((row * 7 + col * 13) % 10) * 0.01}
           />
-        ))
+        )),
       )}
     </svg>
   );
@@ -213,13 +554,13 @@ function ScrollMouseIndicator({ targetId }: { targetId: string }) {
     const handleScroll = () => {
       setVisible(window.scrollY < 100);
     };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const scrollToTarget = () => {
     const el = document.getElementById(targetId);
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    if (el) el.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
@@ -227,7 +568,7 @@ function ScrollMouseIndicator({ targetId }: { targetId: string }) {
       ref={ref}
       onClick={scrollToTarget}
       className={`absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 cursor-pointer group transition-opacity duration-500 ${
-        visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        visible ? "opacity-100" : "opacity-0 pointer-events-none"
       }`}
       role="button"
       aria-label="เลื่อนลงเพื่อดูเนื้อหา"
@@ -261,7 +602,7 @@ function useCountUp(target: number, duration = 800) {
           setStarted(true);
         }
       },
-      { threshold: 0.5 }
+      { threshold: 0.5 },
     );
     observer.observe(node);
     return () => observer.disconnect();
@@ -284,30 +625,44 @@ function useCountUp(target: number, duration = 800) {
   return { count, ref };
 }
 
-function StatItem({ number, suffix, label, decimal }: { number: number; suffix: string; label: string; decimal?: boolean }) {
+function StatItem({
+  number,
+  suffix,
+  label,
+  decimal,
+}: {
+  number: number;
+  suffix: string;
+  label: string;
+  decimal?: boolean;
+}) {
   const { count, ref } = useCountUp(decimal ? number * 10 : number);
   const display = decimal ? (count / 10).toFixed(1) : count;
   return (
     <div ref={ref} className="text-center py-4">
-      <span className="font-display text-3xl md:text-4xl font-semibold text-forest-800">{display}{suffix}</span>
+      <span className="font-display text-3xl md:text-4xl font-semibold text-forest-800">
+        {display}
+        {suffix}
+      </span>
       <p className="text-charcoal-400 text-sm mt-1 font-medium">{label}</p>
     </div>
   );
 }
 
 function formatPrice(value: number): string {
-  return Number(value).toLocaleString('th-TH');
+  return Number(value).toLocaleString("th-TH");
 }
 
 function getReviewerName(review: LandingReview): string {
-  const fullName = `${review.first_name || ''} ${review.last_name || ''}`.trim();
-  return fullName || 'แขกผู้เข้าพัก';
+  const fullName =
+    `${review.first_name || ""} ${review.last_name || ""}`.trim();
+  return fullName || "แขกผู้เข้าพัก";
 }
 
 function getRoomGridSpan(index: number): string {
-  if (index === 0) return 'lg:col-span-6 lg:row-span-2';
-  if (index === 1 || index === 2) return 'lg:col-span-3';
-  return 'lg:col-span-6';
+  if (index === 0) return "lg:col-span-6 lg:row-span-2";
+  if (index === 1 || index === 2) return "lg:col-span-3";
+  return "lg:col-span-6";
 }
 
 /* ———————————————————————————————
@@ -318,7 +673,10 @@ function ReviewCarousel({ reviews }: { reviews: LandingReview[] }) {
 
   useEffect(() => {
     if (reviews.length <= 1) return;
-    const timer = setInterval(() => setCurrent((c) => (c + 1) % reviews.length), 5000);
+    const timer = setInterval(
+      () => setCurrent((c) => (c + 1) % reviews.length),
+      5000,
+    );
     return () => clearInterval(timer);
   }, [reviews.length]);
 
@@ -332,16 +690,22 @@ function ReviewCarousel({ reviews }: { reviews: LandingReview[] }) {
 
   return (
     <div className="relative max-w-2xl mx-auto text-center">
-      <span className="font-display text-8xl md:text-9xl text-bamboo-400/30 leading-none select-none absolute -top-10 left-1/2 -translate-x-1/2">"</span>
+      <span className="font-display text-8xl md:text-9xl text-bamboo-400/30 leading-none select-none absolute -top-10 left-1/2 -translate-x-1/2">
+        "
+      </span>
 
       <div className="pt-12 min-h-[160px] relative">
         {reviews.map((review, i) => (
           <div
             key={review.review_id}
             className={`transition-all duration-500 absolute inset-0 pt-12 ${
-              i === current ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+              i === current
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-4 pointer-events-none"
             }`}
-            style={{ transitionTimingFunction: 'cubic-bezier(0.25, 1, 0.5, 1)' }}
+            style={{
+              transitionTimingFunction: "cubic-bezier(0.25, 1, 0.5, 1)",
+            }}
           >
             <div className="flex justify-center gap-1 mb-5">
               {Array.from({ length: review.rating }).map((_, j) => (
@@ -353,7 +717,9 @@ function ReviewCarousel({ reviews }: { reviews: LandingReview[] }) {
             </p>
             <div className="flex items-center justify-center gap-3">
               <div className="w-8 h-[1px] bg-bamboo-400" />
-              <span className="font-display font-semibold text-forest-800">{getReviewerName(review)}</span>
+              <span className="font-display font-semibold text-forest-800">
+                {getReviewerName(review)}
+              </span>
               <div className="w-8 h-[1px] bg-bamboo-400" />
             </div>
             {(review.room_name || review.type_name) && (
@@ -373,7 +739,9 @@ function ReviewCarousel({ reviews }: { reviews: LandingReview[] }) {
               onClick={() => setCurrent(i)}
               aria-label={`ไปที่รีวิวที่ ${i + 1}`}
               className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                i === current ? 'bg-bamboo-400 w-6' : 'bg-charcoal-200 hover:bg-charcoal-300'
+                i === current
+                  ? "bg-bamboo-400 w-6"
+                  : "bg-charcoal-200 hover:bg-charcoal-300"
               }`}
             />
           ))}
@@ -407,35 +775,38 @@ export default function HomePage() {
 
   useEffect(() => {
     const fetchLandingData = async () => {
-      const [resortRes, roomsRes, reviewsRes, statsRes] = await Promise.allSettled([
-        api.get('/settings/resort'),
-        api.get('/rooms'),
-        api.get('/reviews/public', { params: { limit: 6 } }),
-        api.get('/settings/landing-stats'),
-      ]);
+      const [resortRes, roomsRes, reviewsRes, statsRes] =
+        await Promise.allSettled([
+          api.get("/settings/resort"),
+          api.get("/rooms"),
+          api.get("/reviews/public", { params: { limit: 6 } }),
+          api.get("/settings/landing-stats"),
+        ]);
 
-      if (resortRes.status === 'fulfilled') {
+      if (resortRes.status === "fulfilled") {
         setResortInfo(resortRes.value.data?.data || {});
       }
 
-      if (roomsRes.status === 'fulfilled') {
+      if (roomsRes.status === "fulfilled") {
         setRoomTypes(roomsRes.value.data?.data || []);
       }
       setLoadingRooms(false);
 
-      if (reviewsRes.status === 'fulfilled') {
+      if (reviewsRes.status === "fulfilled") {
         setReviews(reviewsRes.value.data?.data || []);
       }
       setLoadingReviews(false);
 
-      if (statsRes.status === 'fulfilled') {
-        setLandingStats(statsRes.value.data?.data || {
-          room_type_count: 0,
-          boat_type_count: 0,
-          guest_count: 0,
-          avg_rating: null,
-          review_count: 0,
-        });
+      if (statsRes.status === "fulfilled") {
+        setLandingStats(
+          statsRes.value.data?.data || {
+            room_type_count: 0,
+            boat_type_count: 0,
+            guest_count: 0,
+            avg_rating: null,
+            review_count: 0,
+          },
+        );
       }
     };
 
@@ -446,7 +817,6 @@ export default function HomePage() {
 
   return (
     <div className="bg-cream-100">
-
       {/* ═══════════════════════════════
           HERO SECTION
           ═══════════════════════════════ */}
@@ -467,18 +837,18 @@ export default function HomePage() {
               <div className="w-16 h-[3px] bg-bamboo-400 mb-8 animate-hero-line" />
 
               {/* Headline */}
-              <h1
-                className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-forest-800 leading-[1.15] mb-6 animate-reveal-up"
-              >
+              <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-forest-800 leading-[1.15] mb-6 animate-reveal-up">
                 สวนวลัยรุกขเวช
                 <br />
-                <span className="text-lagoon-500 font-semibold">ที่พักลอยน้ำ</span>
+                <span className="text-lagoon-500 font-semibold">
+                  ที่พักลอยน้ำ
+                </span>
               </h1>
 
               {/* Subtitle */}
               <p
                 className="text-lg md:text-xl text-charcoal-400 leading-relaxed max-w-xl mb-10 animate-reveal-up"
-                style={{ animationDelay: '120ms' }}
+                style={{ animationDelay: "120ms" }}
               >
                 สัมผัสประสบการณ์การพักผ่อนสุดพิเศษกับที่พักลอยน้ำ
                 พร้อมกิจกรรมเรือคายัคท่ามกลางธรรมชาติอันงดงาม
@@ -487,7 +857,7 @@ export default function HomePage() {
               {/* CTA Buttons */}
               <div
                 className="flex flex-col sm:flex-row gap-4 animate-reveal-up"
-                style={{ animationDelay: '240ms' }}
+                style={{ animationDelay: "240ms" }}
               >
                 <Link
                   href="/rooms"
@@ -507,7 +877,10 @@ export default function HomePage() {
             </div>
 
             {/* Right — Illustration */}
-            <div className="hidden lg:block animate-reveal-up" style={{ animationDelay: '300ms' }}>
+            <div
+              className="hidden lg:block animate-reveal-up"
+              style={{ animationDelay: "300ms" }}
+            >
               <HeroIllustration className="w-full max-w-[480px] mx-auto" />
             </div>
           </div>
@@ -520,18 +893,46 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           STATS STRIP
           ═══════════════════════════════ */}
-      <section id="stats-section" className="py-10 border-y" style={{ borderColor: 'var(--color-stone-200)' }}>
+      <section
+        id="stats-section"
+        className="py-10 border-y"
+        style={{ borderColor: "var(--color-stone-200)" }}
+      >
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x" style={{ borderColor: 'var(--color-stone-200)' }}>
-            <StatItem number={landingStats.room_type_count || roomTypes.length} suffix="+" label="ประเภทห้องพัก" />
-            <StatItem number={landingStats.boat_type_count} suffix="+" label="เรือคายัค" />
-            <StatItem number={landingStats.guest_count} suffix="+" label="แขกพักอาศัย" />
+          <div
+            className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x"
+            style={{ borderColor: "var(--color-stone-200)" }}
+          >
+            <StatItem
+              number={landingStats.room_type_count || roomTypes.length}
+              suffix="+"
+              label="ประเภทห้องพัก"
+            />
+            <StatItem
+              number={landingStats.boat_type_count}
+              suffix="+"
+              label="เรือคายัค"
+            />
+            <StatItem
+              number={landingStats.guest_count}
+              suffix="+"
+              label="แขกพักอาศัย"
+            />
             {landingStats.avg_rating != null ? (
-              <StatItem number={landingStats.avg_rating} suffix="★" label="คะแนนรีวิว" decimal />
+              <StatItem
+                number={landingStats.avg_rating}
+                suffix="★"
+                label="คะแนนรีวิว"
+                decimal
+              />
             ) : (
               <div className="text-center py-4">
-                <span className="font-display text-3xl md:text-4xl font-semibold text-forest-800">—</span>
-                <p className="text-charcoal-400 text-sm mt-1 font-medium">คะแนนรีวิว</p>
+                <span className="font-display text-3xl md:text-4xl font-semibold text-forest-800">
+                  —
+                </span>
+                <p className="text-charcoal-400 text-sm mt-1 font-medium">
+                  คะแนนรีวิว
+                </p>
               </div>
             )}
           </div>
@@ -548,10 +949,13 @@ export default function HomePage() {
             <div className="reveal-on-scroll">
               <div className="w-12 h-[2px] bg-bamboo-400 mb-6" />
               <h2 className="font-display text-4xl md:text-5xl font-bold text-forest-800 leading-tight mb-5">
-                ประสบการณ์<br />ที่แตกต่าง
+                ประสบการณ์
+                <br />
+                ที่แตกต่าง
               </h2>
               <p className="text-charcoal-400 text-lg leading-relaxed max-w-md">
-                ที่{resortInfo.name || 'สวนวลัยรุกขเวช'} เราออกแบบทุกประสบการณ์เพื่อให้คุณได้พักผ่อนอย่างแท้จริง
+                ที่{resortInfo.name || "สวนวลัยรุกขเวช"}{" "}
+                เราออกแบบทุกประสบการณ์เพื่อให้คุณได้พักผ่อนอย่างแท้จริง
               </p>
             </div>
 
@@ -560,18 +964,18 @@ export default function HomePage() {
               {[
                 {
                   icon: <Waves className="text-lagoon-500" size={22} />,
-                  title: 'ที่พักลอยน้ำ',
-                  desc: 'ห้องพักสไตล์ไทยสุดชิล ลอยอยู่กลางน้ำ วิว 360 องศา บรรยากาศธรรมชาติแท้ๆ',
+                  title: "ที่พักลอยน้ำ",
+                  desc: "ห้องพักสไตล์ไทยสุดชิล ลอยอยู่กลางน้ำ วิว 360 องศา บรรยากาศธรรมชาติแท้ๆ",
                 },
                 {
                   icon: <Anchor className="text-forest-600" size={22} />,
-                  title: 'เรือคายัค',
-                  desc: 'สำรวจธรรมชาติด้วยเรือคายัค มีทั้งแบบเดี่ยว คู่ และครอบครัว เหมาะสำหรับทุกวัย',
+                  title: "เรือคายัค",
+                  desc: "สำรวจธรรมชาติด้วยเรือคายัค มีทั้งแบบเดี่ยว คู่ และครอบครัว เหมาะสำหรับทุกวัย",
                 },
                 {
                   icon: <CreditCard className="text-bamboo-500" size={22} />,
-                  title: 'ชำระเงินง่าย',
-                  desc: 'ชำระเงินผ่าน QR Code PromptPay ได้เลยทันที สะดวก รวดเร็ว ปลอดภัย',
+                  title: "ชำระเงินง่าย",
+                  desc: "ชำระเงินผ่าน QR Code PromptPay ได้เลยทันที สะดวก รวดเร็ว ปลอดภัย",
                 },
               ].map((f, i) => (
                 <div
@@ -582,9 +986,13 @@ export default function HomePage() {
                   <div>
                     <div className="flex items-center gap-3 mb-2">
                       {f.icon}
-                      <h3 className="font-display text-xl font-semibold text-charcoal">{f.title}</h3>
+                      <h3 className="font-display text-xl font-semibold text-charcoal">
+                        {f.title}
+                      </h3>
                     </div>
-                    <p className="text-charcoal-400 leading-relaxed">{f.desc}</p>
+                    <p className="text-charcoal-400 leading-relaxed">
+                      {f.desc}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -596,7 +1004,11 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           ROOM TYPES
           ═══════════════════════════════ */}
-      <section className="py-24 md:py-32" style={{ borderTop: '1px solid var(--color-stone-200)' }} ref={roomsRef}>
+      <section
+        className="py-24 md:py-32"
+        style={{ borderTop: "1px solid var(--color-stone-200)" }}
+        ref={roomsRef}
+      >
         <div className="container mx-auto px-4">
           <div className="reveal-on-scroll mb-14">
             <div className="w-12 h-[2px] bg-bamboo-400 mb-6" />
@@ -623,21 +1035,25 @@ export default function HomePage() {
                 >
                   <div
                     className={`h-full rounded-2xl overflow-hidden flex flex-col justify-between hover:-translate-y-1 transition-all duration-300 ${
-                      i === 0 ? 'min-h-[320px]' : 'min-h-[180px]'
+                      i === 0 ? "min-h-[320px]" : "min-h-[180px]"
                     }`}
                     style={{
-                      border: '1px solid var(--color-stone-200)',
-                      backgroundColor: 'var(--color-cream)',
+                      border: "1px solid var(--color-stone-200)",
+                      backgroundColor: "var(--color-cream)",
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.borderColor = '#D9A05B';
+                      (e.currentTarget as HTMLElement).style.borderColor =
+                        "#D9A05B";
                     }}
                     onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-stone-200)';
+                      (e.currentTarget as HTMLElement).style.borderColor =
+                        "var(--color-stone-200)";
                     }}
                   >
                     {room.main_image && (
-                      <div className={`relative overflow-hidden ${i === 0 ? 'h-40' : 'h-28'}`}>
+                      <div
+                        className={`relative overflow-hidden ${i === 0 ? "h-40" : "h-28"}`}
+                      >
                         <img
                           src={resolveMediaUrl(room.main_image)}
                           alt={room.room_name}
@@ -654,7 +1070,9 @@ export default function HomePage() {
                           {room.type_name} · รองรับ {room.capacity} คน
                         </p>
                         {room.description && (
-                          <p className="text-charcoal-400 text-sm mt-2 line-clamp-2">{room.description}</p>
+                          <p className="text-charcoal-400 text-sm mt-2 line-clamp-2">
+                            {room.description}
+                          </p>
                         )}
                       </div>
                       <div className="flex items-end justify-between mt-6">
@@ -662,7 +1080,9 @@ export default function HomePage() {
                           <span className="font-display text-3xl font-bold text-bamboo-500">
                             ฿{formatPrice(room.price_per_night)}
                           </span>
-                          <span className="text-charcoal-400 text-sm ml-1">/คืน</span>
+                          <span className="text-charcoal-400 text-sm ml-1">
+                            /คืน
+                          </span>
                         </div>
                         <Link
                           href={`/rooms/${room.id}`}
@@ -683,7 +1103,10 @@ export default function HomePage() {
           </div>
 
           <div className="text-center mt-12">
-            <Link href="/rooms" className="btn-outline inline-flex items-center gap-2">
+            <Link
+              href="/rooms"
+              className="btn-outline inline-flex items-center gap-2"
+            >
               ดูห้องพักทั้งหมด <ArrowRight size={18} />
             </Link>
           </div>
@@ -693,7 +1116,11 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           TESTIMONIALS
           ═══════════════════════════════ */}
-      <section className="py-24 md:py-32" style={{ borderTop: '1px solid var(--color-stone-200)' }} ref={testimonialsRef}>
+      <section
+        className="py-24 md:py-32"
+        style={{ borderTop: "1px solid var(--color-stone-200)" }}
+        ref={testimonialsRef}
+      >
         <div className="container mx-auto px-4">
           <div className="reveal-on-scroll text-center mb-16">
             <div className="w-12 h-[2px] bg-bamboo-400 mx-auto mb-6" />
@@ -717,12 +1144,20 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           LOCATION
           ═══════════════════════════════ */}
-      <section className="py-24 md:py-32" style={{ borderTop: '1px solid var(--color-stone-200)' }} ref={locationRef}>
+      <section
+        className="py-24 md:py-32"
+        style={{ borderTop: "1px solid var(--color-stone-200)" }}
+        ref={locationRef}
+      >
         <div className="container mx-auto px-4">
           <div className="reveal-on-scroll mb-12">
             <div className="w-12 h-[2px] bg-bamboo-400 mb-6" />
-            <h2 className="font-display text-4xl md:text-5xl font-bold text-forest-800 mb-3">ที่ตั้งของเรา</h2>
-            <p className="text-charcoal-400 text-lg max-w-xl">มาเยือนวลัย ที่พักลอยน้ำท่ามกลางธรรมชาติ</p>
+            <h2 className="font-display text-4xl md:text-5xl font-bold text-forest-800 mb-3">
+              ที่ตั้งของเรา
+            </h2>
+            <p className="text-charcoal-400 text-lg max-w-xl">
+              มาเยือนวลัย ที่พักลอยน้ำท่ามกลางธรรมชาติ
+            </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-12 items-start max-w-5xl">
@@ -731,9 +1166,12 @@ export default function HomePage() {
               <div className="flex items-start gap-3">
                 <MapPin size={18} className="text-bamboo-500 mt-1 shrink-0" />
                 <div>
-                  <p className="font-display font-semibold text-forest-800 mb-0.5">ที่อยู่</p>
+                  <p className="font-display font-semibold text-forest-800 mb-0.5">
+                    ที่อยู่
+                  </p>
                   <p className="text-charcoal-400 text-sm leading-relaxed">
-                    {resortInfo.address || 'สวนวลัยรุกขเวช สถาบันวิจัยวลัยรุกขเวช มหาวิทยาลัยมหาสารคาม จ.มหาสารคาม ประเทศไทย'}
+                    {resortInfo.address ||
+                      "สวนวลัยรุกขเวช สถาบันวิจัยวลัยรุกขเวช มหาวิทยาลัยมหาสารคาม จ.มหาสารคาม ประเทศไทย"}
                   </p>
                 </div>
               </div>
@@ -741,12 +1179,20 @@ export default function HomePage() {
               <div className="flex items-start gap-3">
                 <Phone size={18} className="text-bamboo-500 mt-1 shrink-0" />
                 <div>
-                  <p className="font-display font-semibold text-forest-800 mb-0.5">ติดต่อ</p>
+                  <p className="font-display font-semibold text-forest-800 mb-0.5">
+                    ติดต่อ
+                  </p>
                   <p className="text-charcoal-400 text-sm">
                     {resortInfo.phone && `โทร: ${resortInfo.phone}`}
                     {resortInfo.phone && resortInfo.line_id && <br />}
                     {resortInfo.line_id && `Line: ${resortInfo.line_id}`}
-                    {!resortInfo.phone && !resortInfo.line_id && <>โทร: 08x-xxx-xxxx<br />Line: @walai</>}
+                    {!resortInfo.phone && !resortInfo.line_id && (
+                      <>
+                        โทร: 08x-xxx-xxxx
+                        <br />
+                        Line: @walai
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
@@ -754,18 +1200,23 @@ export default function HomePage() {
               <div className="flex items-start gap-3">
                 <Waves size={18} className="text-bamboo-500 mt-1 shrink-0" />
                 <div>
-                  <p className="font-display font-semibold text-forest-800 mb-0.5">เวลาเปิด-ปิด</p>
+                  <p className="font-display font-semibold text-forest-800 mb-0.5">
+                    เวลาเปิด-ปิด
+                  </p>
                   <p className="text-charcoal-400 text-sm">
                     {resortInfo.operating_days && resortInfo.operating_hours
                       ? `${resortInfo.operating_days} ${resortInfo.operating_hours}`
-                      : 'เปิดทุกวัน 08:00 – 20:00 น.'}
+                      : "เปิดทุกวัน 08:00 – 20:00 น."}
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Map */}
-            <div className="reveal-on-scroll stagger-2 rounded-2xl overflow-hidden h-72 md:h-80" style={{ border: '1px solid var(--color-stone-200)' }}>
+            <div
+              className="reveal-on-scroll stagger-2 rounded-2xl overflow-hidden h-72 md:h-80"
+              style={{ border: "1px solid var(--color-stone-200)" }}
+            >
               <iframe
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3831.017633003897!2d103.32662857469161!3d16.219533184481886!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3122a5c428f5b683%3A0xdae6c58fa05c39c!2z4Liq4Lin4LiZ4Lin4Lil4Lix4Lii4Lij4Li44LiB4LiC4LmA4Lin4LiKIOC4quC4luC4suC4muC4seC4meC4p-C4tOC4iOC4seC4ouC4p-C4peC4seC4ouC4o-C4uOC4geC4guC5gOC4p-C4iiDguKHguKvguLLguKfguLTguJfguKLguLLguKXguLHguKLguKHguKvguLLguKrguLLguKPguITguLLguKE!5e0!3m2!1sth!2sth!4v1773388013866!5m2!1sth!2sth"
                 width="100%"
@@ -784,7 +1235,10 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           CTA SECTION
           ═══════════════════════════════ */}
-      <section className="relative py-24 md:py-32 bg-forest-800 text-cream-100 overflow-hidden" ref={ctaRef}>
+      <section
+        className="relative py-24 md:py-32 bg-forest-800 text-cream-100 overflow-hidden"
+        ref={ctaRef}
+      >
         {/* Organic pattern overlay */}
         <LeafPattern className="absolute top-[-40px] right-[-40px] text-cream-100 opacity-20 scale-75" />
         <LeafPattern className="absolute bottom-[-60px] left-[-60px] text-bamboo-400 opacity-10 scale-50 rotate-180" />
@@ -792,7 +1246,9 @@ export default function HomePage() {
         <div className="relative container mx-auto px-4 text-center">
           <div className="reveal-on-scroll">
             <div className="w-12 h-[2px] bg-bamboo-400 mx-auto mb-6" />
-            <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">พร้อมที่จะมาพักแล้วหรือยัง?</h2>
+            <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
+              พร้อมที่จะมาพักแล้วหรือยัง?
+            </h2>
             <p className="text-xl text-cream-300 mb-10 max-w-xl mx-auto leading-relaxed">
               จองห้องพักและกิจกรรมผ่านระบบออนไลน์ได้เลย ง่าย สะดวก รวดเร็ว
             </p>
