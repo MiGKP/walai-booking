@@ -22,7 +22,14 @@ const apiRemotePattern = getApiRemotePattern();
 
 function buildContentSecurityPolicy() {
   const connectSrc = ["'self'", apiOrigin];
-  const imgSrc = ["'self'", 'data:', 'blob:', 'https://lh3.googleusercontent.com', apiOrigin];
+  const imgSrc = [
+    "'self'",
+    'data:',
+    'blob:',
+    'https://lh3.googleusercontent.com',
+    'https://res.cloudinary.com',
+    apiOrigin,
+  ];
 
   if (!isProd) {
     connectSrc.push('http://localhost:5000');
@@ -78,6 +85,11 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'lh3.googleusercontent.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
         pathname: '/**',
       },
       ...(apiRemotePattern && apiRemotePattern.hostname !== 'localhost' ? [apiRemotePattern] : []),
