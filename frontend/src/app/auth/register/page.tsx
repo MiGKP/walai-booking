@@ -23,7 +23,7 @@ import toast from 'react-hot-toast';
 import dynamic from 'next/dynamic';
 
 const RegisterScene3D = dynamic(
-  () => import('@/components/auth/RegisterScene3D'),
+  () => import('@/components/auth/Scene3D'),
   {
     ssr: false,
     loading: () => (
