@@ -2,9 +2,21 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import { QueryResult } from 'pg';
 import pool from '../config/database';
 import { sendPasswordResetEmail } from '../services/mail.service';
 import { AuthPayload } from '../types';
+import {
+  CloudinaryUploadResult,
+  deleteCloudinaryImage,
+  extractCloudinaryPublicId,
+  uploadImage,
+} from '../services/cloudinary.service';
+
+interface AvatarUpdateRow {
+  id: number;
+  avatar: string;
+}
 
 // สร้าง JWT token สำหรับใช้ยืนยันตัวตนหลังจาก login หรือ register สำเร็จ โดยเก็บ id, email และ role ของผู้ใช้ไว้ใน token
 const generateToken = (payload: AuthPayload): string => {
@@ -514,16 +526,56 @@ export const uploadProfileAvatar = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const avatarPath = `/uploads/${file.filename}`;
-
-    const result = await pool.query(
-      'UPDATE members SET image_profile = $1 WHERE member_id = $2 RETURNING member_id as id, image_profile as avatar',
-      [avatarPath, authUser.id]
+    const memberResult = await pool.query(
+      'SELECT image_profile FROM members WHERE member_id = $1 LIMIT 1',
+      [authUser.id]
     );
+    if (memberResult.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Member not found' });
+      return;
+    }
+
+    const previousAvatar = memberResult.rows[0].image_profile as string | null;
+    let uploadedAvatar: CloudinaryUploadResult;
+    try {
+      uploadedAvatar = await uploadImage(file.buffer, {
+        folder: 'walai-booking/avatars',
+        publicId: `member-${authUser.id}`,
+      });
+    } catch (error) {
+      console.error('Profile avatar Cloudinary upload error:', error);
+      res.status(503).json({
+        error: 'Profile image upload is temporarily unavailable',
+        code: 'UPLOAD_FAILED',
+      });
+      return;
+    }
+
+    let result: QueryResult<AvatarUpdateRow>;
+    try {
+      result = await pool.query(
+        'UPDATE members SET image_profile = $1 WHERE member_id = $2 RETURNING member_id as id, image_profile as avatar',
+        [uploadedAvatar.url, authUser.id]
+      );
+    } catch (error) {
+      await deleteCloudinaryImage(uploadedAvatar.url).catch((cleanupError: unknown) => {
+        console.error('Profile avatar cleanup error:', cleanupError);
+      });
+      throw error;
+    }
 
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'Member not found' });
       return;
+    }
+
+    const previousPublicId = previousAvatar
+      ? extractCloudinaryPublicId(previousAvatar)
+      : null;
+    if (previousPublicId && previousPublicId !== uploadedAvatar.publicId) {
+      deleteCloudinaryImage(previousAvatar).catch((cleanupError: unknown) => {
+        console.error('Previous profile avatar cleanup error:', cleanupError);
+      });
     }
 
     res.json({
@@ -649,11 +701,11 @@ export const toggleMemberStatus = async (req: Request, res: Response): Promise<v
 
 export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   try {
-    const genericForgotPasswordMessage = 'If the email exists, a password reset OTP has been sent.';
+    const genericForgotPasswordMessage = 'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่ง OTP สำหรับรีเซ็ตรหัสผ่านให้แล้ว';
     const email = String(req.body.email || '').trim().toLowerCase();
 
     if (!email) {
-      res.status(400).json({ success: false, message: 'Email is required' });
+      res.status(400).json({ success: false, message: 'กรุณากรอกอีเมล' });
       return;
     }
 
@@ -663,6 +715,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     );
 
     if (memberResult.rows.length === 0) {
+      // ไม่เปิดเผยว่าอีเมลมีในระบบหรือไม่
       res.json({ success: true, message: genericForgotPasswordMessage, data: null });
       return;
     }
@@ -677,23 +730,40 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
       [hashedOtp, expiresAt, member.id]
     );
 
-    await sendPasswordResetEmail({
-      to: member.email,
-      recipientName: buildDisplayName(member.first_name, member.last_name),
-      otpCode,
-    });
+    try {
+      await sendPasswordResetEmail({
+        to: member.email,
+        recipientName: buildDisplayName(member.first_name, member.last_name),
+        otpCode,
+      });
+    } catch (mailError) {
+      console.error('Forgot password mail error:', mailError);
+      const mailMessage = mailError instanceof Error ? mailError.message : String(mailError);
+      // Resend ฟรี + onboarding@resend.dev ส่งได้เฉพาะอีเมลเจ้าของบัญชี
+      const isResendRecipientBlocked =
+        /only send testing emails to your own email/i.test(mailMessage) ||
+        /validation_error/i.test(mailMessage);
+
+      res.status(503).json({
+        success: false,
+        code: isResendRecipientBlocked ? 'MAIL_RECIPIENT_BLOCKED' : 'MAIL_SEND_FAILED',
+        message: isResendRecipientBlocked
+          ? 'Resend โหมดทดสอบส่งได้เฉพาะอีเมลที่สมัคร Resend เท่านั้น กรุณาใช้เมลนั้น หรือ verify domain'
+          : 'ไม่สามารถส่งอีเมล OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง หรือติดต่อเจ้าหน้าที่',
+      });
+      return;
+    }
 
     res.json({
       success: true,
       message: genericForgotPasswordMessage,
       data: {
         email: member.email,
-      }
+      },
     });
   } catch (error) {
     console.error('Forgot password error:', error);
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ success: false, message });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่' });
   }
 };
 

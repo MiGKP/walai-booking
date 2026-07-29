@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "migrate": "node -r ts-node/register src/db/migrate.ts",
-    "seed": "node -r ts-node/register src/db/seed.ts"
+    "seed": "node -r ts-node/register src/db/seed.ts",
+    "test:cloudinary": "node --test -r ts-node/register src/services/cloudinary.service.test.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -28,6 +29,7 @@
     "@types/qrcode": "^1.5.5",
     "@types/uuid": "^9.0.7",
     "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
