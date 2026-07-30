@@ -3,6 +3,7 @@ import {
   getAllRooms,
   getRoomById,
   checkRoomAvailability,
+  getRoomCalendar,
   createRoom,
   createSingleRoom,
   createRoomAmenity,
@@ -22,6 +23,7 @@ const router = Router();
 // Static routes (must come before dynamic /:id)
 router.get('/', getAllRooms);
 router.get('/availability', checkRoomAvailability);
+router.get('/calendar', getRoomCalendar);
 router.get('/amenities/all', getAmenities);
 router.get('/single/all', getAllSingleRooms);
 
