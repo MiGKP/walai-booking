@@ -264,14 +264,23 @@ export default function WaterHouseScene3D(): React.ReactElement {
         houseBody.receiveShadow = true;
         houseGroup.add(houseBody);
 
-        // หลังคาทรงจั่ว
+        /**
+         * หลังคาทรงจั่ว — ต้องยืดแกนที่ Group ที่ครอบ ไม่ใช่ที่ตัว mesh
+         * Three.js ประกอบเมทริกซ์เป็น T·R·S คือ scale ทำงานก่อน rotate
+         * ถ้าใส่ scale ไม่เท่ากันทุกแกนบน mesh ที่หมุน 45° ผังหลังคาจะกลายเป็น
+         * สี่เหลี่ยมขนมเปียกปูนบิดเบี้ยวแทนสี่เหลี่ยมผืนผ้า
+         */
+        const roofGroup = new THREE.Group();
+        roofGroup.position.set(-0.3, 2.15, -0.4);
+        roofGroup.scale.set(1.2, 1, 1.1);
+        houseGroup.add(roofGroup);
+
         const roofGeo = new THREE.ConeGeometry(2.6, 1.4, 4);
         const roof = new THREE.Mesh(roofGeo, materials.metalRoof);
-        roof.position.set(-0.3, 2.85, -0.4);
+        roof.position.y = 0.7;
         roof.rotation.y = Math.PI / 4;
-        roof.scale.set(1.2, 1, 1.1);
         roof.castShadow = true;
-        houseGroup.add(roof);
+        roofGroup.add(roof);
 
         // ประตูและหน้าต่าง
         const createDoor = (

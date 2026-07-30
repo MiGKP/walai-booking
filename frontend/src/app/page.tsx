@@ -2,10 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Anchor, CreditCard, Star, MapPin, Phone, Waves, Facebook } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { ArrowRight, Anchor, Calendar, CreditCard, Sparkles, Star, MapPin, Phone, Waves, Facebook } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import { resolveFacebookLink } from '@/lib/social';
+
+// โหลดแยก bundle เพราะ three.js หนัก และฉากต้องรันบนเบราว์เซอร์เท่านั้น
+const WaterHouseScene3D = dynamic(
+  () => import('@/components/3D/WaterHouseScene3D'),
+  { ssr: false, loading: () => <div className="h-full w-full" /> }
+);
 
 interface ResortInfo {
   name?: string;
@@ -90,115 +97,6 @@ function LeafPattern({ className }: { className?: string }) {
       <path d="M160 20C160 20 60 80 60 180C60 240 100 280 160 300C220 280 260 240 260 180C260 80 160 20 160 20Z" stroke="currentColor" strokeWidth="1" opacity="0.12" fill="none" />
       <path d="M160 60C160 60 90 110 90 190C90 230 120 260 160 275C200 260 230 230 230 190C230 110 160 60 160 60Z" stroke="currentColor" strokeWidth="1" opacity="0.08" fill="none" />
       <path d="M160 100C160 100 120 130 120 190C120 215 135 235 160 245C185 235 200 215 200 190C200 130 160 100 160 100Z" stroke="currentColor" strokeWidth="0.5" opacity="0.06" fill="none" />
-    </svg>
-  );
-}
-
-/* ———————————————————————————————
-   Hero Illustration — right side of hero
-   ——————————————————————————————— */
-function HeroIllustration({ className }: { className?: string }) {
-  return (
-    <div className={className}>
-      <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-        {/* Background organic circles */}
-        <circle cx="250" cy="250" r="220" stroke="#4E878C" strokeWidth="0.8" opacity="0.12" />
-        <circle cx="250" cy="250" r="180" stroke="#4E878C" strokeWidth="0.6" opacity="0.08" />
-        <circle cx="250" cy="250" r="140" stroke="#D9A05B" strokeWidth="0.5" opacity="0.10" />
-
-        {/* Water surface */}
-        <path d="M60 300C120 285 180 310 250 295C320 280 380 305 440 290" stroke="#4E878C" strokeWidth="1.5" opacity="0.25" strokeLinecap="round">
-          <animate attributeName="d" dur="4s" repeatCount="indefinite" values="M60 300C120 285 180 310 250 295C320 280 380 305 440 290;M60 295C120 310 180 285 250 300C320 285 380 310 440 295;M60 300C120 285 180 310 250 295C320 280 380 305 440 290" />
-        </path>
-        <path d="M80 315C140 300 200 325 270 310C340 295 400 320 450 305" stroke="#4E878C" strokeWidth="1" opacity="0.15" strokeLinecap="round">
-          <animate attributeName="d" dur="5s" repeatCount="indefinite" values="M80 315C140 300 200 325 270 310C340 295 400 320 450 305;M80 310C140 325 200 300 270 315C340 300 400 325 450 310;M80 315C140 300 200 325 270 310C340 295 400 320 450 305" />
-        </path>
-        <path d="M50 330C130 318 200 340 280 325C360 310 420 335 460 320" stroke="#4E878C" strokeWidth="0.8" opacity="0.10" strokeLinecap="round">
-          <animate attributeName="d" dur="6s" repeatCount="indefinite" values="M50 330C130 318 200 340 280 325C360 310 420 335 460 320;M50 325C130 340 200 318 280 330C360 318 420 340 460 325;M50 330C130 318 200 340 280 325C360 310 420 335 460 320" />
-        </path>
-
-        {/* Floating house structure */}
-        {/* Raft/platform */}
-        <rect x="155" y="260" width="190" height="12" rx="3" fill="#123C30" opacity="0.15" />
-        <rect x="160" y="256" width="180" height="8" rx="2" fill="#D9A05B" opacity="0.30" />
-
-        {/* House body */}
-        <rect x="180" y="200" width="140" height="56" rx="4" fill="#123C30" fillOpacity="0.12" stroke="#123C30" strokeWidth="1" strokeOpacity="0.20" />
-        {/* Roof */}
-        <path d="M170 200L250 155L330 200" stroke="#123C30" strokeWidth="1.5" opacity="0.25" fill="#123C30" fillOpacity="0.06" />
-        {/* Door */}
-        <rect x="235" y="225" width="30" height="31" rx="2" fill="#D9A05B" opacity="0.20" />
-        {/* Windows */}
-        <rect x="195" y="215" width="22" height="18" rx="2" fill="#4E878C" fillOpacity="0.15" stroke="#4E878C" strokeWidth="0.5" strokeOpacity="0.25" />
-        <rect x="283" y="215" width="22" height="18" rx="2" fill="#4E878C" fillOpacity="0.15" stroke="#4E878C" strokeWidth="0.5" strokeOpacity="0.25" />
-
-        {/* Trees on left */}
-        <line x1="110" y1="260" x2="110" y2="210" stroke="#123C30" strokeWidth="2" opacity="0.18" />
-        <ellipse cx="110" cy="200" rx="22" ry="30" fill="#123C30" opacity="0.10" />
-        <ellipse cx="110" cy="195" rx="16" ry="22" fill="#4E878C" opacity="0.08" />
-
-        {/* Trees on right */}
-        <line x1="395" y1="260" x2="395" y2="195" stroke="#123C30" strokeWidth="2" opacity="0.18" />
-        <ellipse cx="395" cy="185" rx="25" ry="35" fill="#123C30" opacity="0.10" />
-        <ellipse cx="395" cy="180" rx="18" ry="25" fill="#4E878C" opacity="0.08" />
-
-        {/* Small tree */}
-        <line x1="365" y1="260" x2="365" y2="225" stroke="#123C30" strokeWidth="1.5" opacity="0.15" />
-        <ellipse cx="365" cy="218" rx="14" ry="18" fill="#123C30" opacity="0.08" />
-
-        {/* Kayak on water */}
-        <ellipse cx="350" cy="310" rx="30" ry="5" fill="#D9A05B" opacity="0.25" />
-        <line x1="350" y1="310" x2="350" y2="295" stroke="#D9A05B" strokeWidth="1" opacity="0.20" />
-        <line x1="345" y1="295" x2="355" y2="300" stroke="#D9A05B" strokeWidth="0.8" opacity="0.15" />
-
-        {/* Birds */}
-        <path d="M130 140C135 135 140 140 145 135" stroke="#123C30" strokeWidth="1" opacity="0.15" strokeLinecap="round" />
-        <path d="M160 125C165 120 170 125 175 120" stroke="#123C30" strokeWidth="0.8" opacity="0.12" strokeLinecap="round" />
-        <path d="M320 110C325 105 330 110 335 105" stroke="#123C30" strokeWidth="0.8" opacity="0.12" strokeLinecap="round" />
-
-        {/* Water reflections */}
-        <line x1="200" y1="350" x2="220" y2="350" stroke="#4E878C" strokeWidth="0.8" opacity="0.08" />
-        <line x1="260" y1="365" x2="290" y2="365" stroke="#4E878C" strokeWidth="0.8" opacity="0.06" />
-        <line x1="310" y1="345" x2="340" y2="345" stroke="#4E878C" strokeWidth="0.8" opacity="0.08" />
-        <line x1="150" y1="370" x2="175" y2="370" stroke="#4E878C" strokeWidth="0.6" opacity="0.06" />
-        <line x1="360" y1="380" x2="385" y2="380" stroke="#4E878C" strokeWidth="0.6" opacity="0.05" />
-
-        {/* Ripple circles in water */}
-        <circle cx="180" cy="340" r="15" stroke="#4E878C" strokeWidth="0.5" opacity="0.06" fill="none">
-          <animate attributeName="r" dur="3s" repeatCount="indefinite" values="10;20;10" />
-          <animate attributeName="opacity" dur="3s" repeatCount="indefinite" values="0.08;0.02;0.08" />
-        </circle>
-        <circle cx="320" cy="355" r="12" stroke="#4E878C" strokeWidth="0.5" opacity="0.06" fill="none">
-          <animate attributeName="r" dur="4s" repeatCount="indefinite" values="8;18;8" />
-          <animate attributeName="opacity" dur="4s" repeatCount="indefinite" values="0.08;0.02;0.08" />
-        </circle>
-
-        {/* Sun/moon */}
-        <circle cx="400" cy="100" r="25" fill="#D9A05B" opacity="0.10" />
-        <circle cx="400" cy="100" r="18" fill="#D9A05B" opacity="0.06" />
-      </svg>
-    </div>
-  );
-}
-
-/* ———————————————————————————————
-   Decorative dots grid
-   ——————————————————————————————— */
-function DotsPattern({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="120" height="120" viewBox="0 0 120 120" fill="none">
-      {Array.from({ length: 6 }).map((_, row) =>
-        Array.from({ length: 6 }).map((_, col) => (
-          <circle
-            key={`${row}-${col}`}
-            cx={10 + col * 20}
-            cy={10 + row * 20}
-            r="1.5"
-            fill="#D9A05B"
-            opacity={0.15 + Math.random() * 0.1}
-          />
-        ))
-      )}
     </svg>
   );
 }
@@ -453,37 +351,36 @@ export default function HomePage() {
           HERO SECTION
           ═══════════════════════════════ */}
       <section className="relative min-h-screen flex items-center overflow-hidden">
-        {/* Background decorative elements */}
-        <LeafPattern className="absolute top-20 left-[-80px] text-forest-800 opacity-30 scale-50 hidden lg:block" />
-        <DotsPattern className="absolute top-32 right-16 hidden lg:block" />
-        <DotsPattern className="absolute bottom-40 left-20 hidden lg:block rotate-45 opacity-60" />
-
-        {/* Subtle gradient wash at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-cream-200/50 to-transparent pointer-events-none" />
+        {/* Ambient gradient washes */}
+        <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-gradient-to-b from-lagoon-100/40 via-bamboo-100/20 to-transparent blur-3xl pointer-events-none" />
+        <div className="absolute bottom-10 left-0 w-1/3 h-1/3 bg-forest-800/5 blur-3xl pointer-events-none" />
 
         <div className="relative container mx-auto px-4 py-32 md:py-36">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
+          <div className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
             {/* Left — Text content */}
-            <div>
-              {/* Gold accent line */}
-              <div className="w-16 h-[3px] bg-bamboo-400 mb-8 animate-hero-line" />
+            <div className="lg:col-span-7">
+              {/* Eyebrow badge */}
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 mb-6 rounded-full bg-forest-800/5 border border-forest-800/10 text-forest-800 text-xs font-semibold tracking-wide uppercase animate-reveal-up">
+                <Sparkles size={14} className="text-bamboo-500" aria-hidden="true" />
+                รีสอร์ต &amp; ที่พักลอยน้ำ
+              </div>
 
               {/* Headline */}
-              <h1
-                className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-forest-800 leading-[1.15] mb-6 animate-reveal-up"
-              >
-                สวนวลัยรุกขเวช
+              <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-forest-800 leading-[1.12] mb-6 animate-reveal-up">
+                {resortInfo.name || 'สวนวลัยรุกขเวช'}
                 <br />
-                <span className="text-lagoon-500 font-semibold">ที่พักลอยน้ำ</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-lagoon-600 via-forest-700 to-bamboo-600">
+                  สัมผัสธรรมชาติลอยน้ำ
+                </span>
               </h1>
 
               {/* Subtitle */}
               <p
-                className="text-lg md:text-xl text-charcoal-400 leading-relaxed max-w-xl mb-10 animate-reveal-up"
+                className="text-lg md:text-xl text-charcoal-400 leading-relaxed max-w-2xl mb-10 animate-reveal-up"
                 style={{ animationDelay: '120ms' }}
               >
-                สัมผัสประสบการณ์การพักผ่อนสุดพิเศษกับที่พักลอยน้ำ
-                พร้อมกิจกรรมเรือคายัคท่ามกลางธรรมชาติอันงดงาม
+                หลบหนีความวุ่นวายมาผ่อนคลายกับที่พักเรือนแพลอยน้ำบรรยากาศสุดสโลว์ไลฟ์
+                พร้อมกิจกรรมพายเรือคายัคชมทัศนียภาพอันร่มรื่นกลางผืนน้ำ
               </p>
 
               {/* CTA Buttons */}
@@ -493,24 +390,28 @@ export default function HomePage() {
               >
                 <Link
                   href="/rooms"
-                  className="inline-flex items-center justify-center gap-2 bg-forest-800 text-cream-100 font-semibold px-8 py-4 rounded-xl hover:bg-forest-700 active:scale-[0.97] transition-all duration-200"
+                  className="inline-flex items-center justify-center gap-2 bg-forest-800 text-cream-100 font-semibold px-8 py-4 rounded-2xl shadow-lg shadow-forest-800/20 hover:bg-forest-700 active:scale-[0.97] transition-all duration-200"
                 >
+                  <Calendar size={18} aria-hidden="true" />
                   จองห้องพัก
-                  <ArrowRight size={18} />
+                  <ArrowRight size={18} aria-hidden="true" />
                 </Link>
                 <Link
                   href="/kayaks"
-                  className="inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 rounded-xl border-2 border-forest-800/20 text-forest-800 hover:border-forest-800/40 hover:bg-forest-50 active:scale-[0.97] transition-all duration-200"
+                  className="inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 rounded-2xl bg-cream-100 border border-stone-200 text-forest-800 shadow-sm hover:border-forest-800/30 hover:bg-cream-200 active:scale-[0.97] transition-all duration-200"
                 >
-                  <Anchor size={18} />
-                  จองเรือคายัค
+                  <Anchor size={18} aria-hidden="true" />
+                  บริการเรือคายัค
                 </Link>
               </div>
             </div>
 
-            {/* Right — Illustration */}
-            <div className="hidden lg:block animate-reveal-up" style={{ animationDelay: '300ms' }}>
-              <HeroIllustration className="w-full max-w-[480px] mx-auto" />
+            {/* Right — Interactive 3D scene */}
+            <div
+              className="lg:col-span-5 relative h-[380px] sm:h-[460px] lg:h-[500px] w-full animate-reveal-up"
+              style={{ animationDelay: '300ms' }}
+            >
+              <WaterHouseScene3D />
             </div>
           </div>
         </div>
