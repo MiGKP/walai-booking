@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,7 +11,19 @@ import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { ArrowLeft } from "lucide-react";
 
-export default function RegisterPage() {
+const RegisterScene3D = dynamic(
+  () => import("@/components/auth/Scene3D"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center bg-[#d9ece7] text-charcoal-400">
+        กำลังเตรียมบรรยากาศ...
+      </div>
+    ),
+  },
+);
+
+export default function RegisterPage(): React.ReactElement | null {
   const router = useRouter();
   const { login } = useAuth();
   const { ready } = useAuthGuard({ guestOnly: true });
@@ -79,11 +92,9 @@ export default function RegisterPage() {
             <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-bamboo-400 scale-x-0 group-hover:scale-x-100 transition-transform duration-250 origin-left" />
           </Link>
 
-          <img
-            src="/images/kayak.gif"
-            alt="Kayak"
-            className="w-[420px] object-contain"
-          />
+          <div className="relative min-h-[280px] w-full max-w-[420px] overflow-hidden rounded-2xl bg-[#d9ece7]">
+            <RegisterScene3D />
+          </div>
           <h2 className="text-4xl font-bold text-[#354024] mt-8 text-center">
             Walai Booking
           </h2>
