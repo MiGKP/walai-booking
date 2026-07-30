@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { clearAuthToken, useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Waves } from 'lucide-react';
+import { LoaderCircle, Waves } from 'lucide-react';
 
-function CallbackContent() {
+function CallbackContent(): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
@@ -37,20 +37,22 @@ function CallbackContent() {
   }, [searchParams, router, login]);
 
   return (
-    <div className="min-h-screen pt-16 flex items-center justify-center">
-      <div className="text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-100 mb-4 animate-pulse">
-          <Waves size={32} className="text-teal-600" />
+    <div className="grid min-h-screen place-items-center bg-cream-200 px-4">
+      <div className="card w-full max-w-sm p-8 text-center">
+        <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-forest-800 text-cream-100">
+          <LoaderCircle size={28} className="animate-spin" />
         </div>
-        <p className="text-gray-600 text-lg">กำลังเข้าสู่ระบบ...</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-lagoon-600">Walai Booking</p>
+        <h1 className="mt-2 font-display text-xl text-forest-900">กำลังเข้าสู่ระบบ</h1>
+        <p className="mt-2 text-sm leading-6 text-charcoal-500">กรุณารอสักครู่ ระบบกำลังยืนยันตัวตนของคุณ</p>
       </div>
     </div>
   );
 }
 
-export default function CallbackPage() {
+export default function CallbackPage(): React.ReactElement {
   return (
-    <Suspense fallback={<div className="min-h-screen pt-16 flex items-center justify-center"><p>Loading...</p></div>}>
+    <Suspense fallback={<div className="grid min-h-screen place-items-center bg-cream-200"><div className="h-10 w-10 animate-spin rounded-full border-2 border-forest-800 border-t-transparent" /></div>}>
       <CallbackContent />
     </Suspense>
   );

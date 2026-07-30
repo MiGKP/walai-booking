@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Waves } from 'lucide-react';
+import { ArrowLeft, Mail, Waves } from 'lucide-react';
+import axios from 'axios';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import api from '@/lib/api';
+import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 
-export default function ForgotPasswordPage() {
+export default function ForgotPasswordPage(): React.ReactElement | null {
   const router = useRouter();
   const { ready } = useAuthGuard({ guestOnly: true });
   const [email, setEmail] = useState('');
@@ -30,11 +31,10 @@ export default function ForgotPasswordPage() {
       toast.success('หากอีเมลนี้มีอยู่ในระบบ เราได้ส่ง OTP ให้แล้ว');
       router.push(`/auth/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`);
     } catch (err: unknown) {
-      const axiosErr = err as { code?: string; response?: { data?: { message?: string } } };
-      if (axiosErr.code === 'ECONNABORTED') {
+      if (axios.isAxiosError(err) && err.code === 'ECONNABORTED') {
         toast.error('การส่ง OTP ใช้เวลานานเกินไป กรุณาลองใหม่');
       } else {
-        toast.error(axiosErr.response?.data?.message || 'ไม่สามารถส่ง OTP ได้');
+        toast.error(getApiErrorMessage(err, 'ไม่สามารถส่ง OTP ได้'));
       }
     } finally {
       setLoading(false);
@@ -42,38 +42,39 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen pt-16 bg-gradient-to-br from-teal-50 to-cyan-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-cream-200 px-4 pb-16 pt-28">
       <div className="w-full max-w-md">
-        <div className="card p-8">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-100 mb-4">
-              <Waves size={32} className="text-teal-600" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">กู้รหัสผ่าน</h1>
-            <p className="text-gray-500 mt-1">กรอกอีเมลเพื่อรับ OTP สำหรับตั้งรหัสผ่านใหม่</p>
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-forest-800 text-cream-100 shadow-sm">
+            <Waves size={28} />
           </div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-lagoon-600">Walai Booking</p>
+          <h1 className="mt-2 font-display text-3xl text-forest-900">กู้รหัสผ่าน</h1>
+          <p className="mt-2 text-sm text-charcoal-500">รับ OTP ทางอีเมลเพื่อตั้งรหัสผ่านใหม่</p>
+        </div>
 
+        <div className="card p-6 sm:p-8">
           {submitted ? (
-            <div className="rounded-2xl border border-teal-200 bg-teal-50 p-5 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-teal-600 shadow-sm">
+            <div className="rounded-2xl border border-lagoon-200 bg-lagoon-50 p-5 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cream-100 text-lagoon-600 shadow-sm">
                 <Mail size={22} />
               </div>
-              <h2 className="text-lg font-bold text-gray-900">เช็กอีเมลของคุณ</h2>
-              <p className="mt-2 text-sm leading-6 text-gray-600">
-                หากอีเมล <span className="font-semibold text-gray-900">{email}</span> มีอยู่ในระบบ
+              <h2 className="font-display text-xl text-forest-900">เช็กอีเมลของคุณ</h2>
+              <p className="mt-2 text-sm leading-6 text-charcoal-500">
+                หากอีเมล <span className="font-semibold text-forest-900">{email}</span> มีอยู่ในระบบ
                 เราได้ส่ง OTP สำหรับตั้งรหัสผ่านใหม่ให้แล้ว
               </p>
               <button
                 type="button"
                 onClick={() => router.push(`/auth/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`)}
-                className="mt-4 btn-primary w-full"
+                className="btn-primary mt-5 w-full"
               >
                 ไปหน้ากรอก OTP
               </button>
               <button
                 type="button"
                 onClick={() => setSubmitted(false)}
-                className="mt-4 text-sm font-semibold text-teal-600 hover:text-teal-700"
+                className="mt-4 text-sm font-semibold text-forest-700 hover:text-forest-900"
               >
                 ส่งใหม่อีกครั้ง
               </button>
@@ -81,10 +82,11 @@ export default function ForgotPasswordPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">อีเมล</label>
+                <label htmlFor="forgot-email" className="mb-1.5 block text-sm font-medium text-charcoal-700">อีเมล</label>
                 <div className="relative">
-                  <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-charcoal-400" />
                   <input
+                    id="forgot-email"
                     type="email"
                     required
                     className="input-field pl-11"
@@ -101,12 +103,10 @@ export default function ForgotPasswordPage() {
             </form>
           )}
 
-          <p className="text-center text-sm text-gray-600 mt-6">
-            กลับไปที่{' '}
-            <Link href="/auth/login" className="text-teal-600 font-semibold hover:text-teal-700">
-              เข้าสู่ระบบ
-            </Link>
-          </p>
+          <Link href="/auth/login" className="mt-6 flex items-center justify-center gap-1.5 text-sm font-semibold text-forest-700 hover:text-forest-900">
+            <ArrowLeft size={14} />
+            กลับไปเข้าสู่ระบบ
+          </Link>
         </div>
       </div>
     </div>
