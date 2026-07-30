@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Anchor, CreditCard, Star, MapPin, Phone, Waves } from 'lucide-react';
+import { ArrowRight, Anchor, CreditCard, Star, MapPin, Phone, Waves, Facebook } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
+import { resolveFacebookLink } from '@/lib/social';
 
 interface ResortInfo {
   name?: string;
@@ -404,6 +405,7 @@ export default function HomePage() {
   const testimonialsRef = useRevealOnScroll(loadingReviews, reviews.length);
   const locationRef = useRevealOnScroll();
   const ctaRef = useRevealOnScroll();
+  const facebookLink = resolveFacebookLink(resortInfo.facebook);
 
   useEffect(() => {
     const fetchLandingData = async () => {
@@ -750,6 +752,23 @@ export default function HomePage() {
                   </p>
                 </div>
               </div>
+              {/* Facebook */}
+              {facebookLink && (
+                <div className="flex items-start gap-3">
+                  <Facebook size={18} className="text-bamboo-500 mt-1 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-display font-semibold text-forest-800 mb-0.5">Facebook</p>
+                    <a
+                      href={facebookLink.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-charcoal-400 text-sm underline decoration-stone-300 underline-offset-4 transition-colors hover:text-forest-800 hover:decoration-bamboo-400 break-words"
+                    >
+                      {facebookLink.label}
+                    </a>
+                  </div>
+                </div>
+              )}
               {/* Hours */}
               <div className="flex items-start gap-3">
                 <Waves size={18} className="text-bamboo-500 mt-1 shrink-0" />
