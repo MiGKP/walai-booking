@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { MapPin, Phone, Mail, Facebook } from "lucide-react";
-import api from "@/lib/api";
-import Image from "next/image";
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { MapPin, Phone, Mail, Facebook } from 'lucide-react';
+import api from '@/lib/api';
+import { resolveFacebookLink } from '@/lib/social';
 
 interface ResortContact {
   name?: string;
@@ -26,6 +26,7 @@ export default function Footer() {
   }, []);
 
   const year = new Date().getFullYear();
+  const facebookLink = resolveFacebookLink(info.facebook);
 
   return (
     <footer className="bg-forest-800 text-cream-300">
@@ -51,22 +52,18 @@ export default function Footer() {
               ที่พักลอยน้ำสุดพิเศษ ท่ามกลางธรรมชาติอันงดงาม
               พร้อมกิจกรรมเรือคายัคสนุกสนาน
             </p>
-            {info.facebook && (
-              <div className="flex gap-3 mt-5">
-                <a
-                  href={
-                    info.facebook.startsWith("http")
-                      ? info.facebook
-                      : `https://${info.facebook}`
-                  }
-                  aria-label="Facebook"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-full bg-forest-700 flex items-center justify-center hover:bg-bamboo-400 hover:text-forest-900 transition-colors duration-200"
-                >
-                  <Facebook size={16} />
-                </a>
-              </div>
+            {facebookLink && (
+              <a
+                href={facebookLink.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-5 inline-flex max-w-full items-center gap-2.5 rounded-full bg-forest-700 py-1.5 pl-1.5 pr-4 text-sm text-cream-200 transition-colors duration-200 hover:bg-bamboo-400 hover:text-forest-900"
+              >
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-forest-800/60">
+                  <Facebook size={14} />
+                </span>
+                <span className="truncate">{facebookLink.label}</span>
+              </a>
             )}
           </div>
 

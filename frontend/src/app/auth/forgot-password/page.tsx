@@ -1,15 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import Image from "next/image"; // นำเข้า Image จาก next/image
-import { useRouter } from "next/navigation";
-import { Mail } from "lucide-react"; // นำ Waves ออก เพราะจะใช้โลโก้แทน
-import { useAuthGuard } from "@/hooks/useAuthGuard";
-import api from "@/lib/api";
-import toast from "react-hot-toast";
+import { useState } from 'react';
+import type { FormEvent } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import {
+  ArrowLeft,
+  ArrowRight,
+  LoaderCircle,
+  Mail,
+  Waves,
+} from 'lucide-react';
+import axios from 'axios';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
+import api, { getApiErrorMessage } from '@/lib/api';
+import toast from 'react-hot-toast';
 
-export default function ForgotPasswordPage() {
+export default function ForgotPasswordPage(): React.ReactElement | null {
   const router = useRouter();
   const { ready } = useAuthGuard({ guestOnly: true });
   const [email, setEmail] = useState("");
@@ -18,29 +25,29 @@ export default function ForgotPasswordPage() {
 
   if (!ready) return null;
 
-  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault();
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>
+  ): Promise<void> => {
+    event.preventDefault();
     setLoading(true);
     try {
       await api.post(
-        "/auth/forgot-password",
-        { email: email.trim().toLowerCase() },
-        { timeout: 25000 },
+        '/auth/forgot-password',
+        { email: normalizedEmail },
+        { timeout: 25000 }
       );
       setSubmitted(true);
-      toast.success("หากอีเมลนี้มีอยู่ในระบบ เราได้ส่ง OTP ให้แล้ว");
+      toast.success('หากอีเมลนี้มีอยู่ในระบบ เราได้ส่ง OTP ให้แล้ว');
       router.push(
-        `/auth/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`,
+        `/auth/reset-password?email=${encodeURIComponent(normalizedEmail)}`
       );
-    } catch (err: unknown) {
-      const axiosErr = err as {
-        code?: string;
-        response?: { data?: { message?: string } };
-      };
-      if (axiosErr.code === "ECONNABORTED") {
-        toast.error("การส่ง OTP ใช้เวลานานเกินไป กรุณาลองใหม่");
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
+        toast.error('การส่ง OTP ใช้เวลานานเกินไป กรุณาลองใหม่');
       } else {
-        toast.error(axiosErr.response?.data?.message || "ไม่สามารถส่ง OTP ได้");
+        toast.error(getApiErrorMessage(error, 'ไม่สามารถส่ง OTP ได้'));
       }
     } finally {
       setLoading(false);
@@ -48,122 +55,128 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    // ปรับพื้นหลังเป็นสีขาวครีม (cream-100) ตาม Navbar/Footer
-    <div className="min-h-screen pt-24 pb-12 bg-cream-100 flex items-start justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="card p-8 bg-white rounded-3xl shadow-lg border border-stone-100">
-          <div className="text-center mb-8 flex flex-col items-center">
-            {/* โลโก้สำหรับคลิกกลับหน้าหลัก พร้อมเอฟเฟกต์ hover */}
-            <Link
-              href="/"
-              className="inline-block mb-4 transition-transform duration-300 hover:scale-105"
-              aria-label="กลับหน้าแรก"
-            >
-              <div className="w-20 h-20 rounded-full bg-cream-100 p-1 flex items-center justify-center overflow-hidden shadow-inner border border-stone-100">
-                <Image
-                  src="/images/logo_walai.png"
-                  alt="โลโก้ วลัย"
-                  width={72}
-                  height={72}
-                  className="object-contain"
-                  priority
-                />
-              </div>
-            </Link>
-            {/* ปรับสีหัวข้อเป็นสีเขียวเข้ม (forest-800) */}
-            <h1 className="text-2xl font-bold text-forest-800 font-display">
+    <div className="min-h-screen bg-stone-100 p-3 sm:p-5 lg:p-6">
+      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] w-full max-w-[560px] items-center justify-center sm:min-h-[calc(100vh-2.5rem)] lg:min-h-[calc(100vh-3rem)]">
+        <div className="w-full overflow-hidden rounded-[28px] border border-stone-200 bg-cream-100 px-6 py-10 shadow-[0_28px_90px_rgba(18,60,48,0.14)] sm:px-10 sm:py-12 lg:rounded-[36px] lg:px-12">
+          <div className="mb-8 animate-fade-in">
+            <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-full bg-forest-800 text-cream-100">
+              <Waves size={21} aria-hidden="true" />
+            </div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-lagoon-700">
+              Account recovery
+            </p>
+            <h1 className="text-3xl font-semibold text-charcoal sm:text-4xl">
               กู้รหัสผ่าน
             </h1>
-            <p className="text-charcoal-500 mt-1.5 text-sm">
-              กรอกอีเมลเพื่อรับ OTP สำหรับตั้งรหัสผ่านใหม่
+            <p className="mt-2 text-sm leading-6 text-stone-500">
+              รับ OTP ทางอีเมลเพื่อตั้งรหัสผ่านใหม่
             </p>
           </div>
 
           {submitted ? (
-            // ปรับสีกล่องแจ้งเตือนเมื่อส่งสำเร็จ
-            <div className="rounded-2xl border border-bamboo-200 bg-bamboo-50 p-6 text-center shadow-inner">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white text-bamboo-500 shadow-md">
-                <Mail size={26} />
+            <div className="animate-fade-in rounded-2xl border border-lagoon-200 bg-lagoon-50 p-6 text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-cream-100 text-lagoon-700 shadow-sm">
+                <Mail size={22} aria-hidden="true" />
               </div>
-              <h2 className="text-lg font-bold text-forest-900 font-display">
+              <h2 className="text-xl font-semibold text-charcoal">
                 เช็กอีเมลของคุณ
               </h2>
-              <p className="mt-2.5 text-sm leading-relaxed text-charcoal-700">
-                หากอีเมล{" "}
-                <span className="font-semibold text-forest-800 break-all">
-                  {email}
-                </span>{" "}
+              <p className="mt-2 text-sm leading-6 text-stone-500">
+                หากอีเมล{' '}
+                <span className="font-semibold text-forest-800">{email}</span>{' '}
                 มีอยู่ในระบบ เราได้ส่ง OTP สำหรับตั้งรหัสผ่านใหม่ให้แล้ว
               </p>
               <button
                 type="button"
                 onClick={() =>
                   router.push(
-                    `/auth/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`,
+                    `/auth/reset-password?email=${encodeURIComponent(normalizedEmail)}`
                   )
                 }
-                className="mt-5 btn-primary w-full shadow-md"
+                className="group mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-forest-800 px-6 py-3.5 font-semibold text-cream-100 transition duration-200 hover:bg-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 active:scale-[0.98]"
               >
                 ไปหน้ากรอก OTP
+                <ArrowRight
+                  size={18}
+                  className="transition-transform group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
               </button>
               <button
                 type="button"
                 onClick={() => setSubmitted(false)}
-                className="mt-4 text-sm font-semibold text-bamboo-600 hover:text-bamboo-700 transition-colors"
+                className="mt-4 text-sm font-semibold text-forest-800 transition-colors hover:text-lagoon-700 focus:outline-none focus:underline"
               >
                 ส่งใหม่อีกครั้ง
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form
+              onSubmit={handleSubmit}
+              className="animate-fade-in space-y-5"
+              aria-busy={loading}
+            >
               <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-1.5">
-                  อีเมลที่ใช้สมัครสมาชิก
+                <label
+                  htmlFor="forgot-email"
+                  className="mb-2 block text-sm font-semibold text-charcoal"
+                >
+                  อีเมล
                 </label>
-                <div className="relative group">
+                <div className="relative">
                   <Mail
                     size={18}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-bamboo-500 transition-colors"
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-stone-400"
+                    aria-hidden="true"
                   />
                   <input
+                    id="forgot-email"
                     type="email"
+                    autoComplete="email"
                     required
-                    className="input-field pl-11 rounded-full border-stone-200 focus:border-bamboo-300 focus:ring-bamboo-100"
-                    placeholder="example@email.com"
+                    className="input-field h-[52px] pl-12"
+                    placeholder="your@email.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(event) => setEmail(event.target.value)}
                     disabled={loading}
                   />
                 </div>
               </div>
+
               <button
                 type="submit"
                 disabled={loading}
-                className="btn-primary w-full rounded-full shadow-md disabled:opacity-60 disabled:cursor-not-allowed transform transition-all active:scale-[0.98]"
+                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-forest-800 px-6 py-3.5 font-semibold text-cream-100 transition duration-200 hover:bg-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "กำลังส่ง OTP..." : "ส่ง OTP ไปยังอีเมล"}
+                {loading ? (
+                  <>
+                    <LoaderCircle
+                      size={18}
+                      className="animate-spin"
+                      aria-hidden="true"
+                    />
+                    กำลังส่ง OTP...
+                  </>
+                ) : (
+                  <>
+                    ส่ง OTP ไปยังอีเมล
+                    <ArrowRight
+                      size={18}
+                      className="transition-transform group-hover:translate-x-0.5"
+                      aria-hidden="true"
+                    />
+                  </>
+                )}
               </button>
             </form>
           )}
 
-          <div className="relative my-7">
-            <div
-              className="absolute inset-0 flex items-center"
-              aria-hidden="true"
-            >
-              <div className="w-full border-t border-stone-200" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="bg-white px-2 text-stone-500">หรือ</span>
-            </div>
-          </div>
-
-          <p className="text-center text-sm text-charcoal-600">
-            จำรหัสผ่านได้แล้ว?{" "}
+          <p className="mt-7 text-center text-sm text-stone-500">
             <Link
               href="/auth/login"
-              className="text-bamboo-600 font-semibold hover:text-bamboo-700 transition-colors"
+              className="inline-flex items-center gap-1.5 font-semibold text-forest-800 transition-colors hover:text-lagoon-700 focus:outline-none focus:underline"
             >
+              <ArrowLeft size={14} aria-hidden="true" />
               กลับไปเข้าสู่ระบบ
             </Link>
           </p>

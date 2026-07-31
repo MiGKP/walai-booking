@@ -36,7 +36,7 @@ export default function Scene3D(): React.ReactElement {
         // 1. Scene / Camera / Renderer Setup
         // -----------------------------------------------------------------
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0xaaccce, 0.032);
+        scene.fog = new THREE.FogExp2(0xbcdad4, 0.032);
 
         const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
         camera.position.set(9.5, 6.2, 11.5);
@@ -68,40 +68,40 @@ export default function Scene3D(): React.ReactElement {
         // -----------------------------------------------------------------
         const materials = {
           landTerrain: new THREE.MeshStandardMaterial({
-            color: 0x3d6e3d,
+            color: 0x315f4f,
             roughness: 0.9,
           }),
           soil: new THREE.MeshStandardMaterial({
-            color: 0x4a3222,
+            color: 0x5b4028,
             roughness: 0.95,
           }),
           foliageDark: new THREE.MeshStandardMaterial({
-            color: 0x1b432a,
+            color: 0x123c30,
             roughness: 0.7,
           }),
           foliageLight: new THREE.MeshStandardMaterial({
-            color: 0x2e6f40,
+            color: 0x24614a,
             roughness: 0.65,
           }),
           treeTrunk: new THREE.MeshStandardMaterial({
-            color: 0x5c4033,
+            color: 0x8e5f2b,
             roughness: 0.85,
           }),
           houseWall: new THREE.MeshStandardMaterial({
-            color: 0xf5f2eb,
+            color: 0xf4efe2,
             roughness: 0.4,
           }),
           woodDeck: new THREE.MeshStandardMaterial({
-            color: 0x8a5a36,
+            color: 0x8e5f2b,
             roughness: 0.6,
           }),
           metalRoof: new THREE.MeshStandardMaterial({
-            color: 0x2b303a,
-            roughness: 0.3,
-            metalness: 0.6,
+            color: 0x123c30,
+            roughness: 0.42,
+            metalness: 0.28,
           }),
           pontoonPipes: new THREE.MeshStandardMaterial({
-            color: 0x1e252b,
+            color: 0x202a27,
             roughness: 0.5,
             metalness: 0.8,
           }),
@@ -115,9 +115,9 @@ export default function Scene3D(): React.ReactElement {
             opacity: 0.85,
           }),
           kayakBody: new THREE.MeshStandardMaterial({
-            color: 0xff5500,
-            roughness: 0.25,
-            metalness: 0.1,
+            color: 0xd9a05b,
+            roughness: 0.45,
+            metalness: 0.05,
           }),
           kayakSeat: new THREE.MeshStandardMaterial({
             color: 0x111111,
@@ -129,17 +129,21 @@ export default function Scene3D(): React.ReactElement {
             metalness: 0.3,
           }),
           water: new THREE.MeshPhysicalMaterial({
-            color: 0x2b7a78,
+            color: 0x4e878c,
             transparent: true,
-            opacity: 0.75,
+            opacity: 0.6,
             roughness: 0.15,
             metalness: 0.1,
             clearcoat: 0.8,
             clearcoatRoughness: 0.2,
             side: THREE.DoubleSide,
           }),
+          deepWater: new THREE.MeshStandardMaterial({
+            color: 0x1f4b4a,
+            roughness: 1,
+          }),
           stone: new THREE.MeshStandardMaterial({
-            color: 0x6e7f80,
+            color: 0x7d8f88,
             roughness: 0.9,
           }),
         };
@@ -147,14 +151,27 @@ export default function Scene3D(): React.ReactElement {
         // -----------------------------------------------------------------
         // 3. Water Base (ผิวน้ำ)
         // -----------------------------------------------------------------
+        /**
+         * รัศมี 44 คือระยะที่ FogExp2 density 0.032 กลืนขอบวงกลมไปเกือบหมด
+         * รัศมีสั้นกว่านี้จะเห็นขอบผิวน้ำเป็นเส้นโค้งคมกลางภาพ
+         */
         const water = new THREE.Mesh(
-          new THREE.CircleGeometry(10.5, 64),
+          new THREE.CircleGeometry(44, 96),
           materials.water,
         );
         water.rotation.x = -Math.PI / 2;
         water.position.y = -0.45;
         water.receiveShadow = true;
         worldGroup.add(water);
+
+        // พื้นใต้น้ำสีเข้ม ทำให้ผิวน้ำโปร่งแสงอ่านเป็นความลึกแทนที่จะเป็นแผ่นสีเรียบ
+        const waterBed = new THREE.Mesh(
+          new THREE.CircleGeometry(42, 64),
+          materials.deepWater,
+        );
+        waterBed.rotation.x = -Math.PI / 2;
+        waterBed.position.y = -1.15;
+        worldGroup.add(waterBed);
 
         // -----------------------------------------------------------------
         // 4. Land & Forest

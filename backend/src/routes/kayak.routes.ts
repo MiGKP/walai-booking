@@ -3,6 +3,8 @@ import {
   getAllKayaks,
   getKayakById,
   checkKayakAvailability,
+  getKayakCalendar,
+  getKayakDayRounds,
   getKayakSchedule,
   createKayakBooking,
   getUserKayakBookings,
@@ -38,6 +40,8 @@ router.get('/', getAllKayaks);
 router.post('/', authenticate, authorize('admin', 'boat_staff'), createKayakValidator, validate, createKayak);
 
 router.get('/availability', checkKayakAvailability);
+router.get('/calendar', getKayakCalendar);
+router.get('/rounds-availability', getKayakDayRounds);
 router.get('/schedule', getKayakSchedule);
 
 // Bookings routes (specific before dynamic)

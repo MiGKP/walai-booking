@@ -26,4 +26,15 @@ api.interceptors.response.use(
   }
 );
 
+/** ดึงข้อความ error จาก backend ที่ตอบรูปแบบ { success, message } โดยไม่ต้องใช้ any */
+export const getApiErrorMessage = (error: unknown, fallback: string): string => {
+  if (axios.isAxiosError(error)) {
+    const message = error.response?.data?.message;
+    if (typeof message === 'string' && message.trim().length > 0) {
+      return message;
+    }
+  }
+  return fallback;
+};
+
 export default api;

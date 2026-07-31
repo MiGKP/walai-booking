@@ -1,28 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef, useId } from "react";
-import Link from "next/link";
-import {
-  ArrowRight,
-  Anchor,
-  CreditCard,
-  Star,
-  MapPin,
-  Phone,
-  Waves,
-  Sparkles,
-  Calendar,
-  Compass,
-  Clock,
-  ExternalLink,
-} from "lucide-react";
-import api from "@/lib/api";
-import { resolveMediaUrl } from "@/lib/avatar";
-import WaterHouseScene3D from "@/components/3D/WaterHouseScene3D";
+import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { ArrowRight, Anchor, Calendar, CreditCard, Sparkles, Star, MapPin, Phone, Waves, Facebook } from 'lucide-react';
+import api from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/avatar';
+import { resolveFacebookLink } from '@/lib/social';
 
-/* ———————————————————————————————
-   Interfaces
-   ——————————————————————————————— */
+// โหลดแยก bundle เพราะ three.js หนัก และฉากต้องรันบนเบราว์เซอร์เท่านั้น
+const WaterHouseScene3D = dynamic(
+  () => import('@/components/3D/WaterHouseScene3D'),
+  { ssr: false, loading: () => <div className="h-full w-full" /> }
+);
+
 interface ResortInfo {
   name?: string;
   address?: string;
@@ -98,6 +89,19 @@ function useRevealOnScroll(...deps: unknown[]) {
   }, deps);
 
   return containerRef;
+}
+
+/* ———————————————————————————————
+   Decorative SVG components
+   ——————————————————————————————— */
+function LeafPattern({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M160 20C160 20 60 80 60 180C60 240 100 280 160 300C220 280 260 240 260 180C260 80 160 20 160 20Z" stroke="currentColor" strokeWidth="1" opacity="0.12" fill="none" />
+      <path d="M160 60C160 60 90 110 90 190C90 230 120 260 160 275C200 260 230 230 230 190C230 110 160 60 160 60Z" stroke="currentColor" strokeWidth="1" opacity="0.08" fill="none" />
+      <path d="M160 100C160 100 120 130 120 190C120 215 135 235 160 245C185 235 200 215 200 190C200 130 160 100 160 100Z" stroke="currentColor" strokeWidth="0.5" opacity="0.06" fill="none" />
+    </svg>
+  );
 }
 
 /* ———————————————————————————————
@@ -338,6 +342,8 @@ export default function HomePage() {
   const roomsRef = useRevealOnScroll(loadingRooms, roomTypes.length);
   const testimonialsRef = useRevealOnScroll(loadingReviews, reviews.length);
   const locationRef = useRevealOnScroll();
+  const ctaRef = useRevealOnScroll();
+  const facebookLink = resolveFacebookLink(resortInfo.facebook);
 
   useEffect(() => {
     const fetchLandingData = async () => {
@@ -382,29 +388,35 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           1. HERO SECTION
           ═══════════════════════════════ */}
-      <section className="relative min-h-screen flex items-center pt-24 pb-16 overflow-hidden">
-        {/* Ambient Gradient Backgrounds */}
+      <section className="relative min-h-screen flex items-center overflow-hidden">
+        {/* Ambient gradient washes */}
         <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-gradient-to-b from-lagoon-100/40 via-bamboo-100/20 to-transparent blur-3xl pointer-events-none" />
         <div className="absolute bottom-10 left-0 w-1/3 h-1/3 bg-forest-800/5 blur-3xl pointer-events-none" />
 
-        <div className="container mx-auto px-4 md:px-6 relative z-10">
-          <div className="grid lg:grid-cols-12 gap-12 items-center">
+        <div className="relative container mx-auto px-4 py-32 md:py-36">
+          <div className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
             {/* Left — Text content */}
-            <div className="lg:col-span-7 space-y-6">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-forest-800/5 border border-forest-800/10 text-forest-800 text-xs font-semibold tracking-wide uppercase">
-                <Sparkles size={14} className="text-bamboo-500" />
-                รีสอร์ต & ที่พักลอยน้ำ
+            <div className="lg:col-span-7">
+              {/* Eyebrow badge */}
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 mb-6 rounded-full bg-forest-800/5 border border-forest-800/10 text-forest-800 text-xs font-semibold tracking-wide uppercase animate-reveal-up">
+                <Sparkles size={14} className="text-bamboo-500" aria-hidden="true" />
+                รีสอร์ต &amp; ที่พักลอยน้ำ
               </div>
 
-              <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-bold text-forest-800 leading-[1.12]">
-                {resortInfo.name || "สวนวลัยรุกขเวช"}
+              {/* Headline */}
+              <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-forest-800 leading-[1.12] mb-6 animate-reveal-up">
+                {resortInfo.name || 'สวนวลัยรุกขเวช'}
                 <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-lagoon-600 via-forest-700 to-bamboo-600">
                   สัมผัสธรรมชาติลอยน้ำ
                 </span>
               </h1>
 
-              <p className="text-lg sm:text-xl text-charcoal/70 leading-relaxed max-w-2xl font-light">
+              {/* Subtitle */}
+              <p
+                className="text-lg md:text-xl text-charcoal-400 leading-relaxed max-w-2xl mb-10 animate-reveal-up"
+                style={{ animationDelay: '120ms' }}
+              >
                 หลบหนีความวุ่นวายมาผ่อนคลายกับที่พักเรือนแพลอยน้ำบรรยากาศสุดสโลว์ไลฟ์
                 พร้อมกิจกรรมพายเรือคายัคชมทัศนียภาพอันร่มรื่นกลางผืนน้ำ
               </p>
@@ -413,24 +425,27 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Link
                   href="/rooms"
-                  className="inline-flex items-center justify-center gap-2 bg-forest-800 text-white font-semibold px-8 py-4 rounded-2xl shadow-lg shadow-forest-800/20 hover:bg-forest-700 active:scale-[0.98] transition-all"
+                  className="inline-flex items-center justify-center gap-2 bg-forest-800 text-cream-100 font-semibold px-8 py-4 rounded-2xl shadow-lg shadow-forest-800/20 hover:bg-forest-700 active:scale-[0.97] transition-all duration-200"
                 >
-                  <Calendar size={18} />
+                  <Calendar size={18} aria-hidden="true" />
                   จองห้องพัก
-                  <ArrowRight size={18} />
+                  <ArrowRight size={18} aria-hidden="true" />
                 </Link>
                 <Link
                   href="/kayaks"
-                  className="inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 rounded-2xl bg-white border border-stone-200 text-forest-800 shadow-sm hover:border-forest-800/30 hover:bg-stone-50 active:scale-[0.98] transition-all"
+                  className="inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 rounded-2xl bg-cream-100 border border-stone-200 text-forest-800 shadow-sm hover:border-forest-800/30 hover:bg-cream-200 active:scale-[0.97] transition-all duration-200"
                 >
-                  <Anchor size={18} />
+                  <Anchor size={18} aria-hidden="true" />
                   บริการเรือคายัค
                 </Link>
               </div>
             </div>
 
-            {/* Right — Rotatable 3D Interactive Scene */}
-            <div className="lg:col-span-5 flex justify-center items-center h-[450px] sm:h-[500px] w-full relative">
+            {/* Right — Interactive 3D scene */}
+            <div
+              className="lg:col-span-5 relative h-[380px] sm:h-[460px] lg:h-[500px] w-full animate-reveal-up"
+              style={{ animationDelay: '300ms' }}
+            >
               <WaterHouseScene3D />
             </div>
           </div>
@@ -692,12 +707,34 @@ export default function HomePage() {
                   <Phone className="text-forest-800 shrink-0" size={20} />
                   <span>{resortInfo.phone || "080-000-0000"}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Clock className="text-forest-800 shrink-0" size={20} />
-                  <span>
-                    เปิดบริการ: {resortInfo.operating_days || "ทุกวัน"} (
-                    {resortInfo.operating_hours || "08:00 - 18:00 น."})
-                  </span>
+              </div>
+              {/* Facebook */}
+              {facebookLink && (
+                <div className="flex items-start gap-3">
+                  <Facebook size={18} className="text-bamboo-500 mt-1 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-display font-semibold text-forest-800 mb-0.5">Facebook</p>
+                    <a
+                      href={facebookLink.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-charcoal-400 text-sm underline decoration-stone-300 underline-offset-4 transition-colors hover:text-forest-800 hover:decoration-bamboo-400 break-words"
+                    >
+                      {facebookLink.label}
+                    </a>
+                  </div>
+                </div>
+              )}
+              {/* Hours */}
+              <div className="flex items-start gap-3">
+                <Waves size={18} className="text-bamboo-500 mt-1 shrink-0" />
+                <div>
+                  <p className="font-display font-semibold text-forest-800 mb-0.5">เวลาเปิด-ปิด</p>
+                  <p className="text-charcoal-400 text-sm">
+                    {resortInfo.operating_days && resortInfo.operating_hours
+                      ? `${resortInfo.operating_days} ${resortInfo.operating_hours}`
+                      : 'เปิดทุกวัน 08:00 – 20:00 น.'}
+                  </p>
                 </div>
               </div>
             </div>

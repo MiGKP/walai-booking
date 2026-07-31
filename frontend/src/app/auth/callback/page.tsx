@@ -6,8 +6,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { clearAuthToken, useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+import { LoaderCircle, Waves } from 'lucide-react';
 
-function CallbackContent() {
+function CallbackContent(): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
@@ -37,40 +38,22 @@ function CallbackContent() {
   }, [searchParams, router, login]);
 
   return (
-    // ปรับสไตล์พื้นหลัง ระยะห่าง และการจัดกึ่งกลาง
-    <div className="min-h-screen bg-cream-100 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-3xl shadow-lg border border-stone-100 text-center max-w-sm w-full flex flex-col items-center">
-        {/* โลโก้พร้อมเอฟเฟกต์หมุน/กระพริบ */}
-        <div className="w-20 h-20 rounded-full bg-cream-100 p-1 flex items-center justify-center overflow-hidden shadow-inner border border-stone-100 mb-4 animate-pulse">
-          <Image 
-            src="/images/logo_walai.png" 
-            alt="โลโก้ วลัย" 
-            width={72} 
-            height={72} 
-            className="object-contain"
-            priority
-          />
+    <div className="grid min-h-screen place-items-center bg-cream-200 px-4">
+      <div className="card w-full max-w-sm p-8 text-center">
+        <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-forest-800 text-cream-100">
+          <LoaderCircle size={28} className="animate-spin" />
         </div>
-        
-        {/* Spinner วงกลมหมุนๆ */}
-        <div className="animate-spin rounded-full h-8 w-8 border-3 border-bamboo-500 border-t-transparent mb-3" />
-        
-        <h2 className="text-xl font-bold text-forest-800 font-display">กำลังเข้าสู่ระบบ</h2>
-        <p className="text-charcoal-500 text-sm mt-1">กรุณารอสักครู่ ระบบกำลังยืนยันตัวตนของคุณ...</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-lagoon-600">Walai Booking</p>
+        <h1 className="mt-2 font-display text-xl text-forest-900">กำลังเข้าสู่ระบบ</h1>
+        <p className="mt-2 text-sm leading-6 text-charcoal-500">กรุณารอสักครู่ ระบบกำลังยืนยันตัวตนของคุณ</p>
       </div>
     </div>
   );
 }
 
-export default function CallbackPage() {
+export default function CallbackPage(): React.ReactElement {
   return (
-    <Suspense 
-      fallback={
-        <div className="min-h-screen bg-cream-100 flex items-center justify-center p-4">
-          <div className="animate-spin rounded-full h-10 w-10 border-4 border-bamboo-500 border-t-transparent" />
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="grid min-h-screen place-items-center bg-cream-200"><div className="h-10 w-10 animate-spin rounded-full border-2 border-forest-800 border-t-transparent" /></div>}>
       <CallbackContent />
     </Suspense>
   );

@@ -121,6 +121,104 @@ export const getRoomById = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+const MAX_CALENDAR_DAYS = 62;
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+interface CalendarDay {
+  date: string;
+  available_count: number;
+  total_rooms: number;
+  is_full: boolean;
+}
+
+// ดึงสถานะห้องว่างรายคืนสำหรับปฏิทินจอง — ถ้าไม่ส่ง room_type_id จะรวมทุกประเภท
+// นับ 1 คืน = ช่วง check_in <= วันนั้น < check_out ให้ตรงกับเงื่อนไขตอนสร้าง booking
+export const getRoomCalendar = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { room_type_id, start, end } = req.query;
+
+    if (typeof start !== 'string' || typeof end !== 'string' || !ISO_DATE_PATTERN.test(start) || !ISO_DATE_PATTERN.test(end)) {
+      res.status(400).json({ success: false, message: 'start และ end ต้องเป็นวันที่รูปแบบ YYYY-MM-DD', code: 'INVALID_RANGE' });
+      return;
+    }
+
+    const startDate = new Date(`${start}T00:00:00Z`);
+    const endDate = new Date(`${end}T00:00:00Z`);
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate < startDate) {
+      res.status(400).json({ success: false, message: 'ช่วงวันที่ไม่ถูกต้อง', code: 'INVALID_RANGE' });
+      return;
+    }
+
+    const spanDays = Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
+    if (spanDays > MAX_CALENDAR_DAYS) {
+      res.status(400).json({ success: false, message: `ขอข้อมูลได้ไม่เกิน ${MAX_CALENDAR_DAYS} วันต่อครั้ง`, code: 'RANGE_TOO_LARGE' });
+      return;
+    }
+
+    const roomTypeId = room_type_id === undefined || room_type_id === '' ? null : Number(room_type_id);
+    if (roomTypeId !== null && !Number.isInteger(roomTypeId)) {
+      res.status(400).json({ success: false, message: 'room_type_id ไม่ถูกต้อง', code: 'INVALID_ROOM_TYPE' });
+      return;
+    }
+
+    const result = await pool.query(
+      `WITH days AS (
+         SELECT generate_series($2::date, $3::date, interval '1 day')::date AS day
+       ),
+       stock AS (
+         SELECT COUNT(*)::int AS total_rooms
+         FROM rooms r
+         JOIN room_types rt ON rt.id = r.room_type_id
+         WHERE r.status <> 'maintenance'
+           AND rt.status = true
+           AND ($1::int IS NULL OR r.room_type_id = $1::int)
+       )
+       SELECT
+         to_char(d.day, 'YYYY-MM-DD') AS date,
+         s.total_rooms,
+         GREATEST(s.total_rooms - COALESCE((
+           SELECT COUNT(DISTINCT rb.room_id)
+           FROM room_bookings rb
+           JOIN rooms r ON r.room_id = rb.room_id
+           WHERE rb.status NOT IN ('cancelled', 'rejected')
+             AND r.status <> 'maintenance'
+             AND ($1::int IS NULL OR r.room_type_id = $1::int)
+             AND rb.check_in <= d.day
+             AND rb.check_out > d.day
+         ), 0), 0)::int AS available_count
+       FROM days d
+       CROSS JOIN stock s
+       ORDER BY d.day`,
+      [roomTypeId, start, end]
+    );
+
+    const days: CalendarDay[] = result.rows.map((row) => {
+      const availableCount = Number(row.available_count);
+      return {
+        date: String(row.date),
+        available_count: availableCount,
+        total_rooms: Number(row.total_rooms),
+        is_full: availableCount <= 0,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        start,
+        end,
+        room_type_id: roomTypeId,
+        total_rooms: days[0]?.total_rooms ?? 0,
+        days,
+      },
+    });
+  } catch (error) {
+    console.error('Get room calendar error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
 // ตรวจสอบว่าห้องประเภทที่เลือกยังมีห้องว่างในช่วงวันที่ต้องการหรือไม่ โดยตัดรายการที่ชนกับ booking เดิมออก
 export const checkRoomAvailability = async (req: Request, res: Response): Promise<void> => {
   try {
