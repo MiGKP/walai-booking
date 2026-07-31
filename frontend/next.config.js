@@ -21,11 +21,19 @@ function getApiRemotePattern() {
 const apiRemotePattern = getApiRemotePattern();
 
 function buildContentSecurityPolicy() {
-  const connectSrc = ["'self'", apiOrigin];
+  // 🌟 ย้าย nominatim มาไว้ใน connectSrc ตรงนี้ครับ!
+  const connectSrc = [
+    "'self'",
+    'https://nominatim.openstreetmap.org',
+    apiOrigin,
+  ];
+
   const imgSrc = [
     "'self'",
     'data:',
     'blob:',
+    'https://*.tile.openstreetmap.org', 
+    'https://unpkg.com',
     'https://lh3.googleusercontent.com',
     'https://res.cloudinary.com',
     apiOrigin,
