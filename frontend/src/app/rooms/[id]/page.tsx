@@ -83,7 +83,8 @@ export default function RoomDetailPage(): React.ReactElement {
   const [dayStatus, setDayStatus] = useState<Record<string, DayStatus>>({});
   const [calendarLoading, setCalendarLoading] = useState(true);
 
-  const [guests, setGuests] = useState(1);
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
   const [specialRequests, setSpecialRequests] = useState('');
   const [bookingLoading, setBookingLoading] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -94,6 +95,7 @@ export default function RoomDetailPage(): React.ReactElement {
   const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
 
   const nights = range ? nightsBetween(range.start, range.end) : 0;
+  const guestTotal = adults + children;
 
   useEffect(() => {
     api
@@ -159,19 +161,37 @@ export default function RoomDetailPage(): React.ReactElement {
       toast.error('กรุณาเลือกวันเช็คอินและเช็คเอาต์');
       return;
     }
+    if (!room) {
+      toast.error('ไม่พบข้อมูลห้องพัก');
+      return;
+    }
     if (blockedNights.length > 0) {
       toast.error('ช่วงวันที่เลือกมีวันที่ห้องเต็มแล้ว กรุณาเลือกช่วงอื่น');
+      return;
+    }
+    if (adults < 1) {
+      toast.error('ต้องมีผู้ใหญ่อย่างน้อย 1 คน');
+      return;
+    }
+    if (guestTotal > room.capacity) {
+      toast.error(`ผู้เข้าพักรวมต้องไม่เกิน ${room.capacity} คน`);
       return;
     }
 
     setBookingLoading(true);
     try {
+      // backend เก็บแค่ guest_count รวม — แยกผู้ใหญ่/เด็กไว้ในคำขอพิเศษให้แอดมินเห็น
+      const guestNote = `ผู้ใหญ่ ${adults} คน, เด็ก ${children} คน`;
+      const mergedRequest = specialRequests.trim()
+        ? `${guestNote}\n${specialRequests.trim()}`
+        : guestNote;
+
       const res = await api.post('/bookings/room', {
         room_type_id: id,
         check_in_date: range.start,
         check_out_date: range.end,
-        guests,
-        special_requests: specialRequests,
+        guests: guestTotal,
+        special_requests: mergedRequest,
         ...(appliedPromo ? { promotion_id: appliedPromo.id } : {}),
       });
       toast.success('จองห้องพักสำเร็จ!');
@@ -493,23 +513,71 @@ export default function RoomDetailPage(): React.ReactElement {
               {/* Form Inputs */}
               <div className="mt-5 space-y-4">
                 <div>
-                  <label htmlFor="guests" className="mb-1.5 block text-xs font-semibold text-charcoal-600">
-                    จำนวนผู้เข้าพัก (สูงสุด {room.capacity} ท่าน)
-                  </label>
-                  <input
-                    id="guests"
-                    type="number"
-                    required
-                    min={1}
-                    max={room.capacity}
-                    className="w-full rounded-xl border border-stone-200 px-3.5 py-2 text-sm transition-all focus:border-forest-600 focus:outline-none focus:ring-2 focus:ring-forest-600/20"
-                    value={guests}
-                    onChange={(event) => {
-                      const value = Number(event.target.value);
-                      if (!Number.isFinite(value)) return;
-                      setGuests(Math.min(Math.max(value, 1), room.capacity));
-                    }}
-                  />
+                  <p className="mb-1.5 text-sm font-medium text-charcoal-600">
+                    ผู้เข้าพัก (สูงสุด {room.capacity} คน)
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label
+                        htmlFor="adults"
+                        className="mb-1.5 block text-xs text-charcoal-400"
+                      >
+                        ผู้ใหญ่
+                      </label>
+                      <input
+                        id="adults"
+                        type="number"
+                        required
+                        min={1}
+                        max={room.capacity}
+                        className="input-field"
+                        value={adults}
+                        onChange={(event) => {
+                          const value = Number(event.target.value);
+                          if (!Number.isFinite(value)) return;
+                          const nextAdults = Math.min(
+                            Math.max(Math.floor(value), 1),
+                            room.capacity
+                          );
+                          setAdults(nextAdults);
+                          // ตัดเด็กเมื่อรวมเกินความจุ — ไม่ให้ผู้ใหญ่ลดเองแล้วยังเกิน
+                          setChildren((prev) =>
+                            Math.min(prev, room.capacity - nextAdults)
+                          );
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="children"
+                        className="mb-1.5 block text-xs text-charcoal-400"
+                      >
+                        เด็ก
+                      </label>
+                      <input
+                        id="children"
+                        type="number"
+                        required
+                        min={0}
+                        max={Math.max(room.capacity - adults, 0)}
+                        className="input-field"
+                        value={children}
+                        onChange={(event) => {
+                          const value = Number(event.target.value);
+                          if (!Number.isFinite(value)) return;
+                          setChildren(
+                            Math.min(
+                              Math.max(Math.floor(value), 0),
+                              room.capacity - adults
+                            )
+                          );
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-1.5 text-xs text-charcoal-400">
+                    รวม {guestTotal} / {room.capacity} คน
+                  </p>
                 </div>
 
                 <div>
