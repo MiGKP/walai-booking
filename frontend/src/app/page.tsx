@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { ArrowRight, Anchor, Calendar, CreditCard, Sparkles, Star, MapPin, Phone, Waves, Facebook } from 'lucide-react';
+import { ArrowRight, Anchor, Calendar, CreditCard, Sparkles, Star, MapPin, Phone, Waves, Facebook, Compass } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import { resolveFacebookLink } from '@/lib/social';

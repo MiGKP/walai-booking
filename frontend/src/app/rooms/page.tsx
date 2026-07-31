@@ -1,13 +1,24 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { ArrowRight, Users } from 'lucide-react';
-import api from '@/lib/api';
-import { resolveMediaUrl } from '@/lib/avatar';
-import toast from 'react-hot-toast';
-import BookingCalendar, { DateRange, DayStatus } from '@/components/booking/BookingCalendar';
-import { fetchRoomCalendar, toRoomDayStatus } from '@/lib/booking-calendar';
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import {
+  ArrowRight,
+  Users,
+  Sparkles,
+  Calendar,
+  Moon,
+  AlertCircle,
+} from "lucide-react";
+import api from "@/lib/api";
+import { resolveMediaUrl } from "@/lib/avatar";
+import toast from "react-hot-toast";
+import BookingCalendar, {
+  DateRange,
+  DayStatus,
+} from "@/components/booking/BookingCalendar";
+import { fetchRoomCalendar, toRoomDayStatus } from "@/lib/booking-calendar";
 import {
   MonthCursor,
   addDaysISO,
@@ -16,7 +27,7 @@ import {
   monthRangeISO,
   nightsBetween,
   todayISO,
-} from '@/lib/date';
+} from "@/lib/date";
 
 interface RoomType {
   id: number;
@@ -32,8 +43,13 @@ interface RoomType {
 export default function RoomsPage(): React.ReactElement {
   const today = todayISO();
 
-  const [range, setRange] = useState<DateRange | null>({ start: today, end: addDaysISO(today, 1) });
-  const [cursor, setCursor] = useState<MonthCursor>(() => monthCursorFromISO(today));
+  const [range, setRange] = useState<DateRange | null>({
+    start: today,
+    end: addDaysISO(today, 1),
+  });
+  const [cursor, setCursor] = useState<MonthCursor>(() =>
+    monthCursorFromISO(today),
+  );
   const [dayStatus, setDayStatus] = useState<Record<string, DayStatus>>({});
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [rooms, setRooms] = useState<RoomType[]>([]);
@@ -53,7 +69,7 @@ export default function RoomsPage(): React.ReactElement {
         setDayStatus((prev) => ({ ...prev, ...toRoomDayStatus(days) }));
       })
       .catch(() => {
-        if (!cancelled) toast.error('ไม่สามารถโหลดปฏิทินห้องว่างได้');
+        if (!cancelled) toast.error("ไม่สามารถโหลดปฏิทินห้องว่างได้");
       })
       .finally(() => {
         if (!cancelled) setCalendarLoading(false);
@@ -73,14 +89,16 @@ export default function RoomsPage(): React.ReactElement {
     setLoading(true);
 
     api
-      .get('/rooms', { params: { check_in: selected.start, check_out: selected.end } })
+      .get("/rooms", {
+        params: { check_in: selected.start, check_out: selected.end },
+      })
       .then((res) => {
         if (cancelled) return;
         setRooms(Array.isArray(res.data?.data) ? res.data.data : []);
         setSearchedRange(selected);
       })
       .catch(() => {
-        if (!cancelled) toast.error('ไม่สามารถโหลดข้อมูลห้องพักได้');
+        if (!cancelled) toast.error("ไม่สามารถโหลดข้อมูลห้องพักได้");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -93,38 +111,54 @@ export default function RoomsPage(): React.ReactElement {
 
   const availableRooms = useMemo(
     () => rooms.filter((room) => Number(room.available_count) > 0),
-    [rooms]
+    [rooms],
   );
   const fullRooms = useMemo(
     () => rooms.filter((room) => Number(room.available_count) <= 0),
-    [rooms]
+    [rooms],
   );
 
   const rangeLabel = range
     ? `${formatThaiDate(range.start)} – ${formatThaiDate(range.end)}`
-    : 'ยังไม่เลือกวันที่';
+    : "ยังไม่เลือกวันที่";
 
   return (
-    <div className="min-h-screen bg-cream-200 pt-16">
-      <header className="border-b border-stone-200 bg-cream-100">
-        <div className="container mx-auto px-4 py-14 lg:py-20">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-lagoon-600">
-            ที่พักริมน้ำ
-          </p>
-          <h1 className="mt-3 max-w-2xl text-balance font-display text-4xl leading-tight text-forest-900 lg:text-5xl">
-            เลือกคืนที่อยากพัก แล้วดูห้องที่ว่างจริง
-          </h1>
-          <div className="mt-6 h-px w-24 bg-bamboo-400" />
-          <p className="mt-6 max-w-xl text-charcoal-500">
-            ปฏิทินแสดงสถานะห้องว่างรายคืน คืนที่ขีดฆ่าคือเต็มแล้ว จุดสีส้มคือเหลือไม่กี่ห้อง
-          </p>
+    <div className="min-h-screen bg-[#FDFBF7] pt-10">
+      {/* Header Section */}
+      <header className="border-b border-stone-200/80 bg-gradient-to-b from-stone-100/50 to-[#FDFBF7]">
+        <div className="container mx-auto px-4 py-6 lg:py-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            {/* Title Block */}
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold tracking-widest uppercase text-lagoon-600">
+                ที่พักริมน้ำ
+              </span>
+              <h1 className="font-display text-2xl font-medium tracking-tight text-forest-900 sm:text-3xl">
+                ค้นหาห้องพักว่าง
+              </h1>
+            </div>
+
+            {/* Subtitle / Tagline */}
+            <p className="text-xs sm:text-sm text-charcoal-400">
+              ระบุวันเช็คอิน-เช็คเอาต์ เพื่อตรวจสอบห้องพักและราคาทันที
+            </p>
+          </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-10 lg:py-14">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-12">
+      {/* Main Content Layout */}
+      <div className="container mx-auto px-4 py-5 lg:py-6">
+        <div className="grid gap-8 lg:grid-cols-[340px_1fr] lg:gap-12">
+          {/* Sticky Sidebar (Booking Calendar) */}
           <aside className="lg:sticky lg:top-24 lg:self-start">
-            <div className="card p-5 sm:p-6">
+            <div className="card overflow-hidden rounded-2xl border border-stone-200/80 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md sm:p-6">
+              <div className="mb-4 flex items-center gap-2 text-forest-900">
+                <Calendar className="h-5 w-5 text-lagoon-600" />
+                <h3 className="font-display text-lg font-medium">
+                  เลือกวันเข้าพัก
+                </h3>
+              </div>
+
               <BookingCalendar
                 mode="range"
                 value={range}
@@ -136,143 +170,204 @@ export default function RoomsPage(): React.ReactElement {
                 minISO={today}
               />
 
-              <div className="mt-5 space-y-3 border-t border-stone-200 pt-5">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm text-charcoal-400">ช่วงที่เลือก</span>
-                  <span className="text-right text-sm font-medium text-forest-900">{rangeLabel}</span>
-                </div>
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm text-charcoal-400">จำนวนคืน</span>
-                  <span className="text-sm font-medium text-forest-900">
-                    {nights > 0 ? `${nights} คืน` : '—'}
+              {/* Summary Info */}
+              <div className="mt-6 space-y-3.5 border-t border-stone-100 pt-5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-charcoal-400">ช่วงที่เลือก</span>
+                  <span className="font-medium text-forest-900">
+                    {rangeLabel}
                   </span>
                 </div>
-                <p className="pt-1 text-xs leading-relaxed text-charcoal-400">
-                  {nights > 0
-                    ? 'ผลการค้นหาอัปเดตตามช่วงวันที่เลือกทันที'
-                    : 'กดวันเช็คอิน แล้วกดวันเช็คเอาต์เพื่อดูห้องว่าง'}
-                </p>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-charcoal-400">จำนวนคืน</span>
+                  <span className="inline-flex items-center gap-1 font-semibold text-forest-900">
+                    <Moon className="h-3.5 w-3.5 text-bamboo-500" />
+                    {nights > 0 ? `${nights} คืน` : "—"}
+                  </span>
+                </div>
+
+                <div className="rounded-xl bg-stone-50 p-3 text-xs leading-relaxed text-charcoal-500">
+                  {nights === 0 && (
+                    <p className="pt-1 text-xs text-charcoal-400">
+                      กดเลือกวันเช็คอิน และเช็คเอาต์ในปฏิทิน
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </aside>
 
+          {/* Rooms List Section */}
           <section aria-live="polite">
             {loading ? (
-              <div className="space-y-5">
+              /* Skeleton Loader */
+              <div className="space-y-6">
                 {[0, 1, 2].map((index) => (
-                  <div key={index} className="card flex animate-pulse gap-5 p-5">
-                    <div className="h-28 w-40 shrink-0 rounded-xl bg-stone-200" />
-                    <div className="flex-1 space-y-3 py-2">
-                      <div className="h-5 w-2/5 rounded bg-stone-200" />
-                      <div className="h-4 w-4/5 rounded bg-stone-200" />
-                      <div className="h-4 w-1/4 rounded bg-stone-200" />
+                  <div
+                    key={index}
+                    className="flex flex-col gap-5 overflow-hidden rounded-2xl border border-stone-200/60 bg-white p-5 shadow-sm animate-pulse sm:flex-row"
+                  >
+                    <div className="h-48 w-full shrink-0 rounded-xl bg-stone-200/80 sm:h-44 sm:w-60" />
+                    <div className="flex flex-1 flex-col justify-between space-y-3 py-1">
+                      <div className="space-y-2">
+                        <div className="h-6 w-1/3 rounded-lg bg-stone-200/80" />
+                        <div className="h-4 w-2/3 rounded-lg bg-stone-200/60" />
+                        <div className="h-4 w-full rounded-lg bg-stone-200/60" />
+                      </div>
+                      <div className="flex justify-between pt-4">
+                        <div className="h-5 w-24 rounded-lg bg-stone-200/80" />
+                        <div className="h-8 w-28 rounded-lg bg-stone-200/80" />
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : rooms.length === 0 ? (
-              <div className="card px-6 py-20 text-center">
-                <p className="font-display text-xl text-forest-900">ยังไม่พบห้องพัก</p>
-                <p className="mt-2 text-sm text-charcoal-400">
-                  ลองเลือกช่วงวันอื่นแล้วกดค้นหาอีกครั้ง
+              /* Empty State */
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-white/50 px-6 py-20 text-center backdrop-blur-sm">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-stone-100 text-stone-400">
+                  <AlertCircle className="h-6 w-6" />
+                </div>
+                <p className="mt-4 font-display text-xl font-medium text-forest-900">
+                  ยังไม่พบห้องพักที่ว่าง
+                </p>
+                <p className="mt-1 text-sm text-charcoal-400">
+                  ลองเปลี่ยนช่วงวันเดินทางในปฏิทิน
+                  แล้วระบบจะค้นหาให้ใหม่อัตโนมัติ
                 </p>
               </div>
             ) : (
               <>
-                <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2 border-b border-stone-200 pb-3">
-                  <h2 className="font-display text-xl text-forest-900">
-                    ห้องว่าง {availableRooms.length} ประเภท
+                {/* Result Header */}
+                <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3 border-b border-stone-200/80 pb-4">
+                  <h2 className="font-display text-2xl text-forest-900">
+                    พบห้องว่าง{" "}
+                    <span className="font-bold text-lagoon-600">
+                      {availableRooms.length}
+                    </span>{" "}
+                    ประเภท
                   </h2>
                   {searchedRange && (
-                    <p className="text-sm text-charcoal-400">
-                      {formatThaiDate(searchedRange.start)} – {formatThaiDate(searchedRange.end)} ·{' '}
-                      {nightsBetween(searchedRange.start, searchedRange.end)} คืน
-                    </p>
+                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-charcoal-500">
+                      {formatThaiDate(searchedRange.start)} –{" "}
+                      {formatThaiDate(searchedRange.end)} (
+                      {nightsBetween(searchedRange.start, searchedRange.end)}{" "}
+                      คืน)
+                    </span>
                   )}
                 </div>
 
-                <div className="space-y-4">
+                {/* Rooms Grid */}
+                <div className="space-y-6">
                   {[...availableRooms, ...fullRooms].map((room) => {
                     const availableCount = Number(room.available_count);
                     const isAvailable = availableCount > 0;
                     const searchNights = searchedRange
                       ? nightsBetween(searchedRange.start, searchedRange.end)
                       : nights;
-                    const totalPrice = Number(room.price_per_night) * searchNights;
+                    const totalPrice =
+                      Number(room.price_per_night) * searchNights;
 
                     return (
                       <article
                         key={room.id}
-                        className={`card overflow-hidden transition-colors sm:flex ${
-                          isAvailable ? 'hover:border-lagoon-300' : 'opacity-60'
+                        className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 sm:flex-row ${
+                          isAvailable
+                            ? "border-stone-200/80 hover:-translate-y-1 hover:border-lagoon-300 hover:shadow-xl hover:shadow-stone-200/50"
+                            : "border-stone-200/50 bg-stone-50/50 opacity-60"
                         }`}
                       >
-                        <div className="relative h-48 shrink-0 bg-stone-200 sm:h-auto sm:w-56">
+                        {/* Image Container */}
+                        <div className="relative h-56 shrink-0 overflow-hidden bg-stone-100 sm:h-auto sm:w-64">
                           {room.main_image ? (
-                            <img
+                            <Image
                               src={resolveMediaUrl(room.main_image)}
                               alt={room.room_name}
-                              className="h-full w-full object-cover"
+                              fill
+                              sizes="(max-width: 640px) 100vw, 256px"
+                              className="object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                           ) : (
-                            <div className="grid h-full w-full place-items-center bg-lagoon-50 font-display text-sm text-lagoon-600">
-                              ห้องลอยน้ำ
+                            <div className="grid h-full w-full place-items-center bg-lagoon-50/50 font-display text-sm font-medium text-lagoon-600">
+                              ที่พักริมน้ำ
                             </div>
                           )}
+
+                          {/* Availability Badge Overlay */}
+                          <div className="absolute top-3 left-3">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium backdrop-blur-md shadow-sm ${
+                                isAvailable
+                                  ? "bg-emerald-500/90 text-white"
+                                  : "bg-stone-800/80 text-stone-200"
+                              }`}
+                            >
+                              {isAvailable
+                                ? `ว่าง ${availableCount} ห้อง`
+                                : "เต็มในช่วงนี้"}
+                            </span>
+                          </div>
                         </div>
 
-                        <div className="flex flex-1 flex-col p-5 sm:p-6">
-                          <div className="flex items-start justify-between gap-4">
-                            <h3 className="font-display text-lg text-forest-900">
-                              {room.room_name}
-                              {room.type_name ? (
-                                <span className="ml-2 text-sm font-normal text-charcoal-400">
-                                  {room.type_name}
+                        {/* Content Area */}
+                        <div className="flex flex-1 flex-col justify-between p-6">
+                          <div>
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <h3 className="font-display text-xl font-medium text-forest-900 group-hover:text-lagoon-700 transition-colors">
+                                  {room.room_name}
+                                </h3>
+                                {room.type_name && (
+                                  <span className="mt-0.5 inline-block text-xs font-medium text-charcoal-400">
+                                    {room.type_name}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Price Display */}
+                              <div className="text-right">
+                                <span className="font-display text-2xl font-semibold tracking-tight text-forest-900 tabular-nums">
+                                  ฿
+                                  {Number(
+                                    room.price_per_night,
+                                  ).toLocaleString()}
                                 </span>
-                              ) : null}
-                            </h3>
-                            <p className="shrink-0 text-right">
-                              <span className="font-display text-xl text-forest-900 tabular-nums">
-                                ฿{Number(room.price_per_night).toLocaleString()}
-                              </span>
-                              <span className="block text-xs text-charcoal-400">ต่อคืน</span>
+                                <span className="block text-[11px] font-medium text-charcoal-400 uppercase tracking-wider">
+                                  / คืน
+                                </span>
+                              </div>
+                            </div>
+
+                            <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-charcoal-500">
+                              {room.description}
                             </p>
                           </div>
 
-                          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-charcoal-500">
-                            {room.description}
-                          </p>
-
-                          <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-5">
-                            <div className="flex items-center gap-4 text-sm text-charcoal-400">
-                              <span className="flex items-center gap-1.5">
-                                <Users size={15} /> {room.capacity} คน
-                              </span>
-                              <span
-                                className={
-                                  isAvailable ? 'text-lagoon-700' : 'text-charcoal-400'
-                                }
-                              >
-                                {isAvailable ? `ว่าง ${availableCount} ห้อง` : 'เต็มในช่วงนี้'}
-                              </span>
+                          {/* Footer Details */}
+                          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-stone-100 pt-4">
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-charcoal-500 bg-stone-100/80 px-3 py-1.5 rounded-lg">
+                              <Users className="h-4 w-4 text-stone-500" />
+                              <span>รองรับได้สูงสุด {room.capacity} ท่าน</span>
                             </div>
 
                             {isAvailable && searchedRange ? (
                               <div className="flex items-center gap-4">
                                 {searchNights > 0 && (
-                                  <span className="text-sm text-charcoal-400">
-                                    รวม ฿{totalPrice.toLocaleString()}
-                                  </span>
+                                  <div className="text-right">
+                                    <span className="block text-xs text-charcoal-400">
+                                      ราคารวม ({searchNights} คืน)
+                                    </span>
+                                    <span className="text-sm font-semibold text-forest-900">
+                                      ฿{totalPrice.toLocaleString()}
+                                    </span>
+                                  </div>
                                 )}
                                 <Link
                                   href={`/rooms/${room.id}?check_in=${searchedRange.start}&check_out=${searchedRange.end}`}
-                                  className="group inline-flex items-center gap-1.5 text-sm font-semibold text-forest-800 hover:text-forest-600"
+                                  className="inline-flex items-center gap-2 rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-forest-800 hover:shadow-md active:scale-95"
                                 >
                                   ดูรายละเอียด
-                                  <ArrowRight
-                                    size={15}
-                                    className="transition-transform group-hover:translate-x-0.5"
-                                  />
+                                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                                 </Link>
                               </div>
                             ) : null}
