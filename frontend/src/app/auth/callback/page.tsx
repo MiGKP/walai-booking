@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, Suspense } from 'react';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { clearAuthToken, useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
@@ -29,7 +30,7 @@ function CallbackContent(): React.ReactElement {
       }).catch(() => {
         clearAuthToken();
         toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่');
-        router.push('/auth/login');
+        router.push('/auth/login'); 
       });
     } else {
       router.push('/auth/login');

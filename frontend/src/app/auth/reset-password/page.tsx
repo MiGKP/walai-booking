@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { Suspense, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -61,7 +61,7 @@ function ResetPasswordContent(): React.ReactElement | null {
       return;
     }
     if (form.new_password !== form.confirm_password) {
-      toast.error('รหัสผ่านไม่ตรงกัน');
+      toast.error("รหัสผ่านไม่ตรงกัน");
       return;
     }
 

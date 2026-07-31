@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   MonthCursor,
   THAI_WEEKDAYS_SHORT,
@@ -13,9 +13,9 @@ import {
   nightsInRange,
   shiftMonth,
   todayISO,
-} from '@/lib/date';
+} from "@/lib/date";
 
-export type DayTone = 'open' | 'low' | 'full';
+export type DayTone = "open" | "low" | "full";
 
 export interface DayStatus {
   tone: DayTone;
@@ -40,30 +40,40 @@ interface BaseProps {
 }
 
 interface SingleModeProps extends BaseProps {
-  mode: 'single';
+  mode: "single";
   value: string | null;
   onSelect: (iso: string) => void;
 }
 
 interface RangeModeProps extends BaseProps {
-  mode: 'range';
+  mode: "range";
   value: DateRange | null;
   onSelect: (range: DateRange | null) => void;
 }
 
 type BookingCalendarProps = SingleModeProps | RangeModeProps;
 
-const monthIndex = (cursor: MonthCursor): number => cursor.year * 12 + cursor.month;
+const monthIndex = (cursor: MonthCursor): number =>
+  cursor.year * 12 + cursor.month;
 
-export default function BookingCalendar(props: BookingCalendarProps): React.ReactElement {
-  const { cursor, onCursorChange, dayStatus, loading = false, maxMonthsAhead = 12, className = '' } = props;
+export default function BookingCalendar(
+  props: BookingCalendarProps,
+): React.ReactElement {
+  const {
+    cursor,
+    onCursorChange,
+    dayStatus,
+    loading = false,
+    maxMonthsAhead = 12,
+    className = "",
+  } = props;
   const today = todayISO();
   const minISO = props.minISO ?? today;
 
   const [pendingStart, setPendingStart] = useState<string | null>(null);
   const [hoveredISO, setHoveredISO] = useState<string | null>(null);
   const [focusedISO, setFocusedISO] = useState<string>(() => {
-    if (props.mode === 'single') return props.value ?? minISO;
+    if (props.mode === "single") return props.value ?? minISO;
     return props.value?.start ?? minISO;
   });
 
@@ -74,15 +84,18 @@ export default function BookingCalendar(props: BookingCalendarProps): React.Reac
 
   const currentCursor = monthCursorFromISO(today);
   const canGoPrev = monthIndex(cursor) > monthIndex(monthCursorFromISO(minISO));
-  const canGoNext = monthIndex(cursor) < monthIndex(currentCursor) + maxMonthsAhead;
+  const canGoNext =
+    monthIndex(cursor) < monthIndex(currentCursor) + maxMonthsAhead;
 
-  const rangeValue: DateRange | null = props.mode === 'range' ? props.value : null;
+  const rangeValue: DateRange | null =
+    props.mode === "range" ? props.value : null;
 
   // ระหว่างเลือกช่วง (คลิกแรกแล้ว) ให้ preview ปลายช่วงตามเมาส์หรือโฟกัสคีย์บอร์ด
   const previewRange = useMemo<DateRange | null>(() => {
     if (!pendingStart) return rangeValue;
     const other = hoveredISO ?? focusedISO;
-    if (!other || other <= pendingStart) return { start: pendingStart, end: addDaysISO(pendingStart, 1) };
+    if (!other || other <= pendingStart)
+      return { start: pendingStart, end: addDaysISO(pendingStart, 1) };
     return { start: pendingStart, end: other };
   }, [rangeValue, pendingStart, hoveredISO, focusedISO]);
 
@@ -94,21 +107,23 @@ export default function BookingCalendar(props: BookingCalendarProps): React.Reac
   useEffect(() => {
     if (!shouldRestoreFocus.current) return;
     shouldRestoreFocus.current = false;
-    const target = gridRef.current?.querySelector<HTMLButtonElement>(`button[data-iso="${focusedISO}"]`);
+    const target = gridRef.current?.querySelector<HTMLButtonElement>(
+      `button[data-iso="${focusedISO}"]`,
+    );
     target?.focus();
   }, [focusedISO, cursor]);
 
   const isDisabled = (iso: string): boolean => {
     if (iso < minISO) return true;
     // ในโหมด range วันที่เต็มยังคลิกเป็น "วันเช็คเอาต์" ได้ เพราะคืนนั้นไม่ได้ถูกใช้
-    if (props.mode === 'range' && pendingStart) return false;
-    return dayStatus?.[iso]?.tone === 'full';
+    if (props.mode === "range" && pendingStart) return false;
+    return dayStatus?.[iso]?.tone === "full";
   };
 
   const handleSelect = (iso: string): void => {
     if (isDisabled(iso)) return;
 
-    if (props.mode === 'single') {
+    if (props.mode === "single") {
       props.onSelect(iso);
       return;
     }
@@ -133,7 +148,8 @@ export default function BookingCalendar(props: BookingCalendarProps): React.Reac
     const next = addDaysISO(focusedISO, deltaDays);
     if (next < minISO) return;
     const nextCursor = monthCursorFromISO(next);
-    if (monthIndex(nextCursor) > monthIndex(currentCursor) + maxMonthsAhead) return;
+    if (monthIndex(nextCursor) > monthIndex(currentCursor) + maxMonthsAhead)
+      return;
 
     shouldRestoreFocus.current = true;
     setFocusedISO(next);
@@ -155,19 +171,21 @@ export default function BookingCalendar(props: BookingCalendarProps): React.Reac
       moveFocus(delta);
       return;
     }
-    if (event.key === 'PageUp' || event.key === 'PageDown') {
+    if (event.key === "PageUp" || event.key === "PageDown") {
       event.preventDefault();
-      const nextCursor = shiftMonth(cursor, event.key === 'PageUp' ? -1 : 1);
-      if (event.key === 'PageUp' && !canGoPrev) return;
-      if (event.key === 'PageDown' && !canGoNext) return;
+      const nextCursor = shiftMonth(cursor, event.key === "PageUp" ? -1 : 1);
+      if (event.key === "PageUp" && !canGoPrev) return;
+      if (event.key === "PageDown" && !canGoNext) return;
       shouldRestoreFocus.current = true;
       onCursorChange(nextCursor);
-      setFocusedISO(addDaysISO(focusedISO, event.key === 'PageUp' ? -28 : 28));
+      setFocusedISO(addDaysISO(focusedISO, event.key === "PageUp" ? -28 : 28));
     }
   };
 
-  const selectedStart = props.mode === 'range' ? previewRange?.start ?? null : props.value;
-  const selectedEnd = props.mode === 'range' ? previewRange?.end ?? null : null;
+  const selectedStart =
+    props.mode === "range" ? (previewRange?.start ?? null) : props.value;
+  const selectedEnd =
+    props.mode === "range" ? (previewRange?.end ?? null) : null;
 
   return (
     <div className={`select-none ${className}`}>
@@ -197,7 +215,10 @@ export default function BookingCalendar(props: BookingCalendarProps): React.Reac
 
       <div className="grid grid-cols-7 mb-1">
         {THAI_WEEKDAYS_SHORT.map((label) => (
-          <div key={label} className="text-center text-[11px] font-medium tracking-wide text-charcoal-400 py-1.5">
+          <div
+            key={label}
+            className="text-center text-[11px] font-medium tracking-wide text-charcoal-400 py-1.5"
+          >
             {label}
           </div>
         ))}
@@ -210,58 +231,81 @@ export default function BookingCalendar(props: BookingCalendarProps): React.Reac
         aria-busy={loading}
         onKeyDown={handleKeyDown}
         onMouseLeave={() => setHoveredISO(null)}
-        className={`grid grid-cols-7 gap-y-0.5 transition-opacity ${loading ? 'opacity-45' : 'opacity-100'}`}
+        className={`grid grid-cols-7 gap-y-0.5 transition-opacity ${loading ? "opacity-45" : "opacity-100"}`}
       >
         {cells.map((iso, index) => {
           if (!iso) return <div key={`blank-${index}`} aria-hidden="true" />;
 
           const status = dayStatus?.[iso];
           const disabled = isDisabled(iso);
-          const isFull = status?.tone === 'full';
+          const isFull = status?.tone === "full";
           const isStart = iso === selectedStart;
           const isEnd = iso === selectedEnd;
-          const inRange = props.mode === 'range' && rangeNights.has(iso) && !isStart;
-          const isSelected = isStart || isEnd || (props.mode === 'single' && iso === props.value);
+          const inRange =
+            props.mode === "range" && rangeNights.has(iso) && !isStart;
+          const isSelected =
+            isStart ||
+            isEnd ||
+            (props.mode === "single" && iso === props.value);
           const isToday = iso === today;
 
           return (
             <div key={iso} role="gridcell" className="relative py-0.5">
               {inRange && !isEnd && (
-                <span aria-hidden="true" className="absolute inset-y-1 left-0 right-0 bg-lagoon-50" />
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-1 left-0 right-0 bg-lagoon-50"
+                />
               )}
-              {isStart && props.mode === 'range' && selectedEnd && selectedEnd > iso && (
-                <span aria-hidden="true" className="absolute inset-y-1 left-1/2 right-0 bg-lagoon-50" />
-              )}
+              {isStart &&
+                props.mode === "range" &&
+                selectedEnd &&
+                selectedEnd > iso && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-y-1 left-1/2 right-0 bg-lagoon-50"
+                  />
+                )}
               {isEnd && (
-                <span aria-hidden="true" className="absolute inset-y-1 left-0 right-1/2 bg-lagoon-50" />
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-1 left-0 right-1/2 bg-lagoon-50"
+                />
               )}
               <button
                 type="button"
                 data-iso={iso}
                 tabIndex={iso === focusedISO ? 0 : -1}
                 disabled={disabled}
-                aria-current={isToday ? 'date' : undefined}
+                aria-current={isToday ? "date" : undefined}
                 aria-pressed={isSelected}
-                aria-label={`${formatThaiDateLong(iso)}${status?.hint ? ` — ${status.hint}` : ''}`}
+                aria-label={`${formatThaiDateLong(iso)}${status?.hint ? ` — ${status.hint}` : ""}`}
                 title={status?.hint}
                 onFocus={() => setFocusedISO(iso)}
                 onMouseEnter={() => setHoveredISO(iso)}
                 onClick={() => handleSelect(iso)}
                 className={[
-                  'relative z-10 mx-auto flex h-10 w-10 flex-col items-center justify-center rounded-full text-sm tabular-nums transition-colors',
-                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-lagoon-500 focus-visible:ring-offset-1',
+                  "relative z-10 mx-auto flex h-10 w-10 flex-col items-center justify-center rounded-full text-sm tabular-nums transition-colors",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-lagoon-500 focus-visible:ring-offset-1",
                   isSelected
-                    ? 'bg-forest-800 text-cream-100 font-semibold'
+                    ? "bg-forest-800 text-cream-100 font-semibold"
                     : disabled
-                      ? 'text-charcoal-300 cursor-not-allowed'
-                      : 'text-charcoal-700 hover:bg-forest-50',
-                  isFull && !isSelected ? 'line-through decoration-charcoal-300' : '',
-                  isToday && !isSelected ? 'ring-1 ring-inset ring-lagoon-300' : '',
-                ].join(' ')}
+                      ? "text-charcoal-300 cursor-not-allowed"
+                      : "text-charcoal-700 hover:bg-forest-50",
+                  isFull && !isSelected
+                    ? "line-through decoration-charcoal-300"
+                    : "",
+                  isToday && !isSelected
+                    ? "ring-1 ring-inset ring-lagoon-300"
+                    : "",
+                ].join(" ")}
               >
                 {Number(iso.slice(8, 10))}
-                {status?.tone === 'low' && !isSelected && !disabled && (
-                  <span aria-hidden="true" className="absolute bottom-1 h-1 w-1 rounded-full bg-bamboo-400" />
+                {status?.tone === "low" && !isSelected && !disabled && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute bottom-1 h-1 w-1 rounded-full bg-bamboo-400"
+                  />
                 )}
               </button>
             </div>
@@ -269,16 +313,26 @@ export default function BookingCalendar(props: BookingCalendarProps): React.Reac
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-stone-200 pt-3 text-[11px] text-charcoal-400">
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-forest-800" /> วันที่เลือก
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-bamboo-400" /> เหลือน้อย
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="text-charcoal-300 line-through">00</span> เต็ม
-        </span>
+      <div className="mt-4 border-t border-stone-100 pt-2.5">
+        <div className="flex flex-wrap items-center justify-start gap-4 text-[12px] text-charcoal-500">
+          {/* วันที่เลือก */}
+          <div className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-forest-900" />
+            <span>วันที่เลือก</span>
+          </div>
+
+          {/* เหลือน้อย */}
+          <div className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+            <span>เหลือน้อย</span>
+          </div>
+
+          {/* เต็ม (ใช้การขีดฆ่าตัวหนังสือเนียนๆ หรือจุดสีชิดขอบ) */}
+          <div className="flex items-center gap-1.5 text-stone-400">
+            <span className="h-2.5 w-2.5 rounded-full bg-stone-300" />
+            <span className="line-through decoration-stone-400">เต็ม</span>
+          </div>
+        </div>
       </div>
     </div>
   );

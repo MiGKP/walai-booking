@@ -17,7 +17,7 @@ const disposeMaterial = (material: Material | Material[]): void => {
   material.dispose();
 };
 
-export default function RegisterScene3D(): React.ReactElement {
+export default function Scene3D(): React.ReactElement {
   const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

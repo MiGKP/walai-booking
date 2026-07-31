@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState } from 'react';
 import type { FormEvent } from 'react';
@@ -19,7 +19,7 @@ import toast from 'react-hot-toast';
 export default function ForgotPasswordPage(): React.ReactElement | null {
   const router = useRouter();
   const { ready } = useAuthGuard({ guestOnly: true });
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
