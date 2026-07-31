@@ -106,6 +106,214 @@ export const checkKayakAvailability = async (req: Request, res: Response): Promi
   }
 };
 
+const MAX_CALENDAR_DAYS = 62;
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+interface KayakCalendarDay {
+  date: string;
+  rounds_total: number;
+  rounds_available: number;
+  is_full: boolean;
+}
+
+interface KayakRoundAvailability {
+  boat_round_id: number;
+  start_time: string;
+  end_time: string;
+  total: number;
+  booked: number;
+  remaining: number;
+  total_slots: number | null;
+  pool_booked: number;
+  available: boolean;
+}
+
+// ดึงสถานะรายวันของเรือหนึ่งประเภทสำหรับปฏิทินจอง — บอกว่าแต่ละวันมีรอบว่างกี่รอบ
+// เกณฑ์เหลือของแต่ละรอบใช้ min(โควตาประเภทเรือ, โควตาท่าเรือ) เหมือน createKayakBooking
+export const getKayakCalendar = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { kayak_id, start, end } = req.query;
+
+    const kayakId = Number(kayak_id);
+    if (!Number.isInteger(kayakId) || kayakId <= 0) {
+      res.status(400).json({ success: false, message: 'kayak_id ไม่ถูกต้อง', code: 'INVALID_KAYAK' });
+      return;
+    }
+
+    if (typeof start !== 'string' || typeof end !== 'string' || !ISO_DATE_PATTERN.test(start) || !ISO_DATE_PATTERN.test(end)) {
+      res.status(400).json({ success: false, message: 'start และ end ต้องเป็นวันที่รูปแบบ YYYY-MM-DD', code: 'INVALID_RANGE' });
+      return;
+    }
+
+    const startDate = new Date(`${start}T00:00:00Z`);
+    const endDate = new Date(`${end}T00:00:00Z`);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate < startDate) {
+      res.status(400).json({ success: false, message: 'ช่วงวันที่ไม่ถูกต้อง', code: 'INVALID_RANGE' });
+      return;
+    }
+
+    const spanDays = Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
+    if (spanDays > MAX_CALENDAR_DAYS) {
+      res.status(400).json({ success: false, message: `ขอข้อมูลได้ไม่เกิน ${MAX_CALENDAR_DAYS} วันต่อครั้ง`, code: 'RANGE_TOO_LARGE' });
+      return;
+    }
+
+    const result = await pool.query(
+      `WITH days AS (
+         SELECT generate_series($2::date, $3::date, interval '1 day')::date AS day
+       ),
+       rounds AS (
+         SELECT br.boat_round_id, br.start_time, br.end_time, br.total_slots
+         FROM boat_rounds br
+         WHERE br.is_active = true AND br.boat_type_id = $1::int
+       ),
+       stock AS (
+         SELECT COALESCE(quantity, 0)::int AS quantity FROM boat_types WHERE boat_type_id = $1::int
+       ),
+       grid AS (
+         SELECT
+           d.day,
+           r.boat_round_id,
+           r.total_slots,
+           (SELECT quantity FROM stock) AS quantity,
+           COALESCE((
+             SELECT COUNT(*) FROM boat_bookings bb
+             WHERE bb.boat_type_id = $1::int
+               AND bb.booking_date = d.day
+               AND bb.boat_round_id = r.boat_round_id
+               AND bb.status NOT IN ('cancelled', 'rejected')
+           ), 0)::int AS type_booked,
+           COALESCE((
+             SELECT COUNT(*) FROM boat_bookings bb
+             WHERE bb.booking_date = d.day
+               AND bb.status NOT IN ('cancelled', 'rejected')
+               AND bb.boat_round_id IN (
+                 SELECT br2.boat_round_id FROM boat_rounds br2
+                 WHERE br2.start_time = r.start_time AND br2.end_time = r.end_time
+               )
+           ), 0)::int AS pool_booked
+         FROM days d
+         CROSS JOIN rounds r
+       )
+       SELECT
+         to_char(g.day, 'YYYY-MM-DD') AS date,
+         COUNT(*)::int AS rounds_total,
+         COUNT(*) FILTER (
+           WHERE LEAST(
+             GREATEST(g.quantity - g.type_booked, 0),
+             CASE WHEN g.total_slots IS NULL THEN GREATEST(g.quantity - g.type_booked, 0)
+                  ELSE GREATEST(g.total_slots - g.pool_booked, 0) END
+           ) > 0
+         )::int AS rounds_available
+       FROM grid g
+       GROUP BY g.day
+       ORDER BY g.day`,
+      [kayakId, start, end]
+    );
+
+    // ถ้าเรือประเภทนี้ไม่มีรอบเปิดใช้งานเลย grid จะว่าง จึงเติมวันทั้งช่วงเป็น "เต็ม" ให้ frontend แสดงผลได้
+    const byDate = new Map<string, KayakCalendarDay>();
+    result.rows.forEach((row) => {
+      const roundsAvailable = Number(row.rounds_available);
+      byDate.set(String(row.date), {
+        date: String(row.date),
+        rounds_total: Number(row.rounds_total),
+        rounds_available: roundsAvailable,
+        is_full: roundsAvailable <= 0,
+      });
+    });
+
+    const days: KayakCalendarDay[] = [];
+    for (let cursor = new Date(startDate); cursor <= endDate; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+      const iso = cursor.toISOString().slice(0, 10);
+      days.push(byDate.get(iso) ?? { date: iso, rounds_total: 0, rounds_available: 0, is_full: true });
+    }
+
+    res.json({ success: true, data: { start, end, kayak_id: kayakId, days } });
+  } catch (error) {
+    console.error('Get kayak calendar error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
+// ดึงทุกรอบเวลาของวันที่เลือกพร้อมจำนวนที่เหลือ เพื่อให้ลูกค้าเห็นรอบทั้งหมดในคราวเดียวแทนการเช็ครายรอบ
+export const getKayakDayRounds = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { kayak_id, booking_date } = req.query;
+
+    const kayakId = Number(kayak_id);
+    if (!Number.isInteger(kayakId) || kayakId <= 0) {
+      res.status(400).json({ success: false, message: 'kayak_id ไม่ถูกต้อง', code: 'INVALID_KAYAK' });
+      return;
+    }
+
+    if (typeof booking_date !== 'string' || !ISO_DATE_PATTERN.test(booking_date)) {
+      res.status(400).json({ success: false, message: 'booking_date ต้องเป็นวันที่รูปแบบ YYYY-MM-DD', code: 'INVALID_DATE' });
+      return;
+    }
+
+    const result = await pool.query(
+      `WITH stock AS (
+         SELECT COALESCE(quantity, 0)::int AS quantity FROM boat_types WHERE boat_type_id = $1::int
+       )
+       SELECT
+         br.boat_round_id,
+         br.start_time,
+         br.end_time,
+         br.total_slots,
+         (SELECT quantity FROM stock) AS total,
+         COALESCE((
+           SELECT COUNT(*) FROM boat_bookings bb
+           WHERE bb.boat_type_id = $1::int
+             AND bb.booking_date = $2::date
+             AND bb.boat_round_id = br.boat_round_id
+             AND bb.status NOT IN ('cancelled', 'rejected')
+         ), 0)::int AS booked,
+         COALESCE((
+           SELECT COUNT(*) FROM boat_bookings bb
+           WHERE bb.booking_date = $2::date
+             AND bb.status NOT IN ('cancelled', 'rejected')
+             AND bb.boat_round_id IN (
+               SELECT br2.boat_round_id FROM boat_rounds br2
+               WHERE br2.start_time = br.start_time AND br2.end_time = br.end_time
+             )
+         ), 0)::int AS pool_booked
+       FROM boat_rounds br
+       WHERE br.is_active = true AND br.boat_type_id = $1::int
+       ORDER BY br.start_time`,
+      [kayakId, booking_date]
+    );
+
+    const rounds: KayakRoundAvailability[] = result.rows.map((row) => {
+      const total = Number(row.total);
+      const booked = Number(row.booked);
+      const totalSlots = row.total_slots === null ? null : Number(row.total_slots);
+      const poolBooked = Number(row.pool_booked);
+
+      const remainingType = Math.max(0, total - booked);
+      const remainingPool = totalSlots === null ? null : Math.max(0, totalSlots - poolBooked);
+      const remaining = remainingPool === null ? remainingType : Math.min(remainingType, remainingPool);
+
+      return {
+        boat_round_id: Number(row.boat_round_id),
+        start_time: String(row.start_time),
+        end_time: String(row.end_time),
+        total,
+        booked,
+        remaining,
+        total_slots: totalSlots,
+        pool_booked: poolBooked,
+        available: remaining > 0,
+      };
+    });
+
+    res.json({ success: true, data: { booking_date, kayak_id: kayakId, rounds } });
+  } catch (error) {
+    console.error('Get kayak day rounds error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', code: 'SERVER_ERROR' });
+  }
+};
+
 // ดึงรอบเวลาของเรือที่เปิดใช้งานอยู่ เพื่อให้ลูกค้าเลือกช่วงเวลาจองได้ถูกต้อง
 export const getKayakSchedule = async (req: Request, res: Response): Promise<void> => {
   try {

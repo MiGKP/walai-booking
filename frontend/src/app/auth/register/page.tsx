@@ -1,4 +1,5 @@
 'use client';
+'use client';
 
 import { useState } from 'react';
 import type { FormEvent } from 'react';
@@ -66,9 +67,18 @@ export default function RegisterPage(): React.ReactElement | null {
     phone: '',
     line_id: '',
     facebook: '',
+    first_name: '',
+    last_name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    phone: '',
+    line_id: '',
+    facebook: '',
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   if (!ready) return null;
@@ -88,9 +98,11 @@ export default function RegisterPage(): React.ReactElement | null {
       return;
     }
 
+
     setLoading(true);
 
     try {
+      const response = await api.post<RegisterResponse>('/auth/register', {
       const response = await api.post<RegisterResponse>('/auth/register', {
         first_name: form.first_name,
         last_name: form.last_name,
@@ -128,7 +140,10 @@ export default function RegisterPage(): React.ReactElement | null {
           <Link
             href="/"
             className="absolute left-5 top-5 z-20 inline-flex items-center gap-2 rounded-full border border-white/50 bg-cream-100/85 px-4 py-2 text-sm font-semibold text-forest-800 shadow-sm backdrop-blur-md transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-bamboo-400 sm:left-7 sm:top-7"
+            className="absolute left-5 top-5 z-20 inline-flex items-center gap-2 rounded-full border border-white/50 bg-cream-100/85 px-4 py-2 text-sm font-semibold text-forest-800 shadow-sm backdrop-blur-md transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-bamboo-400 sm:left-7 sm:top-7"
           >
+            <ArrowLeft size={16} aria-hidden="true" />
+            กลับหน้าหลัก
             <ArrowLeft size={16} aria-hidden="true" />
             กลับหน้าหลัก
           </Link>
