@@ -1,84 +1,56 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
-  Users,
-  Anchor,
-  CreditCard,
-  CheckCircle,
-  PlusCircle,
+  ArrowRight,
   Home,
   Sailboat,
+  TrendingUp,
+  Users,
+  CalendarCheck,
   BarChart3,
-  MessageSquare,
-  Building2,
-  Phone,
-  Clock,
-  UserCheck,
+  Wallet,
   Tag,
-  ArrowRight,
+  Clock,
+  Calendar as CalendarIcon,
+  RefreshCw,
   X,
-} from 'lucide-react';
-import api from '@/lib/api';
-import { resolveMediaUrl } from '@/lib/avatar';
-import { useAuthGuard } from '@/hooks/useAuthGuard';
-import toast from 'react-hot-toast';
+  Phone,
+  ChevronRight,
+  UserCheck,
+} from "lucide-react";
+import api from "@/lib/api";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import toast from "react-hot-toast";
 
-const REVENUE_STATUSES = new Set(['approved', 'checked_out']);
+// สถานะที่นับเป็นรายได้สำเร็จ
+const REVENUE_STATUSES = new Set(["approved", "checked_out"]);
+// สถานะที่นับว่ารอชำระ/รอตรวจสอบ
+const PENDING_STATUSES = new Set(["pending", "wait_for_payment", "paid"]);
 
-const statusLabel: Record<string, string> = {
-  pending: 'รอดำเนินการ',
-  paid: 'รอตรวจสอบสลิป',
-  approved: 'ยืนยันแล้ว',
-  cancelled: 'ยกเลิก',
-  rejected: 'ถูกปฏิเสธ',
-  checked_out: 'เช็คเอาต์แล้ว',
-};
-
-const statusClass: Record<string, string> = {
-  pending: 'bg-stone-100 text-charcoal-600',
-  paid: 'bg-bamboo-50 text-bamboo-700',
-  approved: 'bg-forest-50 text-forest-700',
-  cancelled: 'bg-stone-100 text-stone-500',
-  rejected: 'bg-red-50 text-red-700',
-  checked_out: 'bg-lagoon-50 text-lagoon-700',
-};
-
-interface MenuItem {
-  label: string;
-  desc: string;
-  path: string;
-  icon: React.ReactNode;
-}
-
-interface MenuGroup {
-  title: string;
-  items: MenuItem[];
-}
-
-function formatDate(value?: string): string {
-  if (!value) return '-';
-  return new Date(value).toLocaleDateString('th-TH');
-}
+type Timeframe = "today" | "month" | "year" | "all";
 
 function formatMoney(value: number): string {
-  return `฿${Number(value || 0).toLocaleString('th-TH')}`;
+  return `฿${Number(value || 0).toLocaleString("th-TH")}`;
 }
 
 export default function AdminPage() {
   const router = useRouter();
-  const { ready } = useAuthGuard({ allowedRoles: ['admin'] });
-  const [tab, setTab] = useState<'bookings' | 'kayaks'>('bookings');
+  const { ready } = useAuthGuard({ allowedRoles: ["admin"] });
+
   const [roomBookings, setRoomBookings] = useState<any[]>([]);
   const [kayakBookings, setKayakBookings] = useState<any[]>([]);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [slipModal, setSlipModal] = useState<{ open: boolean; url: string; name: string }>({
-    open: false,
-    url: '',
-    name: '',
-  });
+
+  // State สำหรับ Filter เลือกช่วงเวลา
+  const [timeframe, setTimeframe] = useState<Timeframe>("month");
+
+  // Modal สรุปรายการค้างชำระ
+  const [showPendingModal, setShowPendingModal] = useState(false);
+
+  const [membersList, setMembersList] = useState<any[]>([]);
 
   useEffect(() => {
     if (!ready) return;
@@ -88,452 +60,739 @@ export default function AdminPage() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [rb, kb, st] = await Promise.all([
-        api.get('/bookings'),
-        api.get('/kayaks/bookings/all').catch(() => ({ data: { data: [] } })),
-        api.get('/auth/staff').catch(() => ({ data: { data: [] } })),
+      const [rb, kb, st, mb] = await Promise.all([
+        api.get("/bookings"),
+        api.get("/kayaks/bookings/all").catch(() => ({ data: { data: [] } })),
+        api.get("/auth/staff").catch(() => ({ data: { data: [] } })),
+        api.get("/members").catch(() => ({ data: { data: [] } })),
       ]);
       setRoomBookings(rb.data?.data || []);
       setKayakBookings(kb.data?.data || []);
       setStaffList(st.data?.data || []);
+      const rawMembers = mb.data;
+      const memberList = Array.isArray(rawMembers)
+        ? rawMembers
+        : rawMembers?.data || rawMembers?.members || [];
+
+      console.log("=== สมาชิกที่ดึงมาได้ ===", memberList); // ดูรายการใน F12 Console
+      setMembersList(memberList);
     } catch {
-      toast.error('ไม่สามารถโหลดข้อมูลได้');
+      toast.error("ไม่สามารถโหลดข้อมูลได้");
     } finally {
       setLoading(false);
     }
   };
 
-  const totalRoomRevenue = roomBookings
-    .filter((b) => REVENUE_STATUSES.has(b.status))
-    .reduce((sum, b) => sum + Number(b.total_price || 0), 0);
-  const totalKayakRevenue = kayakBookings
-    .filter((b) => REVENUE_STATUSES.has(b.status))
-    .reduce((sum, b) => sum + Number(b.total_price || 0), 0);
-  const totalRevenue = totalRoomRevenue + totalKayakRevenue;
-  const pendingSlip =
-    roomBookings.filter((b) => b.status === 'paid').length +
-    kayakBookings.filter((b) => b.status === 'paid').length;
-  const revenueRoomCount = roomBookings.filter((b) => REVENUE_STATUSES.has(b.status)).length;
-  const revenueKayakCount = kayakBookings.filter((b) => REVENUE_STATUSES.has(b.status)).length;
-  const roomPending = roomBookings.filter((b) => b.status === 'pending').length;
-  const kayakPending = kayakBookings.filter((b) => b.status === 'pending').length;
-  const roomShare = totalRevenue > 0 ? Math.round((totalRoomRevenue / totalRevenue) * 100) : 0;
+  // ----------------------- Filter Logic -----------------------
+  const isDateInTimeframe = (dateStr: string, tf: Timeframe) => {
+    if (tf === "all" || !dateStr) return true;
+    const date = new Date(dateStr);
+    const now = new Date();
+
+    if (tf === "today") {
+      return date.toDateString() === now.toDateString();
+    }
+    if (tf === "month") {
+      return (
+        date.getMonth() === now.getMonth() &&
+        date.getFullYear() === now.getFullYear()
+      );
+    }
+    if (tf === "year") {
+      return date.getFullYear() === now.getFullYear();
+    }
+    return true;
+  };
+
+  // กรองรายการตาม Timeframe ที่เลือก
+  const filteredRooms = useMemo(() => {
+    return roomBookings.filter((b) =>
+      isDateInTimeframe(b.created_at || b.check_in, timeframe),
+    );
+  }, [roomBookings, timeframe]);
+
+  const filteredKayaks = useMemo(() => {
+    return kayakBookings.filter((b) =>
+      isDateInTimeframe(b.created_at || b.booking_date, timeframe),
+    );
+  }, [kayakBookings, timeframe]);
+
+  // รายการค้างชำระทั้งหมด (สำหรับแสดงใน Modal)
+  const pendingRoomsList = useMemo(() => {
+    return filteredRooms.filter((b) => PENDING_STATUSES.has(b.status));
+  }, [filteredRooms]);
+
+  const pendingKayaksList = useMemo(() => {
+    return filteredKayaks.filter((b) => PENDING_STATUSES.has(b.status));
+  }, [filteredKayaks]);
+
+  // ----------------------- Calculations -----------------------
+  // รายได้ที่อนุมัติแล้วตามช่วงเวลา
+  const roomRevenue = useMemo(() => {
+    return filteredRooms
+      .filter((b) => REVENUE_STATUSES.has(b.status))
+      .reduce((sum, b) => sum + Number(b.total_price || 0), 0);
+  }, [filteredRooms]);
+
+  const kayakRevenue = useMemo(() => {
+    return filteredKayaks
+      .filter((b) => REVENUE_STATUSES.has(b.status))
+      .reduce((sum, b) => sum + Number(b.total_price || 0), 0);
+  }, [filteredKayaks]);
+
+  const totalRevenue = roomRevenue + kayakRevenue;
+
+  // การติดตามยอดค้างชำระ/รออนุมัติ (Payment Tracking)
+  const pendingPaymentAmount = useMemo(() => {
+    const pendingRooms = pendingRoomsList.reduce(
+      (sum, b) => sum + Number(b.total_price || 0),
+      0,
+    );
+    const pendingKayaks = pendingKayaksList.reduce(
+      (sum, b) => sum + Number(b.total_price || 0),
+      0,
+    );
+    return pendingRooms + pendingKayaks;
+  }, [pendingRoomsList, pendingKayaksList]);
+
+  // การจองวันนี้ (Today's Live Status)
+  const todayRoomBookings = useMemo(() => {
+    return roomBookings.filter(
+      (b) =>
+        isDateInTimeframe(b.check_in || b.created_at, "today") &&
+        REVENUE_STATUSES.has(b.status),
+    ).length;
+  }, [roomBookings]);
+
+  const todayKayakBookings = useMemo(() => {
+    return kayakBookings.filter(
+      (b) =>
+        isDateInTimeframe(b.booking_date || b.created_at, "today") &&
+        REVENUE_STATUSES.has(b.status),
+    ).length;
+  }, [kayakBookings]);
+
+  // สถิติสถานะห้องพัก
+  const roomApproved = filteredRooms.filter((b) =>
+    REVENUE_STATUSES.has(b.status),
+  ).length;
+  const roomPending = filteredRooms.filter((b) =>
+    PENDING_STATUSES.has(b.status),
+  ).length;
+  const roomCancelled = filteredRooms.filter(
+    (b) => b.status === "cancelled" || b.status === "rejected",
+  ).length;
+
+  // สถิติสถานะเรือ
+  const kayakApproved = filteredKayaks.filter((b) =>
+    REVENUE_STATUSES.has(b.status),
+  ).length;
+  const kayakPending = filteredKayaks.filter((b) =>
+    PENDING_STATUSES.has(b.status),
+  ).length;
+  const kayakCancelled = filteredKayaks.filter(
+    (b) => b.status === "cancelled" || b.status === "rejected",
+  ).length;
+
+  // สัดส่วนรายได้
+  const roomShare =
+    totalRevenue > 0 ? Math.round((roomRevenue / totalRevenue) * 100) : 0;
   const kayakShare = totalRevenue > 0 ? 100 - roomShare : 0;
 
-  const metrics = [
-    {
-      label: 'รายได้ห้องพัก',
-      value: formatMoney(totalRoomRevenue),
-      hint: `${revenueRoomCount} รายการที่ยืนยัน/เช็คเอาต์`,
-    },
-    {
-      label: 'รายได้เรือคายัค',
-      value: formatMoney(totalKayakRevenue),
-      hint: `${revenueKayakCount} รายการที่ยืนยัน/เช็คเอาต์`,
-    },
-    {
-      label: 'รอตรวจสลิป',
-      value: String(pendingSlip),
-      hint: 'ต้องยืนยันการชำระเงิน',
-    },
-    {
-      label: 'พนักงาน',
-      value: String(staffList.length),
-      hint: 'ทุกบทบาทในระบบ',
-    },
-  ];
-
-  const menuGroups: MenuGroup[] = [
-    {
-      title: 'ห้องพัก',
-      items: [
-        { label: 'ประเภทห้องพัก', desc: 'ชื่อ ราคา ความจุ รูป', path: '/admin/rooms/types', icon: <Home size={18} strokeWidth={1.75} /> },
-        { label: 'สิ่งอำนวยความสะดวก', desc: 'รายการสิ่งอำนวยความสะดวก', path: '/admin/rooms/amenities', icon: <CheckCircle size={18} strokeWidth={1.75} /> },
-        { label: 'หมายเลขห้อง', desc: 'ห้องย่อยตามประเภท', path: '/admin/rooms/single', icon: <PlusCircle size={18} strokeWidth={1.75} /> },
-        { label: 'แดชบอร์ดจองห้อง', desc: 'ตรวจสลิป อนุมัติ เช็คเอาต์', path: '/admin/rooms/dashboard', icon: <CreditCard size={18} strokeWidth={1.75} /> },
-      ],
-    },
-    {
-      title: 'เรือคายัค',
-      items: [
-        { label: 'ประเภทเรือ', desc: 'เรือและราคา', path: '/admin/boats/types', icon: <Anchor size={18} strokeWidth={1.75} /> },
-        { label: 'รอบเวลา', desc: 'ช่วงเวลาให้บริการ', path: '/admin/boats/rounds', icon: <Sailboat size={18} strokeWidth={1.75} /> },
-        { label: 'เวลาทำการ', desc: 'เปิด-ปิดแต่ละวัน', path: '/admin/boat-hours', icon: <Clock size={18} strokeWidth={1.75} /> },
-        { label: 'แดชบอร์ดจองเรือ', desc: 'ตรวจสลิป อนุมัติ คืนเรือ', path: '/admin/boats/dashboard', icon: <CreditCard size={18} strokeWidth={1.75} /> },
-      ],
-    },
-    {
-      title: 'คนและโปรโมชั่น',
-      items: [
-        { label: 'พนักงาน', desc: 'บัญชีและสิทธิ์', path: '/admin/staff', icon: <Users size={18} strokeWidth={1.75} /> },
-        { label: 'สมาชิก', desc: 'ค้นหา เปิด/ปิดบัญชี', path: '/admin/members', icon: <UserCheck size={18} strokeWidth={1.75} /> },
-        { label: 'โปรโมชั่น', desc: 'โค้ดส่วนลด', path: '/admin/promotions', icon: <Tag size={18} strokeWidth={1.75} /> },
-        { label: 'รีวิว', desc: 'รีวิวจากผู้เข้าพัก', path: '/admin/reviews', icon: <MessageSquare size={18} strokeWidth={1.75} /> },
-      ],
-    },
-    {
-      title: 'ข้อมูลสวนและรายงาน',
-      items: [
-        { label: 'ข้อมูลสวน', desc: 'บัญชี เงื่อนไขการจอง', path: '/admin/site-info', icon: <Building2 size={18} strokeWidth={1.75} /> },
-        { label: 'ติดต่อ', desc: 'โทร Line Facebook ที่อยู่', path: '/admin/contact', icon: <Phone size={18} strokeWidth={1.75} /> },
-        { label: 'สถิติ', desc: 'รายได้รายวัน/เดือน', path: '/admin/stats', icon: <BarChart3 size={18} strokeWidth={1.75} /> },
-      ],
-    },
-  ];
+  if (!ready) return null;
 
   return (
-    <div className="min-h-screen pt-16" style={{ backgroundColor: 'var(--color-stone-100)' }}>
-      <div className="max-w-7xl mx-auto px-4 py-8 md:py-10">
-        {/* Header */}
-        <header className="mb-8 md:mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-          <div>
-            <h1 className="font-display text-3xl md:text-4xl font-semibold text-forest-800 tracking-tight">
-              แผงควบคุม
-            </h1>
-            <p className="text-charcoal-400 mt-1.5 text-sm md:text-base max-w-xl">
-              ภาพรวมรายได้ การจอง และเมนูจัดการระบบสวนวลัยรุกขเวช
-            </p>
-          </div>
-          <div className="md:text-right">
-            <p className="text-xs text-charcoal-400">รายได้รวมที่ยืนยันแล้ว</p>
-            <p className="font-display text-3xl font-semibold text-forest-800 tabular-nums">
-              {formatMoney(totalRevenue)}
-            </p>
-          </div>
-        </header>
+    <div className="space-y-6 font-sans pb-10">
+      {/* Header & Timeframe Selector */}
+      <header className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-4 border-b border-stone-200/80">
+        <div>
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-forest-800 tracking-tight">
+            ภาพรวมระบบผู้ดูแล
+          </h1>
+          <p className="text-charcoal-400 mt-1 text-xs md:text-sm">
+            สถิติรายได้ สรุปผลการดำเนินงาน และข้อมูลภาพรวมสวนวลัยรุกขเวช
+          </p>
+        </div>
 
-        {/* Metrics - flat strip, no rainbow cards */}
-        <section className="mb-8 grid grid-cols-2 lg:grid-cols-4 border border-stone-200 rounded-xl overflow-hidden bg-cream-100">
-          {metrics.map((m, i) => (
-            <div
-              key={m.label}
-              className={`p-5 ${i % 2 === 1 ? 'border-l border-stone-200' : ''} ${i >= 2 ? 'border-t border-stone-200' : ''} lg:border-t-0 lg:border-l ${i === 0 ? 'lg:border-l-0' : ''}`}
-              style={{ borderColor: 'var(--color-stone-200)' }}
-            >
-              <p className="text-xs text-charcoal-400 mb-2">{m.label}</p>
-              <p className="font-display text-2xl font-semibold text-forest-800 tabular-nums leading-none">
-                {loading ? '—' : m.value}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* ปุ่ม รีเฟรชข้อมูล */}
+          <button
+            onClick={fetchAll}
+            disabled={loading}
+            className="p-2 rounded-xl bg-white border border-stone-200/80 text-charcoal-500 hover:text-forest-800 hover:border-forest-800/40 transition-all shadow-xs"
+            title="รีเฟรชข้อมูล"
+          >
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+          </button>
+
+          {/* Timeframe Toggle Buttons */}
+          <div className="bg-stone-100 p-1 rounded-xl flex items-center gap-1 border border-stone-200/60">
+            {[
+              { key: "today", label: "วันนี้" },
+              { key: "month", label: "เดือนนี้" },
+              { key: "year", label: "ปีนี้" },
+              { key: "all", label: "ทั้งหมด" },
+            ].map((tf) => (
+              <button
+                key={tf.key}
+                onClick={() => setTimeframe(tf.key as Timeframe)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  timeframe === tf.key
+                    ? "bg-white text-forest-800 shadow-sm"
+                    : "text-charcoal-400 hover:text-charcoal-600"
+                }`}
+              >
+                {tf.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Card ยอดรายได้รวมสุทธิ */}
+          <div className="bg-white px-4 py-2 rounded-xl border border-stone-200/80 shadow-sm flex items-center gap-3 shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-forest-800/10 flex items-center justify-center text-forest-800">
+              <Wallet size={18} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-charcoal-400 uppercase tracking-wider">
+                รายได้สุทธิ (
+                {timeframe === "today"
+                  ? "วันนี้"
+                  : timeframe === "month"
+                    ? "เดือนนี้"
+                    : timeframe === "year"
+                      ? "ปีนี้"
+                      : "ทั้งหมด"}
+                )
               </p>
-              <p className="text-xs text-charcoal-400 mt-2 leading-snug">{m.hint}</p>
+              <p className="font-display text-lg font-bold text-forest-800 tabular-nums leading-none mt-0.5">
+                {loading ? "—" : formatMoney(totalRevenue)}
+              </p>
             </div>
-          ))}
-        </section>
+          </div>
+        </div>
+      </header>
 
-        {/* Ops snapshot + revenue split */}
-        <section className="mb-10 grid md:grid-cols-3 gap-4">
-          <button
-            type="button"
-            onClick={() => router.push('/admin/rooms/dashboard')}
-            className="text-left p-5 rounded-xl bg-cream-100 border border-stone-200 hover:border-forest-800/30 active:scale-[0.99] transition-all group"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-medium text-forest-800">จองห้องพัก</p>
-              <ArrowRight size={16} className="text-charcoal-400 group-hover:text-forest-800 transition-colors" />
+      {/* Top 4 Key Performance Cards */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="p-4 rounded-2xl border border-stone-200/80 bg-white shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-charcoal-500">
+              รายได้ห้องพัก
+            </span>
+            <div className="p-1.5 rounded-lg bg-stone-100 text-forest-800">
+              <Home size={18} />
             </div>
-            <p className="font-display text-3xl font-semibold text-forest-800 tabular-nums">
-              {loading ? '—' : roomBookings.length}
+          </div>
+          <div>
+            <p className="font-display text-2xl font-bold text-forest-800 tabular-nums">
+              {loading ? "—" : formatMoney(roomRevenue)}
             </p>
-            <p className="text-xs text-charcoal-400 mt-2">
-              รอจ่าย {roomPending} · รอตรวจสลิป {roomBookings.filter((b) => b.status === 'paid').length}
+            <p className="text-[11px] mt-1 text-charcoal-400 font-medium">
+              สำเร็จ {roomApproved} รายการ
             </p>
-          </button>
+          </div>
+        </div>
 
-          <button
-            type="button"
-            onClick={() => router.push('/admin/boats/dashboard')}
-            className="text-left p-5 rounded-xl bg-cream-100 border border-stone-200 hover:border-forest-800/30 active:scale-[0.99] transition-all group"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-medium text-forest-800">จองเรือคายัค</p>
-              <ArrowRight size={16} className="text-charcoal-400 group-hover:text-forest-800 transition-colors" />
+        <div className="p-4 rounded-2xl border border-stone-200/80 bg-white shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-charcoal-500">
+              รายได้เรือคายัค
+            </span>
+            <div className="p-1.5 rounded-lg bg-stone-100 text-lagoon-600">
+              <Sailboat size={18} />
             </div>
-            <p className="font-display text-3xl font-semibold text-forest-800 tabular-nums">
-              {loading ? '—' : kayakBookings.length}
+          </div>
+          <div>
+            <p className="font-display text-2xl font-bold text-forest-800 tabular-nums">
+              {loading ? "—" : formatMoney(kayakRevenue)}
             </p>
-            <p className="text-xs text-charcoal-400 mt-2">
-              รอดำเนินการ {kayakPending} · รอตรวจสลิป {kayakBookings.filter((b) => b.status === 'paid').length}
+            <p className="text-[11px] mt-1 text-charcoal-400 font-medium">
+              สำเร็จ {kayakApproved} รายการ
             </p>
-          </button>
+          </div>
+        </div>
 
-          <div className="p-5 rounded-xl bg-cream-100 border border-stone-200">
-            <p className="text-sm font-medium text-forest-800 mb-4">สัดส่วนรายได้</p>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs text-charcoal-400 mb-1.5">
-                  <span>ห้องพัก {roomShare}%</span>
-                  <span className="tabular-nums text-forest-800">{formatMoney(totalRoomRevenue)}</span>
+        <div className="p-4 rounded-2xl border border-stone-200/80 bg-white shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-charcoal-500">
+              สมาชิกในระบบ
+            </span>
+            <div className="p-1.5 rounded-lg bg-stone-100 text-forest-800">
+              <UserCheck size={18} />
+            </div>
+          </div>
+          <div>
+            <p className="font-display text-2xl font-bold text-forest-800 tabular-nums">
+              {loading ? "—" : `${membersList.length} คน`}
+            </p>
+            <p className="text-[11px] mt-1 text-charcoal-400 font-medium">
+              บัญชีผู้ใช้งานทั่วไป (Members)
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-stone-200/80 bg-white shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-charcoal-500">
+              พนักงานทั้งหมด
+            </span>
+            <div className="p-1.5 rounded-lg bg-stone-100 text-charcoal-500">
+              <Users size={18} />
+            </div>
+          </div>
+
+          <div>
+            <p className="font-display text-2xl font-bold text-forest-800 tabular-nums">
+              {loading ? "—" : `${staffList.length} คน`}
+            </p>
+
+            {/* แยกแสดงตาม Role โดยใช้ Lucide Icons */}
+            <div className="flex items-center gap-1.5 mt-2 flex-wrap text-[11px]">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                <Home size={12} className="text-emerald-700" />
+                ห้องพัก:{" "}
+                {loading
+                  ? "—"
+                  : staffList.filter((s: any) => s.role === "room_staff")
+                      .length}
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium bg-sky-50 text-sky-800 border border-sky-200/60">
+                <Sailboat size={12} className="text-sky-700" />
+                เรือคายัค:{" "}
+                {loading
+                  ? "—"
+                  : staffList.filter((s: any) => s.role === "boat_staff")
+                      .length}
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Today Live Status Banner */}
+      <section className="p-4 rounded-2xl bg-forest-800 text-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-white/10 text-emerald-300">
+            <CalendarCheck size={22} />
+          </div>
+          <div>
+            <p className="text-xs text-emerald-200 font-semibold uppercase tracking-wider">
+              สถานะการเข้าใช้งานวันนี้ (Today's Live)
+            </p>
+            <p className="text-sm font-medium text-stone-100 mt-0.5">
+              สรุปจำนวนการจองที่มีผลเปิดเข้าพักและใช้งานเรือในวันนี้
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-6 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-white/10">
+          <div className="text-left sm:text-right">
+            <p className="text-[11px] text-stone-300">ห้องพักเข้าพักวันนี้</p>
+            <p className="text-xl font-bold text-white tabular-nums">
+              {loading ? "—" : `${todayRoomBookings} รายการ`}
+            </p>
+          </div>
+          <div className="h-8 w-px bg-white/10 hidden sm:block" />
+          <div className="text-left sm:text-right">
+            <p className="text-[11px] text-stone-300">เรือคายัคใช้งานวันนี้</p>
+            <p className="text-xl font-bold text-white tabular-nums">
+              {loading ? "—" : `${todayKayakBookings} รายการ`}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Middle Row: Navigation Cards + Revenue Split */}
+      <section className="grid md:grid-cols-3 gap-4">
+        {/* Room Booking Overview */}
+        <div
+          onClick={() => router.push("/staff/rooms/dashboard")}
+          className="cursor-pointer p-5 rounded-2xl bg-white border border-stone-200/80 hover:border-forest-800/40 hover:shadow-md transition-all group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-forest-800/10 text-forest-800">
+                  <Home size={18} />
                 </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-stone-200)' }}>
+                <span className="text-sm font-bold text-forest-800">
+                  จัดการระบบห้องพัก
+                </span>
+              </div>
+              <ArrowRight
+                size={16}
+                className="text-charcoal-400 group-hover:text-forest-800 group-hover:translate-x-1 transition-all"
+              />
+            </div>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="font-display text-3xl font-bold text-forest-800 tabular-nums">
+                {loading ? "—" : filteredRooms.length}
+              </span>
+              <span className="text-xs text-charcoal-400">
+                รายการจองช่วงนี้
+              </span>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-stone-100 grid grid-cols-3 text-center text-xs">
+            <div>
+              <p className="text-[10px] text-charcoal-400">อนุมัติ</p>
+              <p className="font-bold text-emerald-700">{roomApproved}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-charcoal-400">รอดำเนินการ</p>
+              <p className="font-bold text-amber-600">{roomPending}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-charcoal-400">ยกเลิก</p>
+              <p className="font-bold text-rose-600">{roomCancelled}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Kayak Booking Overview */}
+        <div
+          onClick={() => router.push("/staff/boats/dashboard")}
+          className="cursor-pointer p-5 rounded-2xl bg-white border border-stone-200/80 hover:border-forest-800/40 hover:shadow-md transition-all group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-lagoon-50 text-lagoon-700">
+                  <Sailboat size={18} />
+                </div>
+                <span className="text-sm font-bold text-forest-800">
+                  จัดการระบบเรือคายัค
+                </span>
+              </div>
+              <ArrowRight
+                size={16}
+                className="text-charcoal-400 group-hover:text-forest-800 group-hover:translate-x-1 transition-all"
+              />
+            </div>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="font-display text-3xl font-bold text-forest-800 tabular-nums">
+                {loading ? "—" : filteredKayaks.length}
+              </span>
+              <span className="text-xs text-charcoal-400">
+                รายการจองช่วงนี้
+              </span>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-stone-100 grid grid-cols-3 text-center text-xs">
+            <div>
+              <p className="text-[10px] text-charcoal-400">อนุมัติ</p>
+              <p className="font-bold text-emerald-700">{kayakApproved}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-charcoal-400">รอดำเนินการ</p>
+              <p className="font-bold text-amber-600">{kayakPending}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-charcoal-400">ยกเลิก</p>
+              <p className="font-bold text-rose-600">{kayakCancelled}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Revenue Split Gauge */}
+        <div className="p-5 rounded-2xl bg-white border border-stone-200/80 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700">
+                <TrendingUp size={18} />
+              </div>
+              <span className="text-sm font-bold text-forest-800">
+                สัดส่วนรายได้ธุรกิจ
+              </span>
+            </div>
+            <div className="space-y-3.5">
+              <div>
+                <div className="flex justify-between text-xs text-charcoal-500 mb-1">
+                  <span>ห้องพัก ({roomShare}%)</span>
+                  <span className="font-bold text-forest-800">
+                    {formatMoney(roomRevenue)}
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-stone-100 overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-forest-800 transition-all duration-300"
+                    className="h-full bg-forest-800 rounded-full transition-all duration-500"
                     style={{ width: `${roomShare}%` }}
                   />
                 </div>
               </div>
               <div>
-                <div className="flex justify-between text-xs text-charcoal-400 mb-1.5">
-                  <span>เรือคายัค {kayakShare}%</span>
-                  <span className="tabular-nums text-forest-800">{formatMoney(totalKayakRevenue)}</span>
+                <div className="flex justify-between text-xs text-charcoal-500 mb-1">
+                  <span>เรือคายัค ({kayakShare}%)</span>
+                  <span className="font-bold text-forest-800">
+                    {formatMoney(kayakRevenue)}
+                  </span>
                 </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-stone-200)' }}>
+                <div className="h-2 rounded-full bg-stone-100 overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-lagoon-500 transition-all duration-300"
+                    className="h-full bg-lagoon-500 rounded-full transition-all duration-500"
                     style={{ width: `${kayakShare}%` }}
                   />
                 </div>
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Grouped management nav */}
-        <section className="mb-10">
-          <h2 className="font-display text-xl font-semibold text-forest-800 mb-5">เมนูจัดการ</h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            {menuGroups.map((group) => (
-              <div key={group.title} className="rounded-xl bg-cream-100 border border-stone-200 overflow-hidden">
-                <div className="px-5 py-3 border-b border-stone-200">
-                  <p className="text-xs font-medium text-charcoal-400 tracking-wide">{group.title}</p>
-                </div>
-                <ul className="divide-y" style={{ borderColor: 'var(--color-stone-200)' }}>
-                  {group.items.map((item) => (
-                    <li key={item.path}>
-                      <button
-                        type="button"
-                        onClick={() => router.push(item.path)}
-                        className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-stone-100/80 active:bg-stone-200/50 transition-colors"
-                      >
-                        <span className="text-forest-800 flex-shrink-0">{item.icon}</span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium text-forest-800">{item.label}</span>
-                          <span className="block text-xs text-charcoal-400 mt-0.5">{item.desc}</span>
-                        </span>
-                        <ArrowRight size={14} className="text-stone-300 flex-shrink-0" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </section>
+      {/* Quick Links Section */}
+      <section className="p-5 rounded-2xl bg-white border border-stone-200/80 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xs font-bold text-charcoal-400 uppercase tracking-wider">
+            เมนูด่วนสำหรับผู้ดูแลระบบ
+          </h2>
+          <span className="text-[11px] text-stone-400 font-medium">
+            5 รายการ
+          </span>
+        </div>
 
-        {/* Bookings table */}
-        <section>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <h2 className="font-display text-xl font-semibold text-forest-800">รายการจอง</h2>
-            <div className="flex gap-1 p-1 rounded-lg bg-cream-100 border border-stone-200 w-fit">
-              {([
-                { key: 'bookings' as const, label: `ห้องพัก (${roomBookings.length})` },
-                { key: 'kayaks' as const, label: `เรือ (${kayakBookings.length})` },
-              ]).map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => setTab(t.key)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    tab === t.key
-                      ? 'bg-forest-800 text-cream-100'
-                      : 'text-charcoal-400 hover:text-forest-800'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="space-y-2 rounded-xl border border-stone-200 bg-cream-100 p-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-12 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--color-stone-200)' }} />
-              ))}
-            </div>
-          ) : tab === 'bookings' ? (
-            <div className="rounded-xl border border-stone-200 bg-cream-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-stone-200 text-left">
-                      {['#', 'ลูกค้า', 'ห้อง', 'เช็คอิน', 'เช็คเอาต์', 'ราคา', 'สถานะ', 'ผู้ยืนยัน', 'สลิป'].map((h) => (
-                        <th key={h} className="px-4 py-3 text-xs font-medium text-charcoal-400 whitespace-nowrap">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {roomBookings.length === 0 ? (
-                      <tr>
-                        <td colSpan={9} className="px-4 py-16 text-center text-charcoal-400">
-                          ยังไม่มีรายการจองห้องพัก
-                        </td>
-                      </tr>
-                    ) : (
-                      roomBookings.map((b) => (
-                        <tr
-                          key={b.id || b.room_booking_id}
-                          className="border-b border-stone-200/70 last:border-0 hover:bg-stone-100/50 transition-colors"
-                        >
-                          <td className="px-4 py-3 text-charcoal-400 tabular-nums">#{b.id || b.room_booking_id}</td>
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-forest-800">{b.user_name || '-'}</p>
-                            <p className="text-xs text-charcoal-400">{b.user_email || ''}</p>
-                          </td>
-                          <td className="px-4 py-3 text-charcoal">{b.room_name || b.type_name || '-'}</td>
-                          <td className="px-4 py-3 text-charcoal-400 whitespace-nowrap">
-                            {formatDate(b.check_in_date || b.check_in)}
-                          </td>
-                          <td className="px-4 py-3 text-charcoal-400 whitespace-nowrap">
-                            {formatDate(b.check_out_date || b.check_out)}
-                          </td>
-                          <td className="px-4 py-3 font-medium text-forest-800 tabular-nums whitespace-nowrap">
-                            {formatMoney(b.total_price)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusClass[b.status] || 'bg-stone-100 text-charcoal-400'}`}>
-                              {statusLabel[b.status] || b.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-charcoal">
-                            {b.approved_by_name || <span className="text-stone-300">-</span>}
-                          </td>
-                          <td className="px-4 py-3">
-                            {b.payment_slip ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setSlipModal({
-                                    open: true,
-                                    url: resolveMediaUrl(b.payment_slip),
-                                    name: b.user_name || 'slip',
-                                  })
-                                }
-                                className="text-xs font-medium text-forest-800 underline underline-offset-2 hover:text-lagoon-600"
-                              >
-                                ดูสลิป
-                              </button>
-                            ) : (
-                              <span className="text-xs text-stone-300">ไม่มี</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-stone-200 bg-cream-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-stone-200 text-left">
-                      {['#', 'ลูกค้า', 'เรือ', 'วันที่', 'เวลา', 'ราคา', 'สถานะ', 'ผู้ยืนยัน', 'สลิป'].map((h) => (
-                        <th key={h} className="px-4 py-3 text-xs font-medium text-charcoal-400 whitespace-nowrap">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {kayakBookings.length === 0 ? (
-                      <tr>
-                        <td colSpan={9} className="px-4 py-16 text-center text-charcoal-400">
-                          ยังไม่มีรายการจองเรือ
-                        </td>
-                      </tr>
-                    ) : (
-                      kayakBookings.map((b) => (
-                        <tr
-                          key={b.boat_booking_id}
-                          className="border-b border-stone-200/70 last:border-0 hover:bg-stone-100/50 transition-colors"
-                        >
-                          <td className="px-4 py-3 text-charcoal-400 tabular-nums">#{b.boat_booking_id}</td>
-                          <td className="px-4 py-3">
-                            <p className="font-medium text-forest-800">{b.user_name || '-'}</p>
-                            <p className="text-xs text-charcoal-400">{b.user_email || ''}</p>
-                          </td>
-                          <td className="px-4 py-3 text-charcoal">{b.kayak_name || '-'}</td>
-                          <td className="px-4 py-3 text-charcoal-400 whitespace-nowrap">
-                            {formatDate(b.booking_date)}
-                          </td>
-                          <td className="px-4 py-3 text-charcoal-400 whitespace-nowrap tabular-nums">
-                            {b.start_time ? `${b.start_time.slice(0, 5)}-${b.end_time?.slice(0, 5) || ''}` : '-'}
-                          </td>
-                          <td className="px-4 py-3 font-medium text-forest-800 tabular-nums whitespace-nowrap">
-                            {formatMoney(b.total_price)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${statusClass[b.status] || 'bg-stone-100 text-charcoal-400'}`}>
-                              {statusLabel[b.status] || b.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-charcoal">
-                            {b.approved_by_name || <span className="text-stone-300">-</span>}
-                          </td>
-                          <td className="px-4 py-3">
-                            {b.payment_slip ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setSlipModal({
-                                    open: true,
-                                    url: resolveMediaUrl(b.payment_slip),
-                                    name: b.user_name || 'slip',
-                                  })
-                                }
-                                className="text-xs font-medium text-forest-800 underline underline-offset-2 hover:text-lagoon-600"
-                              >
-                                ดูสลิป
-                              </button>
-                            ) : (
-                              <span className="text-xs text-stone-300">ไม่มี</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </section>
-      </div>
-
-      {slipModal.open && (
-        <div
-          className="fixed inset-0 bg-forest-900/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setSlipModal({ open: false, url: '', name: '' })}
-        >
-          <div
-            className="bg-cream-100 rounded-xl max-w-lg w-full overflow-hidden border border-stone-200 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+        {/* Responsive Grid: 2 คอลัมน์ (มือถือ) -> 3 คอลัมน์ (แท็บเล็ต) -> 5 คอลัมน์ (จอใหญ่) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* 1. ปฏิทินการจองรวม */}
+          <button
+            type="button"
+            onClick={() => router.push("/admin/calendar")}
+            className="p-3.5 rounded-xl bg-stone-50/70 border border-stone-200/60 hover:bg-white hover:border-forest-800/40 hover:shadow-md text-left transition-all duration-200 group flex flex-col justify-between"
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200">
-              <h3 className="font-display font-semibold text-forest-800">
-                สลิป - {slipModal.name}
-              </h3>
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-lg bg-emerald-50 text-forest-800 flex items-center justify-center group-hover:bg-forest-800 group-hover:text-white transition-colors">
+                  <CalendarIcon size={18} />
+                </div>
+                <ChevronRight
+                  size={14}
+                  className="text-stone-300 group-hover:text-forest-800 group-hover:translate-x-0.5 transition-all"
+                />
+              </div>
+              <p className="text-xs font-bold text-charcoal-800 group-hover:text-forest-800 transition-colors">
+                ปฏิทินการจองรวม
+              </p>
+              <p className="text-[10px] text-charcoal-400 mt-0.5 line-clamp-1">
+                ดูผังห้องและเรือ
+              </p>
+            </div>
+          </button>
+
+          {/* 2. จัดการสมาชิก */}
+          <button
+            type="button"
+            onClick={() => router.push("/admin/members")}
+            className="p-3.5 rounded-xl bg-stone-50/70 border border-stone-200/60 hover:bg-white hover:border-forest-800/40 hover:shadow-md text-left transition-all duration-200 group flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center group-hover:bg-teal-700 group-hover:text-white transition-colors">
+                  <UserCheck size={18} />
+                </div>
+                <ChevronRight
+                  size={14}
+                  className="text-stone-300 group-hover:text-teal-700 group-hover:translate-x-0.5 transition-all"
+                />
+              </div>
+              <p className="text-xs font-bold text-charcoal-800 group-hover:text-teal-800 transition-colors">
+                จัดการสมาชิก
+              </p>
+              <p className="text-[10px] text-charcoal-400 mt-0.5 line-clamp-1">
+                ตรวจสอบ/เปิดปิดบัญชีลูกค้า
+              </p>
+            </div>
+          </button>
+
+          {/* 3. จัดการพนักงาน & สิทธิ์ */}
+          <button
+            type="button"
+            onClick={() => router.push("/admin/staff")}
+            className="p-3.5 rounded-xl bg-stone-50/70 border border-stone-200/60 hover:bg-white hover:border-forest-800/40 hover:shadow-md text-left transition-all duration-200 group flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center group-hover:bg-indigo-700 group-hover:text-white transition-colors">
+                  <Users size={18} />
+                </div>
+                <ChevronRight
+                  size={14}
+                  className="text-stone-300 group-hover:text-indigo-700 group-hover:translate-x-0.5 transition-all"
+                />
+              </div>
+              <p className="text-xs font-bold text-charcoal-800 group-hover:text-indigo-800 transition-colors">
+                จัดการพนักงาน & สิทธิ์
+              </p>
+              <p className="text-[10px] text-charcoal-400 mt-0.5 line-clamp-1">
+                เพิ่ม/ลบ และกำหนด Admin/Staff
+              </p>
+            </div>
+          </button>
+
+          {/* 4. โปรโมชั่น */}
+          <button
+            type="button"
+            onClick={() => router.push("/admin/promotions")}
+            className="p-3.5 rounded-xl bg-stone-50/70 border border-stone-200/60 hover:bg-white hover:border-forest-800/40 hover:shadow-md text-left transition-all duration-200 group flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                  <Tag size={18} />
+                </div>
+                <ChevronRight
+                  size={14}
+                  className="text-stone-300 group-hover:text-amber-700 group-hover:translate-x-0.5 transition-all"
+                />
+              </div>
+              <p className="text-xs font-bold text-charcoal-800 group-hover:text-amber-800 transition-colors">
+                โปรโมชั่น
+              </p>
+              <p className="text-[10px] text-charcoal-400 mt-0.5 line-clamp-1">
+                จัดการส่วนลดและคูปอง
+              </p>
+            </div>
+          </button>
+
+          {/* 5. รายงานสถิติ */}
+          <button
+            type="button"
+            onClick={() => router.push("/admin/stats")}
+            className="p-3.5 rounded-xl bg-stone-50/70 border border-stone-200/60 hover:bg-white hover:border-forest-800/40 hover:shadow-md text-left transition-all duration-200 group flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-9 h-9 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center group-hover:bg-sky-700 group-hover:text-white transition-colors">
+                  <BarChart3 size={18} />
+                </div>
+                <ChevronRight
+                  size={14}
+                  className="text-stone-300 group-hover:text-sky-700 group-hover:translate-x-0.5 transition-all"
+                />
+              </div>
+              <p className="text-xs font-bold text-charcoal-800 group-hover:text-sky-800 transition-colors">
+                รายงานสถิติ
+              </p>
+              <p className="text-[10px] text-charcoal-400 mt-0.5 line-clamp-1">
+                วิเคราะห์เชิงลึก & ส่งออก CSV
+              </p>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      {/* Modal รายละเอียดรายการค้างชำระ */}
+      {showPendingModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl border border-stone-100 max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center pb-4 border-b border-stone-100">
+              <div className="flex items-center gap-2 text-amber-700 font-bold">
+                <Clock size={20} />
+                <span>รายการติดตามค้างชำระ / รออนุมัติ</span>
+              </div>
               <button
-                type="button"
-                onClick={() => setSlipModal({ open: false, url: '', name: '' })}
-                className="p-1.5 rounded-lg text-charcoal-400 hover:bg-stone-100 hover:text-forest-800 transition-colors"
-                aria-label="ปิด"
+                onClick={() => setShowPendingModal(false)}
+                className="p-1 rounded-lg text-charcoal-400 hover:bg-stone-100 transition-colors"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
-            <div className="p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={slipModal.url}
-                alt="payment slip"
-                className="w-full rounded-lg object-contain max-h-[70vh]"
-                referrerPolicy="no-referrer"
-                crossOrigin="anonymous"
-              />
+
+            <div className="overflow-y-auto space-y-4 my-4 pr-1 flex-1">
+              {/* รายการห้องพัก */}
+              <div>
+                <h3 className="text-xs font-bold text-charcoal-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Home size={14} className="text-forest-800" /> ห้องพัก (
+                  {pendingRoomsList.length} รายการ)
+                </h3>
+                {pendingRoomsList.length === 0 ? (
+                  <p className="text-xs text-charcoal-400 italic bg-stone-50 p-3 rounded-xl">
+                    ไม่มีรายการห้องพักค้างชำระ
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {pendingRoomsList.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-3 bg-stone-50 rounded-xl border border-stone-200/60 flex justify-between items-center text-xs"
+                      >
+                        <div>
+                          <p className="font-bold text-charcoal-800">
+                            {item.customer_name ||
+                              item.user?.name ||
+                              `การจอง #${item.id}`}
+                          </p>
+                          <p className="text-charcoal-400 text-[11px] mt-0.5">
+                            เช็คอิน: {item.check_in}
+                          </p>
+                          {item.phone && (
+                            <p className="text-charcoal-400 text-[11px] flex items-center gap-1 mt-0.5">
+                              <Phone size={10} /> {item.phone}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-amber-700">
+                            {formatMoney(item.total_price)}
+                          </p>
+                          <span className="inline-block mt-1 px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md text-[10px] font-medium">
+                            {item.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* รายการเรือ */}
+              <div>
+                <h3 className="text-xs font-bold text-charcoal-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Sailboat size={14} className="text-lagoon-600" /> เรือคายัค (
+                  {pendingKayaksList.length} รายการ)
+                </h3>
+                {pendingKayaksList.length === 0 ? (
+                  <p className="text-xs text-charcoal-400 italic bg-stone-50 p-3 rounded-xl">
+                    ไม่มีรายการเรือคายัคค้างชำระ
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {pendingKayaksList.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-3 bg-stone-50 rounded-xl border border-stone-200/60 flex justify-between items-center text-xs"
+                      >
+                        <div>
+                          <p className="font-bold text-charcoal-800">
+                            {item.customer_name ||
+                              item.user?.name ||
+                              `การจอง #${item.id}`}
+                          </p>
+                          <p className="text-charcoal-400 text-[11px] mt-0.5">
+                            วันจอง: {item.booking_date}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-amber-700">
+                            {formatMoney(item.total_price)}
+                          </p>
+                          <span className="inline-block mt-1 px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md text-[10px] font-medium">
+                            {item.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-stone-100 text-right">
+              <button
+                onClick={() => setShowPendingModal(false)}
+                className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-charcoal-700 font-semibold text-xs rounded-xl transition-colors"
+              >
+                ปิดหน้าต่าง
+              </button>
             </div>
           </div>
         </div>

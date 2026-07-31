@@ -21,7 +21,13 @@ const AUTH_PATHS_WITHOUT_CHROME = new Set([
 
 export default function AppShell({ children }: AppShellProps): ReactNode {
   const pathname = usePathname();
-  const hideChrome = AUTH_PATHS_WITHOUT_CHROME.has(pathname);
+
+  // เช็คว่า path ปัจจุบันเป็นหน้า Auth หรือ เป็นหน้า Admin หรือไม่
+  const isAuthPage = AUTH_PATHS_WITHOUT_CHROME.has(pathname);
+  const isAdminPage = pathname?.startsWith('/admin');
+
+  // ถ้าเป็นหน้า Auth หรือ Admin ให้ซ่อน Navbar และ Footer
+  const hideChrome = isAuthPage || isAdminPage;
 
   return (
     <AuthProvider>
