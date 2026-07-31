@@ -17,7 +17,6 @@ import {
   MessageCircle,
   Phone,
   User,
-  Waves,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -142,13 +141,10 @@ export default function RegisterPage(): React.ReactElement | null {
         <section className="lg:overflow-y-auto">
           <div className="flex min-h-full items-center justify-center px-6 py-10 sm:px-10 lg:px-14 lg:py-12">
             <div className="w-full max-w-[480px] animate-fade-in">
-              <div className="mb-8">
-                <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-full bg-forest-800 text-cream-100">
-                  <Waves size={21} aria-hidden="true" />
-                </div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-lagoon-700">
-                  Create account
-                </p>
+            <div className="mb-8">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-lagoon-700">
+                Create account
+              </p>
                 <h2 className="text-3xl font-semibold text-charcoal sm:text-4xl">
                   สมัครสมาชิก
                 </h2>
