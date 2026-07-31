@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { MapPin, Phone, Mail, Facebook } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveFacebookLink } from '@/lib/social';
+import Image from 'next/image';
 
 interface ResortContact {
   name?: string;
