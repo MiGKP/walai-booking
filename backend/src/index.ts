@@ -23,6 +23,7 @@ import uploadRoutes from './routes/upload.routes';
 import reviewRoutes from './routes/review.routes';
 import settingsRoutes from './routes/settings.routes';
 import promotionRoutes from './routes/promotion.routes';
+import memberRoutes from './routes/member.routes';
 
 import './config/passport';
 import { startReviewReminderJob } from './services/review-reminder.service';
@@ -114,6 +115,7 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/promotions', promotionRoutes);
+app.use('/api/members', memberRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Walai Booking API is running' });
