@@ -38,3 +38,5 @@ frontend/.vercel/
 
 # Next.js generated types (recreated on build)
 frontend/next-env.d.ts
+.vercel
+.env*
