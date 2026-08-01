@@ -215,12 +215,21 @@ export default function StaffManagementPage() {
   };
 
   const openEditModal = (staff: any) => {
+    let firstName = staff.first_name || "";
+    let lastName = staff.last_name || "";
+
+    // ถ้าไม่มี first_name แต่มี name ให้ทำการแยกด้วยช่องว่าง
+    if (!firstName && staff.name) {
+      const parts = staff.name.trim().split(" ");
+      firstName = parts[0] || "";
+      lastName = parts.slice(1).join(" ") || "";
+    }
+
     setEditingStaff({
       id: staff.id,
-      first_name:
-        `${staff.first_name || ""} ${staff.last_name || ""}`.trim() ||
-        staff.name ||
-        "",
+      name: staff.name || `${firstName} ${lastName}`.trim(),
+      first_name: firstName,
+      last_name: lastName,
       email: staff.email,
       phone: staff.phone || "",
       role: staff.role,
@@ -338,7 +347,9 @@ export default function StaffManagementPage() {
               <UserPlus size={18} className="text-emerald-200" />
             </div>
             <div>
-              <h2 className="text-sm font-bold">เพิ่มพนักงานใหม่</h2>
+              <h2 className="text-base font-semibold tracking-wide">
+                เพิ่มพนักงานใหม่
+              </h2>{" "}
               <p className="text-[11px] text-emerald-100/80">
                 กรอกข้อมูลเพื่อสร้างบัญชีผู้ใช้งานใหม่
               </p>
@@ -504,7 +515,7 @@ export default function StaffManagementPage() {
           {/* Header & Tabs & Search/Status Filters */}
           <div className="p-4 border-b border-stone-100 space-y-3 shrink-0">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-stone-800">
+              <h2 className="text-base font-semibold text-stone-800">
                 รายชื่อพนักงานในระบบ
               </h2>
               <span className="text-[11px] text-stone-400 font-medium">
@@ -791,7 +802,7 @@ export default function StaffManagementPage() {
                   type="text"
                   required
                   className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c]"
-                  value={editingStaff.name}
+                  value={editingStaff?.name || ""}
                   onChange={(e) =>
                     setEditingStaff({ ...editingStaff, name: e.target.value })
                   }

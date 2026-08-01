@@ -713,14 +713,6 @@ export default function AdminMembersPage() {
                       : "-"}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>อัปเดตล่าสุด:</span>
-                  <span className="font-semibold text-stone-700">
-                    {detailModal.data.updated_at
-                      ? new Date(detailModal.data.updated_at).toLocaleString("th-TH")
-                      : "-"}
-                  </span>
-                </div>
               </div>
             </div>
 

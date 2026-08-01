@@ -22,6 +22,34 @@ import { resolveMediaUrl } from '@/lib/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 
+// ----------------------------------------------------------------------
+// ฟังก์ชันแก้เรื่อง Timezone +7 (เวลาไทย) อย่างเด็ดขาด
+// ----------------------------------------------------------------------
+
+// Helper: แปลงวันที่จาก DB ให้เป็น Date Object ในเวลาไทย (+7 Hours)
+const parseLocalDate = (dateInput: any) => {
+  if (!dateInput) return new Date();
+  
+  // แปลง input เป็น Date Object
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return new Date();
+
+  // ถ้าเป็น ISO String หรือมี Timezone ติดมา ให้บวก offset ของไทย (+7 ชม.) ป้องกัน UTC ถอยหลัง
+  // วิธีนี้จะแปลงเวลา UTC 17:00 วันที่ 2 ให้กลายเป็น 00:00 วันที่ 3 สิงหาคม อย่างถูกต้อง
+  const thaiDate = new Date(d.getTime() + (7 * 60 * 60 * 1000));
+  
+  // ล้างค่าเวลาให้เหลือ 00:00:00 ของวันนั้นๆ
+  return new Date(thaiDate.getUTCFullYear(), thaiDate.getUTCMonth(), thaiDate.getUTCDate());
+};
+
+// Helper: Format Date เป็น YYYY-MM-DD โดยไม่อิง ISO UTC
+const formatDateToYYYYMMDD = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 // map ชื่อสถานะที่ใช้แสดงบน UI
 const statusLabel: Record<string, string> = {
   approved: 'ยืนยันแล้ว',
@@ -49,7 +77,6 @@ export default function AdminCalendarPage() {
   const [kayakBookings, setKayakBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // State สำหรับ Modal รายละเอียดและการส่องดูสลิป
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [slipModal, setSlipModal] = useState<{ open: boolean; url: string; name: string }>({ open: false, url: '', name: '' });
 
@@ -69,8 +96,7 @@ export default function AdminCalendarPage() {
       setKayakBookings(kb.data?.data || []);
     } catch {
       toast.error('ไม่สามารถโหลดข้อมูลปฏิทินได้');
-    } 
-    finally {
+    } finally {
       setLoading(false);
     }
   };
@@ -86,11 +112,11 @@ export default function AdminCalendarPage() {
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const goToToday = () => setCurrentDate(new Date());
 
-  // รวมและ Normalize Event — *** แตกช่วงวันที่เข้าพัก (Multi-day support) ***
+  // รวมและ Normalize Event
   const events = useMemo(() => {
     const list: any[] = [];
 
-    // 1. กรองคิวห้องพัก (รองรับการจองหลายวัน)
+    // 1. กรองคิวห้องพัก
     if (filterType === 'all' || filterType === 'rooms') {
       roomBookings.forEach((b) => {
         const isApprovedStatus = ['approved', 'checked_in', 'checked_out'].includes(b.status);
@@ -100,20 +126,19 @@ export default function AdminCalendarPage() {
         const customerName = b.user_name || b.customer_name || 'ลูกค้าทั่วไป';
         const roomTitle = b.room_name || b.type_name || b.room_type_name || `ห้อง #${b.room_id || b.room_number || ''}`;
 
-        // แปลงเป็น Date Object
-        const start = new Date(b.check_in);
-        // ถ้าไม่มี check_out ให้ถือนับแค่ 1 วัน
-        const end = b.check_out ? new Date(b.check_out) : new Date(start);
+        // แปลงวันที่โดยปรับ Timezone +7 ชดเชย UTC
+        const start = parseLocalDate(b.check_in);
+        const end = b.check_out ? parseLocalDate(b.check_out) : new Date(start);
 
-        // คำนวณจำนวนคืนทั้งหมด
+        // คำนวณจำนวนคืน
         const totalNights = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
 
-        // วน Loop สร้าง Event รายวัน ตั้งแต่วันเช็คอิน จนถึงวันก่อนเช็คเอาต์
+        // วน Loop รายวัน
         const curr = new Date(start);
         let nightCount = 1;
 
         while (curr < end || (totalNights === 1 && nightCount === 1)) {
-          const dateStr = curr.toISOString().split('T')[0];
+          const dateStr = formatDateToYYYYMMDD(curr);
           
           let nightLabel = '';
           if (totalNights > 1) {
@@ -141,17 +166,16 @@ export default function AdminCalendarPage() {
           curr.setDate(curr.getDate() + 1);
           nightCount++;
 
-          // หลุดลูปป้องกันกรณี Infinity Loop
-          if (nightCount > 31) break; 
+          if (nightCount > 31) break;
         }
       });
     }
 
-    // 2. กรองคิวเรือ / คายัค (ส่วนใหญ่เป็นรายวัน/รายรอบ)
+    // 2. กรองคิวเรือ / คายัค
     if (filterType === 'all' || filterType === 'kayaks') {
       kayakBookings.forEach((b) => {
         const isApprovedStatus = ['approved', 'checked_out', 'completed'].includes(b.status);
-        if (!isApprovedStatus) return;
+        if (!isApprovedStatus || !b.booking_date) return;
 
         const bookingId = b.boat_booking_id || b.kayak_booking_id || b.id;
         const customerName = b.user_name || b.customer_name || 'ลูกค้าทั่วไป';
@@ -161,12 +185,14 @@ export default function AdminCalendarPage() {
           ? (b.end_time ? `(${b.start_time.slice(0, 5)} - ${b.end_time.slice(0, 5)})` : `(${b.start_time.slice(0, 5)})`)
           : '';
 
+        const dateStr = formatDateToYYYYMMDD(parseLocalDate(b.booking_date));
+
         list.push({
           id: `kayak-${bookingId}`,
           bookingId: bookingId,
           type: 'kayak',
           title: `🚣 ${boatTitle} - ${customerName} ${timeFormatted}`,
-          dateStr: b.booking_date ? new Date(b.booking_date).toISOString().split('T')[0] : '',
+          dateStr: dateStr,
           raw: {
             ...b,
             boat_title: boatTitle,
@@ -293,7 +319,7 @@ export default function AdminCalendarPage() {
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const dayNum = i + 1;
             const dateObj = new Date(year, month, dayNum);
-            const formattedDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+            const formattedDateStr = formatDateToYYYYMMDD(dateObj);
             
             const isToday = new Date().toDateString() === dateObj.toDateString();
             const dayEvents = eventsByDate[formattedDateStr] || [];
@@ -418,9 +444,9 @@ export default function AdminCalendarPage() {
                     <Clock size={15} className="text-stone-400 shrink-0" />
                     <span className="font-semibold text-charcoal-800">เช็คอิน - เช็คเอาต์:</span>
                     <span>
-                      {selectedEvent.raw.check_in ? new Date(selectedEvent.raw.check_in).toLocaleDateString('th-TH') : '-'} 
+                      {selectedEvent.raw.check_in ? parseLocalDate(selectedEvent.raw.check_in).toLocaleDateString('th-TH') : '-'} 
                       {' ถึง '}
-                      {selectedEvent.raw.check_out ? new Date(selectedEvent.raw.check_out).toLocaleDateString('th-TH') : '-'}
+                      {selectedEvent.raw.check_out ? parseLocalDate(selectedEvent.raw.check_out).toLocaleDateString('th-TH') : '-'}
                     </span>
                   </div>
                 </>
@@ -438,7 +464,7 @@ export default function AdminCalendarPage() {
                     <Clock size={15} className="text-stone-400 shrink-0" />
                     <span className="font-semibold text-charcoal-800">วันที่ / รอบเวลา:</span>
                     <span>
-                      {selectedEvent.raw.booking_date ? new Date(selectedEvent.raw.booking_date).toLocaleDateString('th-TH') : '-'}
+                      {selectedEvent.raw.booking_date ? parseLocalDate(selectedEvent.raw.booking_date).toLocaleDateString('th-TH') : '-'}
                       {selectedEvent.raw.time_formatted && ` ${selectedEvent.raw.time_formatted}`}
                     </span>
                   </div>
