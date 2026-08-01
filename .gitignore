@@ -29,5 +29,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Vercel local link metadata (contains project ids; use GitHub Secrets instead)
+.vercel/
+frontend/.vercel/
+
 # Next.js generated types (recreated on build)
 frontend/next-env.d.ts

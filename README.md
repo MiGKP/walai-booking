@@ -179,6 +179,39 @@ App default: `http://localhost:3000`
 
 ---
 
+## Collaboration and deployment
+
+Production branch is `main`.
+
+- Teammates need GitHub **Write** access on this repository.
+- Keep local copies updated with `git pull origin main`.
+- Prefer short feature branches and pull requests into `main`.
+- See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full workflow.
+
+### Frontend (Vercel) without Pro
+
+Vercel Hobby blocks automatic Git deploys from collaborators on private repositories. This project deploys the frontend with GitHub Actions instead, using the owner’s Vercel token.
+
+Required GitHub Actions secrets:
+
+| Secret | Where to get it |
+| --- | --- |
+| `VERCEL_TOKEN` | Vercel → Account Settings → Tokens |
+| `VERCEL_ORG_ID` | `.vercel/project.json` after `vercel link` in `frontend/` |
+| `VERCEL_PROJECT_ID` | same file |
+
+Workflow file: `.github/workflows/deploy-frontend.yml`
+
+After secrets are set, any push to `main` that changes `frontend/**` deploys production.
+
+In the Vercel project, turn off automatic Git deployments for Production so owner pushes are not deployed twice (Actions already deploys). Keep the Git connection for project metadata if needed.
+
+### Backend
+
+Point your API host (for example Render) at the same GitHub repository and deploy branch `main`, so backend changes also publish when `main` updates.
+
+---
+
 ## Security notes
 
 - Keep `.env` files out of version control.
