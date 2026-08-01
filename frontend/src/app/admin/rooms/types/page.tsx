@@ -1,121 +1,269 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Home, Edit2, Trash2, X } from 'lucide-react';
-import api from '@/lib/api';
-import { resolveMediaUrl } from '@/lib/avatar';
-import { useAuthGuard } from '@/hooks/useAuthGuard';
-import toast from 'react-hot-toast';
-import Link from 'next/link';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Plus,
+  PlusCircle,
+  Edit3,
+  Trash2,
+  X,
+  Search,
+  Image as ImageIcon,
+  Layers,
+  AlertTriangle,
+  Users,
+  UploadCloud,
+  Loader2,
+  Eye,
+} from "lucide-react";
+import api from "@/lib/api";
+import { resolveMediaUrl } from "@/lib/avatar";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import toast from "react-hot-toast";
+import Link from "next/link";
+
+// Constants & Validation Rules
+const VALID_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_GALLERY_COUNT = 5;
 
 export default function RoomTypesPage() {
   const router = useRouter();
-  const { ready } = useAuthGuard({ allowedRoles: ['admin'] });
+  const { ready } = useAuthGuard({ allowedRoles: ["admin"] });
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [amenities, setAmenities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const [form, setForm] = useState({ 
-    type_name: '', 
-    description: '', 
-    capacity: 2, 
-    price: 0, 
-    room_image: '', 
-    gallery_images: [] as string[],
-    amenities: [] as number[]
-  });
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  // Search filter
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const [editingRoom, setEditingRoom] = useState<any>(null);
+  // Modals Open/Close States
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+
+  // Form State (Create)
+  const [form, setForm] = useState({
+    type_name: "",
+    description: "",
+    capacity: 2,
+    price: 0,
+    room_image: "",
+    gallery_images: [] as string[],
+    amenities: [] as number[],
+  });
+
+  // Create Form - File States & Drag state
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [isDraggingCover, setIsDraggingCover] = useState(false);
+
+  // Edit Modal States
+  const [editingRoom, setEditingRoom] = useState<any>(null);
   const [editCoverFile, setEditCoverFile] = useState<File | null>(null);
+  const [editCoverPreview, setEditCoverPreview] = useState<string | null>(null);
   const [editGalleryFiles, setEditGalleryFiles] = useState<File[]>([]);
+  const [editGalleryPreviews, setEditGalleryPreviews] = useState<string[]>([]);
   const [editUploading, setEditUploading] = useState(false);
+
+  // Modals (Delete Confirm & Image Lightbox)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!ready) return;
     fetchData();
   }, [ready]);
 
+  // Clean up Object URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (coverPreview) URL.revokeObjectURL(coverPreview);
+      galleryPreviews.forEach((url) => URL.revokeObjectURL(url));
+      if (editCoverPreview) URL.revokeObjectURL(editCoverPreview);
+      editGalleryPreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [coverPreview, galleryPreviews, editCoverPreview, editGalleryPreviews]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
       const [rtRes, amRes] = await Promise.all([
-        api.get('/rooms'),
-        api.get('/rooms/amenities/all')
+        api.get("/rooms"),
+        api.get("/rooms/amenities/all"),
       ]);
       setRoomTypes(rtRes.data?.data || []);
       setAmenities(amRes.data?.data || []);
     } catch {
-      toast.error('ไม่สามารถโหลดข้อมูลได้');
+      toast.error("ไม่สามารถโหลดข้อมูลได้");
     } finally {
       setLoading(false);
     }
   };
 
+  // 🛡️ Helper Validation
+  const validateFile = (file: File) => {
+    if (!VALID_IMAGE_TYPES.includes(file.type)) {
+      toast.error(`ไฟล์ ${file.name} ต้องเป็น JPG, PNG หรือ WEBP เท่านั้น`);
+      return false;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error(`ไฟล์ ${file.name} มีขนาดเกิน 5MB`);
+      return false;
+    }
+    return true;
+  };
+
+  // Handlers สำหรับรูปปก (สร้างใหม่)
+  const processCoverFile = (file: File) => {
+    if (validateFile(file)) {
+      if (coverPreview) URL.revokeObjectURL(coverPreview);
+      setCoverFile(file);
+      setCoverPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processCoverFile(file);
+  };
+
+  // Drag & Drop Handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingCover(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDraggingCover(false);
+  };
+
+  const handleDropCover = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingCover(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processCoverFile(file);
+  };
+
+  // Handlers สำหรับรูป Gallery (สร้างใหม่)
+  const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    
+    if (galleryFiles.length + selectedFiles.length > MAX_GALLERY_COUNT) {
+      toast.error(`เพิ่มรูป Gallery ได้สูงสุด ${MAX_GALLERY_COUNT} รูปเท่านั้น`);
+      return;
+    }
+
+    const validFiles = selectedFiles.filter(validateFile);
+    if (validFiles.length > 0) {
+      const newPreviews = validFiles.map((file) => URL.createObjectURL(file));
+      setGalleryFiles((prev) => [...prev, ...validFiles]);
+      setGalleryPreviews((prev) => [...prev, ...newPreviews]);
+    }
+    e.target.value = "";
+  };
+
+  const removeGalleryFile = (index: number) => {
+    if (galleryPreviews[index]) {
+      URL.revokeObjectURL(galleryPreviews[index]);
+    }
+    setGalleryFiles((prev) => prev.filter((_, i) => i !== index));
+    setGalleryPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleAmenityToggle = (id: number) => {
-    setForm(prev => {
+    setForm((prev) => {
       const isSelected = prev.amenities.includes(id);
-      if (isSelected) {
-        return { ...prev, amenities: prev.amenities.filter(a => a !== id) };
-      } else {
-        return { ...prev, amenities: [...prev.amenities, id] };
-      }
+      return {
+        ...prev,
+        amenities: isSelected
+          ? prev.amenities.filter((a) => a !== id)
+          : [...prev.amenities, id],
+      };
     });
   };
 
   const uploadImage = async (file: File) => {
     const formData = new FormData();
-    formData.append('image', file);
-    const res = await api.post('/uploads/image', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    formData.append("image", file);
+    const res = await api.post("/uploads/image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return res.data.data.url as string;
+  };
+
+  const resetCreateForm = () => {
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+    galleryPreviews.forEach((url) => URL.revokeObjectURL(url));
+
+    setForm({
+      type_name: "",
+      description: "",
+      capacity: 2,
+      price: 0,
+      room_image: "",
+      gallery_images: [],
+      amenities: [],
+    });
+    setCoverFile(null);
+    setCoverPreview(null);
+    setGalleryFiles([]);
+    setGalleryPreviews([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!coverFile) {
-      toast.error('กรุณาเลือกรูปปกห้องพัก');
+      toast.error("กรุณาเลือกรูปปกห้องพัก");
       return;
     }
 
     setSubmitting(true);
     try {
       const roomImage = await uploadImage(coverFile);
-      const galleryImages = galleryFiles.length > 0
-        ? await Promise.all(galleryFiles.map((file) => uploadImage(file)))
-        : [];
+      const galleryImages =
+        galleryFiles.length > 0
+          ? await Promise.all(galleryFiles.map((file) => uploadImage(file)))
+          : [];
 
-      await api.post('/rooms/type', {
+      await api.post("/rooms/type", {
         ...form,
         room_image: roomImage,
         gallery_images: galleryImages,
       });
 
-      toast.success('สร้างประเภทห้องพักสำเร็จ');
-      setForm({ type_name: '', description: '', capacity: 2, price: 0, room_image: '', gallery_images: [], amenities: [] });
-      setCoverFile(null);
-      setGalleryFiles([]);
+      toast.success("สร้างประเภทห้องพักสำเร็จ");
+
+      resetCreateForm();
+      setShowCreateModal(false);
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'สร้างประเภทห้องพักไม่สำเร็จ');
+      toast.error(err.response?.data?.message || "สร้างประเภทห้องพักไม่สำเร็จ");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('คุณแน่ใจหรือไม่ที่จะลบประเภทห้องพักนี้?')) return;
+  const confirmDelete = (id: string) => {
+    setDeleteTargetId(id);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTargetId) return;
     try {
-      await api.delete(`/rooms/${id}`);
-      toast.success('ลบประเภทห้องพักสำเร็จ');
+      await api.delete(`/rooms/${deleteTargetId}`);
+      toast.success("ลบประเภทห้องพักสำเร็จ");
       fetchData();
     } catch {
-      toast.error('ลบไม่สำเร็จ');
+      toast.error("ลบไม่สำเร็จ");
+    } finally {
+      setDeleteTargetId(null);
     }
   };
 
@@ -123,22 +271,69 @@ export default function RoomTypesPage() {
     setEditingRoom({
       id: rt.id,
       type_name: rt.type_name,
-      description: rt.description || '',
+      description: rt.description || "",
       capacity: rt.capacity,
       price: rt.price_per_night,
-      room_image: rt.main_image || '',
+      room_image: rt.main_image || "",
       amenity_ids: (rt.amenities || []).map((a: any) => a.id),
-      existing_gallery: Array.isArray(rt.images) ? rt.images.filter((img: string) => img !== rt.main_image) : [],
+      existing_gallery: Array.isArray(rt.images)
+        ? rt.images.filter((img: string) => img !== rt.main_image)
+        : [],
     });
     setEditCoverFile(null);
+    setEditCoverPreview(null);
     setEditGalleryFiles([]);
+    setEditGalleryPreviews([]);
     setShowEditModal(true);
+  };
+
+  const handleEditCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && validateFile(file)) {
+      if (editCoverPreview) URL.revokeObjectURL(editCoverPreview);
+      setEditCoverFile(file);
+      setEditCoverPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleEditGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    const currentTotal =
+      (editingRoom?.existing_gallery?.length || 0) +
+      editGalleryFiles.length +
+      selectedFiles.length;
+
+    if (currentTotal > MAX_GALLERY_COUNT) {
+      toast.error(`รวมรูปเดิมและรูปใหม่แล้วไม่สามารถเกิน ${MAX_GALLERY_COUNT} รูปได้`);
+      return;
+    }
+
+    const validFiles = selectedFiles.filter(validateFile);
+    if (validFiles.length > 0) {
+      const newPreviews = validFiles.map((file) => URL.createObjectURL(file));
+      setEditGalleryFiles((prev) => [...prev, ...validFiles]);
+      setEditGalleryPreviews((prev) => [...prev, ...newPreviews]);
+    }
+    e.target.value = "";
+  };
+
+  const removeEditGalleryFile = (index: number) => {
+    if (editGalleryPreviews[index]) {
+      URL.revokeObjectURL(editGalleryPreviews[index]);
+    }
+    setEditGalleryFiles((prev) => prev.filter((_, i) => i !== index));
+    setEditGalleryPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const editAmenityToggle = (id: number) => {
     setEditingRoom((prev: any) => {
       const has = prev.amenity_ids.includes(id);
-      return { ...prev, amenity_ids: has ? prev.amenity_ids.filter((a: number) => a !== id) : [...prev.amenity_ids, id] };
+      return {
+        ...prev,
+        amenity_ids: has
+          ? prev.amenity_ids.filter((a: number) => a !== id)
+          : [...prev.amenity_ids, id],
+      };
     });
   };
 
@@ -151,10 +346,14 @@ export default function RoomTypesPage() {
       if (editCoverFile) {
         roomImage = await uploadImage(editCoverFile);
       }
-      const newGalleryUrls = editGalleryFiles.length > 0
-        ? await Promise.all(editGalleryFiles.map((f) => uploadImage(f)))
-        : [];
-      const finalGallery = [...(editingRoom.existing_gallery || []), ...newGalleryUrls];
+      const newGalleryUrls =
+        editGalleryFiles.length > 0
+          ? await Promise.all(editGalleryFiles.map((f) => uploadImage(f)))
+          : [];
+      const finalGallery = [
+        ...(editingRoom.existing_gallery || []),
+        ...newGalleryUrls,
+      ];
       await api.put(`/rooms/${editingRoom.id}`, {
         type_name: editingRoom.type_name,
         room_name: editingRoom.type_name,
@@ -166,282 +365,877 @@ export default function RoomTypesPage() {
         gallery_images: finalGallery,
         status: true,
       });
-      toast.success('แก้ไขประเภทห้องพักสำเร็จ');
+      toast.success("แก้ไขประเภทห้องพักสำเร็จ");
+
+      if (editCoverPreview) URL.revokeObjectURL(editCoverPreview);
+      editGalleryPreviews.forEach((url) => URL.revokeObjectURL(url));
+
       setShowEditModal(false);
       setEditingRoom(null);
       setEditCoverFile(null);
+      setEditCoverPreview(null);
       setEditGalleryFiles([]);
+      setEditGalleryPreviews([]);
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'แก้ไขไม่สำเร็จ');
+      toast.error(err.response?.data?.message || "แก้ไขไม่สำเร็จ");
     } finally {
       setEditUploading(false);
     }
   };
 
+  const filteredRoomTypes = roomTypes.filter((rt) => {
+    const searchLower = searchQuery.toLowerCase().trim();
+    return (
+      !searchQuery ||
+      (rt.type_name && rt.type_name.toLowerCase().includes(searchLower)) ||
+      (rt.description && rt.description.toLowerCase().includes(searchLower))
+    );
+  });
+
+  if (!ready) return null;
+
   return (
-    <div className="min-h-screen pt-16 bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => router.push('/admin')} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-            <ArrowLeft className="text-gray-600" />
+    <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
+      {/* Header & Page Title */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200/80">
+        <div>
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
+            จัดการประเภทห้องพัก
+          </h1>
+          <p className="text-stone-400 mt-0.5 text-xs md:text-sm">
+            เพิ่ม ดู และแก้ไขประเภทห้องพักในระบบสวนวลัยรุกขเวช
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2.5 bg-[#0b3b2c] hover:bg-[#07271d] text-white rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-2"
+          >
+            <Plus size={16} />
+            เพิ่มประเภทห้องพัก
           </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">จัดการประเภทห้องพัก</h1>
-            <p className="text-gray-500 mt-1">เพิ่มและแก้ไขประเภทห้องพักหลัก</p>
-          </div>
-        </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex gap-2 mb-6 bg-white p-2 rounded-xl shadow-sm w-fit border border-gray-100">
-          <Link href="/admin/rooms/types" className="px-4 py-2 rounded-lg text-sm font-medium bg-teal-50 text-teal-700">ประเภทห้องพัก</Link>
-          <Link href="/admin/rooms/single" className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">จัดการรายห้อง</Link>
-          <Link href="/admin/rooms/amenities" className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">สิ่งอำนวยความสะดวก</Link>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Create Form */}
-          <div className="card p-6 lg:col-span-1 h-fit">
-            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <Home size={20} className="text-teal-600" />
-              เพิ่มประเภทห้องใหม่
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ประเภทห้อง (เช่น วิลล่า, เต็นท์)</label>
-                <input type="text" required className="input-field" value={form.type_name} onChange={(e) => setForm({ ...form, type_name: e.target.value })} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">รายละเอียด</label>
-                <textarea className="input-field" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ผู้เข้าพัก (คน)</label>
-                  <input type="number" required min="1" className="input-field" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ราคา/คืน</label>
-                  <input type="number" required min="0" className="input-field" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">รูปปกห้องพัก</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  required
-                  className="input-field"
-                  onChange={(e) => setCoverFile(e.target.files?.[0] || null)}
-                />
-                {coverFile && <p className="mt-1 text-xs text-gray-500">ไฟล์ที่เลือก: {coverFile.name}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">รูปเพิ่มเติมสำหรับ member</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="input-field"
-                  onChange={(e) => setGalleryFiles(Array.from(e.target.files || []))}
-                />
-                {galleryFiles.length > 0 && (
-                  <div className="mt-2 space-y-1 text-xs text-gray-500">
-                    {galleryFiles.map((file) => (
-                      <p key={`${file.name}-${file.lastModified}`}>{file.name}</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-              
-              {/* Amenities Multi-select */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">สิ่งอำนวยความสะดวก</label>
-                {amenities.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-3 border border-gray-200 rounded-xl bg-gray-50">
-                    {amenities.map(am => (
-                      <label key={am.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-white p-1 rounded">
-                        <input 
-                          type="checkbox" 
-                          className="rounded text-teal-600 focus:ring-teal-500"
-                          checked={form.amenities.includes(am.id)}
-                          onChange={() => handleAmenityToggle(am.id)}
-                        />
-                        <span className="text-gray-700">{am.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-xl border border-gray-200 text-center">
-                    ยังไม่มีสิ่งอำนวยความสะดวกในระบบ
-                  </div>
-                )}
-              </div>
-
-              <button type="submit" disabled={submitting} className="btn-primary w-full mt-4 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 disabled:cursor-not-allowed">
-                {submitting ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
-              </button>
-            </form>
-          </div>
-          
-          {/* Table */}
-          <div className="lg:col-span-2">
-            <div className="card overflow-hidden">
-              <div className="p-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-700">
-                รายการประเภทห้องพักทั้งหมด
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-white border-b border-gray-100">
-                    <tr>
-                      <th className="text-left px-4 py-3 font-semibold text-gray-600">ประเภทห้อง</th>
-                      <th className="text-left px-4 py-3 font-semibold text-gray-600">ผู้เข้าพัก</th>
-                      <th className="text-left px-4 py-3 font-semibold text-gray-600">ราคา</th>
-                      <th className="text-right px-4 py-3 font-semibold text-gray-600">จัดการ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50 bg-white">
-                    {loading ? (
-                       <tr><td colSpan={4} className="p-4 text-center text-gray-500">กำลังโหลด...</td></tr>
-                    ) : roomTypes.length === 0 ? (
-                       <tr><td colSpan={4} className="p-4 text-center text-gray-500">ยังไม่มีข้อมูล</td></tr>
-                    ) : (
-                      roomTypes.map((rt: any) => (
-                        <tr key={rt.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-3 font-medium text-gray-900">{rt.type_name}</td>
-                          <td className="px-4 py-3 text-gray-600">{rt.capacity} คน</td>
-                          <td className="px-4 py-3 text-teal-600 font-semibold">฿{Number(rt.price_per_night).toLocaleString()}</td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button onClick={() => openEditRoom(rt)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="แก้ไข">
-                                <Edit2 size={16} />
-                              </button>
-                              <button onClick={() => handleDelete(rt.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="ลบ">
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+          <div className="p-2.5 bg-white rounded-xl border border-stone-200/80 shadow-2xs flex items-center gap-3">
+            <div className="w-7 h-7 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
+              <Layers size={16} />
+            </div>
+            <div>
+              <span className="text-[10px] font-semibold text-stone-400 block leading-tight">
+                ทั้งหมด
+              </span>
+              <span className="text-xs font-bold text-[#0b3b2c]">
+                {roomTypes.length} รายการ
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Edit Room Type Modal */}
-      {showEditModal && editingRoom && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-              <h3 className="text-lg font-bold text-gray-900">แก้ไขประเภทห้องพัก</h3>
-              <button onClick={() => { setShowEditModal(false); setEditingRoom(null); }} className="p-1 hover:bg-gray-200 rounded-full transition-colors">
-                <X size={20} className="text-gray-500" />
+      {/* Navigation Sub-Tabs */}
+      <div className="flex items-center gap-1.5 p-1 bg-stone-100/80 rounded-xl overflow-x-auto text-xs w-fit border border-stone-200/60">
+        <Link
+          href="/admin/rooms/types"
+          className="px-3.5 py-1.5 rounded-lg font-bold bg-white text-[#0b3b2c] shadow-2xs transition-all whitespace-nowrap"
+        >
+          ประเภทห้องพัก
+        </Link>
+        <Link
+          href="/admin/rooms/single"
+          className="px-3.5 py-1.5 rounded-lg font-bold text-stone-500 hover:text-stone-800 transition-all whitespace-nowrap"
+        >
+          จัดการรายห้อง
+        </Link>
+        <Link
+          href="/admin/rooms/amenities"
+          className="px-3.5 py-1.5 rounded-lg font-bold text-stone-500 hover:text-stone-800 transition-all whitespace-nowrap"
+        >
+          สิ่งอำนวยความสะดวก
+        </Link>
+      </div>
+
+      {/* Table List Section (Full Width) */}
+      <div className="bg-white border border-stone-200/80 rounded-2xl shadow-2xs overflow-hidden flex flex-col min-h-[500px]">
+        {/* Header & Search */}
+        <div className="p-4 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+          <h2 className="text-base font-semibold text-stone-800">
+            รายการประเภทห้องพักทั้งหมด
+          </h2>
+
+          <div className="relative w-full sm:w-72">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+            />
+            <input
+              type="text"
+              placeholder="ค้นหาชื่อประเภทห้อง..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-8 py-1.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Table Area */}
+        <div className="flex-1 overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-stone-50 border-b border-stone-200/80 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+              <tr>
+                <th className="px-5 py-3">ประเภทห้อง</th>
+                <th className="px-4 py-3">ความจุ</th>
+                <th className="px-4 py-3">สิ่งอำนวยความสะดวก</th>
+                <th className="px-4 py-3">ราคา / คืน</th>
+                <th className="px-4 py-3 text-center">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100 text-xs text-stone-700">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-stone-400">
+                    <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-[#0b3b2c] border-t-transparent mb-2" />
+                    <p className="text-xs">กำลังโหลดข้อมูล...</p>
+                  </td>
+                </tr>
+              ) : filteredRoomTypes.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-stone-400">
+                    <Layers size={32} className="mx-auto mb-2 text-stone-300" />
+                    <p className="text-xs font-medium">ไม่พบประเภทห้องพักที่ค้นหา</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredRoomTypes.map((rt: any) => (
+                  <tr key={rt.id} className="hover:bg-stone-50/80 transition-colors">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        {rt.main_image ? (
+                          <div
+                            onClick={() =>
+                              setLightboxImage({
+                                url: resolveMediaUrl(rt.main_image),
+                                title: rt.type_name,
+                              })
+                            }
+                            className="relative w-12 h-12 rounded-xl overflow-hidden border border-stone-200 shrink-0 cursor-pointer group"
+                            title="คลิกเพื่อขยายดูรูปภาพ"
+                          >
+                            <img
+                              src={resolveMediaUrl(rt.main_image)}
+                              alt={rt.type_name}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                              <Eye size={14} />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0 text-stone-400">
+                            <ImageIcon size={18} />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="font-bold text-stone-900 truncate">
+                            {rt.type_name}
+                          </div>
+                          <div className="text-[11px] text-stone-400 truncate max-w-sm font-medium">
+                            {rt.description || "ไม่มีรายละเอียด"}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">
+                        <Users size={12} className="text-stone-500" />
+                        {rt.capacity} คน
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1 max-w-xs">
+                        {rt.amenities && rt.amenities.length > 0 ? (
+                          rt.amenities.map((am: any) => (
+                            <span
+                              key={am.id}
+                              className="px-2 py-0.5 bg-stone-100 text-stone-600 rounded-md text-[10px] font-medium"
+                            >
+                              {am.name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[10px] text-stone-400">-</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="font-bold text-[#0b3b2c] text-sm">
+                        ฿{Number(rt.price_per_night || 0).toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEditRoom(rt)}
+                          className="p-1.5 text-stone-400 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all"
+                          title="แก้ไขข้อมูล"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => confirmDelete(rt.id)}
+                          className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                          title="ลบประเภทห้อง"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 🟢 MODAL: Create Room Type */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-xl border border-stone-200 flex flex-col max-h-[90vh]">
+            <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between bg-[#0b3b2c] text-white">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                <PlusCircle size={18} className="text-emerald-200" />
+                เพิ่มประเภทห้องพักใหม่
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateModal(false);
+                  resetCreateForm();
+                }}
+                className="p-1 text-emerald-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleUpdateRoom} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ประเภทห้อง</label>
-                <input type="text" required className="input-field" value={editingRoom.type_name} onChange={(e) => setEditingRoom({ ...editingRoom, type_name: e.target.value })} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">รายละเอียด</label>
-                <textarea className="input-field" rows={3} value={editingRoom.description} onChange={(e) => setEditingRoom({ ...editingRoom, description: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+
+            <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
+              <div className="space-y-3.5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ผู้เข้าพัก (คน)</label>
-                  <input type="number" required min="1" className="input-field" value={editingRoom.capacity} onChange={(e) => setEditingRoom({ ...editingRoom, capacity: Number(e.target.value) })} />
+                  <label className="block text-xs font-bold text-stone-600 mb-1">
+                    ชื่อประเภทห้อง <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="เช่น วิลล่าริมน้ำ, เต็นท์โดม VIP"
+                    className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
+                    value={form.type_name}
+                    onChange={(e) =>
+                      setForm({ ...form, type_name: e.target.value })
+                    }
+                  />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ราคา/คืน</label>
-                  <input type="number" required min="0" className="input-field" value={editingRoom.price} onChange={(e) => setEditingRoom({ ...editingRoom, price: Number(e.target.value) })} />
+                  <label className="block text-xs font-bold text-stone-600 mb-1">
+                    รายละเอียด
+                  </label>
+                  <textarea
+                    placeholder="บรรยากาศห้องพัก วิว และคำอธิบายเพิ่มเติม..."
+                    className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs resize-none"
+                    rows={2}
+                    value={form.description}
+                    onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
+                    }
+                  />
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">รูปปกห้องพัก</label>
-                {editingRoom.room_image && !editCoverFile && (
-                  <div className="mb-2 relative w-full h-32 rounded-xl overflow-hidden border border-gray-200">
-                    <img src={resolveMediaUrl(editingRoom.room_image)} alt="รูปปัจจุบัน" className="w-full h-full object-cover" />
-                    <span className="absolute bottom-1 left-2 text-xs text-white bg-black/50 px-2 py-0.5 rounded-full">รูปปัจจุบัน</span>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-600 mb-1">
+                      ผู้เข้าพัก (คน) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
+                      value={form.capacity}
+                      onChange={(e) =>
+                        setForm({ ...form, capacity: Number(e.target.value) })
+                      }
+                    />
                   </div>
-                )}
-                {editCoverFile && (
-                  <div className="mb-2 relative w-full h-32 rounded-xl overflow-hidden border border-teal-300">
-                    <img src={URL.createObjectURL(editCoverFile)} alt="รูปใหม่" className="w-full h-full object-cover" />
-                    <span className="absolute bottom-1 left-2 text-xs text-white bg-teal-600/80 px-2 py-0.5 rounded-full">รูปใหม่</span>
+                  <div>
+                    <label className="block text-xs font-bold text-stone-600 mb-1">
+                      ราคา/คืน (บาท) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
+                      value={form.price}
+                      onChange={(e) =>
+                        setForm({ ...form, price: Number(e.target.value) })
+                      }
+                    />
                   </div>
-                )}
-                <input type="file" accept="image/*" className="input-field" onChange={(e) => setEditCoverFile(e.target.files?.[0] || null)} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">รูปภาพเพิ่มเติม (Gallery)</label>
-                {editingRoom.existing_gallery && editingRoom.existing_gallery.length > 0 && (
-                  <div className="mb-2">
-                    <p className="text-xs text-gray-500 mb-1.5">รูปปัจจุบัน — hover เพื่อลบ</p>
-                    <div className="flex flex-wrap gap-2">
-                      {editingRoom.existing_gallery.map((img: string, idx: number) => (
-                        <div key={idx} className="relative w-20 h-16 rounded-lg overflow-hidden border border-gray-200 group">
-                          <img src={resolveMediaUrl(img)} alt={`gallery ${idx + 1}`} className="w-full h-full object-cover" />
-                          <button type="button"
-                            className="absolute inset-0 bg-red-600/70 text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                            onClick={() => setEditingRoom((prev: any) => ({ ...prev, existing_gallery: prev.existing_gallery.filter((_: string, i: number) => i !== idx) }))}>
-                            ×
-                          </button>
-                        </div>
-                      ))}
+                </div>
+
+                {/* Drag & Drop Cover Image Upload */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-600 mb-1.5">
+                    รูปปกห้องพัก <span className="text-rose-500">*</span>
+                  </label>
+
+                  {coverPreview ? (
+                    <div className="relative w-full h-36 rounded-xl overflow-hidden border-2 border-[#0b3b2c] shadow-sm group">
+                      <img
+                        src={coverPreview}
+                        alt="Cover Preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (coverPreview) URL.revokeObjectURL(coverPreview);
+                            setCoverFile(null);
+                            setCoverPreview(null);
+                          }}
+                          className="bg-rose-600 hover:bg-rose-700 text-white p-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-transform transform active:scale-95"
+                        >
+                          <X size={14} /> เปลี่ยนรูปภาพ
+                        </button>
+                      </div>
                     </div>
+                  ) : (
+                    <label
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDropCover}
+                      className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-2xl transition-all cursor-pointer group p-3 text-center ${
+                        isDraggingCover
+                          ? "border-[#0b3b2c] bg-[#0b3b2c]/10 scale-[1.01]"
+                          : "border-stone-300 hover:border-[#0b3b2c] bg-stone-50/60 hover:bg-[#0b3b2c]/5"
+                      }`}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-stone-200/60 group-hover:bg-[#0b3b2c]/10 text-stone-500 group-hover:text-[#0b3b2c] flex items-center justify-center transition-colors mb-1">
+                        <UploadCloud size={18} />
+                      </div>
+                      <p className="text-xs font-bold text-stone-700 group-hover:text-[#0b3b2c] transition-colors">
+                        คลิกหรือลากไฟล์มาวาง
+                      </p>
+                      <p className="text-[10px] text-stone-400">JPG, PNG, WEBP (ไม่เกิน 5MB)</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        required
+                        className="hidden"
+                        onChange={handleCoverChange}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Gallery Files Upload */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-stone-600">
+                      รูปภาพเพิ่มเติม (Gallery)
+                    </label>
+                    <span className="text-[11px] font-semibold text-stone-400">
+                      {galleryPreviews.length}/{MAX_GALLERY_COUNT} รูป
+                    </span>
                   </div>
-                )}
-                {editGalleryFiles.length > 0 && (
-                  <div className="mb-2">
-                    <p className="text-xs text-teal-600 mb-1.5">รูปใหม่ที่จะเพิ่ม</p>
-                    <div className="flex flex-wrap gap-2">
-                      {editGalleryFiles.map((f, idx) => (
-                        <div key={idx} className="relative w-20 h-16 rounded-lg overflow-hidden border border-teal-300 group">
-                          <img src={URL.createObjectURL(f)} alt={`new ${idx}`} className="w-full h-full object-cover" />
-                          <button type="button"
-                            className="absolute inset-0 bg-red-600/70 text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                            onClick={() => setEditGalleryFiles((prev) => prev.filter((_, i) => i !== idx))}>
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <input type="file" accept="image/*" multiple className="input-field"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    setEditGalleryFiles((prev) => [...prev, ...files]);
-                    e.target.value = '';
-                  }} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">สิ่งอำนวยความสะดวก</label>
-                {amenities.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto p-3 border border-gray-200 rounded-xl bg-gray-50">
-                    {amenities.map(am => (
-                      <label key={am.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-white p-1 rounded">
-                        <input type="checkbox" className="rounded text-teal-600" checked={editingRoom.amenity_ids.includes(am.id)} onChange={() => editAmenityToggle(am.id)} />
-                        <span className="text-gray-700">{am.name}</span>
+
+                  <div className="space-y-2">
+                    {galleryPreviews.length > 0 && (
+                      <div className="grid grid-cols-4 gap-2">
+                        {galleryPreviews.map((url, idx) => (
+                          <div
+                            key={idx}
+                            className="relative h-16 rounded-xl overflow-hidden border border-stone-200 shadow-2xs group"
+                          >
+                            <img
+                              src={url}
+                              alt={`Gallery ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeGalleryFile(idx)}
+                              className="absolute inset-0 bg-rose-600/80 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {galleryPreviews.length < MAX_GALLERY_COUNT && (
+                      <label className="flex items-center justify-center gap-2 w-full py-2 px-3 border border-stone-200 hover:border-[#0b3b2c] rounded-xl bg-stone-50 hover:bg-[#0b3b2c]/5 transition-all cursor-pointer text-stone-600 hover:text-[#0b3b2c]">
+                        <UploadCloud size={16} />
+                        <span className="text-xs font-semibold">
+                          {galleryPreviews.length > 0
+                            ? "เพิ่มรูปภาพ..."
+                            : "เลือกรูปภาพประกอบเพิ่มเติม"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={handleGalleryChange}
+                        />
                       </label>
-                    ))}
+                    )}
                   </div>
-                )}
+                </div>
+
+                {/* Amenities Checklist */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-600 mb-1.5">
+                    สิ่งอำนวยความสะดวก
+                  </label>
+                  {amenities.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto p-2 border border-stone-200 rounded-xl bg-stone-50/80">
+                      {amenities.map((am) => {
+                        const checked = form.amenities.includes(am.id);
+                        return (
+                          <label
+                            key={am.id}
+                            className={`flex items-center gap-2 p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer select-none ${
+                              checked
+                                ? "bg-white text-[#0b3b2c] font-bold shadow-2xs border border-stone-200/60"
+                                : "text-stone-600 hover:bg-stone-100"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="rounded text-[#0b3b2c] focus:ring-[#0b3b2c]/30 accent-[#0b3b2c]"
+                              checked={checked}
+                              onChange={() => handleAmenityToggle(am.id)}
+                            />
+                            <span className="truncate">{am.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-stone-400 bg-stone-50 p-3 rounded-xl border border-stone-200 text-center font-medium">
+                      ยังไม่มีสิ่งอำนวยความสะดวกในระบบ
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => { setShowEditModal(false); setEditingRoom(null); setEditCoverFile(null); }} className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-colors">ยกเลิก</button>
-                <button type="submit" disabled={editUploading} className="flex-1 btn-primary bg-teal-600 hover:bg-teal-700 disabled:opacity-60">
-                  {editUploading ? 'กำลังบันทึก...' : 'บันทึก'}
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    resetCreateForm();
+                  }}
+                  className="flex-1 py-2.5 px-4 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition-all"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-2.5 px-4 bg-[#0b3b2c] hover:bg-[#07271d] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-60"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      กำลังบันทึก...
+                    </>
+                  ) : (
+                    "สร้างประเภทห้องพัก"
+                  )}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🟡 MODAL: Edit Room Type */}
+      {showEditModal && editingRoom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-xl border border-stone-200 flex flex-col max-h-[90vh]">
+            <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+              <h3 className="text-sm font-bold text-[#0b3b2c] flex items-center gap-2">
+                <Edit3 size={16} className="text-amber-700" />
+                แก้ไขประเภทห้องพัก
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingRoom(null);
+                }}
+                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateRoom} className="p-5 space-y-3.5 overflow-y-auto">
+              <div>
+                <label className="block text-xs font-bold text-stone-600 mb-1">
+                  ประเภทห้อง
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c]"
+                  value={editingRoom.type_name}
+                  onChange={(e) =>
+                    setEditingRoom({
+                      ...editingRoom,
+                      type_name: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-600 mb-1">
+                  รายละเอียด
+                </label>
+                <textarea
+                  className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] resize-none"
+                  rows={2}
+                  value={editingRoom.description}
+                  onChange={(e) =>
+                    setEditingRoom({
+                      ...editingRoom,
+                      description: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-stone-600 mb-1">
+                    ผู้เข้าพัก (คน)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c]"
+                    value={editingRoom.capacity}
+                    onChange={(e) =>
+                      setEditingRoom({
+                        ...editingRoom,
+                        capacity: Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-stone-600 mb-1">
+                    ราคา/คืน (บาท)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c]"
+                    value={editingRoom.price}
+                    onChange={(e) =>
+                      setEditingRoom({
+                        ...editingRoom,
+                        price: Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* Cover Image Edit */}
+              <div>
+                <label className="block text-xs font-bold text-stone-600 mb-1">
+                  รูปปกห้องพัก
+                </label>
+
+                <div className="relative w-full h-32 rounded-xl overflow-hidden border border-stone-200 mb-2 group">
+                  <img
+                    src={
+                      editCoverPreview ||
+                      resolveMediaUrl(editingRoom.room_image)
+                    }
+                    alt="Cover"
+                    className="w-full h-full object-cover"
+                  />
+                  <span
+                    className={`absolute bottom-2 left-2 text-[10px] text-white px-2 py-0.5 rounded-md font-semibold ${
+                      editCoverPreview ? "bg-[#0b3b2c]" : "bg-black/60"
+                    }`}
+                  >
+                    {editCoverPreview ? "รูปใหม่ที่จะเปลี่ยน" : "รูปปัจจุบัน"}
+                  </span>
+                </div>
+
+                <label className="flex items-center justify-center gap-2 w-full py-2 px-3 border border-stone-200 hover:border-[#0b3b2c] rounded-xl bg-stone-50 hover:bg-[#0b3b2c]/5 transition-all cursor-pointer text-stone-600 hover:text-[#0b3b2c]">
+                  <UploadCloud size={16} />
+                  <span className="text-xs font-semibold">เปลี่ยนรูปปก</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleEditCoverChange}
+                  />
+                </label>
+              </div>
+
+              {/* Gallery Images Edit */}
+              <div>
+                <label className="block text-xs font-bold text-stone-600 mb-1">
+                  รูปภาพเพิ่มเติม (Gallery)
+                </label>
+
+                {editingRoom.existing_gallery &&
+                  editingRoom.existing_gallery.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-[11px] text-stone-400 mb-1 font-medium">
+                        รูปปัจจุบัน
+                      </p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {editingRoom.existing_gallery.map(
+                          (img: string, idx: number) => (
+                            <div
+                              key={idx}
+                              className="relative h-16 rounded-xl overflow-hidden border border-stone-200 group"
+                            >
+                              <img
+                                src={resolveMediaUrl(img)}
+                                alt={`gallery ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                className="absolute inset-0 bg-rose-600/80 text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                onClick={() =>
+                                  setEditingRoom((prev: any) => ({
+                                    ...prev,
+                                    existing_gallery:
+                                      prev.existing_gallery.filter(
+                                        (_: string, i: number) => i !== idx,
+                                      ),
+                                  }))
+                                }
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                {editGalleryPreviews.length > 0 && (
+                  <div className="mb-2">
+                    <p className="text-[11px] text-[#0b3b2c] mb-1 font-bold">
+                      รูปใหม่ที่จะเพิ่ม ({editGalleryPreviews.length} รูป)
+                    </p>
+                    <div className="grid grid-cols-4 gap-2">
+                      {editGalleryPreviews.map((url, idx) => (
+                        <div
+                          key={idx}
+                          className="relative h-16 rounded-xl overflow-hidden border border-[#0b3b2c] group"
+                        >
+                          <img
+                            src={url}
+                            alt={`new preview ${idx}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            className="absolute inset-0 bg-rose-600/80 text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                            onClick={() => removeEditGalleryFile(idx)}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(editingRoom?.existing_gallery?.length || 0) +
+                  editGalleryFiles.length <
+                  MAX_GALLERY_COUNT && (
+                  <label className="flex items-center justify-center gap-2 w-full py-2 px-3 border border-stone-200 hover:border-[#0b3b2c] rounded-xl bg-stone-50 hover:bg-[#0b3b2c]/5 transition-all cursor-pointer text-stone-600 hover:text-[#0b3b2c]">
+                    <UploadCloud size={16} />
+                    <span className="text-xs font-semibold">
+                      อัปโหลดรูปเพิ่มเติม
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleEditGalleryChange}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Amenities List */}
+              <div>
+                <label className="block text-xs font-bold text-stone-600 mb-1">
+                  สิ่งอำนวยความสะดวก
+                </label>
+                {amenities.length > 0 && (
+                  <div className="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto p-2 border border-stone-200 rounded-xl bg-stone-50">
+                    {amenities.map((am) => {
+                      const isChecked =
+                        editingRoom.amenity_ids.includes(am.id);
+                      return (
+                        <label
+                          key={am.id}
+                          className={`flex items-center gap-2 p-1 rounded-lg text-xs font-medium cursor-pointer ${
+                            isChecked
+                              ? "bg-white text-[#0b3b2c] font-bold shadow-2xs"
+                              : "text-stone-600 hover:bg-stone-100"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="rounded text-[#0b3b2c] accent-[#0b3b2c]"
+                            checked={isChecked}
+                            onChange={() => editAmenityToggle(am.id)}
+                          />
+                          <span className="truncate">{am.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingRoom(null);
+                    setEditCoverFile(null);
+                    setEditCoverPreview(null);
+                    setEditGalleryFiles([]);
+                    setEditGalleryPreviews([]);
+                  }}
+                  className="flex-1 py-2 px-4 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition-all"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={editUploading}
+                  className="flex-1 py-2 px-4 bg-[#0b3b2c] hover:bg-[#07271d] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-60"
+                >
+                  {editUploading ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />{" "}
+                      กำลังบันทึก...
+                    </>
+                  ) : (
+                    "บันทึกข้อมูล"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🖼️ MODAL: Image Lightbox */}
+      {lightboxImage && (
+        <div
+          onClick={() => setLightboxImage(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150 cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-3xl w-full bg-stone-900 rounded-2xl overflow-hidden shadow-2xl border border-stone-800"
+          >
+            <div className="p-3 bg-stone-900/80 backdrop-blur-md flex items-center justify-between border-b border-stone-800 text-white">
+              <span className="text-xs font-semibold">
+                {lightboxImage.title}
+              </span>
+              <button
+                type="button"
+                onClick={() => setLightboxImage(null)}
+                className="p-1 hover:bg-stone-800 rounded-lg text-stone-400 hover:text-white transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-2 flex items-center justify-center bg-black/40">
+              <img
+                src={lightboxImage.url}
+                alt={lightboxImage.title}
+                className="max-h-[75vh] w-auto object-contain rounded-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔴 MODAL: Delete Confirm */}
+      {deleteTargetId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl border border-stone-200 p-5 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-stone-900">
+                ยืนยันการลบประเภทห้องพัก
+              </h3>
+              <p className="text-xs text-stone-500 mt-1">
+                คุณแน่ใจหรือไม่ที่จะลบประเภทห้องพักนี้?
+                การดำเนินการนี้ไม่สามารถย้อนกลับได้
+              </p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTargetId(null)}
+                className="flex-1 py-2 px-4 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition-all"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="flex-1 py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+              >
+                ลบข้อมูล
+              </button>
+            </div>
           </div>
         </div>
       )}
