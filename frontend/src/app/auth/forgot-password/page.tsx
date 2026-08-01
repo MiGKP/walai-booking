@@ -9,7 +9,6 @@ import {
   ArrowRight,
   LoaderCircle,
   Mail,
-  Waves,
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -59,9 +58,6 @@ export default function ForgotPasswordPage(): React.ReactElement | null {
       <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] w-full max-w-[560px] items-center justify-center sm:min-h-[calc(100vh-2.5rem)] lg:min-h-[calc(100vh-3rem)]">
         <div className="w-full overflow-hidden rounded-[28px] border border-stone-200 bg-cream-100 px-6 py-10 shadow-[0_28px_90px_rgba(18,60,48,0.14)] sm:px-10 sm:py-12 lg:rounded-[36px] lg:px-12">
           <div className="mb-8 animate-fade-in">
-            <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-full bg-forest-800 text-cream-100">
-              <Waves size={21} aria-hidden="true" />
-            </div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-lagoon-700">
               Account recovery
             </p>

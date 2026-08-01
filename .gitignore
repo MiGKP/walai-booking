@@ -1,11 +1,42 @@
-node_modules
+# Dependencies and build output
+node_modules/
+.next/
+dist/
+build/
+*.tsbuildinfo
+
+# Environment and secrets — never commit these
 .env
-.env.local
-.next
-dist
-build
-.DS_Store
-uploads/*
-!uploads/.gitkeep
+.env.*
+!.env.example
+!.env.*.example
+!**/.env.example
+!**/.env.*.example
+backend/.env
+frontend/.env.local
+
+# Local uploads and media (payment slips, avatars, catalog images)
+uploads/
+backend/uploads/**
+!backend/uploads/.gitkeep
+
+# Database dumps and backups
 *.dump
 walai_backup.dump
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Vercel local link metadata (contains project ids; use GitHub Secrets instead)
+.vercel/
+frontend/.vercel/
+
+# Next.js generated types (recreated on build)
+frontend/next-env.d.ts
+.vercel
+.env*
