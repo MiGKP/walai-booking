@@ -1,150 +1,117 @@
-# 🌊 Walai Booking System (ระบบจองห้องพักและเรือคายัค สวนวลัยรุกขเวช)
+# Walai Booking
 
-ระบบบริหารจัดการการจองห้องพักและบริการเรือคายัคสำหรับ **สวนวลัยรุกขเวช (Walai Floating Resort)** พัฒนาในรูปแบบ Full-Stack Web Application ด้วย **Next.js 16 (App Router)**, **Express.js (TypeScript)** และ **PostgreSQL**
+Full-stack booking system for Walai Floating Resort (สวนวลัยรุกขเวช), covering floating room stays and kayak sessions.
 
----
-
-## 🌟 ฟีเจอร์หลักของระบบ (Key Features)
-
-### 👤 1. ฝั่งลูกค้า (Customer / Member)
-- **ค้นหาและเลือกดูห้องพัก**: กรองห้องพักตามวันที่เช็คอิน-เช็คเอาต์, จำนวนผู้เข้าพัก, ช่วงราคา พร้อมแสดงสิ่งอำนวยความสะดวกและรูปภาพห้องพัก
-- **จองเรือคายัคตามรอบเวลา**: ระบบตรวจสอบจำนวนเรือว่างจริงในแต่ละรอบเวลา (Boat Rounds) และจำกัดสล็อตท่าเรือเพื่อป้องกันการจองซ้ำ
-- **ระบบโปรโมชั่น & ส่วนลด**: รองรับการกรอกโค้ดส่วนลด (เปอร์เซ็นต์ หรือ จำนวนเงิน) ซึ่งคำนวณราคาสุทธิอัตโนมัติด้วย Database Trigger
-- **ชำระเงิน & แนบสลิป**: สร้าง QR Code PromptPay หรือแสดงเลขบัญชีสำหรับโอนเงิน พร้อมระบบอัปโหลดสลิปการโอนเงิน
-- **อีเมลแจ้งเตือนอัตโนมัติ**: ได้รับอีเมลสรุปการจองทันทีที่จองสำเร็จ และได้รับอีเมลแจ้งเตือนเมื่อพนักงานกดอนุมัติ/ปฏิเสธสลิป
-- **ประวัติการจอง & เขียนรีวิว**: ดูประวัติการจอง ยืนยันการเช็คเอาต์ และให้คะแนนเขียนรีวิวหลังเข้าพัก
-
-### 👨‍💼 2. ฝั่งพนักงาน (Staff & Department Dashboard)
-- **แดชบอร์ดพนักงานห้องพัก (Room Staff)**: ตรวจสอบสลิปการโอนเงิน, อนุมัติ/ปฏิเสธรายการจอง และบันทึกการ Check-out ห้องพัก (ระบบคืนสถานะห้องเป็น "ว่าง" อัตโนมัติ)
-- **แดชบอร์ดพนักงานเรือ (Boat Staff)**: ตรวจสอบสลิป, ยืนยันรอบเวลาการพายเรือคายัค และบันทึกการคืนเรือ
-- **บันทึกชื่อผู้ดำเนินการ**: ทุกการอนุมัติสลิปจะถูกบันทึกชื่อพนักงานผู้กดอนุมัติไว้ในฐานข้อมูลเพื่อความโปร่งใส
-
-### 👑 3. ฝั่งผู้ดูแลระบบ (Admin)
-- **ภาพรวมธุรกิจ & รายงานสถิติ**: สรุปรายได้แยกตามห้องพักและเรือคายัค, จำนวนการจองรายวัน/รายเดือน, สัดส่วนการใช้บริการ
-- **ตารางสรุปรายการจองทั้งหมด**: สามารถดูรายการจองทั้งหมด พร้อมระบุชื่อพนักงานผู้ยืนยันสลิป และกดดูรูปสลิปได้ทันที
-- **จัดการพนักงาน (Staff Management)**: เพิ่ม/แก้ไข/ลบ บัญชีพนักงาน และกำหนดบทบาท (Room Staff, Boat Staff, Admin)
-- **จัดการห้องพัก & รายห้อง**: เพิ่มประเภทห้องพัก (Room Types), สิ่งอำนวยความสะดวก (Amenities), รูปภาพ และหมายเลขห้องย่อย (Single Rooms)
-- **จัดการเรือ & รอบเวลา**: กำหนดประเภทเรือ, จำนวนลำที่มีให้บริการ, รอบเวลาการบริการ (Rounds) และเวลาเปิด-ปิดทำการแต่ละวัน
-- **จัดการโค้ดส่วนลด (Promotions)**: สร้างและแก้ไขโปรโมชั่น กำหนดวันหมดอายุ และจำกัดจำนวนครั้งการใช้งาน
-- **จัดการสมาชิก & รีวิว**: ค้นหา/ปิดการใช้งานบัญชีสมาชิก และจัดการแสดงผลรีวิวจากผู้เข้าพัก
+**Stack:** Next.js (App Router) · Express.js (TypeScript) · PostgreSQL
 
 ---
 
-## 🛠️ เทคโนโลยีที่ใช้ (Tech Stack)
+## Features
 
-### Frontend
-- **Framework**: Next.js 16.1.6 (App Router, React 19)
-- **Styling**: Vanilla CSS + Tailwind CSS (Custom Color Tokens: Forest Green `#123C30`, Teal `#0f766e`, Bamboo `#D9A05B`, Cream `#f5f7fb`)
-- **Icons & UI**: Lucide React, React Hot Toast
-- **HTTP Client**: Axios (พร้อม Interceptor สำหรับจัดการ JWT Token)
+### Customer
+- Browse and book rooms by date range with calendar availability
+- Book kayaks by date and time round, with live capacity checks
+- Apply promotion codes (percent or fixed amount)
+- Pay via PromptPay QR or bank transfer and upload a payment slip
+- Receive booking and payment status emails
+- View booking history and submit reviews after stay
 
-### Backend
-- **Runtime**: Node.js + Express.js (TypeScript)
-- **Database**: PostgreSQL (เชื่อมต่อด้วย `pg` Pool)
-- **Authentication**: Passport.js (JWT Strategy & Google OAuth 2.0), `bcryptjs`
-- **Email Service**: Nodemailer (Gmail SMTP integration)
-- **File Upload**: Multer (จัดเก็บสลิปชำระเงินและรูปโปรไฟล์ใน `./uploads`)
-- **Security & Protection**: `express-rate-limit`, `helmet`, `cors`, `cookie-parser`
+### Staff
+- Room staff: review slips, approve or reject room bookings, check out guests
+- Boat staff: review slips, confirm kayak rounds, record boat returns
+- Operator name is recorded on each payment decision
+
+### Admin
+- Revenue and booking statistics
+- Manage staff accounts and roles
+- Manage room types, amenities, images, and individual rooms
+- Manage kayak types, inventory, rounds, and operating hours
+- Manage promotions, members, reviews, and resort contact or bank details
 
 ---
 
-## 📁 โครงสร้างโปรเจกต์ (Project Structure)
+## Project structure
 
 ```text
 walai_booking/
-├── frontend/                   # Next.js Frontend Application
-│   ├── src/
-│   │   ├── app/                # Next.js App Router (Pages & Routes)
-│   │   │   ├── admin/          # Admin Management Pages & Dashboards
-│   │   │   ├── auth/           # Login, Register, Forgot/Reset Password
-│   │   │   ├── dashboard/      # Customer Dashboard & Booking History
-│   │   │   ├── kayaks/         # Kayak Browsing & Booking Pages
-│   │   │   ├── rooms/          # Room Browsing & Booking Pages
-│   │   │   ├── staff/          # Staff Room/Boat Dashboards
-│   │   │   └── page.tsx        # Landing Page
-│   │   ├── components/         # Reusable UI Components (Navbar, Footer, etc.)
-│   │   ├── hooks/              # Custom React Hooks (useAuth, useAuthGuard)
-│   │   └── lib/                # API Client & Utility Functions
-│   └── package.json
-│
-├── backend/                    # Express.js Backend API
-│   ├── src/
-│   │   ├── config/             # Database connection & Passport setup
-│   │   ├── controllers/        # Route logic (Auth, Booking, Kayak, Room, etc.)
-│   │   ├── middleware/         # Auth, Authorization, Rate Limit, Validators
-│   │   ├── routes/             # API Endpoint Routes (/api/...)
-│   │   ├── services/           # Mail Service, Auto-Cancel Cron Tasks
-│   │   └── index.ts            # Express Server Entry Point
-│   ├── uploads/                # Directory for uploaded slips and avatars
-│   └── package.json
-│
-├── .agents/
-│   └── AGENTS.md               # Developer & AI Agent Guidelines
-└── README.md                   # Main Documentation
+├── frontend/                 # Next.js application
+│   └── src/
+│       ├── app/              # Routes (admin, auth, dashboard, rooms, kayaks, staff)
+│       ├── components/       # Shared UI and 3D scenes
+│       ├── hooks/            # Auth hooks
+│       └── lib/              # API client and helpers
+├── backend/                  # Express API
+│   └── src/
+│       ├── config/           # Database and Passport
+│       ├── controllers/      # Request handlers
+│       ├── middleware/       # Auth, validation, uploads
+│       ├── routes/           # /api routes
+│       ├── services/         # Mail, Cloudinary, cron jobs
+│       └── index.ts
+├── docs/                     # Design notes and plans
+└── README.md
 ```
 
 ---
 
-## ⚙️ การตั้งค่า Environment Variables
+## Requirements
 
-### 1. Backend (`backend/.env`)
-สร้างไฟล์ `backend/.env` และกำหนดค่าดังนี้:
+- Node.js 20 or newer
+- PostgreSQL 14 or newer
+- npm
+
+---
+
+## Environment configuration
+
+Do not commit real secrets. Copy the examples below into local env files only.
+
+### Backend — `backend/.env`
 
 ```env
 PORT=5000
 NODE_ENV=development
 
-# Database Connection
-DATABASE_URL=postgresql://postgres:811471@localhost:5432/walai
+# Database
+DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/walai
 
-# Authentication & JWT
-JWT_SECRET=walai_super_secret_jwt_key_change_in_production
+# Auth
+JWT_SECRET=replace_with_a_long_random_string
 JWT_EXPIRES_IN=7d
-SESSION_SECRET=walai_session_secret_change_in_production
+SESSION_SECRET=replace_with_another_long_random_string
 
-# Google OAuth 2.0 (Optional)
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+# Google OAuth (optional)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
 
-# Frontend URL
+# Frontend origin (CORS / redirects)
 FRONTEND_URL=http://localhost:3000
 
-# Cloudinary Media Storage
-# Cloudinary Dashboard → Settings → API Keys
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_cloudinary_api_key
-CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+# Cloudinary (required for uploads in production)
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 
-# Payment Info
-PROMPTPAY_ID=0956500770
-BANK_ACCOUNT_NUMBER=152-8-68655-5
+# Fallback payment display values (prefer values stored in resort_info via admin)
+PROMPTPAY_ID=
+BANK_ACCOUNT_NUMBER=
+BANK_ACCOUNT_NAME=
 
-# Email — Brevo HTTPS API (ส่งหาใครก็ได้ ไม่ต้องมีโดเมน)
-# Brevo → Settings → SMTP & API → API Keys → สร้าง API key
-# Brevo → Settings → Senders → เพิ่ม/verify อีเมลผู้ส่ง
+# Email via Brevo HTTPS API
 MAIL_PROVIDER=brevo
-BREVO_API_KEY=your_brevo_api_key
-MAIL_FROM="Walai Booking <your_verified_sender@email.com>"
+BREVO_API_KEY=
+MAIL_FROM="Walai Booking <verified_sender@example.com>"
 APP_NAME=Walai Booking
 PASSWORD_RESET_EXPIRES_MINUTES=30
-
-# (ทางเลือก) Resend — ฟรีส่งได้เฉพาะเมลที่สมัคร จนกว่าจะ verify โดเมน
-# MAIL_PROVIDER=resend
-# RESEND_API_KEY=re_xxx
-# RESEND_FROM=Walai Booking <onboarding@resend.dev>
 ```
 
-ไฟล์รูปใหม่ทั้งหมดถูกส่งจาก backend ไป Cloudinary โดยตรง ค่าทั้งสาม
-`CLOUDINARY_*` ต้องตั้งเฉพาะใน `backend/.env` และ Render Environment เท่านั้น
-ห้ามนำไปใส่ใน frontend หรือ commit ลง Git
+Notes:
+- Set `CLOUDINARY_*` only in `backend/.env` and the hosting provider environment.
+- Never put Cloudinary secrets or mail API keys in the frontend.
+- New media is uploaded to Cloudinary. Legacy `/uploads/...` paths may still resolve in local development.
 
-ข้อมูลเดิมที่เก็บ path แบบ `/uploads/...` ยังอ่านได้เพื่อรองรับ local development
-แต่ไฟล์ที่หายจาก Render Free แล้วไม่สามารถกู้คืนได้ ต้องอัปโหลดใหม่ผ่านหน้า admin
-หรือหน้าชำระเงิน
-
-### 2. Frontend (`frontend/.env.local`)
-สร้างไฟล์ `frontend/.env.local` และกำหนดค่าดังนี้:
+### Frontend — `frontend/.env.local`
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000/api
@@ -152,62 +119,75 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 
 ---
 
-## 🚀 วิธีการติดตั้งและเริ่มใช้งาน (Installation & Running)
+## Setup
 
-### 1. เตรียมฐานข้อมูล PostgreSQL
-1. สร้างฐานข้อมูลชื่อ `walai` ใน PostgreSQL
-2. ตรวจสอบให้แน่ใจว่า Username และ Password ใน `backend/.env` ตรงกับฐานข้อมูลของคุณ
+### 1. Database
 
-### 2. รัน Backend (Express.js Server)
-เปิด Terminal ในโฟลเดอร์โปรเจกต์:
+1. Create a PostgreSQL database named `walai`.
+2. Point `DATABASE_URL` in `backend/.env` at that database.
+3. Apply your project schema / migrations as used by the team.
+
+### 2. Backend
 
 ```bash
 cd backend
 npm install
 npm run dev
 ```
-*(Backend จะทำงานที่ `http://localhost:5000`)*
 
-### 3. รัน Frontend (Next.js App)
-เปิด Terminal อีกบานหนึ่ง:
+API default: `http://localhost:5000`
+
+### 3. Frontend
 
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-*(Frontend จะทำงานที่ `http://localhost:3000`)*
+
+App default: `http://localhost:3000`
 
 ---
 
-## 🗄️ โครงสร้างฐานข้อมูล & Triggers สำคัญ (Database Architecture)
+## Main database tables
 
-### 📌 ตารางหลักในระบบ
-- `members`: ข้อมูลสมาชิก/ลูกค้า
-- `staff`: ข้อมูลพนักงานและผู้ดูแลระบบ (`role`: `admin`, `room_staff`, `boat_staff`)
-- `room_types` & `rooms`: ประเภทห้องพัก และห้องพักย่อย
-- `room_bookings`: ประวัติการจองห้องพัก
-- `boat_types` & `boat_rounds` & `boat_bookings`: ประเภทเรือ, รอบเวลาบริการ และประวัติการจองเรือ
-- `promotions`: โค้ดส่วนลดและโปรโมชั่น
+| Table | Purpose |
+| --- | --- |
+| `members` | Customer accounts |
+| `staff` | Staff and admin accounts (`admin`, `room_staff`, `boat_staff`) |
+| `room_types`, `rooms` | Room catalog and physical units |
+| `room_bookings` | Room reservations |
+| `boat_types`, `boat_rounds`, `boat_bookings` | Kayak catalog, rounds, and reservations |
+| `promotions` | Discount codes |
+| `resort_info` | Contact and payment display settings |
 
-### ⚡ Database Triggers สำคัญ
-1. **`calculate_booking_price`**: ทำงานเมื่อมีการจองห้องพักคำนวณราคาสุทธิจากราคาห้องต่อคืน, จำนวนคืนที่พัก และหักส่วนลดจากโปรโมชั่นให้อัตโนมัติ
-2. **`update_room_status_on_booking`**: ทำงานเมื่อสถานะการจองเปลี่ยน:
-   - เปลี่ยนเป็น `approved` ➔ ปรับสถานะห้องพักย่อยเป็น `occupied` (มีผู้เข้าพัก)
-   - เปลี่ยนเป็น `cancelled`, `rejected` หรือ `checked_out` ➔ ปรับสถานะห้องพักย่อยเป็น `available` (ว่าง) อัตโนมัติ
+### Important triggers
 
----
-
-## 👥 บทบาทผู้ใช้งานในระบบ (Roles & Permissions)
-
-| Role | สิทธิ์การเข้าถึง |
-| :--- | :--- |
-| **customer** | จองห้องพัก/เรือ, ชำระเงิน/แนบสลิป, ดูประวัติการจองของตนเอง, เขียนรีวิว |
-| **room_staff** | ดูแดชบอร์ดห้องพัก, ตรวจสอบสลิปจองห้อง, กดอนุมัติ/ปฏิเสธ, กด Check-out ห้องพัก |
-| **boat_staff** | ดูแดชบอร์ดเรือคายัค, ตรวจสอบสลิปจองเรือ, กดอนุมัติ/ปฏิเสธ, กด Check-out คืนเรือ |
-| **admin** | เข้าถึงได้ทุกเมนูในระบบ, จัดการพนักงาน, ประเภทห้อง/เรือ, โปรโมชั่น, ดูสถิติรายได้ |
+1. **`calculate_booking_price`** — computes room booking totals from nightly rate, nights, and promotion.
+2. **`update_room_status_on_booking`** — sets room status to occupied when approved, and back to available on cancel, reject, or check-out.
 
 ---
 
-## 📝 License
-จัดทำขึ้นสำหรับโปรเจกต์ระบบจองห้องพักและเรือคายัค สวนวลัยรุกขเวช
+## Roles
+
+| Role | Access |
+| --- | --- |
+| `customer` | Book rooms and kayaks, pay, upload slips, view own history, write reviews |
+| `room_staff` | Room booking dashboard, slip review, approve or reject, check-out |
+| `boat_staff` | Kayak booking dashboard, slip review, approve or reject, boat return |
+| `admin` | Full system access, staff, catalog, promotions, statistics, site settings |
+
+---
+
+## Security notes
+
+- Keep `.env` files out of version control.
+- Do not commit files under `backend/uploads/` (payment slips, avatars, local images).
+- Rotate any secret that was previously shared in documentation or chat.
+- Prefer long random values for `JWT_SECRET` and `SESSION_SECRET` in every environment.
+
+---
+
+## License
+
+Prepared for the Walai Floating Resort booking project (สวนวลัยรุกขเวช).
