@@ -14,6 +14,7 @@ export interface AuthUser {
   phone?: string;
   line_id?: string;
   facebook?: string;
+  address?: string;
   auth_provider?: string;
   has_password?: boolean;
 }
