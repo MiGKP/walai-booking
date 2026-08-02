@@ -74,10 +74,32 @@ export const deleteBankAccount = async (req: Request, res: Response): Promise<vo
 
 // ─── Resort Info (รวม contact + site info ใน table resort_info) ────────────────
 
+// ─── Resort Info (รวม contact + site info ใน table resort_info) ────────────────
+
 export const getResortInfo = async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await pool.query(`SELECT * FROM resort_info LIMIT 1`);
-    res.json({ success: true, data: result.rows[0] || null });
+    const { id, name } = req.query;
+
+    // 1. ถ้าส่ง ?id=4 หรือ ?id=5 มา
+    if (id) {
+      const result = await pool.query(`SELECT * FROM resort_info WHERE id = $1 LIMIT 1`, [id]);
+      res.json({ success: true, data: result.rows[0] || null });
+      return;
+    }
+
+    // 2. ถ้าส่ง ?name=ห้องพัก มา
+    if (name) {
+      const result = await pool.query(
+        `SELECT * FROM resort_info WHERE name LIKE $1 LIMIT 1`,
+        [`%${name}%`]
+      );
+      res.json({ success: true, data: result.rows[0] || null });
+      return;
+    }
+
+    // 3. ถ้าไม่ระบุ ให้คืนค่าทุกแถว (สถานที่หลัก=3, ห้องพัก=4, เรือ=5)
+    const result = await pool.query(`SELECT * FROM resort_info ORDER BY id ASC`);
+    res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get resort info error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -86,6 +108,21 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
 
 export const upsertResortInfo = async (req: Request, res: Response): Promise<void> => {
   try {
+    // ดึง id จาก URL params หรือ request body
+    let targetId = req.params.id ? Number(req.params.id) : req.body.id ? Number(req.body.id) : null;
+    const targetName = req.body.name;
+
+    // 🎯 Mapping ID อัตโนมัติตามประเภท หากไม่ได้ส่ง id มาตรงๆ
+    if (!targetId && targetName) {
+      if (targetName.includes('ห้อง') || targetName.includes('room')) {
+        targetId = 4; // ID จุดบริการห้องพัก
+      } else if (targetName.includes('เรือ') || targetName.includes('boat')) {
+        targetId = 5; // ID จุดบริการเรือ
+      } else {
+        targetId = 3; // ID สถานที่หลัก
+      }
+    }
+
     const allowed = [
       'name', 'address', 'coordinates', 'phone', 'email', 'facebook', 'line_id',
       'operating_days', 'operating_hours', 'additional_terms', 'payment_due_days',
@@ -104,17 +141,27 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const existing = await pool.query(`SELECT id FROM resort_info LIMIT 1`);
+    // ค้นหาแถวในตารางตาม targetId
+    let existing;
+    if (targetId) {
+      existing = await pool.query(`SELECT id FROM resort_info WHERE id = $1 LIMIT 1`, [targetId]);
+    }
+
     let result;
 
-    if (existing.rows.length > 0) {
+    if (existing && existing.rows.length > 0) {
+      // 🟢 มีข้อมูลเดิม -> อัปเดตเฉพาะแถว ID ที่ระบุเท่านั้น (3, 4, หรือ 5)
       const setClauses = updates.map((u, i) => `${u.col}=$${i + 1}`).join(', ');
-      const values = [...updates.map(u => u.val), existing.rows[0].id];
+      const values = [...updates.map(u => u.val), targetId];
       result = await pool.query(
         `UPDATE resort_info SET ${setClauses} WHERE id=$${updates.length + 1} RETURNING *`,
         values
       );
     } else {
+      // 🟡 กรณีหา ID ไม่เจอ -> INSERT ใหม่โดยกำหนด ID หากระบุมา
+      if (targetId) {
+        updates.push({ col: 'id', val: targetId });
+      }
       const cols = updates.map(u => u.col).join(', ');
       const placeholders = updates.map((_, i) => `$${i + 1}`).join(', ');
       result = await pool.query(

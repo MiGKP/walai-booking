@@ -15,7 +15,6 @@ import {
   BarChart3,
   MessageSquare,
   Building2,
-  Phone,
   Clock,
   UserCheck,
   Tag,
@@ -26,7 +25,8 @@ import {
   ExternalLink,
   User,
   LogOut,
-  ChevronDown, // 📌 เพิ่ม ChevronDown
+  ChevronDown,
+  MapPin,
 } from "lucide-react";
 
 interface MenuItem {
@@ -37,7 +37,7 @@ interface MenuItem {
 
 interface MenuGroup {
   title: string;
-  icon: React.ReactNode; // 📌 เพิ่ม Icon ประจำหมวด
+  icon: React.ReactNode;
   items: MenuItem[];
 }
 
@@ -47,11 +47,20 @@ const menuGroups: MenuGroup[] = [
     icon: <Building2 size={18} />,
     items: [
       {
-        label: "ข้อมูลสวน",
+        label: "สถานที่หลัก & ชำระเงิน",
         path: "/admin/site-info",
         icon: <Building2 size={16} />,
       },
-    //   { label: "ติดต่อ", path: "/admin/contact", icon: <Phone size={16} /> },
+      {
+        label: "จุดบริการห้องพัก",
+        path: "/admin/rooms/location",
+        icon: <MapPin size={16} />,
+      },
+      {
+        label: "จุดบริการเรือ",
+        path: "/admin/boats/location",
+        icon: <Anchor size={16} />,
+      },
       { label: "สถิติ", path: "/admin/stats", icon: <BarChart3 size={16} /> },
     ],
   },
@@ -136,12 +145,11 @@ export default function AdminSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
 
-  // 📌 State สำหรับเก็บว่า หมวดไหนเปิดอยู่นบ้าง (เปิดหมวดที่มี Path ปัจจุบันเป็น Default)
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     const activeGroup = menuGroups.find((g) =>
       g.items.some((item) => item.path === pathname),
     );
-    return activeGroup ? [activeGroup.title] : ["ห้องพัก"];
+    return activeGroup ? [activeGroup.title] : ["ข้อมูลสวนและรายงาน"];
   });
 
   const toggleGroup = (title: string) => {
@@ -177,7 +185,7 @@ export default function AdminSidebar() {
         </Link>
 
         <Link
-          href="/admin/calendar" // <-- ใส่ Path ของหน้าปฏิทินที่คุณสร้างไว้
+          href="/admin/calendar"
           onClick={() => setMobileOpen(false)}
           className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
             pathname === "/admin/calendar"
