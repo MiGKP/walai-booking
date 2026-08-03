@@ -117,6 +117,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/members', memberRoutes);
 
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Walai Booking API is running' });
 });

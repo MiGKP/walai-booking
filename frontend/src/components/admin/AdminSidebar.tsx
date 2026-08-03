@@ -107,7 +107,7 @@ const menuGroups: MenuGroup[] = [
       },
       {
         label: "แดชบอร์ดจองห้อง",
-        path: "/admin/rooms/dashboard",
+        path: "/admin/rooms",
         icon: <CreditCard size={16} />,
       },
     ],
@@ -133,7 +133,7 @@ const menuGroups: MenuGroup[] = [
       },
       {
         label: "แดชบอร์ดจองเรือ",
-        path: "/admin/boats/dashboard",
+        path: "/admin/boats",
         icon: <CreditCard size={16} />,
       },
     ],

@@ -30,7 +30,7 @@ export const getAllKayaks = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// ดึงรายละเอียดของเรือรายประเภทตาม id เพื่อใช้ในหน้ารายละเอียดก่อนตัดสินใจจอง
+// ดึงรายละเอียดของเรือรายประเภทตาม id เพื่อใช้ในหน้ารายรายละเอียดก่อนตัดสินใจจอง
 export const getKayakById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -128,8 +128,7 @@ interface KayakRoundAvailability {
   available: boolean;
 }
 
-// ดึงสถานะรายวันของเรือหนึ่งประเภทสำหรับปฏิทินจอง — บอกว่าแต่ละวันมีรอบว่างกี่รอบ
-// เกณฑ์เหลือของแต่ละรอบใช้ min(โควตาประเภทเรือ, โควตาท่าเรือ) เหมือน createKayakBooking
+// ดึงสถานะรายวันของเรือหนึ่งประเภทสำหรับปฏิทินจอง
 export const getKayakCalendar = async (req: Request, res: Response): Promise<void> => {
   try {
     const { kayak_id, start, end } = req.query;
@@ -211,7 +210,6 @@ export const getKayakCalendar = async (req: Request, res: Response): Promise<voi
       [kayakId, start, end]
     );
 
-    // ถ้าเรือประเภทนี้ไม่มีรอบเปิดใช้งานเลย grid จะว่าง จึงเติมวันทั้งช่วงเป็น "เต็ม" ให้ frontend แสดงผลได้
     const byDate = new Map<string, KayakCalendarDay>();
     result.rows.forEach((row) => {
       const roundsAvailable = Number(row.rounds_available);
@@ -236,7 +234,7 @@ export const getKayakCalendar = async (req: Request, res: Response): Promise<voi
   }
 };
 
-// ดึงทุกรอบเวลาของวันที่เลือกพร้อมจำนวนที่เหลือ เพื่อให้ลูกค้าเห็นรอบทั้งหมดในคราวเดียวแทนการเช็ครายรอบ
+// ดึงทุกรอบเวลาของวันที่เลือกพร้อมจำนวนที่เหลือ
 export const getKayakDayRounds = async (req: Request, res: Response): Promise<void> => {
   try {
     const { kayak_id, booking_date } = req.query;
@@ -314,7 +312,7 @@ export const getKayakDayRounds = async (req: Request, res: Response): Promise<vo
   }
 };
 
-// ดึงรอบเวลาของเรือที่เปิดใช้งานอยู่ เพื่อให้ลูกค้าเลือกช่วงเวลาจองได้ถูกต้อง
+// ดึงรอบเวลาของเรือที่เปิดใช้งานอยู่
 export const getKayakSchedule = async (req: Request, res: Response): Promise<void> => {
   try {
     const { kayak_id } = req.query;
@@ -334,7 +332,7 @@ export const getKayakSchedule = async (req: Request, res: Response): Promise<voi
   }
 };
 
-// สร้างการจองเรือใหม่ โดยตรวจสอบราคารอบจองและความพร้อมของเรือก่อนบันทึกลงฐานข้อมูล
+// สร้างการจองเรือใหม่
 export const createKayakBooking = async (req: Request, res: Response): Promise<void> => {
   const client = await pool.connect();
   try {
@@ -362,7 +360,6 @@ export const createKayakBooking = async (req: Request, res: Response): Promise<v
     }
     const { price: price_per_hour, quantity } = btResult.rows[0];
 
-    // Get round info to check max_booking and total_slots
     const roundResult = await client.query(
       'SELECT max_booking, total_slots FROM boat_rounds WHERE boat_round_id = $1 FOR UPDATE',
       [round_id]
@@ -374,7 +371,6 @@ export const createKayakBooking = async (req: Request, res: Response): Promise<v
     }
     const { max_booking } = roundResult.rows[0];
 
-    // Check availability inside transaction to prevent race condition
     const conflict = await client.query(
       `SELECT COUNT(*) as booked_count, COALESCE(SUM(num_passengers), 0) as total_passengers
        FROM boat_bookings
@@ -385,21 +381,18 @@ export const createKayakBooking = async (req: Request, res: Response): Promise<v
     const bookedCount = Number(conflict.rows[0].booked_count);
     const totalPassengers = Number(conflict.rows[0].total_passengers);
 
-    // Check boat quantity limit (per type)
     if (bookedCount >= quantity) {
       await client.query('ROLLBACK');
       res.status(409).json({ success: false, message: 'เรือประเภทนี้เต็มในรอบที่เลือก' });
       return;
     }
 
-    // Check max_booking limit per type (if specified)
     if (max_booking && (totalPassengers + (num_passengers || 1)) > max_booking) {
       await client.query('ROLLBACK');
       res.status(409).json({ success: false, message: `เกินจำนวนที่รับจองสำหรับเรือประเภทนี้ในรอบนี้ (สูงสุด ${max_booking})` });
       return;
     }
 
-    // Check total_slots capacity pool (all boat types combined across same time slot)
     const { total_slots } = roundResult.rows[0];
     if (total_slots) {
       const allBoatsInRound = await client.query(
@@ -430,7 +423,6 @@ export const createKayakBooking = async (req: Request, res: Response): Promise<v
 
     await client.query('COMMIT');
 
-    // Send confirmation email asynchronously
     (async () => {
       try {
         const memberRes = await pool.query('SELECT email, first_name, last_name FROM members WHERE member_id = $1', [user.id]);
@@ -466,7 +458,7 @@ export const createKayakBooking = async (req: Request, res: Response): Promise<v
   }
 };
 
-// ดึงรายการจองเรือทั้งหมดของ member ที่ login อยู่ พร้อมชื่อเรือ รูป และรอบเวลาที่จอง
+// ดึงรายการจองเรือทั้งหมดของ member ที่ login อยู่
 export const getUserKayakBookings = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -488,7 +480,7 @@ export const getUserKayakBookings = async (req: Request, res: Response): Promise
   }
 };
 
-// ยกเลิกการจองเรือของผู้ใช้เฉพาะรายการที่เป็นเจ้าของ และป้องกันการยกเลิกซ้ำ
+// ยกเลิกการจองเรือของผู้ใช้
 export const cancelKayakBooking = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -518,7 +510,7 @@ export const cancelKayakBooking = async (req: Request, res: Response): Promise<v
   }
 };
 
-// ดึงรายการจองเรือทั้งหมดในระบบสำหรับ admin หรือ boat staff เพื่อใช้ตรวจสอบและอนุมัติการจอง
+// ดึงรายการจองเรือทั้งหมดในระบบสำหรับ admin หรือ boat staff
 export const getAllKayakBookings = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(
@@ -540,7 +532,7 @@ export const getAllKayakBookings = async (req: Request, res: Response): Promise<
   }
 };
 
-// ดึงประเภทเรือทั้งหมด (admin) รวมที่ปิดใช้งานด้วย
+// ดึงประเภทเรือทั้งหมด (admin)
 export const getAllKayaksAdmin = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(`
@@ -557,10 +549,38 @@ export const getAllKayaksAdmin = async (req: Request, res: Response): Promise<vo
   }
 };
 
-// ดึงรอบเวลาทั้งหมด (admin) รวมที่ปิดใช้งานด้วย
+// ดึงรอบเวลาทั้งหมด พร้อมรายการเรือทุกประเภทในรอบนั้น
 export const getKayakScheduleAdmin = async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await pool.query(`SELECT * FROM boat_rounds ORDER BY boat_type_id, start_time`);
+    const query = `
+      SELECT 
+        r.boat_round_id,
+        r.start_time,
+        r.end_time,
+        r.total_slots,
+        r.max_booking,
+        r.is_active,
+        r.boat_type_id,
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'boat_type_id', rb.boat_type_id,
+                'quantity', rb.quantity,
+                'type_name', bt.type_name
+              )
+            )
+            FROM round_boats rb
+            JOIN boat_types bt ON rb.boat_type_id = bt.boat_type_id
+            WHERE rb.boat_round_id = r.boat_round_id
+          ),
+          '[]'::json
+        ) AS round_boats
+      FROM boat_rounds r
+      ORDER BY r.start_time ASC
+    `;
+
+    const result = await pool.query(query);
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get kayak schedule admin error:', error);
@@ -568,7 +588,7 @@ export const getKayakScheduleAdmin = async (req: Request, res: Response): Promis
   }
 };
 
-// สร้างประเภทเรือใหม่ในระบบ เช่น เรือ 1 ที่นั่ง หรือ 2 ที่นั่ง พร้อมจำนวนและราคา
+// สร้างประเภทเรือใหม่ในระบบ
 export const createKayak = async (req: Request, res: Response): Promise<void> => {
   try {
     const { name, description, capacity, price_per_hour, quantity } = req.body;
@@ -584,23 +604,55 @@ export const createKayak = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-// สร้างรอบเวลาใหม่ของเรือแต่ละประเภท เช่น 09:00-10:00 เพื่อใช้กับระบบจองเรือ
+// สร้างรอบเวลาใหม่ พร้อมลงข้อมูลรายการเรือใน round_boats
 export const createBoatRound = async (req: Request, res: Response): Promise<void> => {
+  const client = await pool.connect();
   try {
-    const { boat_type_id, start_time, end_time, max_booking, total_slots } = req.body;
-    const result = await pool.query(
-      `INSERT INTO boat_rounds (boat_type_id, start_time, end_time, max_booking, total_slots, is_active)
-       VALUES ($1, $2, $3, $4, $5, true) RETURNING *`,
-      [boat_type_id, start_time, end_time, max_booking || null, total_slots || null]
+    const { start_time, end_time, max_booking, total_slots, boats } = req.body;
+
+    if (!start_time || !end_time) {
+      res.status(400).json({ success: false, message: 'กรุณากรอก start_time และ end_time ให้ครบถ้วน' });
+      return;
+    }
+
+    const formattedStartTime = String(start_time).includes('T') ? start_time.split('T')[1].slice(0, 8) : start_time;
+    const formattedEndTime = String(end_time).includes('T') ? end_time.split('T')[1].slice(0, 8) : end_time;
+
+    await client.query('BEGIN');
+
+    // บันทึกรอบเวลา (ไม่ต้องบังคับใส่ boat_type_id)
+    const result = await client.query(
+      `INSERT INTO boat_rounds (start_time, end_time, max_booking, total_slots, is_active)
+       VALUES ($1, $2, $3, $4, true) RETURNING *`,
+      [formattedStartTime, formattedEndTime, max_booking || null, total_slots || null]
     );
+
+    const newRoundId = result.rows[0].boat_round_id;
+
+    // วนลูปบันทึกเรือทุกประเภทที่ส่งมาจาก Frontend ลงตาราง round_boats
+    if (Array.isArray(boats) && boats.length > 0) {
+      for (const item of boats) {
+        if (item.boat_type_id) {
+          await client.query(
+            `INSERT INTO round_boats (boat_round_id, boat_type_id, quantity) VALUES ($1, $2, $3)`,
+            [newRoundId, Number(item.boat_type_id), Number(item.quantity || 1)]
+          );
+        }
+      }
+    }
+
+    await client.query('COMMIT');
     res.status(201).json({ success: true, message: 'Boat round created', data: result.rows[0] });
-  } catch (error) {
+  } catch (error: any) {
+    await client.query('ROLLBACK');
     console.error('Create boat round error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+  } finally {
+    client.release();
   }
 };
 
-// อัปเดตสถานะการจองเรือจากฝั่งพนักงานหรือผู้ดูแล เช่น approved, rejected หรือ pending
+// อัปเดตสถานะการจองเรือ
 export const updateKayakBookingStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -668,7 +720,7 @@ export const updateKayakBookingStatus = async (req: Request, res: Response): Pro
   }
 };
 
-// บันทึกการ check out เรือคายัค — เปลี่ยนสถานะเป็น checked_out
+// บันทึกการ check out เรือคายัค
 export const checkoutKayakBooking = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -700,35 +752,11 @@ export const checkoutKayakBooking = async (req: Request, res: Response): Promise
   }
 };
 
-
-// อัปเดตข้อมูลประเภทเรือเดิม เช่น ชื่อ รายละเอียด จำนวน ราคา และสถานะการเปิดใช้งาน
-export const updateKayak = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { name, description, capacity, price_per_hour, quantity, is_active } = req.body;
-    const result = await pool.query(
-      `UPDATE boat_types SET type_name=$1, description=$2, seat_count=$3,
-       price=$4, quantity=$5, is_active=$6
-       WHERE boat_type_id=$7 RETURNING *`,
-      [name, description, capacity, price_per_hour, quantity, is_active, id]
-    );
-    if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: 'Boat type not found' });
-      return;
-    }
-    res.json({ success: true, message: 'Boat type updated', data: result.rows[0] });
-  } catch (error) {
-    console.error('Update kayak error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
-  }
-};
-
-// ลบประเภทเรือออกจากระบบ (hard delete)
+// ลบประเภทเรือออกจากระบบ
 export const deleteKayak = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     
-    // Check if there are active bookings
     const bookingCheck = await pool.query(
       `SELECT COUNT(*) as count FROM boat_bookings 
        WHERE boat_type_id = $1 AND status NOT IN ('cancelled', 'rejected')`,
@@ -797,7 +825,7 @@ export const addBoatImage = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// ลบรูปของ boat type
+// ลบรูปของ boat type พร้อมลบไฟล์บน Cloudinary
 export const deleteBoatImage = async (req: Request, res: Response): Promise<void> => {
   try {
     const { imageId } = req.params;
@@ -821,61 +849,170 @@ export const deleteBoatImage = async (req: Request, res: Response): Promise<void
   }
 };
 
-// อัปเดตรอบเวลาเรือ
-export const updateBoatRound = async (req: Request, res: Response): Promise<void> => {
+// อัปเดตข้อมูลประเภทเรือเดิม ( Dynamic Update )
+export const updateKayak = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { boat_type_id, start_time, end_time, max_booking, total_slots, is_active } = req.body;
-    
-    const result = await pool.query(
-      `UPDATE boat_rounds SET boat_type_id=$1, start_time=$2, end_time=$3, max_booking=$4, total_slots=$5, is_active=$6
-       WHERE boat_round_id=$7 RETURNING *`,
-      [boat_type_id, start_time, end_time, max_booking || null, total_slots || null, is_active, id]
-    );
-    
-    if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: 'Boat round not found' });
+    const body = req.body;
+
+    const fieldMapping: Record<string, string> = {
+      name: 'type_name',
+      type_name: 'type_name',
+      description: 'description',
+      capacity: 'seat_count',
+      seat_count: 'seat_count',
+      price_per_hour: 'price',
+      price: 'price',
+      quantity: 'quantity',
+      is_active: 'is_active',
+    };
+
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    Object.keys(body).forEach((key) => {
+      if (fieldMapping[key] && body[key] !== undefined) {
+        updates.push(`${fieldMapping[key]} = $${paramIndex}`);
+        values.push(body[key]);
+        paramIndex++;
+      }
+    });
+
+    if (updates.length === 0) {
+      res.status(400).json({ success: false, message: 'ไม่มีข้อมูลที่ส่งมาอัปเดต' });
       return;
     }
-    
-    res.json({ success: true, message: 'Boat round updated', data: result.rows[0] });
+
+    values.push(id);
+    const query = `
+      UPDATE boat_types 
+      SET ${updates.join(', ')} 
+      WHERE boat_type_id = $${paramIndex} 
+      RETURNING boat_type_id as id, type_name as name, description, seat_count as capacity, price as price_per_hour, quantity, is_active`;
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Boat type not found' });
+      return;
+    }
+
+    res.json({ success: true, message: 'Boat type updated', data: result.rows[0] });
   } catch (error) {
-    console.error('Update boat round error:', error);
+    console.error('Update kayak error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// ลบรอบเวลาเรือ (hard delete)
-export const deleteBoatRound = async (req: Request, res: Response): Promise<void> => {
+// อัปเดตรอบเวลาเรือ + ซิงก์ตาราง round_boats
+export const updateBoatRound = async (req: Request, res: Response): Promise<void> => {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
-    
-    // Check if there are active bookings
-    const bookingCheck = await pool.query(
+    const body = req.body;
+    const { boats, boat_type_id } = body;
+
+    await client.query('BEGIN');
+
+    // 1. อัปเดตข้อมูลพื้นฐานในตาราง boat_rounds
+    const allowedFields = ['boat_type_id', 'start_time', 'end_time', 'max_booking', 'total_slots', 'is_active'];
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    allowedFields.forEach((field) => {
+      if (body[field] !== undefined) {
+        updates.push(`${field} = $${paramIndex}`);
+        let val = (field === 'max_booking' || field === 'total_slots') && body[field] === '' ? null : body[field];
+        if ((field === 'start_time' || field === 'end_time') && typeof val === 'string' && val.includes('T')) {
+          val = val.split('T')[1].slice(0, 8);
+        }
+        values.push(val);
+        paramIndex++;
+      }
+    });
+
+    if (updates.length > 0) {
+      values.push(id);
+      const query = `
+        UPDATE boat_rounds 
+        SET ${updates.join(', ')} 
+        WHERE boat_round_id = $${paramIndex} 
+        RETURNING *`;
+      await client.query(query, values);
+    }
+
+    // 2. อัปเดตข้อมูลรายการเรือลงในตาราง round_boats
+    if (Array.isArray(boats) && boats.length > 0) {
+      // กรณี Frontend ส่งมาเป็น Array หลายประเภท
+      await client.query(`DELETE FROM round_boats WHERE boat_round_id = $1`, [id]);
+      for (const item of boats) {
+        if (item.boat_type_id) {
+          await client.query(
+            `INSERT INTO round_boats (boat_round_id, boat_type_id, quantity) VALUES ($1, $2, $3)`,
+            [id, Number(item.boat_type_id), Number(item.quantity || 1)]
+          );
+        }
+      }
+    } else if (boat_type_id) {
+      // กรณี Frontend แบบเก่าส่งมาแค่ประเภทเดียว (Fallback)
+      await client.query(`DELETE FROM round_boats WHERE boat_round_id = $1`, [id]);
+      await client.query(
+        `INSERT INTO round_boats (boat_round_id, boat_type_id, quantity) VALUES ($1, $2, 1)`,
+        [id, Number(boat_type_id)]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Boat round updated successfully' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Update boat round error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+};
+
+// ลบรอบเวลาเรือ
+export const deleteBoatRound = async (req: Request, res: Response): Promise<void> => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+
+    const bookingCheck = await client.query(
       `SELECT COUNT(*) as count FROM boat_bookings 
        WHERE boat_round_id = $1 AND status NOT IN ('cancelled', 'rejected')`,
       [id]
     );
-    
+
     if (Number(bookingCheck.rows[0].count) > 0) {
+      client.release();
       res.status(400).json({ success: false, message: 'Cannot delete round with active bookings' });
       return;
     }
 
-    const result = await pool.query(
+    await client.query('BEGIN');
+    await client.query(`DELETE FROM round_boats WHERE boat_round_id = $1`, [id]);
+    const result = await client.query(
       `DELETE FROM boat_rounds WHERE boat_round_id = $1 RETURNING *`,
       [id]
     );
-    
+
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       res.status(404).json({ success: false, message: 'Boat round not found' });
       return;
     }
-    
+
+    await client.query('COMMIT');
     res.json({ success: true, message: 'Boat round deleted successfully' });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Delete boat round error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    client.release();
   }
 };
-

@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Pridi:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap");
 @import 'leaflet/dist/leaflet.css';
+@import 'globals.css';
 
 @tailwind base;
 @tailwind components;
@@ -260,5 +261,20 @@ h1, h2, h3, h4, h5, h6 {
     opacity: 1;
     animation: none;
     transform: none;
+  }
+}
+
+@media print {
+  /* ซ่อน sidebar, background overlay, และปุ่มกด */
+  .sidebar, .modal-backdrop, button, .no-print {
+    display: none !important;
+  }
+  
+  /* ขยายตัว Modal หรือ Container ข้อมูลให้เต็มหน้ากระดาษ A4 */
+  .modal-content {
+    position: static !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 }

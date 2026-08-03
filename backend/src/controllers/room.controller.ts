@@ -391,12 +391,41 @@ export const updateRoom = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-// ปิดการใช้งานประเภทห้องแบบ soft delete โดยเปลี่ยน status เป็น false แทนการลบข้อมูลจริงออกจากฐานข้อมูล
+// ลบประเภทห้องพัก (สั่งลบรูปภาพออกจาก Cloudinary)
 export const deleteRoom = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    await pool.query('UPDATE room_types SET status = false WHERE id = $1', [id]);
-    res.json({ success: true, message: 'Room type deactivated' });
+
+    const roomResult = await pool.query(
+      'SELECT room_image FROM room_types WHERE id = $1 LIMIT 1',
+      [id]
+    );
+
+    if (roomResult.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Room type not found' });
+      return;
+    }
+
+    const galleryResult = await pool.query(
+      'SELECT image_path FROM room_images WHERE room_type_id = $1',
+      [id]
+    );
+
+    const imagesToDelete = [
+      String(roomResult.rows[0].room_image || ''),
+      ...galleryResult.rows.map((row: { image_path: string }) => row.image_path)
+    ].filter(Boolean);
+
+    if (imagesToDelete.length > 0) {
+      await cleanupRemovedRoomImages(imagesToDelete);
+    }
+
+    await pool.query('DELETE FROM room_images WHERE room_type_id = $1', [id]);
+    await pool.query('DELETE FROM room_types WHERE id = $1', [id]);
+    // ถ้าต้องการใช้ Soft Delete เหมือนเดิม ให้เปิดใช้บรรทัดนี้แทน:
+    // await pool.query('UPDATE room_types SET status = false WHERE id = $1', [id]);
+
+    res.json({ success: true, message: 'Room type and images deleted successfully' });
   } catch (error) {
     console.error('Delete room error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });

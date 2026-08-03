@@ -147,10 +147,18 @@ export const getUserRoomBookings = async (
         `SELECT rb.room_booking_id as id, rb.check_in as check_in_date, rb.check_out as check_out_date,
                 rb.guest_count as guests, rb.total_price, rb.status, rb.special_request, rb.created_at,
                 rt.room_name, rt.type_name as room_type, r.room_number,
+                
+                u.name as user_name,
+                u.email as user_email,
+                u.phone as user_phone, 
+
                 (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as room_images
          FROM room_bookings rb
          JOIN rooms r ON rb.room_id = r.room_id
          JOIN room_types rt ON r.room_type_id = rt.id
+         
+         JOIN users u ON rb.member_id = u.id 
+         
          WHERE rb.member_id = $1
          ORDER BY rb.created_at DESC`,
         [user.id],
@@ -258,11 +266,11 @@ export const getAllRoomBookings = async (
               rb.check_in, rb.check_out,
               rb.check_in as check_in_date, rb.check_out as check_out_date,
               rb.checkin_at, 
-              rb.checkout_at, -- 👈 เพิ่มตรงนี้เพื่อให้ Frontend ได้รับเวลาเช็คเอาต์จริงครับ
+              rb.checkout_at, -- 
               rb.guest_count as guests, rb.total_price, rb.status,
               rb.payment_status, rb.payment_slip, rb.created_at,
               rt.type_name as room_name, r.room_number,
-              m.first_name || ' ' || m.last_name as user_name, m.email as user_email,
+              m.first_name || ' ' || m.last_name as user_name, m.email as user_email,m.phone as user_phone,
               s.first_name || ' ' || s.last_name as approved_by_name
        FROM room_bookings rb
        JOIN rooms r ON rb.room_id = r.room_id
@@ -379,41 +387,7 @@ export const checkinRoomBooking = async (
       return;
     }
 
-    // 💡 แก้ไข: ไม่เปลี่ยน status (ให้เป็น approved หรือสถานะเดิมไว้) 
-    // อัปเดตเฉพาะ checkin_at เพื่อไม่ให้ชน Constraint ใน DB ครับ
-    await pool.query(
-      `UPDATE room_bookings 
-       SET checkin_at = NOW(), updated_at = NOW() 
-       WHERE room_booking_id = $1`,
-      [id],
-    );
-
-    res.json({ success: true, message: "เช็คอินสำเร็จ" });
-  } catch (error) {
-    console.error("Checkin room booking error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
-};
-
-// 📌 เช็คเอาต์ห้องพัก (แก้ไขแล้ว)
-export const checkoutRoomBooking = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  try {
-    const { id } = req.params;
-
-    const booking = await pool.query(
-      "SELECT status FROM room_bookings WHERE room_booking_id = $1",
-      [id],
-    );
-
-    if (booking.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Booking not found" });
-      return;
-    }
-
-    // 💡 แก้ไข: เพิ่ม status = 'checked_in' เข้าไปในการ UPDATE
+    // 🎯 แก้ไข: เพิ่ม status = 'checked_in' เข้าไปในการ UPDATE
     await pool.query(
       `UPDATE room_bookings 
        SET status = 'checked_in',
@@ -426,6 +400,53 @@ export const checkoutRoomBooking = async (
     res.json({ success: true, message: "เช็คอินสำเร็จ" });
   } catch (error) {
     console.error("Checkin room booking error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// 📌 เช็คเอาต์ห้องพัก (แก้ไขแล้ว)
+// 📌 เช็คเอาต์ห้องพัก (อัปเดต status และ checkout_at ลง DB)
+export const checkoutRoomBooking = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // 1. เช็กว่ามีรายการจองนี้ไหม
+    const booking = await pool.query(
+      "SELECT room_id FROM room_bookings WHERE room_booking_id = $1",
+      [id],
+    );
+
+    if (booking.rows.length === 0) {
+      res.status(404).json({ success: false, message: "Booking not found" });
+      return;
+    }
+
+    const roomId = booking.rows[0].room_id;
+
+    // 🎯 2. อัปเดต status เป็น 'checked_out' และบันทึก checkout_at = NOW()
+    await pool.query(
+      `UPDATE room_bookings 
+       SET status = 'checked_out', 
+           checkout_at = NOW(), 
+           updated_at = NOW() 
+       WHERE room_booking_id = $1`,
+      [id],
+    );
+
+    // 3. (Optional) คืนสถานะห้องพักให้พร้อมใช้งานอีกครั้ง
+    if (roomId) {
+      await pool.query(
+        "UPDATE rooms SET status = 'available' WHERE room_id = $1",
+        [roomId],
+      );
+    }
+
+    res.json({ success: true, message: "เช็คเอาต์สำเร็จเรียบร้อย" });
+  } catch (error) {
+    console.error("Checkout room booking error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
