@@ -16,9 +16,11 @@ import {
   UploadCloud,
   Loader2,
   Eye,
-  CheckCircle2,
   BedDouble,
   Sparkles,
+  DoorClosed,
+  ArrowRight,
+  Power,
 } from "lucide-react";
 import api from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
@@ -26,9 +28,8 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
-// Constants & Validation Rules
 const VALID_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_GALLERY_COUNT = 5;
 
 export default function RoomTypesPage() {
@@ -39,14 +40,10 @@ export default function RoomTypesPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // Search filter
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Modals Open/Close States
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  // Form State (Create)
   const [form, setForm] = useState({
     type_name: "",
     description: "",
@@ -57,14 +54,12 @@ export default function RoomTypesPage() {
     amenities: [] as number[],
   });
 
-  // Create Form - File States & Drag state
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   const [isDraggingCover, setIsDraggingCover] = useState(false);
 
-  // Edit Modal States
   const [editingRoom, setEditingRoom] = useState<any>(null);
   const [editCoverFile, setEditCoverFile] = useState<File | null>(null);
   const [editCoverPreview, setEditCoverPreview] = useState<string | null>(null);
@@ -72,19 +67,14 @@ export default function RoomTypesPage() {
   const [editGalleryPreviews, setEditGalleryPreviews] = useState<string[]>([]);
   const [editUploading, setEditUploading] = useState(false);
 
-  // Modals (Delete Confirm & Image Lightbox)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [lightboxImage, setLightboxImage] = useState<{
-    url: string;
-    title: string;
-  } | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string } | null>(null);
 
   useEffect(() => {
     if (!ready) return;
     fetchData();
   }, [ready]);
 
-  // Clean up Object URLs to prevent memory leaks
   useEffect(() => {
     return () => {
       if (coverPreview) URL.revokeObjectURL(coverPreview);
@@ -98,7 +88,7 @@ export default function RoomTypesPage() {
     setLoading(true);
     try {
       const [rtRes, amRes] = await Promise.all([
-        api.get("/rooms"),
+        api.get("/rooms?is_admin=true"), // ✅ ใส่ ?is_admin=true
         api.get("/rooms/amenities/all"),
       ]);
       setRoomTypes(rtRes.data?.data || []);
@@ -110,7 +100,16 @@ export default function RoomTypesPage() {
     }
   };
 
-  // Helper Validation
+  const handleToggleStatus = async (id: number, currentStatus: boolean) => {
+    try {
+      await api.patch(`/rooms/${id}/status`, { status: !currentStatus });
+      toast.success(`เปลี่ยนสถานะเป็น ${!currentStatus ? "เปิดใช้งาน" : "ปิดใช้งาน"} เรียบร้อย`);
+      fetchData();
+    } catch {
+      toast.error("เปลี่ยนสถานะไม่สำเร็จ");
+    }
+  };
+
   const validateFile = (file: File) => {
     if (!VALID_IMAGE_TYPES.includes(file.type)) {
       toast.error(`ไฟล์ ${file.name} ต้องเป็น JPG, PNG หรือ WEBP เท่านั้น`);
@@ -123,7 +122,6 @@ export default function RoomTypesPage() {
     return true;
   };
 
-  // Handlers สำหรับรูปปก (สร้างใหม่)
   const processCoverFile = (file: File) => {
     if (validateFile(file)) {
       if (coverPreview) URL.revokeObjectURL(coverPreview);
@@ -137,7 +135,6 @@ export default function RoomTypesPage() {
     if (file) processCoverFile(file);
   };
 
-  // Drag & Drop Handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingCover(true);
@@ -154,15 +151,12 @@ export default function RoomTypesPage() {
     if (file) processCoverFile(file);
   };
 
-  // Handlers สำหรับรูป Gallery (สร้างใหม่)
   const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-
     if (galleryFiles.length + selectedFiles.length > MAX_GALLERY_COUNT) {
       toast.error(`เพิ่มรูป Gallery ได้สูงสุด ${MAX_GALLERY_COUNT} รูปเท่านั้น`);
       return;
     }
-
     const validFiles = selectedFiles.filter(validateFile);
     if (validFiles.length > 0) {
       const newPreviews = validFiles.map((file) => URL.createObjectURL(file));
@@ -242,7 +236,6 @@ export default function RoomTypesPage() {
       });
 
       toast.success("สร้างประเภทห้องพักสำเร็จ");
-
       resetCreateForm();
       setShowCreateModal(false);
       fetchData();
@@ -264,7 +257,7 @@ export default function RoomTypesPage() {
       toast.success("ลบประเภทห้องพักสำเร็จ");
       fetchData();
     } catch {
-      toast.error("ลบไม่สำเร็จ");
+      toast.error("ลบไม่สำเร็จ กรุณาตรวจสอบว่ามีห้องพักย่อยผูกอยู่หรือไม่");
     } finally {
       setDeleteTargetId(null);
     }
@@ -278,6 +271,7 @@ export default function RoomTypesPage() {
       capacity: rt.capacity,
       price: rt.price_per_night,
       room_image: rt.main_image || "",
+      status: rt.status,
       amenity_ids: (rt.amenities || []).map((a: any) => a.id),
       existing_gallery: Array.isArray(rt.images)
         ? rt.images.filter((img: string) => img !== rt.main_image)
@@ -366,7 +360,7 @@ export default function RoomTypesPage() {
         room_image: roomImage,
         amenity_ids: editingRoom.amenity_ids,
         gallery_images: finalGallery,
-        status: true,
+        status: editingRoom.status,
       });
       toast.success("แก้ไขประเภทห้องพักสำเร็จ");
 
@@ -412,7 +406,7 @@ export default function RoomTypesPage() {
             </h1>
           </div>
           <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            เพิ่ม ดู และแก้ไขประเภทห้องพักในระบบสวนวลัยรุกขเวช
+            เพิ่ม ดู และแก้ไขประเภทห้องพักหลักในระบบสวนวลัยรุกขเวช
           </p>
         </div>
 
@@ -432,7 +426,7 @@ export default function RoomTypesPage() {
             </div>
             <div>
               <span className="text-[10px] font-semibold text-stone-400 block leading-tight">
-                ทั้งหมด
+                ประเภทห้องทั้งหมด
               </span>
               <span className="text-xs font-bold text-[#0b3b2c]">
                 {roomTypes.length} รายการ
@@ -442,7 +436,7 @@ export default function RoomTypesPage() {
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs */}
+      {/* Navigation Tabs */}
       <div className="flex items-center gap-1.5 p-1 bg-stone-200/60 rounded-xl overflow-x-auto text-xs w-fit border border-stone-200/80">
         <Link
           href="/admin/rooms/types"
@@ -453,19 +447,21 @@ export default function RoomTypesPage() {
         </Link>
         <Link
           href="/admin/rooms/single"
-          className="px-4 py-2 rounded-lg font-medium text-stone-600 hover:text-stone-900 transition-all whitespace-nowrap"
+          className="px-4 py-2 rounded-lg font-medium text-stone-600 hover:text-stone-900 transition-all whitespace-nowrap flex items-center gap-1.5"
         >
-          จัดการรายห้อง
+          <DoorClosed size={14} />
+          จัดการห้องพักรายห้อง
         </Link>
         <Link
           href="/admin/rooms/amenities"
-          className="px-4 py-2 rounded-lg font-medium text-stone-600 hover:text-stone-900 transition-all whitespace-nowrap"
+          className="px-4 py-2 rounded-lg font-medium text-stone-600 hover:text-stone-900 transition-all whitespace-nowrap flex items-center gap-1.5"
         >
+          <Sparkles size={14} />
           สิ่งอำนวยความสะดวก
         </Link>
       </div>
 
-      {/* Table List Section (Full Width) */}
+      {/* Table List Section */}
       <div className="bg-white border border-stone-200/80 rounded-2xl shadow-xs overflow-hidden flex flex-col min-h-[500px]">
         {/* Header & Search */}
         <div className="p-4 sm:p-5 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-50/50">
@@ -509,22 +505,24 @@ export default function RoomTypesPage() {
               <tr>
                 <th className="px-5 py-3.5">ประเภทห้อง</th>
                 <th className="px-4 py-3.5">ความจุ</th>
+                <th className="px-4 py-3.5">จำนวนห้องจริง</th>
                 <th className="px-4 py-3.5">สิ่งอำนวยความสะดวก</th>
                 <th className="px-4 py-3.5">ราคา / คืน</th>
+                <th className="px-4 py-3.5">สถานะ</th>
                 <th className="px-4 py-3.5 text-center">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 text-xs text-stone-700">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-16 text-center text-stone-400">
+                  <td colSpan={7} className="py-16 text-center text-stone-400">
                     <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-[#0b3b2c] border-t-transparent mb-3" />
                     <p className="text-xs font-medium text-stone-500">กำลังโหลดข้อมูลห้องพัก...</p>
                   </td>
                 </tr>
               ) : filteredRoomTypes.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-16 text-center text-stone-400">
+                  <td colSpan={7} className="py-16 text-center text-stone-400">
                     <Layers size={40} className="mx-auto mb-3 text-stone-300 stroke-[1.5]" />
                     <p className="text-sm font-semibold text-stone-600">ไม่พบประเภทห้องพัก</p>
                     <p className="text-xs text-stone-400 mt-1">ลองเปลี่ยนคำค้นหา หรือกดเพิ่มประเภทห้องพักใหม่</p>
@@ -564,7 +562,7 @@ export default function RoomTypesPage() {
                           <div className="font-bold text-stone-900 text-sm truncate">
                             {rt.type_name}
                           </div>
-                          <div className="text-[11px] text-stone-400 truncate max-w-sm font-normal mt-0.5">
+                          <div className="text-[11px] text-stone-400 truncate max-w-xs font-normal mt-0.5">
                             {rt.description || "ไม่มีรายละเอียดเพิ่มเติม"}
                           </div>
                         </div>
@@ -576,13 +574,24 @@ export default function RoomTypesPage() {
                         {rt.capacity} คน
                       </span>
                     </td>
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      <Link
+                        href={`/admin/rooms/single?type_id=${rt.id}`}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-[#0b3b2c] hover:bg-emerald-100 border border-emerald-200/60 transition-all group"
+                        title="คลิกเพื่อดูและจัดการรายห้อง"
+                      >
+                        <DoorClosed size={13} />
+                        <span>{rt.room_count || 0} ห้อง</span>
+                        <ArrowRight size={11} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </Link>
+                    </td>
                     <td className="px-4 py-3.5">
                       <div className="flex flex-wrap gap-1 max-w-xs">
                         {rt.amenities && rt.amenities.length > 0 ? (
                           rt.amenities.map((am: any) => (
                             <span
                               key={am.id}
-                              className="px-2 py-0.5 bg-emerald-50 text-[#0b3b2c] border border-emerald-200/50 rounded-md text-[10px] font-medium"
+                              className="px-2 py-0.5 bg-stone-100 text-stone-700 border border-stone-200 rounded-md text-[10px] font-medium"
                             >
                               {am.name}
                             </span>
@@ -596,6 +605,21 @@ export default function RoomTypesPage() {
                       <span className="font-bold text-[#0b3b2c] text-sm">
                         ฿{Number(rt.price_per_night || 0).toLocaleString()}
                       </span>
+                    </td>
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(rt.id, rt.status)}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          rt.status
+                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                            : "bg-stone-200 text-stone-600 hover:bg-stone-300"
+                        }`}
+                        title="คลิกเพื่อเปิด/ปิดการใช้งาน"
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${rt.status ? "bg-emerald-600" : "bg-stone-400"}`} />
+                        {rt.status ? "เปิดใช้งาน" : "ปิดใช้งาน"}
+                      </button>
                     </td>
                     <td className="px-4 py-3.5 whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1.5">
@@ -625,11 +649,10 @@ export default function RoomTypesPage() {
         </div>
       </div>
 
-      {/* 🟢 MODAL: Create Room Type */}
+      {/* Modal: Create Room Type */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-stone-100 flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
             <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-[#0b3b2c] text-white">
               <h3 className="text-sm font-bold flex items-center gap-2">
                 <PlusCircle size={18} className="text-emerald-300" />
@@ -647,7 +670,6 @@ export default function RoomTypesPage() {
               </button>
             </div>
 
-            {/* Modal Form */}
             <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
               <div className="space-y-4">
                 <div>
@@ -660,9 +682,7 @@ export default function RoomTypesPage() {
                     placeholder="เช่น วิลล่าริมน้ำ, เต็นท์โดม VIP"
                     className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
                     value={form.type_name}
-                    onChange={(e) =>
-                      setForm({ ...form, type_name: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, type_name: e.target.value })}
                   />
                 </div>
 
@@ -675,9 +695,7 @@ export default function RoomTypesPage() {
                     className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs resize-none"
                     rows={2}
                     value={form.description}
-                    onChange={(e) =>
-                      setForm({ ...form, description: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
                   />
                 </div>
 
@@ -692,9 +710,7 @@ export default function RoomTypesPage() {
                       min="1"
                       className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
                       value={form.capacity}
-                      onChange={(e) =>
-                        setForm({ ...form, capacity: Number(e.target.value) })
-                      }
+                      onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })}
                     />
                   </div>
                   <div>
@@ -707,14 +723,12 @@ export default function RoomTypesPage() {
                       min="0"
                       className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
                       value={form.price}
-                      onChange={(e) =>
-                        setForm({ ...form, price: Number(e.target.value) })
-                      }
+                      onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
                     />
                   </div>
                 </div>
 
-                {/* Drag & Drop Cover Image Upload */}
+                {/* Drag & Drop Cover Image */}
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
                     รูปปกห้องพัก <span className="text-rose-500">*</span>
@@ -722,11 +736,7 @@ export default function RoomTypesPage() {
 
                   {coverPreview ? (
                     <div className="relative w-full h-36 rounded-xl overflow-hidden border-2 border-[#0b3b2c] shadow-xs group">
-                      <img
-                        src={coverPreview}
-                        alt="Cover Preview"
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={coverPreview} alt="Cover Preview" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <button
                           type="button"
@@ -759,18 +769,12 @@ export default function RoomTypesPage() {
                         คลิก หรือลากไฟล์มาวางเพื่ออัปโหลด
                       </p>
                       <p className="text-[10px] text-stone-400 mt-0.5">JPG, PNG, WEBP (ไม่เกิน 5MB)</p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        required
-                        className="hidden"
-                        onChange={handleCoverChange}
-                      />
+                      <input type="file" accept="image/*" required className="hidden" onChange={handleCoverChange} />
                     </label>
                   )}
                 </div>
 
-                {/* Gallery Files Upload */}
+                {/* Gallery Files */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-bold text-stone-700">
@@ -785,15 +789,8 @@ export default function RoomTypesPage() {
                     {galleryPreviews.length > 0 && (
                       <div className="grid grid-cols-4 gap-2">
                         {galleryPreviews.map((url, idx) => (
-                          <div
-                            key={idx}
-                            className="relative h-16 rounded-xl overflow-hidden border border-stone-200 shadow-2xs group"
-                          >
-                            <img
-                              src={url}
-                              alt={`Gallery ${idx + 1}`}
-                              className="w-full h-full object-cover"
-                            />
+                          <div key={idx} className="relative h-16 rounded-xl overflow-hidden border border-stone-200 shadow-2xs group">
+                            <img src={url} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
                             <button
                               type="button"
                               onClick={() => removeGalleryFile(idx)}
@@ -810,27 +807,28 @@ export default function RoomTypesPage() {
                       <label className="flex items-center justify-center gap-2 w-full py-2.5 px-3 border border-stone-200 hover:border-[#0b3b2c] rounded-xl bg-stone-50 hover:bg-[#0b3b2c]/5 transition-all cursor-pointer text-stone-600 hover:text-[#0b3b2c]">
                         <UploadCloud size={15} />
                         <span className="text-xs font-semibold">
-                          {galleryPreviews.length > 0
-                            ? "เพิ่มรูปภาพประกอบอีก..."
-                            : "เลือกรูปภาพประกอบเพิ่มเติม"}
+                          {galleryPreviews.length > 0 ? "เพิ่มรูปภาพประกอบอีก..." : "เลือกรูปภาพประกอบเพิ่มเติม"}
                         </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          className="hidden"
-                          onChange={handleGalleryChange}
-                        />
+                        <input type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryChange} />
                       </label>
                     )}
                   </div>
                 </div>
 
-                {/* Amenities Checklist */}
+                {/* Amenities Selection */}
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    สิ่งอำนวยความสะดวก
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-stone-700">
+                      สิ่งอำนวยความสะดวก
+                    </label>
+                    <Link
+                      href="/admin/rooms/amenities"
+                      className="text-[11px] text-[#0b3b2c] hover:underline font-semibold flex items-center gap-0.5"
+                    >
+                      จัดการรายการ
+                      <ArrowRight size={10} />
+                    </Link>
+                  </div>
                   {amenities.length > 0 ? (
                     <div className="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto p-2 border border-stone-200 rounded-xl bg-stone-50/80 custom-scrollbar">
                       {amenities.map((am) => {
@@ -895,11 +893,10 @@ export default function RoomTypesPage() {
         </div>
       )}
 
-      {/* 🟡 MODAL: Edit Room Type */}
+      {/* Modal: Edit Room Type */}
       {showEditModal && editingRoom && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-stone-100 flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
             <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50">
               <h3 className="text-sm font-bold text-[#0b3b2c] flex items-center gap-2">
                 <Edit3 size={16} className="text-amber-600" />
@@ -917,7 +914,6 @@ export default function RoomTypesPage() {
               </button>
             </div>
 
-            {/* Modal Form */}
             <form onSubmit={handleUpdateRoom} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
               <div className="space-y-4">
                 <div>
@@ -929,12 +925,7 @@ export default function RoomTypesPage() {
                     required
                     className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
                     value={editingRoom.type_name}
-                    onChange={(e) =>
-                      setEditingRoom({
-                        ...editingRoom,
-                        type_name: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setEditingRoom({ ...editingRoom, type_name: e.target.value })}
                   />
                 </div>
 
@@ -946,12 +937,7 @@ export default function RoomTypesPage() {
                     className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs resize-none"
                     rows={2}
                     value={editingRoom.description}
-                    onChange={(e) =>
-                      setEditingRoom({
-                        ...editingRoom,
-                        description: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setEditingRoom({ ...editingRoom, description: e.target.value })}
                   />
                 </div>
 
@@ -966,12 +952,7 @@ export default function RoomTypesPage() {
                       min="1"
                       className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
                       value={editingRoom.capacity}
-                      onChange={(e) =>
-                        setEditingRoom({
-                          ...editingRoom,
-                          capacity: Number(e.target.value),
-                        })
-                      }
+                      onChange={(e) => setEditingRoom({ ...editingRoom, capacity: Number(e.target.value) })}
                     />
                   </div>
                   <div>
@@ -984,17 +965,27 @@ export default function RoomTypesPage() {
                       min="0"
                       className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
                       value={editingRoom.price}
-                      onChange={(e) =>
-                        setEditingRoom({
-                          ...editingRoom,
-                          price: Number(e.target.value),
-                        })
-                      }
+                      onChange={(e) => setEditingRoom({ ...editingRoom, price: Number(e.target.value) })}
                     />
                   </div>
                 </div>
 
-                {/* Cover Image Edit */}
+                {/* Status Selection */}
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    สถานะการใช้งาน
+                  </label>
+                  <select
+                    value={editingRoom.status ? "true" : "false"}
+                    onChange={(e) => setEditingRoom({ ...editingRoom, status: e.target.value === "true" })}
+                    className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
+                  >
+                    <option value="true">เปิดใช้งาน (ลูกค้าเห็นและจองได้)</option>
+                    <option value="false">ปิดใช้งาน (ซ่อนจากหน้าแสดงผลฝั่งลูกค้า)</option>
+                  </select>
+                </div>
+
+                {/* Cover Image */}
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
                     รูปปกห้องพัก
@@ -1002,10 +993,7 @@ export default function RoomTypesPage() {
 
                   <div className="relative w-full h-32 rounded-xl overflow-hidden border border-stone-200 mb-2 group shadow-2xs">
                     <img
-                      src={
-                        editCoverPreview ||
-                        resolveMediaUrl(editingRoom.room_image)
-                      }
+                      src={editCoverPreview || resolveMediaUrl(editingRoom.room_image)}
                       alt="Cover"
                       className="w-full h-full object-cover"
                     />
@@ -1021,60 +1009,42 @@ export default function RoomTypesPage() {
                   <label className="flex items-center justify-center gap-2 w-full py-2 px-3 border border-stone-200 hover:border-[#0b3b2c] rounded-xl bg-stone-50 hover:bg-[#0b3b2c]/5 transition-all cursor-pointer text-stone-600 hover:text-[#0b3b2c]">
                     <UploadCloud size={15} />
                     <span className="text-xs font-semibold">เปลี่ยนรูปปก</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleEditCoverChange}
-                    />
+                    <input type="file" accept="image/*" className="hidden" onChange={handleEditCoverChange} />
                   </label>
                 </div>
 
-                {/* Gallery Images Edit */}
+                {/* Gallery */}
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
                     รูปภาพเพิ่มเติม (Gallery)
                   </label>
 
-                  {editingRoom.existing_gallery &&
-                    editingRoom.existing_gallery.length > 0 && (
-                      <div className="mb-2.5">
-                        <p className="text-[11px] text-stone-400 mb-1 font-medium">
-                          รูปปัจจุบัน ({editingRoom.existing_gallery.length})
-                        </p>
-                        <div className="grid grid-cols-4 gap-2">
-                          {editingRoom.existing_gallery.map(
-                            (img: string, idx: number) => (
-                              <div
-                                key={idx}
-                                className="relative h-16 rounded-xl overflow-hidden border border-stone-200 group"
-                              >
-                                <img
-                                  src={resolveMediaUrl(img)}
-                                  alt={`gallery ${idx + 1}`}
-                                  className="w-full h-full object-cover"
-                                />
-                                <button
-                                  type="button"
-                                  className="absolute inset-0 bg-rose-600/80 text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-                                  onClick={() =>
-                                    setEditingRoom((prev: any) => ({
-                                      ...prev,
-                                      existing_gallery:
-                                        prev.existing_gallery.filter(
-                                          (_: string, i: number) => i !== idx,
-                                        ),
-                                    }))
-                                  }
-                                >
-                                  <X size={16} />
-                                </button>
-                              </div>
-                            ),
-                          )}
-                        </div>
+                  {editingRoom.existing_gallery && editingRoom.existing_gallery.length > 0 && (
+                    <div className="mb-2.5">
+                      <p className="text-[11px] text-stone-400 mb-1 font-medium">
+                        รูปปัจจุบัน ({editingRoom.existing_gallery.length})
+                      </p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {editingRoom.existing_gallery.map((img: string, idx: number) => (
+                          <div key={idx} className="relative h-16 rounded-xl overflow-hidden border border-stone-200 group">
+                            <img src={resolveMediaUrl(img)} alt={`gallery ${idx + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              className="absolute inset-0 bg-rose-600/80 text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                              onClick={() =>
+                                setEditingRoom((prev: any) => ({
+                                  ...prev,
+                                  existing_gallery: prev.existing_gallery.filter((_: string, i: number) => i !== idx),
+                                }))
+                              }
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    )}
+                    </div>
+                  )}
 
                   {editGalleryPreviews.length > 0 && (
                     <div className="mb-2.5">
@@ -1083,15 +1053,8 @@ export default function RoomTypesPage() {
                       </p>
                       <div className="grid grid-cols-4 gap-2">
                         {editGalleryPreviews.map((url, idx) => (
-                          <div
-                            key={idx}
-                            className="relative h-16 rounded-xl overflow-hidden border-2 border-[#0b3b2c] group"
-                          >
-                            <img
-                              src={url}
-                              alt={`new preview ${idx}`}
-                              className="w-full h-full object-cover"
-                            />
+                          <div key={idx} className="relative h-16 rounded-xl overflow-hidden border-2 border-[#0b3b2c] group">
+                            <img src={url} alt={`new preview ${idx}`} className="w-full h-full object-cover" />
                             <button
                               type="button"
                               className="absolute inset-0 bg-rose-600/80 text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
@@ -1105,35 +1068,33 @@ export default function RoomTypesPage() {
                     </div>
                   )}
 
-                  {(editingRoom?.existing_gallery?.length || 0) +
-                    editGalleryFiles.length <
-                    MAX_GALLERY_COUNT && (
+                  {(editingRoom?.existing_gallery?.length || 0) + editGalleryFiles.length < MAX_GALLERY_COUNT && (
                     <label className="flex items-center justify-center gap-2 w-full py-2 px-3 border border-stone-200 hover:border-[#0b3b2c] rounded-xl bg-stone-50 hover:bg-[#0b3b2c]/5 transition-all cursor-pointer text-stone-600 hover:text-[#0b3b2c]">
                       <UploadCloud size={15} />
-                      <span className="text-xs font-semibold">
-                        อัปโหลดรูปเพิ่มเติม
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="hidden"
-                        onChange={handleEditGalleryChange}
-                      />
+                      <span className="text-xs font-semibold">อัปโหลดรูปเพิ่มเติม</span>
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={handleEditGalleryChange} />
                     </label>
                   )}
                 </div>
 
-                {/* Amenities List */}
+                {/* Amenities Selection */}
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    สิ่งอำนวยความสะดวก
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-stone-700">
+                      สิ่งอำนวยความสะดวก
+                    </label>
+                    <Link
+                      href="/admin/rooms/amenities"
+                      className="text-[11px] text-[#0b3b2c] hover:underline font-semibold flex items-center gap-0.5"
+                    >
+                      จัดการรายการ
+                      <ArrowRight size={10} />
+                    </Link>
+                  </div>
                   {amenities.length > 0 && (
                     <div className="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto p-2 border border-stone-200 rounded-xl bg-stone-50/80 custom-scrollbar">
                       {amenities.map((am) => {
-                        const isChecked =
-                          editingRoom.amenity_ids.includes(am.id);
+                        const isChecked = editingRoom.amenity_ids.includes(am.id);
                         return (
                           <label
                             key={am.id}
@@ -1181,8 +1142,7 @@ export default function RoomTypesPage() {
                 >
                   {editUploading ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" />{" "}
-                      กำลังบันทึก...
+                      <Loader2 size={16} className="animate-spin" /> กำลังบันทึก...
                     </>
                   ) : (
                     "บันทึกการแก้ไข"
@@ -1194,7 +1154,7 @@ export default function RoomTypesPage() {
         </div>
       )}
 
-      {/* 🖼️ MODAL: Image Lightbox */}
+      {/* Lightbox Modal */}
       {lightboxImage && (
         <div
           onClick={() => setLightboxImage(null)}
@@ -1205,9 +1165,7 @@ export default function RoomTypesPage() {
             className="relative max-w-3xl w-full bg-stone-900 rounded-2xl overflow-hidden shadow-2xl border border-stone-800"
           >
             <div className="p-3 bg-stone-900/90 flex items-center justify-between border-b border-stone-800 text-white">
-              <span className="text-xs font-semibold px-2">
-                {lightboxImage.title}
-              </span>
+              <span className="text-xs font-semibold px-2">{lightboxImage.title}</span>
               <button
                 type="button"
                 onClick={() => setLightboxImage(null)}
@@ -1227,7 +1185,7 @@ export default function RoomTypesPage() {
         </div>
       )}
 
-      {/* 🔴 MODAL: Delete Confirm */}
+      {/* Delete Confirmation Modal */}
       {deleteTargetId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl border border-stone-100 p-6 text-center space-y-4">
@@ -1240,7 +1198,7 @@ export default function RoomTypesPage() {
               </h3>
               <p className="text-xs text-stone-500 mt-1 leading-relaxed">
                 คุณแน่ใจหรือไม่ที่จะลบประเภทห้องพักนี้? <br />
-                การดำเนินการนี้ไม่สามารถย้อนกลับได้
+                หากยังมีห้องพักรายห้องผูกอยู่อาจลบไม่สำเร็จ
               </p>
             </div>
             <div className="flex gap-2 pt-2">

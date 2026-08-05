@@ -126,11 +126,11 @@ const menuGroups: MenuGroup[] = [
         path: "/admin/boats/rounds",
         icon: <Sailboat size={16} />,
       },
-      {
-        label: "เวลาทำการ",
-        path: "/admin/boat-hours",
-        icon: <Clock size={16} />,
-      },
+      // {
+      //   label: "เวลาทำการ",
+      //   path: "/admin/boat-hours",
+      //   icon: <Clock size={16} />,
+      // },
       {
         label: "แดชบอร์ดจองเรือ",
         path: "/admin/boats",
