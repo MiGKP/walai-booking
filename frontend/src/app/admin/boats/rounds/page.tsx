@@ -6,6 +6,7 @@ import {
   Ship,
   Clock,
   Plus,
+  Minus,
   Edit2,
   Trash2,
   AlertTriangle,
@@ -59,14 +60,18 @@ const ThaiTimePicker: React.FC<ThaiTimePickerProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hourContainerRef = useRef<HTMLDivElement>(null);
+  const minuteContainerRef = useRef<HTMLDivElement>(null);
 
-  const [hours, minutes] = (value || "15:00").split(":");
+  const [rawHours = "15", rawMinutes = "00"] = (value || "15:00").split(":");
+  const hours = rawHours.padStart(2, "0");
+  const minutes = rawMinutes.padStart(2, "0");
 
   const hourOptions = Array.from({ length: 24 }, (_, i) =>
-    i.toString().padStart(2, "0"),
+    i.toString().padStart(2, "0")
   );
   const minuteOptions = Array.from({ length: 60 }, (_, i) =>
-    i.toString().padStart(2, "0"),
+    i.toString().padStart(2, "0")
   );
 
   useEffect(() => {
@@ -82,12 +87,28 @@ const ThaiTimePicker: React.FC<ThaiTimePickerProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        const selectedHourEl = hourContainerRef.current?.querySelector(
+          '[data-selected="true"]'
+        );
+        const selectedMinuteEl = minuteContainerRef.current?.querySelector(
+          '[data-selected="true"]'
+        );
+
+        selectedHourEl?.scrollIntoView({ block: "center" });
+        selectedMinuteEl?.scrollIntoView({ block: "center" });
+      }, 0);
+    }
+  }, [isOpen]);
+
   const handleSelectHour = (h: string) => {
-    onChange(`${h}:${minutes || "00"}`);
+    onChange(`${h}:${minutes}`);
   };
 
   const handleSelectMinute = (m: string) => {
-    onChange(`${hours || "00"}:${m}`);
+    onChange(`${hours}:${m}`);
   };
 
   return (
@@ -113,38 +134,52 @@ const ThaiTimePicker: React.FC<ThaiTimePickerProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-1 h-48 mt-1">
-            <div className="overflow-y-auto pr-1 space-y-0.5 scrollbar-thin">
-              {hourOptions.map((h) => (
-                <button
-                  key={`h-${h}`}
-                  type="button"
-                  onClick={() => handleSelectHour(h)}
-                  className={`w-full py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer text-center ${
-                    hours === h
-                      ? "bg-[#0b3b2c] text-white"
-                      : "hover:bg-stone-100 text-stone-700"
-                  }`}
-                >
-                  {h}
-                </button>
-              ))}
+            <div
+              ref={hourContainerRef}
+              className="overflow-y-auto pr-1 space-y-0.5 scrollbar-thin"
+            >
+              {hourOptions.map((h) => {
+                const isSelected = hours === h;
+                return (
+                  <button
+                    key={`h-${h}`}
+                    type="button"
+                    data-selected={isSelected}
+                    onClick={() => handleSelectHour(h)}
+                    className={`w-full py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer text-center ${
+                      isSelected
+                        ? "bg-[#0b3b2c] text-white"
+                        : "hover:bg-stone-100 text-stone-700"
+                    }`}
+                  >
+                    {h}
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="overflow-y-auto pl-1 space-y-0.5 border-l border-stone-100 scrollbar-thin">
-              {minuteOptions.map((m) => (
-                <button
-                  key={`m-${m}`}
-                  type="button"
-                  onClick={() => handleSelectMinute(m)}
-                  className={`w-full py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer text-center ${
-                    minutes === m
-                      ? "bg-[#0b3b2c] text-white"
-                      : "hover:bg-stone-100 text-stone-700"
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
+            <div
+              ref={minuteContainerRef}
+              className="overflow-y-auto pl-1 space-y-0.5 border-l border-stone-100 scrollbar-thin"
+            >
+              {minuteOptions.map((m) => {
+                const isSelected = minutes === m;
+                return (
+                  <button
+                    key={`m-${m}`}
+                    type="button"
+                    data-selected={isSelected}
+                    onClick={() => handleSelectMinute(m)}
+                    className={`w-full py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer text-center ${
+                      isSelected
+                        ? "bg-[#0b3b2c] text-white"
+                        : "hover:bg-stone-100 text-stone-700"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -180,8 +215,9 @@ export default function BoatRoundsPage() {
   const [endTime, setEndTime] = useState("16:00");
   const [isActive, setIsActive] = useState<boolean>(true);
 
+  // รองรับทั้ง number และ string (เพื่อปล่อยให้ช่องว่างเปล่าได้ชั่วคราวตอนกดลบ)
   const [selectedBoatsMap, setSelectedBoatsMap] = useState<
-    Record<number, number>
+    Record<number, number | string>
   >({});
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
   const [deleteRoundId, setDeleteRoundId] = useState<number | null>(null);
@@ -259,9 +295,9 @@ export default function BoatRoundsPage() {
   }, []);
 
   const totalBoatCount = Object.values(selectedBoatsMap).reduce(
-    (sum, qty) => sum + (qty || 0),
-    0,
-  );
+  (sum: number, qty) => sum + (Number(qty) || 0),
+  0
+);
 
   const handleToggleBoatType = (typeId: number) => {
     setSelectedBoatsMap((prev) => {
@@ -272,9 +308,21 @@ export default function BoatRoundsPage() {
     });
   };
 
-  const handleQuantityChange = (typeId: number, qty: number) => {
-    const validQty = Math.max(1, qty);
-    setSelectedBoatsMap((prev) => ({ ...prev, [typeId]: validQty }));
+  // เปลี่ยนรับได้ทั้ง number และ string
+  const handleQuantityChange = (typeId: number, qty: number | string) => {
+    setSelectedBoatsMap((prev) => ({ ...prev, [typeId]: qty }));
+  };
+
+  // ตรวจสอบเมื่อโฟกัสหลุดจากช่องพิมพ์ (OnBlur) หากเป็นค่าว่างหรือน้อยกว่า 1 ให้กลับเป็น 1
+  const handleQuantityBlur = (typeId: number) => {
+    setSelectedBoatsMap((prev) => {
+      const currentVal = prev[typeId];
+      const parsed = parseInt(String(currentVal), 10);
+      return {
+        ...prev,
+        [typeId]: isNaN(parsed) || parsed < 1 ? 1 : parsed,
+      };
+    });
   };
 
   const handleResetForm = () => {
@@ -299,7 +347,7 @@ export default function BoatRoundsPage() {
       const token = localStorage.getItem("token");
       const boatsPayload = selectedBoatEntries.map(([id, qty]) => ({
         boat_type_id: Number(id),
-        quantity: Number(qty),
+        quantity: Math.max(1, Number(qty) || 1),
       }));
 
       const payload = {
@@ -309,7 +357,7 @@ export default function BoatRoundsPage() {
         total_slots: totalBoatCount,
         max_booking: totalBoatCount,
         is_active: isActive,
-        boats: boatsPayload, // 👈 ส่งรายการเรือทั้งหมด (Solo + Duo)
+        boats: boatsPayload,
       };
 
       const url = editingRoundId
@@ -328,7 +376,7 @@ export default function BoatRoundsPage() {
       const data = await res.json();
       if (res.ok && data.success !== false) {
         toast.success(
-          editingRoundId ? "อัปเดตรอบเวลาเรียบร้อย" : "เพิ่มรอบเวลาสำเร็จ",
+          editingRoundId ? "อัปเดตรอบเวลาเรียบร้อย" : "เพิ่มรอบเวลาสำเร็จ"
         );
         handleResetForm();
         fetchData();
@@ -340,18 +388,14 @@ export default function BoatRoundsPage() {
     }
   };
 
-  // 🚢 Helper ดึงชื่อประเภทเรือ
   const renderBoatChips = (round: BoatRound) => {
-    // 1. ถ้ามี Array ของเรือย่อยในรอบนั้นๆ (round.boats)
     if (round.boats && Array.isArray(round.boats) && round.boats.length > 0) {
       return round.boats.map((b, idx) => {
-        // ค้นหาประเภทเรือใน boatTypes เผื่อ Backend ส่งมาแค่ ID
         const matchedType = boatTypes.find((bt: any) => {
           const typeId = bt.boat_type_id ?? bt.id ?? bt.type_id;
           return String(typeId) === String(b.boat_type_id);
         });
 
-        // ดึงชื่อเรือ โดยเช็คทุก Key ที่เป็นไปได้จาก API
         const name =
           b.type_name ||
           (b as any).name ||
@@ -376,7 +420,6 @@ export default function BoatRoundsPage() {
       });
     }
 
-    // 2. ถ้า Backend ส่งมาเป็นโครงสร้างเดี่ยว (round.boat_type_id)
     if (round.boat_type_id) {
       const matchedType = boatTypes.find((bt: any) => {
         const typeId = bt.boat_type_id ?? bt.id ?? bt.type_id;
@@ -415,8 +458,6 @@ export default function BoatRoundsPage() {
     setIsActive(round.is_active);
 
     const newMap: Record<number, number> = {};
-
-    // ดึงรายการเรือ (เช็คทั้ง boats และ round_boats)
     const boatList = round.boats || (round as any).round_boats;
 
     if (boatList && Array.isArray(boatList) && boatList.length > 0) {
@@ -572,46 +613,85 @@ export default function BoatRoundsPage() {
                   const id = bt.boat_type_id ?? bt.id;
                   const name = bt.type_name ?? bt.name;
                   const isSelected = selectedBoatsMap[id] !== undefined;
+                  const rawQty = selectedBoatsMap[id] ?? 1;
+                  const currentNum = Number(rawQty) || 0;
 
                   return (
                     <div
                       key={id ?? index}
-                      className={`p-2 rounded-lg text-xs transition-colors border ${
+                      className={`p-2 rounded-xl text-xs transition-colors border ${
                         isSelected
                           ? "bg-[#0b3b2c]/5 border-[#0b3b2c]/20"
                           : "bg-white border-stone-100 hover:bg-stone-50"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        {/* คลิกติ๊กเลือกกี่ประเภทก็ได้ */}
-                        <label className="flex items-center gap-2 cursor-pointer flex-1">
+                        <label className="flex items-center gap-2 cursor-pointer flex-1 py-1">
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => handleToggleBoatType(id)}
                             className="w-4 h-4 text-[#0b3b2c] rounded cursor-pointer"
                           />
-                          <span className="font-semibold text-stone-800">
+                          <span className="font-semibold text-stone-800 select-none">
                             {name}
                           </span>
                         </label>
 
-                        {/* กรอกจำนวนลำของเรือแต่ละประเภท */}
                         {isSelected && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <input
-                              type="number"
-                              min={1}
-                              value={selectedBoatsMap[id] || 1}
-                              onChange={(e) =>
-                                handleQuantityChange(
-                                  id,
-                                  parseInt(e.target.value) || 1,
-                                )
-                              }
-                              className="w-14 px-1.5 py-0.5 bg-white border border-stone-300 rounded text-center text-xs font-bold"
-                            />
-                            <span className="text-[10px] text-stone-500">
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex items-center border border-stone-200 rounded-lg bg-white overflow-hidden shadow-2xs">
+                              {/* ปุ่มลด */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleQuantityChange(
+                                    id,
+                                    Math.max(1, currentNum - 1)
+                                  );
+                                }}
+                                disabled={currentNum <= 1}
+                                className="w-6 h-6 flex items-center justify-center text-stone-600 hover:bg-stone-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
+                              >
+                                <Minus size={12} />
+                              </button>
+
+                              {/* ช่องพิมพ์จำนวน (อนุญาตให้ลบว่างได้) */}
+                              <input
+                                type="number"
+                                min={1}
+                                value={rawQty}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === "") {
+                                    handleQuantityChange(id, "");
+                                  } else {
+                                    handleQuantityChange(
+                                      id,
+                                      parseInt(val, 10)
+                                    );
+                                  }
+                                }}
+                                onBlur={() => handleQuantityBlur(id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-10 text-center text-xs font-bold text-stone-800 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+
+                              {/* ปุ่มเพิ่ม */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleQuantityChange(id, currentNum + 1);
+                                }}
+                                className="w-6 h-6 flex items-center justify-center text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer"
+                              >
+                                <Plus size={12} />
+                              </button>
+                            </div>
+
+                            <span className="text-[11px] font-semibold text-stone-500 select-none">
                               ลำ
                             </span>
                           </div>
@@ -677,7 +757,6 @@ export default function BoatRoundsPage() {
                     : "hover:bg-stone-50/60"
                 }`}
               >
-                {/* เวลาบริการ */}
                 <div className="flex items-center gap-3 min-w-[220px]">
                   <div className="flex items-center gap-2 text-sm md:text-base font-bold text-stone-900">
                     <Clock size={16} className="text-[#0b3b2c]" />
@@ -695,7 +774,6 @@ export default function BoatRoundsPage() {
                   </span>
                 </div>
 
-                {/* 🚢 แสดงเฉพาะชื่อประเภทเรือย่อยแต่ละชนิดในรอบเวลานั้นๆ */}
                 <div className="flex-1 flex flex-wrap items-center gap-1.5">
                   <span className="text-[11px] font-bold text-stone-400 mr-1 hidden lg:inline">
                     ประเภทเรือ:
@@ -703,7 +781,6 @@ export default function BoatRoundsPage() {
                   {renderBoatChips(round)}
                 </div>
 
-                {/* ปุ่มจัดการ */}
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     type="button"
