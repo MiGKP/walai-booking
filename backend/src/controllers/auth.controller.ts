@@ -481,15 +481,31 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     const authUser = req.user as AuthPayload;
     const { first_name, last_name, phone, line_id, facebook } = req.body;
 
+    // 1. ตรวจสอบชื่อ (ต้องกรอกทุกคน ไม่ว่าจะบทบาทไหน)
+    if (!first_name || !first_name.trim()) {
+      res.status(400).json({ success: false, message: 'กรุณากรอกชื่อ' });
+      return;
+    }
+
+    // 2. ตรวจสอบนามสกุล: ยกเว้นเฉพาะ admin เท่านั้น!
+    // (room_staff, boat_staff และ customer ต้องกรอกนามสกุลเสมอ)
+    if (authUser.role !== 'admin' && (!last_name || !last_name.trim())) {
+      res.status(400).json({ success: false, message: 'กรุณากรอกนามสกุล' });
+      return;
+    }
+
+    const trimmedFirstName = first_name.trim();
+    const trimmedLastName = last_name ? last_name.trim() : '';
+
     if (authUser.role === 'customer') {
       await pool.query(
         'UPDATE members SET first_name = $1, last_name = $2, phone = $3, line_id = $4, facebook = $5 WHERE member_id = $6',
-        [first_name, last_name, phone || null, line_id || null, facebook || null, authUser.id]
+        [trimmedFirstName, trimmedLastName, phone || null, line_id || null, facebook || null, authUser.id]
       );
     } else {
       await pool.query(
         'UPDATE staff SET first_name = $1, last_name = $2, phone = $3 WHERE staff_id = $4',
-        [first_name, last_name, phone, authUser.id]
+        [trimmedFirstName, trimmedLastName, phone || null, authUser.id]
       );
     }
 
@@ -497,9 +513,9 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
       success: true,
       message: 'Profile updated successfully',
       data: {
-        first_name: first_name || '',
-        last_name: last_name || '',
-        name: buildDisplayName(first_name, last_name),
+        first_name: trimmedFirstName,
+        last_name: trimmedLastName,
+        name: buildDisplayName(trimmedFirstName, trimmedLastName),
         phone: phone || '',
         line_id: line_id || '',
         facebook: facebook || ''
