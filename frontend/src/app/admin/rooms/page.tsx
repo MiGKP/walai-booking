@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   CalendarDays,
@@ -389,7 +389,7 @@ const calculateNights = (checkIn?: string, checkOut?: string) => {
   return diffDays > 0 ? diffDays : 0;
 };
 
-export default function RoomStaffDashboard() {
+function RoomStaffDashboardContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1021,7 +1021,7 @@ export default function RoomStaffDashboard() {
               />
             </div>
 
-            {/* 🔥 Custom Date Range Picker ปรับปรุงดีไซน์ปฏิทินสวยงาม */}
+            {/* Custom Date Range Picker */}
             <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
               <CalendarDays size={15} className="text-[#0b3b2c]" />
               <span className="font-medium text-stone-500 whitespace-nowrap">
@@ -1744,5 +1744,24 @@ export default function RoomStaffDashboard() {
         }}
       />
     </div>
+  );
+}
+
+export default function RoomStaffDashboard() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center p-8">
+          <div className="flex flex-col items-center gap-3">
+            <RefreshCw size={28} className="animate-spin text-[#0b3b2c]" />
+            <span className="text-xs font-semibold text-stone-500">
+              กำลังโหลดข้อมูล...
+            </span>
+          </div>
+        </div>
+      }
+    >
+      <RoomStaffDashboardContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -377,7 +377,7 @@ function CustomSelect({
   );
 }
 
-export default function BoatStaffDashboard() {
+function BoatStaffDashboardContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1656,5 +1656,24 @@ export default function BoatStaffDashboard() {
         }}
       />
     </div>
+  );
+}
+
+export default function BoatStaffDashboard() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center p-8">
+          <div className="flex flex-col items-center gap-3">
+            <RefreshCw size={28} className="animate-spin text-cyan-800" />
+            <span className="text-xs font-semibold text-stone-500">
+              กำลังโหลดข้อมูล...
+            </span>
+          </div>
+        </div>
+      }
+    >
+      <BoatStaffDashboardContent />
+    </Suspense>
   );
 }
