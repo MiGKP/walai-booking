@@ -22,11 +22,9 @@ const AUTH_PATHS_WITHOUT_CHROME = new Set([
 export default function AppShell({ children }: AppShellProps): ReactNode {
   const pathname = usePathname();
 
-  // เช็คว่า path ปัจจุบันเป็นหน้า Auth หรือ เป็นหน้า Admin หรือไม่
   const isAuthPage = AUTH_PATHS_WITHOUT_CHROME.has(pathname);
   const isAdminPage = pathname?.startsWith('/admin');
 
-  // ถ้าเป็นหน้า Auth หรือ Admin ให้ซ่อน Navbar และ Footer
   const hideChrome = isAuthPage || isAdminPage;
 
   return (
@@ -34,13 +32,36 @@ export default function AppShell({ children }: AppShellProps): ReactNode {
       {!hideChrome && <Navbar />}
       <main className="min-h-screen">{children}</main>
       {!hideChrome && <Footer />}
+      
+      {/* 🌟 ปรับเป็น top-center และแต่งสไตล์ตรงนี้ที่เดียว */}
       <Toaster
-        position="top-right"
+        position="top-center"
         toastOptions={{
-          duration: 4000,
+          duration: 3500,
           style: {
-            fontFamily: 'Sarabun, sans-serif',
-            borderRadius: '12px',
+            background: "#0b3b2c",
+            color: "#ffffff",
+            borderRadius: "14px",
+            fontSize: "13px",
+            fontWeight: "600",
+            padding: "12px 16px",
+            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.15)",
+          },
+          success: {
+            iconTheme: {
+              primary: "#34d399",
+              secondary: "#0b3b2c",
+            },
+          },
+          error: {
+            style: {
+              background: "#881337",
+              color: "#ffffff",
+            },
+            iconTheme: {
+              primary: "#fb7185",
+              secondary: "#881337",
+            },
           },
         }}
       />

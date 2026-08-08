@@ -37,6 +37,9 @@ const router = Router();
 
 // Static routes (must come before dynamic /:id)
 router.get('/', getAllKayaks);
+// 🟢 [FIXED] เพิ่ม Route /types สำหรับดึงประเภทเรือ (ใส่ก่อน /:id)
+router.get('/types', getAllKayaks); 
+
 router.post('/', authenticate, authorize('admin', 'boat_staff'), createKayakValidator, validate, createKayak);
 
 router.get('/availability', checkKayakAvailability);
@@ -52,9 +55,9 @@ router.put('/bookings/:id/cancel', authenticate, cancelKayakBooking);
 router.put('/bookings/:id/status', authenticate, authorize('admin', 'boat_staff'), updateKayakBookingStatusValidator, validate, updateKayakBookingStatus);
 router.put('/bookings/:id/checkout', authenticate, authorize('admin', 'boat_staff'), checkoutKayakBooking);
 
-// Rounds routes (specific before dynamic)
+// Rounds routes
 router.post('/rounds', authenticate, authorize('admin', 'boat_staff'), createBoatRoundValidator, validate, createBoatRound);
-router.put('/rounds/:id', authenticate, authorize('admin', 'boat_staff'), createBoatRoundValidator, validate, updateBoatRound);
+router.put('/rounds/:id', authenticate, authorize('admin', 'boat_staff'), updateBoatRound);
 router.delete('/rounds/:id', authenticate, authorize('admin', 'boat_staff'), deleteBoatRound);
 
 // Admin routes
@@ -68,7 +71,7 @@ router.delete('/:id/images/:imageId', authenticate, authorize('admin', 'boat_sta
 
 // Dynamic routes (must come last)
 router.get('/:id', getKayakById);
-router.put('/:id', authenticate, authorize('admin', 'boat_staff'), createKayakValidator, validate, updateKayak);
+router.put('/:id', authenticate, authorize('admin', 'boat_staff'), updateKayak);
 router.delete('/:id', authenticate, authorize('admin', 'boat_staff'), deleteKayak);
 
 export default router;

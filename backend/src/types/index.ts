@@ -74,6 +74,8 @@ export interface BoatRound {
 export interface RoomBooking {
   room_booking_id: number;
   member_id: number;
+  user_phone?: string;
+  phone?: string;
   room_id: number;
   check_in: Date;
   check_out: Date;

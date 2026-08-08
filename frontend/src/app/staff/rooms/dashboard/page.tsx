@@ -1,1 +1,1 @@
-export { default } from '@/app/admin/rooms/dashboard/page';
+export { default } from '@/app/admin/rooms/page';

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import Link from "next/link";
 import {
   CalendarDays,
   Clock,
@@ -12,7 +11,7 @@ import {
   LogOut,
   LogIn,
   Filter,
-  Anchor,
+  BedDouble,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -31,10 +30,7 @@ import {
   Phone,
   MessageSquare,
   Printer,
-  Ship,
-  Timer,
-  Layers,
-  ArrowRight,
+  Moon,
 } from "lucide-react";
 import api from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
@@ -45,8 +41,9 @@ import toast, { Toaster } from "react-hot-toast";
 const statusLabel: Record<string, string> = {
   pending: "รอดำเนินการ",
   paid: "รอตรวจสอบสลิป",
-  approved: "อนุมัติแล้ว (รอลงเรือ)",
-  checked_out: "คืนเรือแล้ว",
+  approved: "อนุมัติแล้ว (รอเช็คอิน)",
+  checked_in: "เช็คอินแล้ว",
+  checked_out: "เช็คเอาต์แล้ว",
   cancelled: "ยกเลิก",
   rejected: "ถูกปฏิเสธ",
 };
@@ -54,7 +51,7 @@ const statusLabel: Record<string, string> = {
 const statusConfig: Record<string, { bg: string; text: string; dot: string }> =
   {
     pending: {
-      bg: "bg-cyan-900/10 border-cyan-900/80 text-cyan-900",
+      bg: "bg-[#0b3b2c]/10 border-[#0b3b2c]/80 text-[#0b3b2c]",
       text: "รอดำเนินการ",
       dot: "bg-amber-500",
     },
@@ -65,12 +62,17 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string }> =
     },
     approved: {
       bg: "bg-indigo-500/10 border-indigo-200/80 text-indigo-700",
-      text: "อนุมัติแล้ว (รอลงเรือ)",
+      text: "อนุมัติแล้ว (รอเช็คอิน)",
       dot: "bg-indigo-500",
+    },
+    checked_in: {
+      bg: "bg-emerald-500/10 border-emerald-200/80 text-emerald-700",
+      text: "เช็คอินแล้ว (กำลังเข้าพัก)",
+      dot: "bg-emerald-500 animate-pulse",
     },
     checked_out: {
       bg: "bg-slate-500/10 border-slate-200/80 text-slate-600",
-      text: "คืนเรือเรียบร้อย",
+      text: "เช็คเอาต์เรียบร้อย",
       dot: "bg-slate-400",
     },
     cancelled: {
@@ -85,7 +87,13 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string }> =
     },
   };
 
-type FilterType = "all" | "has_slip" | "pending" | "approved" | "checked_out";
+type FilterType =
+  | "all"
+  | "has_slip"
+  | "pending"
+  | "approved"
+  | "checked_in"
+  | "checked_out";
 
 // -------------------------------------------------------------
 // Component: Custom DatePicker ปฏิทินดีไซน์สวยงาม
@@ -123,18 +131,8 @@ function CustomDatePicker({
   }, []);
 
   const monthNames = [
-    "มกราคม",
-    "กุมภาพันธ์",
-    "มีนาคม",
-    "เมษายน",
-    "พฤษภาคม",
-    "มิถุนายน",
-    "กรกฎาคม",
-    "สิงหาคม",
-    "กันยายน",
-    "ตุลาคม",
-    "พฤศจิกายน",
-    "ธันวาคม",
+    "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+    "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
   ];
 
   const year = viewDate.getFullYear();
@@ -182,7 +180,7 @@ function CustomDatePicker({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-lg border border-stone-200 hover:border-stone-300 text-xs font-mono text-stone-700 transition-all shadow-2xs focus:outline-none focus:ring-2 focus:ring-cyan-700/20"
+        className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-lg border border-stone-200 hover:border-stone-300 text-xs font-mono text-stone-700 transition-all shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20"
       >
         <span>
           {value
@@ -208,6 +206,7 @@ function CustomDatePicker({
 
       {isOpen && (
         <div className="absolute left-0 top-full mt-2 w-64 bg-white border border-stone-200 rounded-2xl shadow-xl z-50 p-3 animate-in fade-in zoom-in-95 duration-150">
+          {/* Calendar Header */}
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-stone-100">
             <button
               onClick={handlePrevMonth}
@@ -226,6 +225,7 @@ function CustomDatePicker({
             </button>
           </div>
 
+          {/* Weekday Headers */}
           <div className="grid grid-cols-7 text-center text-[10px] font-bold text-stone-400 mb-1">
             <span>อา</span>
             <span>จ</span>
@@ -236,6 +236,7 @@ function CustomDatePicker({
             <span>ส</span>
           </div>
 
+          {/* Days Grid */}
           <div className="grid grid-cols-7 gap-1 text-center">
             {Array.from({ length: firstDayOfWeek }).map((_, i) => (
               <div key={`empty-${i}`} />
@@ -252,10 +253,10 @@ function CustomDatePicker({
                   onClick={() => handleSelectDay(day)}
                   className={`h-7 w-7 rounded-xl text-xs font-medium flex items-center justify-center transition-all ${
                     selected
-                      ? "bg-cyan-800 text-white font-bold shadow-xs scale-105"
+                      ? "bg-[#0b3b2c] text-white font-bold shadow-xs scale-105"
                       : today
-                        ? "bg-cyan-100 text-cyan-900 font-bold border border-cyan-300"
-                        : "text-stone-700 hover:bg-stone-100"
+                      ? "bg-emerald-100 text-[#0b3b2c] font-bold border border-emerald-300"
+                      : "text-stone-700 hover:bg-stone-100"
                   }`}
                 >
                   {day}
@@ -264,6 +265,7 @@ function CustomDatePicker({
             })}
           </div>
 
+          {/* Quick Select Buttons */}
           <div className="flex items-center justify-between pt-2 mt-2 border-t border-stone-100 text-[10px]">
             <button
               onClick={() => {
@@ -271,7 +273,7 @@ function CustomDatePicker({
                 onChange(today);
                 setIsOpen(false);
               }}
-              className="text-cyan-800 font-bold hover:underline"
+              className="text-[#0b3b2c] font-bold hover:underline"
             >
               วันนี้
             </button>
@@ -332,7 +334,7 @@ function CustomSelect({
           e.preventDefault();
           setIsOpen(!isOpen);
         }}
-        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-700/20 shadow-2xs"
+        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 transition-all focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 shadow-2xs"
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
@@ -340,7 +342,7 @@ function CustomSelect({
         <ChevronDown
           size={14}
           className={`text-stone-400 transition-transform duration-200 ${
-            isOpen ? "rotate-180 text-cyan-800" : ""
+            isOpen ? "rotate-180 text-[#0b3b2c]" : ""
           }`}
         />
       </button>
@@ -360,13 +362,13 @@ function CustomSelect({
                 }}
                 className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors flex items-center justify-between ${
                   isSelected
-                    ? "bg-cyan-50 text-cyan-900 font-bold"
+                    ? "bg-emerald-50 text-emerald-900 font-bold"
                     : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
                 }`}
               >
                 <span>{opt.label}</span>
                 {isSelected && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-800" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#0b3b2c]" />
                 )}
               </button>
             );
@@ -377,13 +379,23 @@ function CustomSelect({
   );
 }
 
-export default function BoatStaffDashboard() {
+// ฟังก์ชันช่วยคำนวณจำนวนคืนที่พัก
+const calculateNights = (checkIn?: string, checkOut?: string) => {
+  if (!checkIn || !checkOut) return 0;
+  const start = new Date(checkIn);
+  const end = new Date(checkOut);
+  const diffTime = end.getTime() - start.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : 0;
+};
+
+export default function RoomStaffDashboard() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const { ready } = useAuthGuard({
-    allowedRoles: ["admin", "boat_staff"],
+    allowedRoles: ["admin", "room_staff"],
   });
 
   const [bookings, setBookings] = useState<any[]>([]);
@@ -391,7 +403,7 @@ export default function BoatStaffDashboard() {
 
   // อ่านค่า State จาก URL Query Parameters
   const filter = (searchParams.get("filter") as FilterType) || "all";
-  const boatType = searchParams.get("boatType") || "all";
+  const roomType = searchParams.get("roomType") || "all";
   const dateFrom = searchParams.get("dateFrom") || "";
   const dateTo = searchParams.get("dateTo") || "";
   const searchParam = searchParams.get("search") || "";
@@ -427,7 +439,7 @@ export default function BoatStaffDashboard() {
     text: "",
     icon: "question",
     confirmText: "ยืนยัน",
-    confirmColor: "bg-cyan-800",
+    confirmColor: "bg-[#0b3b2c]",
     onConfirm: () => {},
   });
 
@@ -498,7 +510,7 @@ export default function BoatStaffDashboard() {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/kayaks/bookings/all");
+      const res = await api.get("/bookings");
       setBookings(res.data?.data || []);
     } catch {
       toast.error("ไม่สามารถโหลดข้อมูลการจองได้");
@@ -526,26 +538,20 @@ export default function BoatStaffDashboard() {
     });
   };
 
-  // handleApprove (อนุมัติ)
+  // handleStatus (อนุมัติ)
   const handleApprove = (id: number) => {
     openConfirmDialog(
-      "อนุมัติรายการจองเรือนี้?",
-      "เมื่ออนุมัติแล้ว สถานะจะเปลี่ยนเป็น 'อนุมัติแล้ว (รอลงเรือ)'",
+      "อนุมัติรายการจองนี้?",
+      "เมื่ออนุมัติแล้ว สถานะจะเปลี่ยนเป็น 'รอเช็คอิน'",
       "question",
       "อนุมัติการจอง",
-      "bg-cyan-800",
+      "bg-[#0b3b2c]",
       async () => {
         try {
-          await api.put(`/kayaks/bookings/${id}/status`, {
-            status: "approved",
-          });
+          await api.put(`/bookings/${id}/status`, { status: "approved" });
           toast.success("อนุมัติการจองเรียบร้อยแล้ว");
           setBookings((prev) =>
-            prev.map((b) =>
-              (b.boat_booking_id || b.id) === id
-                ? { ...b, status: "approved" }
-                : b,
-            ),
+            prev.map((b) => (b.id === id ? { ...b, status: "approved" } : b)),
           );
           fetchBookings();
         } catch (err: any) {
@@ -559,7 +565,7 @@ export default function BoatStaffDashboard() {
   const handleRejectSubmit = async () => {
     if (!rejectModal.bookingId) return;
     try {
-      await api.put(`/kayaks/bookings/${rejectModal.bookingId}/status`, {
+      await api.put(`/bookings/${rejectModal.bookingId}/status`, {
         status: "rejected",
         reject_reason: rejectModal.reason.trim() || "ข้อมูลหลักฐานไม่ถูกต้อง",
       });
@@ -567,7 +573,7 @@ export default function BoatStaffDashboard() {
 
       setBookings((prev) =>
         prev.map((b) =>
-          (b.boat_booking_id || b.id) === rejectModal.bookingId
+          b.id === rejectModal.bookingId
             ? { ...b, status: "rejected", reject_reason: rejectModal.reason }
             : b,
         ),
@@ -580,26 +586,49 @@ export default function BoatStaffDashboard() {
     }
   };
 
-  // handleCheckout (คืนเรือ)
-  const handleCheckout = (id: number) => {
+  // handleCheckin
+  const handleCheckin = (id: number) => {
     openConfirmDialog(
-      "ยืนยันการคืนเรือ (Check-out)?",
-      "เมื่อยืนยัน สถานะจะเปลี่ยนเป็น 'คืนเรือแล้ว'",
-      "warning",
-      "ยืนยัน Check-out",
-      "bg-teal-700",
+      "ยืนยันการเช็คอิน?",
+      "เมื่อยืนยัน สถานะจะเปลี่ยนเป็น 'เช็คอินแล้ว'",
+      "info",
+      "ยืนยัน Check-in",
+      "bg-indigo-600",
       async () => {
         try {
-          await api.put(`/kayaks/bookings/${id}/checkout`);
-          toast.success("คืนเรือสำเร็จเรียบร้อย");
+          await api.put(`/bookings/${id}/checkin`);
+          toast.success("เช็คอินผู้เข้าพักสำเร็จ");
           setBookings((prev) =>
             prev.map((b) =>
-              (b.boat_booking_id || b.id) === id
-                ? {
-                    ...b,
-                    status: "checked_out",
-                    checkout_at: new Date().toISOString(),
-                  }
+              b.id === id
+                ? { ...b, status: "checked_in", checkin_at: new Date().toISOString() }
+                : b,
+            ),
+          );
+          fetchBookings();
+        } catch (err: any) {
+          toast.error(err.response?.data?.message || "เช็คอินไม่สำเร็จ");
+        }
+      },
+    );
+  };
+
+  // handleCheckout
+  const handleCheckout = (id: number) => {
+    openConfirmDialog(
+      "ยืนยันการเช็คเอาต์?",
+      "เมื่อยืนยัน สถานะจะเปลี่ยนเป็น 'เช็คเอาต์แล้ว' และคืนสถานะห้องพัก",
+      "warning",
+      "ยืนยัน Check-out",
+      "bg-emerald-700",
+      async () => {
+        try {
+          await api.put(`/bookings/${id}/checkout`);
+          toast.success("เช็คเอาต์สำเร็จเรียบร้อย");
+          setBookings((prev) =>
+            prev.map((b) =>
+              b.id === id
+                ? { ...b, status: "checked_out", checkout_at: new Date().toISOString() }
                 : b,
             ),
           );
@@ -616,34 +645,38 @@ export default function BoatStaffDashboard() {
     window.print();
   };
 
-  // รวบรวมประเภทเรือทั้งหมดที่มีในระบบ
-  const boatTypes = useMemo(() => {
+  // รวบรวมประเภทห้องพักทั้งหมดที่มีในระบบ
+  const roomTypes = useMemo(() => {
     const types = new Set<string>();
     bookings.forEach((b) => {
-      const name = b.kayak_name || b.boat_name;
+      const name = b.type_name || b.room_name;
       if (name) types.add(name);
     });
     return Array.from(types);
   }, [bookings]);
 
-  const boatTypeOptions = useMemo(() => {
+  const roomTypeOptions = useMemo(() => {
     return [
       { value: "all", label: "ทั้งหมดทุกประเภท" },
-      ...boatTypes.map((t) => ({ value: t, label: t })),
+      ...roomTypes.map((t) => ({ value: t, label: t })),
     ];
-  }, [boatTypes]);
+  }, [roomTypes]);
 
   // คำนวณสรุปสถิติต่างๆ
   const counts = useMemo(() => {
     const approvedList = bookings.filter((b) =>
-      ["approved", "checked_out"].includes(b.status),
+      ["approved", "checked_in", "checked_out"].includes(b.status),
     );
     const pendingSlipList = bookings.filter(
       (b) =>
         b.payment_slip &&
-        !["approved", "checked_out", "rejected", "cancelled"].includes(
-          b.status,
-        ),
+        ![
+          "approved",
+          "checked_in",
+          "checked_out",
+          "rejected",
+          "cancelled",
+        ].includes(b.status),
     );
 
     return {
@@ -651,6 +684,7 @@ export default function BoatStaffDashboard() {
       pending: bookings.filter((b) => !b.payment_slip && b.status === "pending")
         .length,
       approved: bookings.filter((b) => b.status === "approved").length,
+      checked_in: bookings.filter((b) => b.status === "checked_in").length,
       checked_out: bookings.filter((b) => b.status === "checked_out").length,
       totalRevenue: approvedList.reduce(
         (acc, curr) => acc + Number(curr.total_price || 0),
@@ -672,56 +706,62 @@ export default function BoatStaffDashboard() {
       list = list.filter(
         (b) =>
           b.payment_slip &&
-          !["approved", "checked_out", "rejected", "cancelled"].includes(
-            b.status,
-          ),
+          ![
+            "approved",
+            "checked_in",
+            "checked_out",
+            "rejected",
+            "cancelled",
+          ].includes(b.status),
       );
     else if (filter === "pending")
       list = list.filter((b) => !b.payment_slip && b.status === "pending");
     else if (filter === "approved")
       list = list.filter((b) => b.status === "approved");
+    else if (filter === "checked_in")
+      list = list.filter((b) => b.status === "checked_in");
     else if (filter === "checked_out")
       list = list.filter((b) => b.status === "checked_out");
 
-    // 2. Filter ตามประเภทเรือ
-    if (boatType !== "all") {
-      list = list.filter((b) => (b.kayak_name || b.boat_name) === boatType);
+    // 2. Filter ตามประเภทห้องพัก
+    if (roomType !== "all") {
+      list = list.filter((b) => (b.type_name || b.room_name) === roomType);
     }
 
-    // 3. Filter ตามช่วงวันที่จองเรือ
+    // 3. Filter ตามช่วงวันที่เข้าพัก
     if (dateFrom)
       list = list.filter(
-        (b) => b.booking_date && new Date(b.booking_date) >= new Date(dateFrom),
+        (b) => b.check_in && new Date(b.check_in) >= new Date(dateFrom),
       );
     if (dateTo)
       list = list.filter(
-        (b) => b.booking_date && new Date(b.booking_date) <= new Date(dateTo),
+        (b) => b.check_in && new Date(b.check_in) <= new Date(dateTo),
       );
 
     // 4. Search Filter
     if (searchParam.trim()) {
       const q = searchParam.toLowerCase().trim();
       list = list.filter((b) => {
-        const bookingId = String(b.boat_booking_id || b.id || "").toLowerCase();
+        const bookingId = String(b.room_booking_id || b.id || "").toLowerCase();
         const userName = String(b.user_name || "").toLowerCase();
         const userPhone = String(b.user_phone || b.phone || "").toLowerCase();
         const userEmail = String(b.user_email || "").toLowerCase();
-        const boatName = String(
-          b.kayak_name || b.boat_name || "",
-        ).toLowerCase();
+        const roomName = String(b.room_name || b.type_name || "").toLowerCase();
+        const roomNum = String(b.room_number || b.room_id || "").toLowerCase();
 
         return (
           bookingId.includes(q) ||
           userName.includes(q) ||
           userPhone.includes(q) ||
           userEmail.includes(q) ||
-          boatName.includes(q)
+          roomName.includes(q) ||
+          roomNum.includes(q)
         );
       });
     }
 
     return list;
-  }, [bookings, filter, boatType, dateFrom, dateTo, searchParam]);
+  }, [bookings, filter, roomType, dateFrom, dateTo, searchParam]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
 
@@ -750,7 +790,7 @@ export default function BoatStaffDashboard() {
   };
 
   const hasActiveFilters =
-    filter !== "all" || boatType !== "all" || dateFrom || dateTo || searchParam;
+    filter !== "all" || roomType !== "all" || dateFrom || dateTo || searchParam;
 
   if (!ready) return null;
 
@@ -791,19 +831,19 @@ export default function BoatStaffDashboard() {
         }
       `}</style>
 
-      {/* Header Bar + Sub-Navigation Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-stone-200/60 print:hidden">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-stone-200/60 print:hidden">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-cyan-950 tracking-tight">
-              จัดการรายการจองเรือและคายัค
+            <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
+              แดชบอร์ดห้องพัก
             </h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-cyan-900/10 text-cyan-900">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#0b3b2c]/10 text-[#0b3b2c]">
               Staff
             </span>
           </div>
           <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจองเรือ และรับคืนเรือ
+            ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจอง เช็คอิน และเช็คเอาต์ผู้เข้าพัก
           </p>
         </div>
       </div>
@@ -832,11 +872,11 @@ export default function BoatStaffDashboard() {
               <span className="text-xs font-medium text-stone-500">
                 ยังไม่ชำระเงิน
               </span>
-              <p className="text-2xl font-extrabold text-cyan-900 tracking-tight font-mono">
+              <p className="text-2xl font-extrabold text-[#0b3b2c] tracking-tight font-mono">
                 {counts.pending}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-cyan-900/10 border border-cyan-900/20 flex items-center justify-center text-cyan-900">
+            <div className="w-10 h-10 rounded-xl bg-[#0b3b2c]/10 border border-[#0b3b2c]/20 flex items-center justify-center text-[#0b3b2c]">
               <Clock size={18} />
             </div>
           </div>
@@ -846,7 +886,7 @@ export default function BoatStaffDashboard() {
           <div className="flex items-start justify-between relative">
             <div className="space-y-1">
               <span className="text-xs font-medium text-stone-500">
-                อนุมัติแล้ว (รอลงเรือ)
+                อนุมัติแล้ว (รอเช็คอิน)
               </span>
               <p className="text-2xl font-extrabold text-indigo-600 tracking-tight font-mono">
                 {counts.approved}
@@ -862,14 +902,14 @@ export default function BoatStaffDashboard() {
           <div className="flex items-start justify-between relative">
             <div className="space-y-1">
               <span className="text-xs font-medium text-stone-500">
-                คืนเรือแล้ว
+                พักอยู่ (รอ Check-out)
               </span>
-              <p className="text-2xl font-extrabold text-teal-600 tracking-tight font-mono">
-                {counts.checked_out}
+              <p className="text-2xl font-extrabold text-emerald-600 tracking-tight font-mono">
+                {counts.checked_in}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600">
-              <Anchor size={18} />
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+              <LogIn size={18} />
             </div>
           </div>
         </div>
@@ -880,7 +920,7 @@ export default function BoatStaffDashboard() {
               <span className="text-xs font-medium text-stone-500">
                 รายได้ที่ยืนยันแล้ว
               </span>
-              <p className="text-xl font-extrabold text-cyan-900 tracking-tight font-mono">
+              <p className="text-xl font-extrabold text-[#0b3b2c] tracking-tight font-mono">
                 ฿{counts.totalRevenue.toLocaleString()}
               </p>
               {counts.pendingRevenue > 0 && (
@@ -889,7 +929,7 @@ export default function BoatStaffDashboard() {
                 </p>
               )}
             </div>
-            <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-cyan-900">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#0b3b2c]">
               <Wallet size={18} />
             </div>
           </div>
@@ -905,7 +945,8 @@ export default function BoatStaffDashboard() {
               ["all", "ทั้งหมด", bookings.length],
               ["has_slip", "รอตรวจสอบสลิป", counts.has_slip],
               ["pending", "ยังไม่ชำระ", counts.pending],
-              ["approved", "อนุมัติแล้ว", counts.approved],
+              ["approved", "รอเช็คอิน", counts.approved],
+              ["checked_in", "เช็คอินแล้ว", counts.checked_in],
               ["checked_out", "เช็คเอาต์แล้ว", counts.checked_out],
             ] as const
           ).map(([val, label, count]) => {
@@ -916,7 +957,7 @@ export default function BoatStaffDashboard() {
                 onClick={() => handleFilterChange(val as FilterType)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
                   active
-                    ? "bg-cyan-800 text-white shadow-xs"
+                    ? "bg-[#0b3b2c] text-white shadow-xs"
                     : "bg-stone-100/80 text-stone-600 hover:bg-stone-200/70"
                 }`}
               >
@@ -935,7 +976,7 @@ export default function BoatStaffDashboard() {
           })}
         </div>
 
-        {/* ค้นหา + ตัวกรองประเภทเรือ + ช่วงวันที่ + ปุ่มรีเฟรช */}
+        {/* ค้นหา + ตัวกรองประเภทห้อง + ช่วงวันที่ + ปุ่มรีเฟรช */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-stone-100">
           <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
             {/* Search Input */}
@@ -946,10 +987,10 @@ export default function BoatStaffDashboard() {
               />
               <input
                 type="text"
-                placeholder="ค้นหาชื่อ, เบอร์โทร, ประเภทเรือ, ID..."
+                placeholder="ค้นหาชื่อ, เบอร์โทร, ห้อง, ID..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full bg-stone-50 pl-9 pr-8 py-1.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-cyan-700/20 text-xs font-medium text-stone-800 placeholder:text-stone-400 transition-all"
+                className="w-full bg-stone-50 pl-9 pr-8 py-1.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 text-xs font-medium text-stone-800 placeholder:text-stone-400 transition-all"
               />
               {searchInput && (
                 <button
@@ -964,27 +1005,27 @@ export default function BoatStaffDashboard() {
               )}
             </div>
 
-            {/* Boat Type Selector */}
+            {/* Room Type Selector */}
             <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
-              <Ship size={15} className="text-stone-400" />
+              <BedDouble size={15} className="text-stone-400" />
               <span className="font-medium text-stone-500 whitespace-nowrap">
-                ประเภทเรือ:
+                ประเภท:
               </span>
               <CustomSelect
-                options={boatTypeOptions}
-                value={boatType}
+                options={roomTypeOptions}
+                value={roomType}
                 onChange={(val) =>
-                  updateQueryParams({ boatType: val, page: 1 })
+                  updateQueryParams({ roomType: val, page: 1 })
                 }
                 width="w-48"
               />
             </div>
 
-            {/* Custom Date Range Picker */}
+            {/* 🔥 Custom Date Range Picker ปรับปรุงดีไซน์ปฏิทินสวยงาม */}
             <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
-              <CalendarDays size={15} className="text-cyan-800" />
+              <CalendarDays size={15} className="text-[#0b3b2c]" />
               <span className="font-medium text-stone-500 whitespace-nowrap">
-                วันที่จอง:
+                วันที่:
               </span>
               <CustomDatePicker
                 value={dateFrom}
@@ -1021,7 +1062,7 @@ export default function BoatStaffDashboard() {
             <RefreshCw
               size={14}
               className={
-                loading ? "animate-spin text-cyan-800" : "text-stone-500"
+                loading ? "animate-spin text-[#0b3b2c]" : "text-stone-500"
               }
             />
             <span>รีเฟรชข้อมูล</span>
@@ -1037,9 +1078,8 @@ export default function BoatStaffDashboard() {
               <tr className="bg-stone-50 border-b border-stone-200/80 text-stone-500 font-bold text-[11px] tracking-wider uppercase">
                 <th className="px-5 py-4">ID</th>
                 <th className="px-5 py-4">ลูกค้า</th>
-                <th className="px-5 py-4">ประเภทเรือ</th>
-                <th className="px-5 py-4">วันที่จอง</th>
-                <th className="px-5 py-4">รอบเวลา</th>
+                <th className="px-5 py-4">ห้องพัก</th>
+                <th className="px-5 py-4">ระยะเวลาเข้าพัก</th>
                 <th className="px-5 py-4">ยอดรวม</th>
                 <th className="px-5 py-4">สถานะ</th>
                 <th className="px-5 py-4 text-center">สลิปโอนเงิน</th>
@@ -1049,11 +1089,11 @@ export default function BoatStaffDashboard() {
             <tbody className="divide-y divide-stone-100">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center text-stone-400">
+                  <td colSpan={8} className="py-16 text-center text-stone-400">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <RefreshCw
                         size={28}
-                        className="animate-spin text-cyan-800"
+                        className="animate-spin text-[#0b3b2c]"
                       />
                       <span className="text-xs font-medium text-stone-500">
                         กำลังโหลดข้อมูลรายการจอง...
@@ -1063,13 +1103,13 @@ export default function BoatStaffDashboard() {
                 </tr>
               ) : paginatedBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center text-stone-400">
+                  <td colSpan={8} className="py-16 text-center text-stone-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 mb-1">
                         <Filter size={20} />
                       </div>
                       <p className="font-semibold text-stone-700 text-sm">
-                        ไม่พบรายการจองเรือ
+                        ไม่พบรายการจองห้องพัก
                       </p>
                       <p className="text-xs text-stone-400">
                         ลองปรับเปลี่ยนข้อความค้นหาหรือเงื่อนไขการกรอง
@@ -1079,7 +1119,8 @@ export default function BoatStaffDashboard() {
                 </tr>
               ) : (
                 paginatedBookings.map((b: any) => {
-                  const bookingId = b.boat_booking_id || b.id;
+                  const bookingId = b.room_booking_id || b.id;
+                  const nights = calculateNights(b.check_in, b.check_out);
                   const cfg = statusConfig[b.status] || {
                     bg: "bg-stone-100 text-stone-600 border-stone-200",
                     text: b.status,
@@ -1114,42 +1155,62 @@ export default function BoatStaffDashboard() {
 
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
-                          <Ship size={16} className="text-stone-400 shrink-0" />
+                          <BedDouble
+                            size={16}
+                            className="text-stone-400 shrink-0"
+                          />
                           <div>
                             <p className="font-semibold text-stone-800 leading-snug">
-                              {b.kayak_name || b.boat_name || "-"}
+                              {b.room_name || b.type_name || "-"}
+                            </p>
+                            <p className="text-[11px] text-stone-500">
+                              ห้อง{" "}
+                              <span className="font-mono font-medium">
+                                {b.room_number || b.room_id}
+                              </span>
                             </p>
                           </div>
                         </div>
                       </td>
 
                       <td className="px-5 py-4 whitespace-nowrap">
-                        <span className="font-medium bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200/50 font-mono text-xs text-stone-700">
-                          {b.booking_date
-                            ? new Date(b.booking_date).toLocaleDateString(
-                                "th-TH",
-                                {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "2-digit",
-                                },
-                              )
-                            : "-"}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-1 text-xs text-stone-500 font-mono">
-                          <Timer size={12} className="text-stone-400" />
-                          <span>
-                            {b.start_time && b.end_time
-                              ? `${b.start_time?.slice(0, 5)} - ${b.end_time?.slice(0, 5)}`
-                              : "-"}
-                          </span>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5 text-xs text-stone-700 font-mono">
+                            <span className="font-medium bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200/50">
+                              {b.check_in
+                                ? new Date(b.check_in).toLocaleDateString(
+                                    "th-TH",
+                                    {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "2-digit",
+                                    },
+                                  )
+                                : "-"}
+                            </span>
+                            <span className="text-stone-300">→</span>
+                            <span className="font-medium bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200/50">
+                              {b.check_out
+                                ? new Date(b.check_out).toLocaleDateString(
+                                    "th-TH",
+                                    {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "2-digit",
+                                    },
+                                  )
+                                : "-"}
+                            </span>
+                          </div>
+                          {nights > 0 && (
+                            <span className="text-[10px] text-stone-400 flex items-center gap-1 font-medium">
+                              <Moon size={10} /> {nights} คืน
+                            </span>
+                          )}
                         </div>
                       </td>
 
-                      <td className="px-5 py-4 font-bold text-cyan-900 font-mono text-sm whitespace-nowrap">
+                      <td className="px-5 py-4 font-bold text-[#0b3b2c] font-mono text-sm whitespace-nowrap">
                         ฿{Number(b.total_price || 0).toLocaleString()}
                       </td>
 
@@ -1164,9 +1225,12 @@ export default function BoatStaffDashboard() {
                             {statusLabel[b.status] || b.status}
                           </span>
                           {b.approved_by_name &&
-                            ["approved", "checked_out", "rejected"].includes(
-                              b.status,
-                            ) && (
+                            [
+                              "approved",
+                              "checked_in",
+                              "checked_out",
+                              "rejected",
+                            ].includes(b.status) && (
                               <span className="text-[10px] text-stone-400 ml-1">
                                 โดย: {b.approved_by_name}
                               </span>
@@ -1212,13 +1276,21 @@ export default function BoatStaffDashboard() {
                             <span className="text-xs text-teal-700 font-semibold bg-teal-50 border border-teal-200/80 px-3 py-1 rounded-xl inline-block">
                               เช็คเอาต์แล้ว
                             </span>
-                          ) : b.status === "approved" ? (
+                          ) : b.status === "checked_in" ? (
                             <button
                               onClick={() => handleCheckout(bookingId)}
-                              className="inline-flex items-center gap-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
+                              className="inline-flex items-center gap-1.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
                             >
                               <LogOut size={13} />
                               <span>Check-out</span>
+                            </button>
+                          ) : b.status === "approved" ? (
+                            <button
+                              onClick={() => handleCheckin(bookingId)}
+                              className="inline-flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
+                            >
+                              <LogIn size={13} />
+                              <span>Check-in</span>
                             </button>
                           ) : b.status === "rejected" ? (
                             <span className="text-xs text-rose-600 font-semibold bg-rose-50 border border-rose-200/80 px-3 py-1 rounded-xl inline-block">
@@ -1232,7 +1304,7 @@ export default function BoatStaffDashboard() {
                             <>
                               <button
                                 onClick={() => handleApprove(bookingId)}
-                                className="inline-flex items-center gap-1 text-xs bg-cyan-700 hover:bg-cyan-800 text-white font-semibold px-3 py-1.5 rounded-xl transition-all shadow-xs active:scale-95"
+                                className="inline-flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-xl transition-all shadow-xs active:scale-95"
                               >
                                 <span>อนุมัติ</span>
                               </button>
@@ -1306,7 +1378,7 @@ export default function BoatStaffDashboard() {
                     onClick={() => handlePageChange(page)}
                     className={`px-3 py-1 rounded-lg text-xs font-semibold font-mono transition-all ${
                       currentPage === page
-                        ? "bg-cyan-800 text-white shadow-2xs"
+                        ? "bg-[#0b3b2c] text-white shadow-2xs"
                         : "bg-white text-stone-600 border border-stone-200 hover:bg-stone-50"
                     }`}
                   >
@@ -1378,22 +1450,24 @@ export default function BoatStaffDashboard() {
         detailsModal.booking &&
         (() => {
           const booking = detailsModal.booking;
-          const isCheckedOut = booking.status === "checked_out";
+          const isCheckedIn = !!booking.checkin_at;
+          const isCheckedOut = !!booking.checkout_at;
+          const nights = calculateNights(booking.check_in, booking.check_out);
 
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs printable-modal-overlay">
               <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative space-y-4 animate-in fade-in zoom-in-95 duration-200 printable-modal">
                 <div className="flex items-center justify-between pb-3 border-b border-stone-100">
                   <div className="flex items-center gap-2">
-                    <div className="p-2 bg-cyan-900/10 text-cyan-900 rounded-xl print:hidden">
+                    <div className="p-2 bg-[#0b3b2c]/10 text-[#0b3b2c] rounded-xl print:hidden">
                       <FileText size={18} />
                     </div>
                     <div>
                       <h3 className="font-bold text-stone-800 text-base md:text-lg">
-                        ใบยืนยันการจองเรือ
+                        ใบยืนยันการจองห้องพัก
                       </h3>
                       <p className="text-stone-400 text-xs font-mono">
-                        หมายเลขอ้างอิง: #{booking.boat_booking_id || booking.id}
+                        หมายเลขอ้างอิง: #{booking.room_booking_id || booking.id}
                       </p>
                     </div>
                   </div>
@@ -1427,39 +1501,42 @@ export default function BoatStaffDashboard() {
 
                   <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 space-y-1.5 print:bg-white print:border-stone-200">
                     <div className="flex items-center gap-2 font-semibold text-stone-800 text-sm mb-1">
-                      <Ship size={15} className="text-stone-500 print:hidden" />
-                      <span>รายละเอียดการใช้งานเรือ</span>
+                      <BedDouble size={15} className="text-stone-500 print:hidden" />
+                      <span>รายละเอียดห้องพัก</span>
                     </div>
                     <p>
-                      <strong className="text-stone-700">ประเภทเรือ:</strong>{" "}
-                      {booking.kayak_name || booking.boat_name}
+                      <strong className="text-stone-700">
+                        ชื่อห้อง/ประเภท:
+                      </strong>{" "}
+                      {booking.room_name || booking.type_name}
                     </p>
                     <p>
-                      <strong className="text-stone-700">วันที่จอง:</strong>{" "}
-                      {booking.booking_date
-                        ? new Date(booking.booking_date).toLocaleDateString(
-                            "th-TH",
-                            {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                            },
-                          )
-                        : "-"}
+                      <strong className="text-stone-700">หมายเลขห้อง:</strong>{" "}
+                      {booking.room_number || booking.room_id}
                     </p>
                     <p>
-                      <strong className="text-stone-700">รอบเวลา:</strong>{" "}
-                      {booking.start_time && booking.end_time
-                        ? `${booking.start_time.slice(0, 5)} - ${booking.end_time.slice(0, 5)} น.`
-                        : "-"}
+                      <strong className="text-stone-700">ระยะเวลาเข้าพัก:</strong>{" "}
+                      {booking.check_in
+                        ? new Date(booking.check_in).toLocaleDateString("th-TH", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })
+                        : "-"}{" "}
+                      ถึง{" "}
+                      {booking.check_out
+                        ? new Date(booking.check_out).toLocaleDateString("th-TH", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })
+                        : "-"}{" "}
+                      ({nights} คืน)
                     </p>
 
                     <div className="pt-2 mt-2 border-t border-stone-200/60">
                       <div className="flex items-center gap-1.5 text-stone-700 font-semibold mb-1">
-                        <MessageSquare
-                          size={13}
-                          className="text-cyan-800 print:hidden"
-                        />
+                        <MessageSquare size={13} className="text-[#0b3b2c] print:hidden" />
                         <span>คำขอพิเศษ (Special Request):</span>
                       </div>
                       <p className="text-stone-600 bg-white p-2 rounded-xl border border-stone-200/80 leading-relaxed italic print:border-stone-300">
@@ -1478,31 +1555,42 @@ export default function BoatStaffDashboard() {
 
                       {isCheckedOut ? (
                         <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 text-[11px] font-bold print:border print:border-teal-300">
-                          คืนเรือแล้ว
+                          เช็คเอาต์แล้ว (
+                          {new Date(booking.checkout_at).toLocaleTimeString(
+                            "th-TH",
+                            { hour: "2-digit", minute: "2-digit" },
+                          )}{" "}
+                          น.)
+                        </span>
+                      ) : isCheckedIn ? (
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold print:border print:border-emerald-300">
+                          เช็คอินแล้ว (
+                          {new Date(booking.checkin_at).toLocaleTimeString(
+                            "th-TH",
+                            { hour: "2-digit", minute: "2-digit" },
+                          )}{" "}
+                          น.)
                         </span>
                       ) : (
-                        <span className="px-2.5 py-0.5 rounded-full bg-cyan-900/10 text-cyan-900 text-[11px] font-bold print:border print:border-cyan-300">
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#0b3b2c]/10 text-[#0b3b2c] text-[11px] font-bold print:border print:border-emerald-300">
                           {statusLabel[booking.status] || booking.status}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {booking.status === "rejected" &&
-                    (booking.reject_reason || booking.reason) && (
-                      <div className="p-3 bg-rose-50 rounded-2xl border border-rose-200/80 space-y-1 text-rose-800 print:bg-white print:border-rose-300">
-                        <span className="font-semibold">เหตุผลที่ปฏิเสธ:</span>
-                        <p className="italic text-rose-700">
-                          {booking.reject_reason || booking.reason}
-                        </p>
-                      </div>
-                    )}
+                  {booking.status === "rejected" && (booking.reject_reason || booking.reason) && (
+                    <div className="p-3 bg-rose-50 rounded-2xl border border-rose-200/80 space-y-1 text-rose-800 print:bg-white print:border-rose-300">
+                      <span className="font-semibold">เหตุผลที่ปฏิเสธ:</span>
+                      <p className="italic text-rose-700">{booking.reject_reason || booking.reason}</p>
+                    </div>
+                  )}
 
                   <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 flex justify-between items-center print:bg-white print:border-stone-200">
                     <span className="font-semibold text-stone-700">
                       ยอดรวมสุทธิ
                     </span>
-                    <span className="text-base font-extrabold text-cyan-900 font-mono">
+                    <span className="text-base font-extrabold text-[#0b3b2c] font-mono">
                       ฿{Number(booking.total_price || 0).toLocaleString()}
                     </span>
                   </div>
@@ -1520,7 +1608,7 @@ export default function BoatStaffDashboard() {
                     onClick={() =>
                       setDetailsModal({ open: false, booking: null })
                     }
-                    className="flex-1 py-2.5 bg-cyan-800 hover:bg-cyan-900 text-white text-xs font-semibold rounded-xl transition-colors shadow-xs"
+                    className="flex-1 py-2.5 bg-[#0b3b2c] hover:bg-[#082c21] text-white text-xs font-semibold rounded-xl transition-colors shadow-xs"
                   >
                     ปิดหน้าต่าง
                   </button>
@@ -1554,7 +1642,7 @@ export default function BoatStaffDashboard() {
               onChange={(e) =>
                 setRejectModal((prev) => ({ ...prev, reason: e.target.value }))
               }
-              className="w-full p-3 bg-[#fbfbfa] rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs text-stone-800 placeholder:text-stone-400"
+              className="w-full p-3 bg-stone-50 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs text-stone-800 placeholder:text-stone-400"
             />
 
             <div className="flex items-center gap-2 pt-1">
@@ -1583,13 +1671,13 @@ export default function BoatStaffDashboard() {
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-stone-100 text-center space-y-4">
             <div className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center bg-stone-50 border border-stone-100 text-stone-700">
               {confirmModal.icon === "warning" && (
-                <AlertTriangle size={24} className="text-cyan-800" />
+                <AlertTriangle size={24} className="text-[#0b3b2c]" />
               )}
               {confirmModal.icon === "info" && (
                 <Info size={24} className="text-indigo-500" />
               )}
               {confirmModal.icon === "question" && (
-                <HelpCircle size={24} className="text-cyan-800" />
+                <HelpCircle size={24} className="text-[#0b3b2c]" />
               )}
             </div>
 
@@ -1629,7 +1717,7 @@ export default function BoatStaffDashboard() {
         toastOptions={{
           duration: 3500,
           style: {
-            background: "#083344",
+            background: "#0b3b2c",
             color: "#ffffff",
             borderRadius: "14px",
             fontSize: "13px",
@@ -1639,8 +1727,8 @@ export default function BoatStaffDashboard() {
           },
           success: {
             iconTheme: {
-              primary: "#38bdf8",
-              secondary: "#083344",
+              primary: "#34d399",
+              secondary: "#0b3b2c",
             },
           },
           error: {

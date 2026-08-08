@@ -1,22 +1,49 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Trash2, PlusCircle, Edit2, X } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Sparkles,
+  Plus,
+  Edit2,
+  Trash2,
+  AlertTriangle,
+  Loader2,
+  Search,
+  ToggleLeft,
+  ToggleRight,
+  Save,
+  Layers,
+  DoorClosed,
+} from "lucide-react";
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 
-export default function AmenitiesPage() {
-  const router = useRouter();
-  const { ready } = useAuthGuard({ allowedRoles: ["admin"] });
-  const [amenities, setAmenities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+export interface Amenity {
+  id: number;
+  name: string;
+  status: boolean;
+}
 
-  const [form, setForm] = useState({ name: "", icon: "" });
-  const [editingAmenity, setEditingAmenity] = useState<any>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
+export default function AmenitiesPage() {
+  const { ready } = useAuthGuard({ allowedRoles: ["admin"] });
+
+  const [amenities, setAmenities] = useState<Amenity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const formRef = useRef<HTMLFormElement>(null);
+  const [editingAmenityId, setEditingAmenityId] = useState<number | null>(null);
+  const [nameInput, setNameInput] = useState("");
+  const [statusInput, setStatusInput] = useState(true);
+
+  const [deleteTarget, setDeleteTarget] = useState<Amenity | null>(null);
+
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive"
+  >("all");
 
   useEffect(() => {
     if (!ready) return;
@@ -29,260 +56,413 @@ export default function AmenitiesPage() {
       const res = await api.get("/rooms/amenities/all");
       setAmenities(res.data?.data || []);
     } catch {
-      toast.error(
-        "ไม่สามารถโหลดข้อมูลสิ่งอำนวยความสะดวกได้ (หรือยังไม่มี API)",
-      );
+      toast.error("ไม่สามารถโหลดข้อมูลสิ่งอำนวยความสะดวกได้");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleResetForm = () => {
+    setEditingAmenityId(null);
+    setNameInput("");
+    setStatusInput(true);
+  };
+
+  const handleEditClick = (item: Amenity) => {
+    setEditingAmenityId(item.id);
+    setNameInput(item.name);
+    setStatusInput(item.status);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!nameInput.trim()) {
+      toast.error("กรุณากรอกชื่อสิ่งอำนวยความสะดวก");
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      await api.post("/rooms/amenity", form);
-      toast.success("เพิ่มสิ่งอำนวยความสะดวกสำเร็จ");
-      setForm({ name: "", icon: "" });
+      if (editingAmenityId) {
+        await api.put(`/rooms/amenity/${editingAmenityId}`, {
+          name: nameInput.trim(),
+          status: statusInput,
+        });
+        toast.success("อัปเดตสิ่งอำนวยความสะดวกเรียบร้อย");
+      } else {
+        await api.post("/rooms/amenity", {
+          name: nameInput.trim(),
+          status: statusInput,
+        });
+        toast.success("เพิ่มสิ่งอำนวยความสะดวกสำเร็จ");
+      }
+      handleResetForm();
       fetchAmenities();
-    } catch {
-      toast.error("เพิ่มสิ่งอำนวยความสะดวกไม่สำเร็จ");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "ทำรายการไม่สำเร็จ");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`ต้องการลบ "${name}" ใช่หรือไม่?`)) return;
+  const handleToggleStatus = async (item: Amenity) => {
     try {
-      await api.delete(`/rooms/amenity/${id}`);
-      toast.success("ลบสำเร็จ");
+      // 1. คำนวณค่าสถานะใหม่เป็น Boolean
+      const newStatus = !item.status;
+
+      // 2. ส่ง Request โดยแนบ Body { status: newStatus } ไปด้วย
+      await api.patch(`/rooms/amenity/${item.id}/status`, {
+        status: newStatus,
+      });
+
+      // 3. อัปเดต State ในหน้า UI ทันที เพื่อความลื่นไหล
+      setAmenities((prev) =>
+        prev.map((a) => (a.id === item.id ? { ...a, status: newStatus } : a)),
+      );
+
+      toast.success(
+        `เปลี่ยนสถานะเป็น ${newStatus ? "เปิด" : "ปิด"} ใช้งานเรียบร้อย`,
+      );
+    } catch (err: any) {
+      console.error("Toggle error:", err);
+      toast.error(err.response?.data?.message || "ไม่สามารถเปลี่ยนสถานะได้");
+      // รีโหลดข้อมูลใหม่หากเกิดข้อผิดพลาดเพื่อคืนค่าเดิม
+      fetchAmenities();
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    try {
+      await api.delete(`/rooms/amenity/${deleteTarget.id}`);
+      toast.success("ลบสิ่งอำนวยความสะดวกเรียบร้อยแล้ว");
+      setDeleteTarget(null);
       fetchAmenities();
     } catch (err: any) {
       toast.error(err.response?.data?.message || "ลบไม่สำเร็จ");
     }
   };
 
-  const openEditModal = (am: any) => {
-    setEditingAmenity({ id: am.id, name: am.name });
-    setShowEditModal(true);
-  };
+  const filteredAmenities = amenities.filter((item) => {
+    // กรองด้วยค้นหาชื่อ
+    const matchesSearch = item.name
+      .toLowerCase()
+      .includes(search.toLowerCase());
 
-  const handleUpdateAmenity = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingAmenity) return;
-    try {
-      await api.put(`/rooms/amenity/${editingAmenity.id}`, {
-        name: editingAmenity.name,
-      });
-      toast.success("แก้ไขสำเร็จ");
-      setShowEditModal(false);
-      setEditingAmenity(null);
-      fetchAmenities();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "แก้ไขไม่สำเร็จ");
-    }
-  };
+    // กรองด้วยสถานะ
+    const matchesStatus =
+      statusFilter === "all"
+        ? true
+        : statusFilter === "active"
+          ? item.status === true
+          : item.status === false;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  if (!ready) return null;
 
   return (
-    <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
+    <div className="w-full min-h-screen flex flex-col font-sans space-y-6 pb-12 text-stone-800">
+
       {/* Header & Page Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200/80">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-stone-200/80">
         <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-            จัดการสิ่งอำนวยความสะดวก
-          </h1>
-          <p className="text-stone-400 mt-0.5 text-xs md:text-sm">
-            เพิ่มและบริหารจัดการสิ่งอำนวยความสะดวกในระบบสวนวลัยรุกขเวช
+          <div className="flex items-center gap-2">
+            <span className="p-2 bg-[#0b3b2c]/10 text-[#0b3b2c] rounded-xl">
+              <Sparkles size={20} />
+            </span>
+            <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
+              จัดการสิ่งอำนวยความสะดวก
+            </h1>
+          </div>
+          <p className="text-stone-500 mt-1 text-xs md:text-sm">
+            เพิ่มและบริหารจัดการสิ่งอำนวยความสะดวกในระบบ
           </p>
         </div>
-      </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex gap-2 mb-6 bg-white p-2 rounded-xl shadow-sm w-fit border border-gray-100">
-        <Link
-          href="/admin/rooms/types"
-          className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
-        >
-          ประเภทห้องพัก
-        </Link>
-        <Link
-          href="/admin/rooms/single"
-          className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
-        >
-          จัดการรายห้อง
-        </Link>
-        <Link
-          href="/admin/rooms/amenities"
-          className="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-50 text-indigo-700"
-        >
-          สิ่งอำนวยความสะดวก
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Create Form */}
-        <div className="card p-6 lg:col-span-1 h-fit">
-          <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <PlusCircle size={20} className="text-indigo-600" />
-            เพิ่มสิ่งอำนวยความสะดวก
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="px-3.5 py-2 bg-white rounded-xl border border-stone-200/80 shadow-xs flex items-center gap-3 w-fit">
+            <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
+              <Sparkles size={18} />
+            </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                ชื่อสิ่งอำนวยความสะดวก (เช่น Wi-Fi)
-              </label>
-              <input
-                type="text"
-                required
-                className="input-field"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </div>
-            <button
-              type="submit"
-              className="btn-primary w-full mt-2 bg-indigo-600 hover:bg-indigo-700"
-            >
-              บันทึกข้อมูล
-            </button>
-          </form>
-        </div>
-
-        {/* Table */}
-        <div className="lg:col-span-2">
-          <div className="card overflow-hidden">
-            <div className="p-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-700">
-              รายการสิ่งอำนวยความสะดวกทั้งหมด
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-white border-b border-gray-100">
-                  <tr>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-600">
-                      ไอดี
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-600">
-                      ชื่อ
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-gray-600">
-                      สถานะ
-                    </th>
-                    <th className="text-right px-4 py-3 font-semibold text-gray-600">
-                      จัดการ
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 bg-white">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={4} className="p-4 text-center text-gray-500">
-                        กำลังโหลด...
-                      </td>
-                    </tr>
-                  ) : amenities.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="p-4 text-center text-gray-500">
-                        ยังไม่มีข้อมูล
-                      </td>
-                    </tr>
-                  ) : (
-                    amenities.map((am: any) => (
-                      <tr
-                        key={am.id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-4 py-3 font-medium text-gray-900">
-                          {am.id}
-                        </td>
-                        <td className="px-4 py-3 text-gray-900">{am.name}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-bold ${am.status ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
-                          >
-                            {am.status ? "ใช้งานอยู่" : "ปิดใช้งาน"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => openEditModal(am)}
-                              className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="แก้ไข"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(am.id, am.name)}
-                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                              title="ลบ"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+              <span className="text-[10px] font-semibold text-stone-400 block leading-tight">
+                รายการทั้งหมด
+              </span>
+              <span className="text-xs font-bold text-[#0b3b2c]">
+                {amenities.length} รายการ
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Edit Amenity Modal */}
-      {showEditModal && editingAmenity && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-              <h3 className="text-lg font-bold text-gray-900">
-                แก้ไขสิ่งอำนวยความสะดวก
+
+      {/* FORM CREATE / EDIT (โครงสร้างแนวนอนแบบไฟล์อ้างอิง) */}
+      <form
+        ref={formRef}
+        onSubmit={handleSubmitForm}
+        className={`bg-white p-4 rounded-2xl border transition-all duration-300 space-y-3 ${
+          editingAmenityId
+            ? "border-amber-400 ring-2 ring-amber-400/20 shadow-md"
+            : "border-stone-200/80 shadow-xs"
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
+          <span className="text-xs font-bold text-[#0b3b2c] flex items-center gap-1.5">
+            {editingAmenityId ? (
+              <Edit2 size={16} className="text-amber-600" />
+            ) : (
+              <Plus size={16} />
+            )}
+            {editingAmenityId
+              ? "แก้ไขสิ่งอำนวยความสะดวก"
+              : "เพิ่มสิ่งอำนวยความสะดวกใหม่"}
+          </span>
+          {editingAmenityId && (
+            <button
+              type="button"
+              onClick={handleResetForm}
+              className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+            >
+              ยกเลิกการแก้ไข
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div className="md:col-span-7">
+            <label className="block text-[11px] font-bold text-stone-700 mb-1">
+              ชื่อสิ่งอำนวยความสะดวก <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="เช่น เครื่องปรับอากาศ, เครื่องทำน้ำอุ่น..."
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0b3b2c]"
+            />
+          </div>
+
+          <div className="md:col-span-2 flex items-center justify-center pb-2">
+            <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={statusInput}
+                onChange={(e) => setStatusInput(e.target.checked)}
+                className="w-4 h-4 text-[#0b3b2c] rounded cursor-pointer"
+              />
+              <span className="text-xs font-bold text-stone-700">
+                เปิดใช้งาน
+              </span>
+            </label>
+          </div>
+
+          <div className="md:col-span-3">
+            <button
+              type="submit"
+              disabled={submitting}
+              className={`w-full py-2 px-3 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60 ${
+                editingAmenityId
+                  ? "bg-amber-600 hover:bg-amber-700"
+                  : "bg-[#0b3b2c] hover:bg-[#07271d]"
+              }`}
+            >
+              {submitting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : editingAmenityId ? (
+                <Save size={14} />
+              ) : (
+                <Plus size={14} />
+              )}
+              <span>{editingAmenityId ? "บันทึกการแก้ไข" : "เพิ่มรายการ"}</span>
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {/* TABLE LIST & SEARCH */}
+      <div className="space-y-3">
+        {/* Search Box & Status Filter Bar */}
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          {/* ช่องค้นหา */}
+          <div className="relative w-full sm:flex-1">
+            <Search
+              size={16}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+            />
+            <input
+              type="text"
+              placeholder="ค้นหาชื่อสิ่งอำนวยความสะดวก..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white border border-stone-200/80 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#0b3b2c]"
+            />
+          </div>
+
+          {/* ปุ่มตัวกรองสถานะ */}
+          <div className="flex items-center gap-1 p-1 bg-stone-100 rounded-xl border border-stone-200/80 w-full sm:w-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("all")}
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === "all"
+                  ? "bg-white text-stone-800 shadow-xs"
+                  : "text-stone-500 hover:text-stone-800"
+              }`}
+            >
+              ทั้งหมด ({amenities.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("active")}
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === "active"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-emerald-700 hover:bg-emerald-50"
+              }`}
+            >
+              เปิดใช้งาน ({amenities.filter((a) => a.status).length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("inactive")}
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === "inactive"
+                  ? "bg-rose-600 text-white shadow-xs"
+                  : "text-rose-700 hover:bg-rose-50"
+              }`}
+            >
+              ปิดใช้งาน ({amenities.filter((a) => !a.status).length})
+            </button>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl border border-stone-200/80 shadow-xs overflow-hidden">
+          <div className="p-4 bg-stone-50/80 border-b border-stone-200/80 flex items-center justify-between">
+            <h3 className="font-bold text-stone-900 text-sm md:text-base flex items-center gap-2">
+              <Sparkles size={16} className="text-[#0b3b2c]" />
+              ตารางสิ่งอำนวยความสะดวก
+            </h3>
+            <span className="px-2.5 py-0.5 bg-stone-200/70 text-stone-700 rounded-full text-[11px] font-bold">
+              {filteredAmenities.length} รายการ
+            </span>
+          </div>
+
+          <div className="divide-y divide-stone-100">
+            {loading ? (
+              <div className="p-8 flex items-center justify-center gap-2 text-stone-400 text-xs">
+                <Loader2 className="animate-spin" size={18} />
+                กำลังโหลดข้อมูล...
+              </div>
+            ) : filteredAmenities.length > 0 ? (
+              filteredAmenities.map((am, index) => (
+                <div
+                  key={am.id}
+                  className={`p-4 flex items-center justify-between gap-4 transition-colors ${
+                    !am.status
+                      ? "bg-stone-50/50 opacity-70"
+                      : "hover:bg-stone-50/60"
+                  }`}
+                >
+                  {/* ลำดับข้อ & ชื่อสิ่งอำนวยความสะดวก */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-stone-400 min-w-[24px]">
+                      {index + 1}.
+                    </span>
+                    <span className="text-xs md:text-sm font-semibold text-stone-800">
+                      {am.name}
+                    </span>
+                  </div>
+
+                  {/* ปุ่มสถานะ & ปุ่มจัดการ (แก้ไข/ลบ) */}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleStatus(am)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1 transition-all cursor-pointer ${
+                        am.status
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60 hover:bg-emerald-100"
+                          : "bg-rose-50 text-rose-700 border border-rose-200/60 hover:bg-rose-100"
+                      }`}
+                    >
+                      {am.status ? (
+                        <>
+                          <ToggleRight size={14} className="text-emerald-600" />
+                          ใช้งานอยู่
+                        </>
+                      ) : (
+                        <>
+                          <ToggleLeft size={14} className="text-rose-500" />
+                          ปิดใช้งาน
+                        </>
+                      )}
+                    </button>
+
+                    <div className="flex items-center gap-1 border-l border-stone-200 pl-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditClick(am)}
+                        className="p-1.5 text-stone-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all cursor-pointer"
+                        title="แก้ไข"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(am)}
+                        className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                        title="ลบ"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-8 text-center text-xs text-stone-400">
+                ไม่พบข้อมูลสิ่งอำนวยความสะดวก
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL DELETE CONFIRMATION */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 text-center space-y-4 shadow-2xl border border-stone-100">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-stone-900">
+                ยืนยันการลบสิ่งอำนวยความสะดวก
               </h3>
+              <p className="text-xs text-stone-500 mt-1 leading-relaxed">
+                คุณแน่ใจหรือไม่ที่จะลบ "{deleteTarget.name}"? <br />
+                การดำเนินการนี้ไม่สามารถย้อนกลับได้
+              </p>
+            </div>
+            <div className="flex gap-2">
               <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingAmenity(null);
-                }}
-                className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold w-full cursor-pointer transition-colors"
               >
-                <X size={20} className="text-gray-500" />
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold w-full cursor-pointer transition-colors shadow-md"
+              >
+                ยืนยันการลบ
               </button>
             </div>
-            <form onSubmit={handleUpdateAmenity} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ชื่อสิ่งอำนวยความสะดวก
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="input-field"
-                  value={editingAmenity.name}
-                  onChange={(e) =>
-                    setEditingAmenity({
-                      ...editingAmenity,
-                      name: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setEditingAmenity(null);
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 btn-primary bg-indigo-600 hover:bg-indigo-700"
-                >
-                  บันทึก
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
