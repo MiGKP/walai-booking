@@ -199,30 +199,6 @@ export default function AmenitiesPage() {
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs */}
-      <div className="flex items-center gap-1.5 p-1 bg-stone-200/60 rounded-xl overflow-x-auto text-xs w-fit border border-stone-200/80">
-        <Link
-          href="/admin/rooms/types"
-          className="px-4 py-2 rounded-lg font-medium text-stone-600 hover:text-stone-900 transition-all whitespace-nowrap flex items-center gap-1.5"
-        >
-          <Layers size={14} />
-          ประเภทห้องพัก
-        </Link>
-        <Link
-          href="/admin/rooms/single"
-          className="px-4 py-2 rounded-lg font-medium text-stone-600 hover:text-stone-900 transition-all whitespace-nowrap flex items-center gap-1.5"
-        >
-          <DoorClosed size={14} />
-          จัดการรายห้อง
-        </Link>
-        <Link
-          href="/admin/rooms/amenities"
-          className="px-4 py-2 rounded-lg font-bold bg-white text-[#0b3b2c] shadow-xs transition-all whitespace-nowrap flex items-center gap-1.5"
-        >
-          <Sparkles size={14} />
-          สิ่งอำนวยความสะดวก
-        </Link>
-      </div>
 
       {/* FORM CREATE / EDIT (โครงสร้างแนวนอนแบบไฟล์อ้างอิง) */}
       <form

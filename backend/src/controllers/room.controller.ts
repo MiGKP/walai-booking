@@ -34,11 +34,14 @@ const cleanupRemovedRoomImages = async (urls: string[]): Promise<void> => {
 };
 
 // ดึงรายการประเภทห้องพักทั้งหมดที่เปิดใช้งานอยู่ พร้อมรูป, จำนวนห้องว่าง และสิ่งอำนวยความสะดวกสำหรับหน้าแสดงผลฝั่งลูกค้า
-export const getAllRooms = async (req: Request, res: Response): Promise<void> => {
+export const getAllRooms = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { min_price, max_price, capacity, check_in, check_out } = req.query;
-    const isAdmin = req.query.is_admin === 'true';
-    
+    const isAdmin = req.query.is_admin === "true";
+
     // ยึด $1 เป็น isAdmin เสมอ
     const params: any[] = [isAdmin];
     let idx = 2;
@@ -60,41 +63,56 @@ export const getAllRooms = async (req: Request, res: Response): Promise<void> =>
       availableCountSubquery = `(SELECT COUNT(*) FROM rooms r WHERE r.room_type_id = rt.id AND r.status = 'available')`;
     }
 
+    // ในไฟล์ Backend Controller (getAllRooms)
     let query = `
-      SELECT rt.id, rt.room_name, rt.type_name, rt.description, 
-             rt.price as price_per_night, rt.capacity, rt.room_image as main_image, rt.status,
-             (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as images,
-             ${availableCountSubquery} as available_count,
-             (
-               SELECT json_agg(json_build_object('id', a.id, 'name', a.name) ORDER BY a.id)
-               FROM room_amenities a
-               WHERE a.id = ANY(COALESCE(rt.amenity_ids, ARRAY[]::integer[]))
-             ) as amenities
-      FROM room_types rt 
-      WHERE ($1::boolean IS TRUE OR rt.status = true)
-    `;
+  SELECT rt.id, rt.room_name, rt.type_name, rt.description, 
+         rt.price as price_per_night, rt.capacity, rt.room_image as main_image, rt.status,
+         (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as images,
+         (SELECT COUNT(*) FROM rooms r WHERE r.room_type_id = rt.id) as room_count, -- 👈 เพิ่มบรรทัดนี้
+         ${availableCountSubquery} as available_count,
+         (
+           SELECT json_agg(json_build_object('id', a.id, 'name', a.name) ORDER BY a.id)
+           FROM room_amenities a
+           WHERE a.id = ANY(COALESCE(rt.amenity_ids, ARRAY[]::integer[]))
+         ) as amenities
+  FROM room_types rt 
+  WHERE ($1::boolean IS TRUE OR rt.status = true)
+`;
 
-    if (min_price) { query += ` AND rt.price >= $${idx++}`; params.push(Number(min_price)); }
-    if (max_price) { query += ` AND rt.price <= $${idx++}`; params.push(Number(max_price)); }
-    if (capacity) { query += ` AND rt.capacity >= $${idx++}`; params.push(Number(capacity)); }
+    if (min_price) {
+      query += ` AND rt.price >= $${idx++}`;
+      params.push(Number(min_price));
+    }
+    if (max_price) {
+      query += ` AND rt.price <= $${idx++}`;
+      params.push(Number(max_price));
+    }
+    if (capacity) {
+      query += ` AND rt.capacity >= $${idx++}`;
+      params.push(Number(capacity));
+    }
 
-    query += ' ORDER BY rt.price ASC';
-    
+    query += " ORDER BY rt.price ASC";
+
     const result = await pool.query(query, params);
     res.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('Get rooms error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error("Get rooms error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
 // ดึงรายละเอียดของห้องพักตาม room type id
-export const getRoomById = async (req: Request, res: Response): Promise<void> => {
+export const getRoomById = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { id } = req.params;
-    const isAdmin = req.query.is_admin === 'true';
-    
-    const rtResult = await pool.query(`
+    const isAdmin = req.query.is_admin === "true";
+
+    const rtResult = await pool.query(
+      `
       SELECT rt.id, rt.room_name, rt.type_name, rt.description, 
              rt.price as price_per_night, rt.capacity, rt.room_image as main_image, rt.status,
              (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as images,
@@ -107,17 +125,19 @@ export const getRoomById = async (req: Request, res: Response): Promise<void> =>
               FROM rooms r WHERE r.room_type_id = rt.id) as rooms
       FROM room_types rt 
       WHERE rt.id = $1 AND ($2::boolean IS TRUE OR rt.status = true)
-    `, [id, isAdmin]);
+    `,
+      [id, isAdmin],
+    );
 
     if (rtResult.rows.length === 0) {
-      res.status(404).json({ success: false, message: 'Room type not found' });
+      res.status(404).json({ success: false, message: "Room type not found" });
       return;
     }
 
     res.json({ success: true, data: rtResult.rows[0] });
   } catch (error) {
-    console.error('Get room error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error("Get room error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -565,19 +585,24 @@ export const getAmenities = async (
   }
 };
 
-// อัปเดตข้อมูลห้องย่อย เช่น หมายเลขห้องหรือสถานะ
+// อัปเดตข้อมูลห้องย่อย เช่น หมายเลขห้อง สถานะ และประเภทห้อง
 export const updateSingleRoom = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { room_number, status } = req.body;
+    const { room_number, status, room_type_id } = req.body; // 👈 เพิ่ม room_type_id
+
     const result = await pool.query(
-      `UPDATE rooms SET room_number = COALESCE($1, room_number), status = COALESCE($2, status)
-       WHERE room_id = $3 RETURNING *`,
-      [room_number || null, status || null, id],
+      `UPDATE rooms 
+       SET room_number = COALESCE($1, room_number), 
+           status = COALESCE($2, status),
+           room_type_id = COALESCE($3, room_type_id)
+       WHERE room_id = $4 RETURNING *`,
+      [room_number || null, status || null, room_type_id || null, id], // 👈 ส่ง parameter ให้ครบ 4 ตัว
     );
+
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: "Room not found" });
       return;
@@ -644,7 +669,7 @@ export const updateAmenity = async (
        SET name = $1, status = $2 
        WHERE id = $3 
        RETURNING *`,
-      [String(name).trim(), Boolean(status), Number(id)]
+      [String(name).trim(), Boolean(status), Number(id)],
     );
 
     if (result.rowCount === 0) {
@@ -674,7 +699,7 @@ export const deleteAmenity = async (
     // 1. เคลียร์ ID นี้ออกจาก amenity_ids ใน room_types ก่อน
     await pool.query(
       `UPDATE room_types SET amenity_ids = array_remove(amenity_ids, $1::integer)`,
-      [id]
+      [id],
     );
 
     // 2. ลบรายการออกจากตาราง room_amenities
@@ -695,14 +720,20 @@ export const deleteAmenity = async (
   }
 };
 
-// ดึงห้องย่อยทั้งหมดในระบบพร้อมชื่อประเภทห้อง เพื่อให้ admin ใช้ตรวจสอบหมายเลขห้องและสถานะการใช้งาน
+// ดึงห้องย่อยทั้งหมดในระบบพร้อมชื่อประเภทห้อง
 export const getAllSingleRooms = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
     const result = await pool.query(`
-      SELECT r.room_id, r.room_number, r.status, rt.room_name, rt.type_name 
+      SELECT 
+        r.room_id, 
+        r.room_number, 
+        r.status, 
+        r.room_type_id, -- 👈 เพิ่มตรงนี้เพื่อส่ง room_type_id กลับไป Frontend
+        rt.room_name, 
+        rt.type_name 
       FROM rooms r 
       JOIN room_types rt ON r.room_type_id = rt.id 
       ORDER BY r.room_number ASC
@@ -767,7 +798,7 @@ export const toggleRoomTypeStatus = async (
 // 📌 อัปเดตสถานะ เปิด/ปิด การใช้งานสิ่งอำนวยความสะดวก (Toggle Amenity Status)
 export const toggleAmenityStatus = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -785,7 +816,7 @@ export const toggleAmenityStatus = async (
     // UPDATE ข้อมูลตาราง room_amenities สำหรับ PostgreSQL
     const result = await pool.query(
       `UPDATE room_amenities SET status = $1 WHERE id = $2 RETURNING *`,
-      [status, Number(id)]
+      [status, Number(id)],
     );
 
     if (result.rowCount === 0) {
@@ -810,15 +841,60 @@ export const toggleAmenityStatus = async (
   }
 };
 
-// สร้างห้องพักย่อยครั้งละหลายห้องแบบ Auto-generate หมายเลขห้อง (Batch Insert)
+// บันทึกห้องพักย่อยแบบหลายห้อง (รองรับทั้ง Hybrid Smart Mapping และ Auto-Run เดิม)
 export const createBatchSingleRooms = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { room_type_id, prefix = "A", quantity, start_number = 1 } = req.body;
+    const { rooms, room_type_id, quantity, start_number = 1 } = req.body;
 
+    // --- กรณีที่ 1: รับข้อมูลแบบ Mapped Array จากหน้า Visual Preview บน Frontend ---
+    if (Array.isArray(rooms) && rooms.length > 0) {
+      const roomNumbersToInsert = rooms.map((r: any) =>
+        String(r.room_number).trim(),
+      );
+
+      // ตรวจสอบหมายเลขห้องซ้ำในระบบ
+      const existingCheck = await client.query(
+        `SELECT room_number FROM rooms WHERE room_number = ANY($1::text[])`,
+        [roomNumbersToInsert],
+      );
+
+      if (existingCheck.rows.length > 0) {
+        const duplicateRooms = existingCheck.rows
+          .map((r: any) => r.room_number)
+          .join(", ");
+        res.status(400).json({
+          success: false,
+          message: `ไม่สามารถสร้างได้ เนื่องจากมีหมายเลขห้องซ้ำในระบบ: ${duplicateRooms}`,
+        });
+        return;
+      }
+
+      await client.query("BEGIN");
+      const insertedRooms = [];
+      for (const room of rooms) {
+        const result = await client.query(
+          `INSERT INTO rooms (room_type_id, room_number, status) 
+           VALUES ($1, $2, 'available') 
+           RETURNING *`,
+          [Number(room.room_type_id), String(room.room_number).trim()],
+        );
+        insertedRooms.push(result.rows[0]);
+      }
+      await client.query("COMMIT");
+
+      res.status(201).json({
+        success: true,
+        message: `เพิ่มห้องพักจำนวน ${insertedRooms.length} ห้องสำเร็จ`,
+        data: insertedRooms,
+      });
+      return;
+    }
+
+    // --- กรณีที่ 2: Auto-Run แบบเดิม (Fallback) ---
     const parsedRoomTypeId = Number(room_type_id);
     const parsedQuantity = Number(quantity);
     const parsedStartNumber = Number(start_number);
@@ -831,16 +907,10 @@ export const createBatchSingleRooms = async (
       return;
     }
 
-    const cleanPrefix = String(prefix).trim().toUpperCase();
-
-    // 1. ตรวจสอบว่าประเภทห้องพักมีอยู่จริงไหม (ลองเช็กทั้ง id และ room_type_id เพื่อป้องกัน Column name Error)
     const typeCheck = await client.query(
-      `SELECT * FROM room_types WHERE id = $1 OR room_type_id = $1`,
-      [parsedRoomTypeId]
-    ).catch(async () => {
-      // Fallback กรณีตารางใช้ชื่อ id อย่างเดียว
-      return await client.query(`SELECT id FROM room_types WHERE id = $1`, [parsedRoomTypeId]);
-    });
+      `SELECT type_name FROM room_types WHERE id = $1`,
+      [parsedRoomTypeId],
+    );
 
     if (typeCheck.rows.length === 0) {
       res.status(404).json({
@@ -850,23 +920,26 @@ export const createBatchSingleRooms = async (
       return;
     }
 
-    // 2. สร้าง Array หมายเลขห้องพัก
+    const typeName = typeCheck.rows[0].type_name || "";
+    const words = typeName.trim().split(/\s+/);
+    const targetWord = words[1] || words[0] || "";
+    const cleanPrefix = targetWord.charAt(0).toUpperCase();
+
     const roomNumbersToInsert: string[] = [];
     for (let i = 0; i < parsedQuantity; i++) {
       const currentNum = parsedStartNumber + i;
-      const formattedNum = String(currentNum); 
-      const roomNumber = `${cleanPrefix}${formattedNum}`;
-      roomNumbersToInsert.push(roomNumber);
+      roomNumbersToInsert.push(`${cleanPrefix}${currentNum}`);
     }
 
-    // 3. ตรวจสอบหมายเลขห้องซ้ำในตาราง rooms
     const existingCheck = await client.query(
       `SELECT room_number FROM rooms WHERE room_number = ANY($1::text[])`,
-      [roomNumbersToInsert]
+      [roomNumbersToInsert],
     );
 
     if (existingCheck.rows.length > 0) {
-      const duplicateRooms = existingCheck.rows.map((r: any) => r.room_number).join(", ");
+      const duplicateRooms = existingCheck.rows
+        .map((r: any) => r.room_number)
+        .join(", ");
       res.status(400).json({
         success: false,
         message: `ไม่สามารถสร้างได้ เนื่องจากมีหมายเลขห้องซ้ำในระบบ: ${duplicateRooms}`,
@@ -874,9 +947,7 @@ export const createBatchSingleRooms = async (
       return;
     }
 
-    // 4. บันทึกลงตาราง rooms
     await client.query("BEGIN");
-
     const insertedRooms = [];
     for (const roomNumber of roomNumbersToInsert) {
       const result = await client.query(
@@ -887,7 +958,6 @@ export const createBatchSingleRooms = async (
       );
       insertedRooms.push(result.rows[0]);
     }
-
     await client.query("COMMIT");
 
     res.status(201).json({
@@ -898,26 +968,9 @@ export const createBatchSingleRooms = async (
   } catch (error: any) {
     await client.query("ROLLBACK");
     console.error("Create batch single rooms error details:", error);
-
-    if (error.code === "23505") {
-      res.status(400).json({
-        success: false,
-        message: "ไม่สามารถสร้างได้ เนื่องจากมีหมายเลขห้องซ้ำในระบบ",
-      });
-      return;
-    }
-
-    if (error.code === "23503") {
-      res.status(400).json({
-        success: false,
-        message: "ประเภทห้องพักไม่ถูกต้อง (Foreign Key Error)",
-      });
-      return;
-    }
-
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || "Internal server error" 
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
     });
   } finally {
     client.release();
@@ -933,47 +986,52 @@ export const getNextRoomNumber = async (
     const { room_type_id } = req.query;
 
     if (!room_type_id) {
-      res.status(400).json({ success: false, message: "กรุณาระบุประเภทห้องพัก" });
+      res
+        .status(400)
+        .json({ success: false, message: "กรุณาระบุ room_type_id" });
       return;
     }
 
-    // ค้นหาห้องล่าสุดของ room_type_id นี้
-    const result = await pool.query(
-      `SELECT room_number FROM rooms 
-       WHERE room_type_id = $1 
-       ORDER BY room_id DESC LIMIT 1`,
-      [room_type_id]
+    // 1. ดึง type_name เพื่อหา Prefix จากคำที่ 2
+    const typeRes = await pool.query(
+      `SELECT type_name FROM room_types WHERE id = $1`,
+      [room_type_id],
     );
 
-    if (result.rows.length === 0) {
-      // ถ้ายังไม่มีห้องในประเภทนี้เลย ให้เริ่มที่ Zone A ลำดับที่ 1
-      res.status(200).json({
-        success: true,
-        data: { prefix: "A", next_number: 1 },
-      });
+    if (typeRes.rows.length === 0) {
+      res.status(404).json({ success: false, message: "ไม่พบประเภทห้องพัก" });
       return;
     }
 
-    const lastRoomNumber = result.rows[0].room_number; // เช่น "A105"
+    const typeName = typeRes.rows[0].type_name || "";
+    const words = typeName.trim().split(/\s+/);
+    // ถอดตัวอักษรแรกของคำที่ 2 (หากไม่มีให้ใช้คำแรก)
+    const targetWord = words[1] || words[0] || "";
+    const prefix = targetWord.charAt(0).toUpperCase();
 
-    // แยก Prefix (ตัวอักษร) และ Number (ตัวเลข) ด้วย Regex
-    const match = lastRoomNumber.match(/^([A-Za-z]+)(\d+)$/);
+    // 2. ค้นหาเลขห้องล่าสุดที่ขึ้นต้นด้วย Prefix นี้
+    const result = await pool.query(
+      `SELECT room_number 
+       FROM rooms 
+       WHERE room_number ~ ('^' || $1 || '[0-9]+$') 
+       ORDER BY CAST(SUBSTRING(room_number FROM LENGTH($1) + 1) AS INTEGER) DESC 
+       LIMIT 1`,
+      [prefix],
+    );
 
-    if (match) {
-      const prefix = match[1]; // ได้ "A"
-      const nextNumber = parseInt(match[2], 10) + 1; // 105 + 1 = 106
-
-      res.status(200).json({
-        success: true,
-        data: { prefix, next_number: nextNumber },
-      });
-    } else {
-      // กรณี Format เลขห้องเดิมไม่ตรงรูปแบบ ให้ Default ไว้ที่ Zone A เริ่มที่ 1
-      res.status(200).json({
-        success: true,
-        data: { prefix: "A", next_number: 1 },
-      });
+    let nextNumber = 1;
+    if (result.rows.length > 0) {
+      const currentNumStr = result.rows[0].room_number.replace(prefix, "");
+      nextNumber = parseInt(currentNumStr, 10) + 1;
     }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        prefix,
+        next_number: nextNumber,
+      },
+    });
   } catch (error: any) {
     console.error("Get next room number error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });

@@ -21,6 +21,7 @@ import {
   DoorClosed,
   ArrowRight,
   Power,
+  ChevronDown,
 } from "lucide-react";
 import api from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
@@ -48,7 +49,7 @@ export default function RoomTypesPage() {
     type_name: "",
     description: "",
     capacity: 2,
-    price: 0,
+    price: "",
     room_image: "",
     gallery_images: [] as string[],
     amenities: [] as number[],
@@ -68,7 +69,13 @@ export default function RoomTypesPage() {
   const [editUploading, setEditUploading] = useState(false);
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string } | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{
+    url: string;
+    title: string;
+  } | null>(null);
+  const [isAmenityDropdownOpen, setIsAmenityDropdownOpen] = useState(false);
+  const [isEditAmenityDropdownOpen, setIsEditAmenityDropdownOpen] =
+    useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -103,7 +110,9 @@ export default function RoomTypesPage() {
   const handleToggleStatus = async (id: number, currentStatus: boolean) => {
     try {
       await api.patch(`/rooms/${id}/status`, { status: !currentStatus });
-      toast.success(`เปลี่ยนสถานะเป็น ${!currentStatus ? "เปิดใช้งาน" : "ปิดใช้งาน"} เรียบร้อย`);
+      toast.success(
+        `เปลี่ยนสถานะเป็น ${!currentStatus ? "เปิดใช้งาน" : "ปิดใช้งาน"} เรียบร้อย`,
+      );
       fetchData();
     } catch {
       toast.error("เปลี่ยนสถานะไม่สำเร็จ");
@@ -151,10 +160,23 @@ export default function RoomTypesPage() {
     if (file) processCoverFile(file);
   };
 
+  // ฟังก์ชันสำหรับ กดเลือกทั้งหมด / ยกเลิกทั้งหมด
+  const handleSelectAllAmenities = () => {
+    if (form.amenities.length === amenities.length) {
+      // ถ้าเลือกครบหมดแล้ว -> ล้างให้เป็นค่าว่าง
+      setForm({ ...form, amenities: [] });
+    } else {
+      // ถ้ายังเลือกไม่ครบ -> ใส่ ID ของสิ่งอำนวยความสะดวกทั้งหมด
+      setForm({ ...form, amenities: amenities.map((a) => a.id) });
+    }
+  };
+
   const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (galleryFiles.length + selectedFiles.length > MAX_GALLERY_COUNT) {
-      toast.error(`เพิ่มรูป Gallery ได้สูงสุด ${MAX_GALLERY_COUNT} รูปเท่านั้น`);
+      toast.error(
+        `เพิ่มรูป Gallery ได้สูงสุด ${MAX_GALLERY_COUNT} รูปเท่านั้น`,
+      );
       return;
     }
     const validFiles = selectedFiles.filter(validateFile);
@@ -203,7 +225,7 @@ export default function RoomTypesPage() {
       type_name: "",
       description: "",
       capacity: 2,
-      price: 0,
+      price: "",
       room_image: "",
       gallery_images: [],
       amenities: [],
@@ -216,8 +238,16 @@ export default function RoomTypesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!coverFile) {
       toast.error("กรุณาเลือกรูปปกห้องพัก");
+      return;
+    }
+
+    const numericPrice = Number(form.price);
+    // ตรวจสอบราคาบังคับ
+    if (!form.price || Number.isNaN(numericPrice) || numericPrice <= 0) {
+      alert("กรุณาระบุราคาห้องพักให้ถูกต้อง");
       return;
     }
 
@@ -231,6 +261,7 @@ export default function RoomTypesPage() {
 
       await api.post("/rooms/type", {
         ...form,
+        price: numericPrice,
         room_image: roomImage,
         gallery_images: galleryImages,
       });
@@ -301,7 +332,9 @@ export default function RoomTypesPage() {
       selectedFiles.length;
 
     if (currentTotal > MAX_GALLERY_COUNT) {
-      toast.error(`รวมรูปเดิมและรูปใหม่แล้วไม่สามารถเกิน ${MAX_GALLERY_COUNT} รูปได้`);
+      toast.error(
+        `รวมรูปเดิมและรูปใหม่แล้วไม่สามารถเกิน ${MAX_GALLERY_COUNT} รูปได้`,
+      );
       return;
     }
 
@@ -436,47 +469,23 @@ export default function RoomTypesPage() {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-1.5 p-1 bg-stone-200/60 rounded-xl overflow-x-auto text-xs w-fit border border-stone-200/80">
-        <Link
-          href="/admin/rooms/types"
-          className="px-4 py-2 rounded-lg font-bold bg-white text-[#0b3b2c] shadow-xs transition-all whitespace-nowrap flex items-center gap-1.5"
-        >
-          <Layers size={14} />
-          ประเภทห้องพัก
-        </Link>
-        <Link
-          href="/admin/rooms/single"
-          className="px-4 py-2 rounded-lg font-medium text-stone-600 hover:text-stone-900 transition-all whitespace-nowrap flex items-center gap-1.5"
-        >
-          <DoorClosed size={14} />
-          จัดการห้องพักรายห้อง
-        </Link>
-        <Link
-          href="/admin/rooms/amenities"
-          className="px-4 py-2 rounded-lg font-medium text-stone-600 hover:text-stone-900 transition-all whitespace-nowrap flex items-center gap-1.5"
-        >
-          <Sparkles size={14} />
-          สิ่งอำนวยความสะดวก
-        </Link>
-      </div>
-
       {/* Table List Section */}
       <div className="bg-white border border-stone-200/80 rounded-2xl shadow-xs overflow-hidden flex flex-col min-h-[500px]">
         {/* Header & Search */}
         <div className="p-4 sm:p-5 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-50/50">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-stone-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#0b3b2c]" />
+            <h2 className="text-base font-bold text-stone-800">
               รายการประเภทห้องพักทั้งหมด
             </h2>
-            <span className="px-2 py-0.5 bg-stone-200/70 text-stone-600 rounded-full text-[11px] font-bold">
+            <span className="px-2.5 py-0.5 bg-emerald-50 text-[#0b3b2c] border border-emerald-100 rounded-full text-xs font-bold">
               {filteredRoomTypes.length}
             </span>
           </div>
 
           <div className="relative w-full sm:w-80">
             <Search
-              size={15}
+              size={16}
               className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
             />
             <input
@@ -517,20 +526,32 @@ export default function RoomTypesPage() {
                 <tr>
                   <td colSpan={7} className="py-16 text-center text-stone-400">
                     <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-[#0b3b2c] border-t-transparent mb-3" />
-                    <p className="text-xs font-medium text-stone-500">กำลังโหลดข้อมูลห้องพัก...</p>
+                    <p className="text-xs font-medium text-stone-500">
+                      กำลังโหลดข้อมูลห้องพัก...
+                    </p>
                   </td>
                 </tr>
               ) : filteredRoomTypes.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-16 text-center text-stone-400">
-                    <Layers size={40} className="mx-auto mb-3 text-stone-300 stroke-[1.5]" />
-                    <p className="text-sm font-semibold text-stone-600">ไม่พบประเภทห้องพัก</p>
-                    <p className="text-xs text-stone-400 mt-1">ลองเปลี่ยนคำค้นหา หรือกดเพิ่มประเภทห้องพักใหม่</p>
+                    <Layers
+                      size={40}
+                      className="mx-auto mb-3 text-stone-300 stroke-[1.5]"
+                    />
+                    <p className="text-sm font-semibold text-stone-600">
+                      ไม่พบประเภทห้องพัก
+                    </p>
+                    <p className="text-xs text-stone-400 mt-1">
+                      ลองเปลี่ยนคำค้นหา หรือกดเพิ่มประเภทห้องพักใหม่
+                    </p>
                   </td>
                 </tr>
               ) : (
                 filteredRoomTypes.map((rt: any) => (
-                  <tr key={rt.id} className="hover:bg-stone-50/80 transition-colors">
+                  <tr
+                    key={rt.id}
+                    className="hover:bg-stone-50/80 transition-colors"
+                  >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         {rt.main_image ? (
@@ -582,7 +603,10 @@ export default function RoomTypesPage() {
                       >
                         <DoorClosed size={13} />
                         <span>{rt.room_count || 0} ห้อง</span>
-                        <ArrowRight size={11} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ArrowRight
+                          size={11}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        />
                       </Link>
                     </td>
                     <td className="px-4 py-3.5">
@@ -597,7 +621,9 @@ export default function RoomTypesPage() {
                             </span>
                           ))
                         ) : (
-                          <span className="text-[10px] text-stone-400 font-normal">ไม่ได้ระบุ</span>
+                          <span className="text-[10px] text-stone-400 font-normal">
+                            ไม่ได้ระบุ
+                          </span>
                         )}
                       </div>
                     </td>
@@ -617,7 +643,9 @@ export default function RoomTypesPage() {
                         }`}
                         title="คลิกเพื่อเปิด/ปิดการใช้งาน"
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full ${rt.status ? "bg-emerald-600" : "bg-stone-400"}`} />
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${rt.status ? "bg-emerald-600" : "bg-stone-400"}`}
+                        />
                         {rt.status ? "เปิดใช้งาน" : "ปิดใช้งาน"}
                       </button>
                     </td>
@@ -652,237 +680,452 @@ export default function RoomTypesPage() {
       {/* Modal: Create Room Type */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-stone-100 flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-[#0b3b2c] text-white">
-              <h3 className="text-sm font-bold flex items-center gap-2">
-                <PlusCircle size={18} className="text-emerald-300" />
-                เพิ่มประเภทห้องพักใหม่
-              </h3>
+          <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#0b3b2c] flex items-center justify-center font-bold">
+                  <PlusCircle size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">
+                    เพิ่มประเภทห้องพักใหม่
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    กรอกข้อมูลเพื่อสร้างประเภทห้องพักในระบบ
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => {
                   setShowCreateModal(false);
                   resetCreateForm();
                 }}
-                className="p-1 text-emerald-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
-              <div className="space-y-4">
+            {/* Form Content */}
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-col flex-1 overflow-hidden"
+            >
+              <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">
+                {/* 1. ชื่อประเภทห้อง */}
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-2">
                     ชื่อประเภทห้อง <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     placeholder="เช่น วิลล่าริมน้ำ, เต็นท์โดม VIP"
-                    className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-4 focus:ring-[#0b3b2c]/10 transition-all"
                     value={form.type_name}
-                    onChange={(e) => setForm({ ...form, type_name: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, type_name: e.target.value })
+                    }
                   />
                 </div>
 
+                {/* 2. รายละเอียด */}
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-2">
                     รายละเอียด
                   </label>
                   <textarea
                     placeholder="บรรยากาศห้องพัก วิว และคำอธิบายเพิ่มเติม..."
-                    className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs resize-none"
-                    rows={2}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-4 focus:ring-[#0b3b2c]/10 transition-all resize-none"
+                    rows={3}
                     value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
+                    }
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {/* 3. ผู้เข้าพัก & ราคา */}
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">
                       ผู้เข้าพัก (คน) <span className="text-rose-500">*</span>
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
-                      value={form.capacity}
-                      onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })}
-                    />
+                    <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#0b3b2c] focus-within:ring-4 focus-within:ring-[#0b3b2c]/10 transition-all">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            capacity: Math.max(1, (form.capacity || 1) - 1),
+                          })
+                        }
+                        className="px-3 py-3 text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors font-bold text-sm cursor-pointer border-r border-slate-200 select-none"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        className="w-full text-center bg-transparent py-3 text-sm font-medium text-slate-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        value={form.capacity}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            capacity: Math.max(1, Number(e.target.value) || 1),
+                          })
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            capacity: (form.capacity || 0) + 1,
+                          })
+                        }
+                        className="px-3 py-3 text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors font-bold text-sm cursor-pointer border-l border-slate-200 select-none"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">
                       ราคา/คืน (บาท) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
                       required
                       min="0"
-                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-4 focus:ring-[#0b3b2c]/10 transition-all"
                       value={form.price}
-                      onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setForm({ ...form, price: e.target.value })
+                      }
                     />
                   </div>
                 </div>
 
-                {/* Drag & Drop Cover Image */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    รูปปกห้องพัก <span className="text-rose-500">*</span>
-                  </label>
-
-                  {coverPreview ? (
-                    <div className="relative w-full h-36 rounded-xl overflow-hidden border-2 border-[#0b3b2c] shadow-xs group">
-                      <img src={coverPreview} alt="Cover Preview" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (coverPreview) URL.revokeObjectURL(coverPreview);
-                            setCoverFile(null);
-                            setCoverPreview(null);
-                          }}
-                          className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md transition-transform active:scale-95 cursor-pointer"
-                        >
-                          <X size={14} /> เปลี่ยนรูปภาพ
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <label
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDropCover}
-                      className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-xl transition-all cursor-pointer group p-3 text-center ${
-                        isDraggingCover
-                          ? "border-[#0b3b2c] bg-[#0b3b2c]/10 scale-[1.01]"
-                          : "border-stone-300 hover:border-[#0b3b2c] bg-stone-50 hover:bg-[#0b3b2c]/5"
-                      }`}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-stone-200/80 group-hover:bg-[#0b3b2c]/10 text-stone-500 group-hover:text-[#0b3b2c] flex items-center justify-center transition-colors mb-1.5">
-                        <UploadCloud size={18} />
-                      </div>
-                      <p className="text-xs font-bold text-stone-700 group-hover:text-[#0b3b2c] transition-colors">
-                        คลิก หรือลากไฟล์มาวางเพื่ออัปโหลด
-                      </p>
-                      <p className="text-[10px] text-stone-400 mt-0.5">JPG, PNG, WEBP (ไม่เกิน 5MB)</p>
-                      <input type="file" accept="image/*" required className="hidden" onChange={handleCoverChange} />
-                    </label>
-                  )}
-                </div>
-
-                {/* Gallery Files */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-stone-700">
-                      รูปภาพเพิ่มเติม (Gallery)
-                    </label>
-                    <span className="text-[11px] font-semibold text-stone-400">
-                      {galleryPreviews.length}/{MAX_GALLERY_COUNT} รูป
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {galleryPreviews.length > 0 && (
-                      <div className="grid grid-cols-4 gap-2">
-                        {galleryPreviews.map((url, idx) => (
-                          <div key={idx} className="relative h-16 rounded-xl overflow-hidden border border-stone-200 shadow-2xs group">
-                            <img src={url} alt={`Gallery ${idx + 1}`} className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => removeGalleryFile(idx)}
-                              className="absolute inset-0 bg-rose-600/80 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {galleryPreviews.length < MAX_GALLERY_COUNT && (
-                      <label className="flex items-center justify-center gap-2 w-full py-2.5 px-3 border border-stone-200 hover:border-[#0b3b2c] rounded-xl bg-stone-50 hover:bg-[#0b3b2c]/5 transition-all cursor-pointer text-stone-600 hover:text-[#0b3b2c]">
-                        <UploadCloud size={15} />
-                        <span className="text-xs font-semibold">
-                          {galleryPreviews.length > 0 ? "เพิ่มรูปภาพประกอบอีก..." : "เลือกรูปภาพประกอบเพิ่มเติม"}
-                        </span>
-                        <input type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryChange} />
-                      </label>
-                    )}
-                  </div>
-                </div>
-
-                {/* Amenities Selection */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-stone-700">
+                {/* 4. สิ่งอำนวยความสะดวก */}
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-semibold text-slate-700">
                       สิ่งอำนวยความสะดวก
                     </label>
                     <Link
                       href="/admin/rooms/amenities"
-                      className="text-[11px] text-[#0b3b2c] hover:underline font-semibold flex items-center gap-0.5"
+                      className="text-xs text-[#0b3b2c] font-medium hover:underline flex items-center gap-1"
                     >
-                      จัดการรายการ
-                      <ArrowRight size={10} />
+                      จัดการรายการ <ArrowRight size={12} />
                     </Link>
                   </div>
-                  {amenities.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto p-2 border border-stone-200 rounded-xl bg-stone-50/80 custom-scrollbar">
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIsAmenityDropdownOpen(!isAmenityDropdownOpen)
+                    }
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 flex items-center justify-between cursor-pointer hover:bg-slate-100/80 transition-all"
+                  >
+                    <span>
+                      {form.amenities.length > 0
+                        ? `เลือกแล้ว ${form.amenities.length} รายการ`
+                        : "-- เลือกสิ่งอำนวยความสะดวก --"}
+                    </span>
+                    <ChevronDown
+                      size={16}
+                      className={`text-slate-400 transition-transform ${isAmenityDropdownOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {/* Selected Badges */}
+                  {form.amenities.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {amenities
+                        .filter((a) => form.amenities.includes(a.id))
+                        .map((a) => (
+                          <span
+                            key={a.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-[#0b3b2c] text-[11px] font-semibold rounded-lg border border-emerald-100"
+                          >
+                            {a.name}
+                            <button
+                              type="button"
+                              onClick={() => handleAmenityToggle(a.id)}
+                              className="hover:text-rose-600 transition-colors ml-0.5 cursor-pointer"
+                            >
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Floating Dropdown */}
+                  {isAmenityDropdownOpen && (
+                    <div className="absolute z-20 left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl max-h-56 overflow-y-auto p-2 space-y-1">
+                      {/* ตัวเลือก: เลือกทั้งหมด / ยกเลิกทั้งหมด */}
+                      {amenities.length > 0 && (
+                        <>
+                          <label
+                            className={`flex items-center gap-3 p-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                              form.amenities.length === amenities.length
+                                ? "bg-emerald-100/60 text-[#0b3b2c]"
+                                : "text-slate-800 hover:bg-slate-100"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 rounded text-[#0b3b2c] focus:ring-0 accent-[#0b3b2c]"
+                              checked={
+                                amenities.length > 0 &&
+                                form.amenities.length === amenities.length
+                              }
+                              onChange={handleSelectAllAmenities}
+                            />
+                            <span>
+                              {form.amenities.length === amenities.length
+                                ? "ยกเลิกการเลือกทั้งหมด"
+                                : "เลือกทั้งหมด"}
+                            </span>
+                          </label>
+                          <div className="my-1 border-b border-slate-100" />
+                        </>
+                      )}
+
+                      {/* รายการแต่ละอัน */}
                       {amenities.map((am) => {
                         const checked = form.amenities.includes(am.id);
                         return (
                           <label
                             key={am.id}
-                            className={`flex items-center gap-2 p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer select-none ${
+                            className={`flex items-center gap-3 p-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                               checked
-                                ? "bg-white text-[#0b3b2c] font-bold shadow-2xs border border-emerald-200"
-                                : "text-stone-600 hover:bg-stone-100"
+                                ? "bg-emerald-50 text-[#0b3b2c]"
+                                : "text-slate-700 hover:bg-slate-50"
                             }`}
                           >
                             <input
                               type="checkbox"
-                              className="rounded text-[#0b3b2c] focus:ring-[#0b3b2c]/30 accent-[#0b3b2c]"
+                              className="w-4 h-4 rounded text-[#0b3b2c] focus:ring-0 accent-[#0b3b2c]"
                               checked={checked}
                               onChange={() => handleAmenityToggle(am.id)}
                             />
-                            <span className="truncate">{am.name}</span>
+                            {am.name}
                           </label>
                         );
                       })}
                     </div>
-                  ) : (
-                    <div className="text-xs text-stone-400 bg-stone-50 p-3 rounded-xl border border-stone-200 text-center font-medium">
-                      ยังไม่มีสิ่งอำนวยความสะดวกในระบบ
+                  )}
+                </div>
+
+                {/* 5. โซนจัดการรูปภาพ (Hybrid Grid + Dynamic Add Button) */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      รูปภาพห้องพัก <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[11px] font-medium text-slate-400">
+                      รูปปก + รูปประกอบ ({galleryPreviews.length}/
+                      {MAX_GALLERY_COUNT})
+                    </span>
+                  </div>
+
+                  {/* Hybrid Grid Container */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {/* ฝั่งซ้าย: รูปปกหลัก (กินพื้นที่ 2 คอลัมน์) */}
+                    <div className="col-span-2 relative h-40 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 group">
+                      {coverPreview ? (
+                        <>
+                          <img
+                            src={coverPreview}
+                            alt="Cover Preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <span className="absolute top-2 left-2 bg-slate-900/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                            รูปปกหลัก
+                          </span>
+                          <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (coverPreview)
+                                  URL.revokeObjectURL(coverPreview);
+                                setCoverFile(null);
+                                setCoverPreview(null);
+                              }}
+                              className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                            >
+                              <X size={14} /> เปลี่ยนรูปปก
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <label
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDropCover}
+                          className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed rounded-2xl transition-all cursor-pointer p-3 text-center ${
+                            isDraggingCover
+                              ? "border-[#0b3b2c] bg-emerald-50/50"
+                              : "border-slate-200 hover:border-slate-300 bg-slate-50/50 hover:bg-slate-50"
+                          }`}
+                        >
+                          <UploadCloud
+                            size={22}
+                            className="text-slate-400 mb-1"
+                          />
+                          <p className="text-xs font-semibold text-slate-700">
+                            อัปโหลดรูปปกหลัก
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            ลากไฟล์มาวาง หรือคลิกที่นี่
+                          </p>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            required
+                            className="hidden"
+                            onChange={handleCoverChange}
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    {/* ฝั่งขวา: Gallery ล็อตแรก (แสดง 2 ช่องแรก) */}
+                    <div className="col-span-1 grid grid-rows-2 gap-2 h-40">
+                      {[0, 1].map((idx) => {
+                        const url = galleryPreviews[idx];
+                        const isAddButtonSlot =
+                          !url && (idx === 0 || galleryPreviews.length === idx);
+
+                        if (url) {
+                          return (
+                            <div
+                              key={idx}
+                              className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50 group h-full"
+                            >
+                              <img
+                                src={url}
+                                alt={`Gallery ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeGalleryFile(idx)}
+                                className="absolute inset-0 bg-slate-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        if (
+                          isAddButtonSlot &&
+                          galleryPreviews.length < MAX_GALLERY_COUNT
+                        ) {
+                          return (
+                            <label
+                              key={idx}
+                              className="flex flex-col items-center justify-center w-full h-full border border-dashed border-slate-300 hover:border-[#0b3b2c] rounded-xl bg-slate-50/50 hover:bg-emerald-50/30 cursor-pointer text-slate-500 hover:text-[#0b3b2c] transition-all"
+                            >
+                              <PlusCircle size={18} />
+                              <span className="text-[10px] font-semibold mt-1">
+                                เพิ่มรูป
+                              </span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                className="hidden"
+                                onChange={handleGalleryChange}
+                              />
+                            </label>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={idx}
+                            className="rounded-xl border border-slate-100 bg-slate-50/30 h-full"
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* แถบรูป Gallery ส่วนเกิน (กรณีเพิ่มรูปที่ 3 ขึ้นไป) */}
+                  {galleryPreviews.length >= 2 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* รูปตั้งแต่ index ที่ 2 เป็นต้นไป */}
+                      {galleryPreviews.slice(2).map((url, realIdx) => {
+                        const idx = realIdx + 2;
+                        return (
+                          <div
+                            key={idx}
+                            className="relative h-20 rounded-xl overflow-hidden border border-slate-200 group"
+                          >
+                            <img
+                              src={url}
+                              alt={`Gallery ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeGalleryFile(idx)}
+                              className="absolute inset-0 bg-slate-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        );
+                      })}
+
+                      {/* ปุ่มเพิ่มรูปภาพในแถบล่าง (แสดงเมื่อมีรูป >= 2 และยังไม่ครบจำนวนสูงสุด) */}
+                      {galleryPreviews.length < MAX_GALLERY_COUNT && (
+                        <label className="flex flex-col items-center justify-center h-20 border border-dashed border-slate-300 hover:border-[#0b3b2c] rounded-xl bg-slate-50/50 hover:bg-emerald-50/30 cursor-pointer text-slate-500 hover:text-[#0b3b2c] transition-all">
+                          <PlusCircle size={18} />
+                          <span className="text-[10px] font-semibold mt-1">
+                            เพิ่มรูป
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={handleGalleryChange}
+                          />
+                        </label>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="pt-3 flex gap-2 border-t border-stone-100 mt-2">
+              {/* Footer */}
+              <div className="p-5 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     setShowCreateModal(false);
                     resetCreateForm();
                   }}
-                  className="flex-1 py-2.5 px-4 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                  className="flex-1 py-3 px-4 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-xs"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-2.5 px-4 bg-[#0b3b2c] hover:bg-[#07271d] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-60"
+                  className="flex-1 py-3 px-4 bg-[#0b3b2c] hover:bg-[#07271d] text-white text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-60"
                 >
                   {submitting ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      กำลังบันทึก...
-                    </>
+                    <Loader2 size={16} className="animate-spin" />
                   ) : (
                     "สร้างประเภทห้องพัก"
                   )}
@@ -895,255 +1138,554 @@ export default function RoomTypesPage() {
 
       {/* Modal: Edit Room Type */}
       {showEditModal && editingRoom && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-stone-100 flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between bg-stone-50">
-              <h3 className="text-sm font-bold text-[#0b3b2c] flex items-center gap-2">
-                <Edit3 size={16} className="text-amber-600" />
-                แก้ไขประเภทห้องพัก
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-5 pb-4 border-b border-slate-100 flex items-start justify-between bg-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-emerald-50 text-[#0b3b2c] flex items-center justify-center shrink-0 border border-emerald-100/60">
+                  <Edit3 size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">
+                    แก้ไขประเภทห้องพัก
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    แก้ไขข้อมูลประเภทห้องพักในระบบ
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => {
                   setShowEditModal(false);
                   setEditingRoom(null);
                 }}
-                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleUpdateRoom} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
-              <div className="space-y-4">
+            {/* Form Content */}
+            <form
+              onSubmit={handleUpdateRoom}
+              className="flex flex-col flex-1 overflow-hidden"
+            >
+              <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+                {/* 1. ชื่อประเภทห้อง */}
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     ชื่อประเภทห้อง <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
-                    value={editingRoom.type_name}
-                    onChange={(e) => setEditingRoom({ ...editingRoom, type_name: e.target.value })}
+                    placeholder="เช่น วิลล่าริมน้ำ, เต็นท์โดม VIP"
+                    className="w-full px-4 py-2.5 bg-[#f8fafc] border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-2 focus:ring-[#0b3b2c]/10 transition-all"
+                    value={editingRoom.type_name || ""}
+                    onChange={(e) =>
+                      setEditingRoom({
+                        ...editingRoom,
+                        type_name: e.target.value,
+                      })
+                    }
                   />
                 </div>
 
+                {/* 2. รายละเอียด */}
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     รายละเอียด
                   </label>
                   <textarea
-                    className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs resize-none"
-                    rows={2}
-                    value={editingRoom.description}
-                    onChange={(e) => setEditingRoom({ ...editingRoom, description: e.target.value })}
+                    placeholder="บรรยากาศห้องพัก วิว และคำอธิบายเพิ่มเติม..."
+                    className="w-full px-4 py-2.5 bg-[#f8fafc] border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-2 focus:ring-[#0b3b2c]/10 transition-all resize-none"
+                    rows={3}
+                    value={editingRoom.description || ""}
+                    onChange={(e) =>
+                      setEditingRoom({
+                        ...editingRoom,
+                        description: e.target.value,
+                      })
+                    }
                   />
                 </div>
 
+                {/* 3. ผู้เข้าพัก & ราคา */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       ผู้เข้าพัก (คน) <span className="text-rose-500">*</span>
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
-                      value={editingRoom.capacity}
-                      onChange={(e) => setEditingRoom({ ...editingRoom, capacity: Number(e.target.value) })}
-                    />
+                    <div className="flex items-center bg-[#f8fafc] border border-slate-200/80 rounded-xl overflow-hidden focus-within:border-[#0b3b2c] focus-within:ring-2 focus-within:ring-[#0b3b2c]/10 transition-all">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingRoom({
+                            ...editingRoom,
+                            capacity: Math.max(
+                              1,
+                              (editingRoom.capacity || 1) - 1
+                            ),
+                          })
+                        }
+                        className="px-3 py-2.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors font-bold text-xs cursor-pointer border-r border-slate-200/80 select-none"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        placeholder="1"
+                        className="w-full text-center bg-transparent py-2.5 text-xs font-medium text-slate-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        value={editingRoom.capacity || ""}
+                        onChange={(e) =>
+                          setEditingRoom({
+                            ...editingRoom,
+                            capacity: Math.max(1, Number(e.target.value) || 1),
+                          })
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingRoom({
+                            ...editingRoom,
+                            capacity: (editingRoom.capacity || 0) + 1,
+                          })
+                        }
+                        className="px-3 py-2.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors font-bold text-xs cursor-pointer border-l border-slate-200/80 select-none"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       ราคา/คืน (บาท) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
                       required
                       min="0"
-                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
-                      value={editingRoom.price}
-                      onChange={(e) => setEditingRoom({ ...editingRoom, price: Number(e.target.value) })}
+                      placeholder="ระบุราคาห้องพัก"
+                      className="w-full px-4 py-2.5 bg-[#f8fafc] border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-2 focus:ring-[#0b3b2c]/10 transition-all"
+                      value={editingRoom.price || ""}
+                      onChange={(e) =>
+                        setEditingRoom({
+                          ...editingRoom,
+                          price: e.target.value,
+                        })
+                      }
                     />
                   </div>
                 </div>
 
-                {/* Status Selection */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    สถานะการใช้งาน
-                  </label>
-                  <select
-                    value={editingRoom.status ? "true" : "false"}
-                    onChange={(e) => setEditingRoom({ ...editingRoom, status: e.target.value === "true" })}
-                    className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
-                  >
-                    <option value="true">เปิดใช้งาน (ลูกค้าเห็นและจองได้)</option>
-                    <option value="false">ปิดใช้งาน (ซ่อนจากหน้าแสดงผลฝั่งลูกค้า)</option>
-                  </select>
-                </div>
-
-                {/* Cover Image */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    รูปปกห้องพัก
-                  </label>
-
-                  <div className="relative w-full h-32 rounded-xl overflow-hidden border border-stone-200 mb-2 group shadow-2xs">
-                    <img
-                      src={editCoverPreview || resolveMediaUrl(editingRoom.room_image)}
-                      alt="Cover"
-                      className="w-full h-full object-cover"
-                    />
-                    <span
-                      className={`absolute bottom-2 left-2 text-[10px] text-white px-2 py-0.5 rounded-md font-semibold backdrop-blur-md ${
-                        editCoverPreview ? "bg-[#0b3b2c]" : "bg-black/60"
-                      }`}
-                    >
-                      {editCoverPreview ? "รูปใหม่ที่จะเปลี่ยน" : "รูปปัจจุบัน"}
-                    </span>
-                  </div>
-
-                  <label className="flex items-center justify-center gap-2 w-full py-2 px-3 border border-stone-200 hover:border-[#0b3b2c] rounded-xl bg-stone-50 hover:bg-[#0b3b2c]/5 transition-all cursor-pointer text-stone-600 hover:text-[#0b3b2c]">
-                    <UploadCloud size={15} />
-                    <span className="text-xs font-semibold">เปลี่ยนรูปปก</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleEditCoverChange} />
-                  </label>
-                </div>
-
-                {/* Gallery */}
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    รูปภาพเพิ่มเติม (Gallery)
-                  </label>
-
-                  {editingRoom.existing_gallery && editingRoom.existing_gallery.length > 0 && (
-                    <div className="mb-2.5">
-                      <p className="text-[11px] text-stone-400 mb-1 font-medium">
-                        รูปปัจจุบัน ({editingRoom.existing_gallery.length})
-                      </p>
-                      <div className="grid grid-cols-4 gap-2">
-                        {editingRoom.existing_gallery.map((img: string, idx: number) => (
-                          <div key={idx} className="relative h-16 rounded-xl overflow-hidden border border-stone-200 group">
-                            <img src={resolveMediaUrl(img)} alt={`gallery ${idx + 1}`} className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              className="absolute inset-0 bg-rose-600/80 text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-                              onClick={() =>
-                                setEditingRoom((prev: any) => ({
-                                  ...prev,
-                                  existing_gallery: prev.existing_gallery.filter((_: string, i: number) => i !== idx),
-                                }))
-                              }
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {editGalleryPreviews.length > 0 && (
-                    <div className="mb-2.5">
-                      <p className="text-[11px] text-[#0b3b2c] mb-1 font-bold">
-                        รูปใหม่ที่จะเพิ่ม ({editGalleryPreviews.length})
-                      </p>
-                      <div className="grid grid-cols-4 gap-2">
-                        {editGalleryPreviews.map((url, idx) => (
-                          <div key={idx} className="relative h-16 rounded-xl overflow-hidden border-2 border-[#0b3b2c] group">
-                            <img src={url} alt={`new preview ${idx}`} className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              className="absolute inset-0 bg-rose-600/80 text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-                              onClick={() => removeEditGalleryFile(idx)}
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {(editingRoom?.existing_gallery?.length || 0) + editGalleryFiles.length < MAX_GALLERY_COUNT && (
-                    <label className="flex items-center justify-center gap-2 w-full py-2 px-3 border border-stone-200 hover:border-[#0b3b2c] rounded-xl bg-stone-50 hover:bg-[#0b3b2c]/5 transition-all cursor-pointer text-stone-600 hover:text-[#0b3b2c]">
-                      <UploadCloud size={15} />
-                      <span className="text-xs font-semibold">อัปโหลดรูปเพิ่มเติม</span>
-                      <input type="file" accept="image/*" multiple className="hidden" onChange={handleEditGalleryChange} />
+                {/* 4. สถานะการใช้งาน (Toggle Switch) */}
+                <div className="flex items-center justify-between p-3.5 bg-[#f8fafc] border border-slate-200/80 rounded-xl">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 cursor-pointer">
+                      สถานะการใช้งาน
                     </label>
-                  )}
+                    <p className="text-[11px] font-medium text-slate-400 mt-0.5">
+                      {editingRoom.status
+                        ? "เปิดใช้งาน (ลูกค้าเห็นและจองได้)"
+                        : "ปิดใช้งาน (ซ่อนจากหน้าแสดงผลฝั่งลูกค้า)"}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(editingRoom.status)}
+                    onClick={() =>
+                      setEditingRoom({
+                        ...editingRoom,
+                        status: !editingRoom.status,
+                      })
+                    }
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      editingRoom.status ? "bg-[#0b3b2c]" : "bg-slate-300"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        editingRoom.status ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
                 </div>
 
-                {/* Amenities Selection */}
-                <div>
+                {/* 5. สิ่งอำนวยความสะดวก */}
+                <div className="relative">
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-stone-700">
+                    <label className="block text-xs font-semibold text-slate-700">
                       สิ่งอำนวยความสะดวก
                     </label>
                     <Link
                       href="/admin/rooms/amenities"
-                      className="text-[11px] text-[#0b3b2c] hover:underline font-semibold flex items-center gap-0.5"
+                      className="text-xs text-[#0b3b2c] font-medium hover:underline flex items-center gap-1"
                     >
-                      จัดการรายการ
-                      <ArrowRight size={10} />
+                      จัดการรายการ <ArrowRight size={12} />
                     </Link>
                   </div>
-                  {amenities.length > 0 && (
-                    <div className="grid grid-cols-2 gap-1.5 max-h-32 overflow-y-auto p-2 border border-stone-200 rounded-xl bg-stone-50/80 custom-scrollbar">
-                      {amenities.map((am) => {
-                        const isChecked = editingRoom.amenity_ids.includes(am.id);
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIsAmenityDropdownOpen(!isAmenityDropdownOpen)
+                    }
+                    className="w-full px-4 py-2.5 bg-[#f8fafc] border border-slate-200/80 rounded-xl text-xs font-medium text-slate-500 flex items-center justify-between cursor-pointer hover:bg-slate-100/80 transition-all"
+                  >
+                    <span>
+                      {(editingRoom.amenities || editingRoom.amenity_ids || [])
+                        .length > 0
+                        ? `เลือกแล้ว ${(editingRoom.amenities || editingRoom.amenity_ids || []).length} รายการ`
+                        : "-- เลือกสิ่งอำนวยความสะดวก --"}
+                    </span>
+                    <ChevronDown
+                      size={16}
+                      className={`text-slate-400 transition-transform ${
+                        isAmenityDropdownOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {/* Selected Badges */}
+                  {(editingRoom.amenities || editingRoom.amenity_ids || [])
+                    .length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {amenities
+                        .filter((a: any) =>
+                          (
+                            editingRoom.amenities ||
+                            editingRoom.amenity_ids ||
+                            []
+                          ).includes(a.id),
+                        )
+                        .map((a: any) => (
+                          <span
+                            key={a.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-[#0b3b2c] text-[11px] font-semibold rounded-lg border border-emerald-100"
+                          >
+                            {a.name}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                editAmenityToggle
+                                  ? editAmenityToggle(a.id)
+                                  : handleAmenityToggle?.(a.id)
+                              }
+                              className="hover:text-rose-600 transition-colors ml-0.5 cursor-pointer"
+                            >
+                              <X size={12} />
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Dropdown Menu */}
+                  {isAmenityDropdownOpen && (
+                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
+                      {amenities.map((am: any) => {
+                        const checked = (
+                          editingRoom.amenities ||
+                          editingRoom.amenity_ids ||
+                          []
+                        ).includes(am.id);
                         return (
                           <label
                             key={am.id}
-                            className={`flex items-center gap-2 p-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all ${
-                              isChecked
-                                ? "bg-white text-[#0b3b2c] font-bold shadow-2xs border border-emerald-200"
-                                : "text-stone-600 hover:bg-stone-100"
+                            className={`flex items-center gap-2.5 p-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                              checked
+                                ? "bg-emerald-50/70 text-[#0b3b2c] font-semibold"
+                                : "text-slate-700 hover:bg-slate-50"
                             }`}
                           >
                             <input
                               type="checkbox"
-                              className="rounded text-[#0b3b2c] accent-[#0b3b2c]"
-                              checked={isChecked}
-                              onChange={() => editAmenityToggle(am.id)}
+                              className="w-3.5 h-3.5 rounded text-[#0b3b2c] focus:ring-0 accent-[#0b3b2c]"
+                              checked={checked}
+                              onChange={() =>
+                                editAmenityToggle
+                                  ? editAmenityToggle(am.id)
+                                  : handleAmenityToggle?.(am.id)
+                              }
                             />
-                            <span className="truncate">{am.name}</span>
+                            {am.name}
                           </label>
                         );
                       })}
                     </div>
                   )}
                 </div>
+
+                {/* 6. รูปภาพห้องพัก (Hybrid Layout ตรงตามแบบ) */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      รูปภาพห้องพัก <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[11px] font-medium text-slate-400">
+                      รูปปก + รูปประกอบ (
+                      {(editingRoom.existing_gallery?.length || 0) +
+                        editGalleryPreviews.length}
+                      /{MAX_GALLERY_COUNT || 5})
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {/* ฝั่งซ้าย: รูปปกหลัก */}
+                    <div className="col-span-2 relative h-36 rounded-2xl overflow-hidden border border-slate-200/80 bg-[#f8fafc] group">
+                      {editCoverPreview || editingRoom.room_image ? (
+                        <>
+                          <img
+                            src={
+                              editCoverPreview ||
+                              resolveMediaUrl(editingRoom.room_image)
+                            }
+                            alt="Cover Preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <span className="absolute top-2 left-2 bg-slate-900/70 text-white text-[10px] font-semibold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                            {editCoverPreview ? "รูปปกใหม่" : "รูปปกปัจจุบัน"}
+                          </span>
+                          <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <label className="bg-white/90 hover:bg-white text-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
+                              <UploadCloud
+                                size={14}
+                                className="text-[#0b3b2c]"
+                              />
+                              เปลี่ยนรูปปก
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleEditCoverChange}
+                              />
+                            </label>
+                          </div>
+                        </>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-slate-200 hover:border-slate-300 bg-[#f8fafc] hover:bg-slate-50 rounded-2xl transition-all cursor-pointer p-3 text-center">
+                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center mb-1 text-slate-400 shadow-xs">
+                            <UploadCloud size={16} />
+                          </div>
+                          <p className="text-xs font-semibold text-slate-700">
+                            อัปโหลดรูปปกหลัก
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            ลากไฟล์มาวาง หรือคลิกที่นี่
+                          </p>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleEditCoverChange}
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    {/* ฝั่งขวา: Gallery ช่องที่ 1 & 2 */}
+                    {(() => {
+                      const combinedGallery = [
+                        ...(editingRoom.existing_gallery || []).map(
+                          (url: string) => ({
+                            type: "existing",
+                            url: resolveMediaUrl(url),
+                            raw: url,
+                          }),
+                        ),
+                        ...editGalleryPreviews.map(
+                          (url: string, idx: number) => ({
+                            type: "new",
+                            url,
+                            index: idx,
+                          }),
+                        ),
+                      ];
+
+                      return (
+                        <div className="col-span-1 grid grid-rows-2 gap-2 h-36">
+                          {[0, 1].map((idx) => {
+                            const item = combinedGallery[idx];
+                            const isAddSlot =
+                              !item &&
+                              (idx === 0 || combinedGallery.length === idx) &&
+                              combinedGallery.length < (MAX_GALLERY_COUNT || 5);
+
+                            if (item) {
+                              return (
+                                <div
+                                  key={idx}
+                                  className="relative rounded-xl overflow-hidden border border-slate-200/80 bg-slate-50 group h-full"
+                                >
+                                  <img
+                                    src={item.url}
+                                    alt={`Gallery ${idx + 1}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (item.type === "existing") {
+                                        setEditingRoom((prev: any) => ({
+                                          ...prev,
+                                          existing_gallery:
+                                            prev.existing_gallery.filter(
+                                              (g: string) => g !== item.raw,
+                                            ),
+                                        }));
+                                      } else {
+                                        removeEditGalleryFile(item.index!);
+                                      }
+                                    }}
+                                    className="absolute inset-0 bg-slate-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              );
+                            }
+
+                            if (isAddSlot) {
+                              return (
+                                <label
+                                  key={idx}
+                                  className="flex flex-col items-center justify-center w-full h-full border border-dashed border-slate-200 hover:border-[#0b3b2c] rounded-xl bg-[#f8fafc] hover:bg-emerald-50/20 cursor-pointer text-slate-500 hover:text-[#0b3b2c] transition-all"
+                                >
+                                  <PlusCircle
+                                    size={18}
+                                    className="text-slate-400"
+                                  />
+                                  <span className="text-[10px] font-medium text-slate-600 mt-0.5">
+                                    เพิ่มรูป
+                                  </span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    className="hidden"
+                                    onChange={handleEditGalleryChange}
+                                  />
+                                </label>
+                              );
+                            }
+
+                            return (
+                              <div
+                                key={idx}
+                                className="rounded-xl border border-dashed border-slate-200/60 bg-[#f8fafc]/50 h-full"
+                              />
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* แถบรูป Gallery เพิ่มเติม (ถ้ามีมากกว่า 2 รูป) */}
+                  {(() => {
+                    const combinedGallery = [
+                      ...(editingRoom.existing_gallery || []).map(
+                        (url: string) => ({
+                          type: "existing",
+                          url: resolveMediaUrl(url),
+                          raw: url,
+                        }),
+                      ),
+                      ...editGalleryPreviews.map(
+                        (url: string, idx: number) => ({
+                          type: "new",
+                          url,
+                          index: idx,
+                        }),
+                      ),
+                    ];
+
+                    if (combinedGallery.length <= 2) return null;
+
+                    return (
+                      <div className="grid grid-cols-3 gap-2.5 pt-2">
+                        {combinedGallery.slice(2).map((item, realIdx) => {
+                          const idx = realIdx + 2;
+                          return (
+                            <div
+                              key={idx}
+                              className="relative h-20 rounded-xl overflow-hidden border border-slate-200/80 group"
+                            >
+                              <img
+                                src={item.url}
+                                alt={`Gallery ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (item.type === "existing") {
+                                    setEditingRoom((prev: any) => ({
+                                      ...prev,
+                                      existing_gallery:
+                                        prev.existing_gallery.filter(
+                                          (g: string) => g !== item.raw,
+                                        ),
+                                    }));
+                                  } else {
+                                    removeEditGalleryFile(item.index!);
+                                  }
+                                }}
+                                className="absolute inset-0 bg-slate-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          );
+                        })}
+
+                        {combinedGallery.length < (MAX_GALLERY_COUNT || 5) && (
+                          <label className="flex flex-col items-center justify-center h-20 border border-dashed border-slate-200 hover:border-[#0b3b2c] rounded-xl bg-[#f8fafc] hover:bg-emerald-50/20 cursor-pointer text-slate-500 hover:text-[#0b3b2c] transition-all">
+                            <PlusCircle size={18} className="text-slate-400" />
+                            <span className="text-[10px] font-medium text-slate-600 mt-0.5">
+                              เพิ่มรูป
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              className="hidden"
+                              onChange={handleEditGalleryChange}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
 
-              {/* Actions */}
-              <div className="pt-3 flex gap-2 border-t border-stone-100 mt-2">
+              {/* Footer Actions */}
+              <div className="p-5 bg-white border-t border-slate-100 flex items-center gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     setShowEditModal(false);
                     setEditingRoom(null);
-                    setEditCoverFile(null);
-                    setEditCoverPreview(null);
-                    setEditGalleryFiles([]);
-                    setEditGalleryPreviews([]);
                   }}
-                  className="flex-1 py-2.5 px-4 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                  className="flex-1 py-3 px-4 bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer text-center"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
-                  disabled={editUploading}
-                  className="flex-1 py-2.5 px-4 bg-[#0b3b2c] hover:bg-[#07271d] text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                  disabled={editUploading || submitting}
+                  className="flex-1 py-3 px-4 bg-[#0b3b2c] hover:bg-[#07271d] text-white text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-60"
                 >
-                  {editUploading ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" /> กำลังบันทึก...
-                    </>
+                  {editUploading || submitting ? (
+                    <Loader2 size={16} className="animate-spin" />
                   ) : (
                     "บันทึกการแก้ไข"
                   )}
@@ -1165,7 +1707,9 @@ export default function RoomTypesPage() {
             className="relative max-w-3xl w-full bg-stone-900 rounded-2xl overflow-hidden shadow-2xl border border-stone-800"
           >
             <div className="p-3 bg-stone-900/90 flex items-center justify-between border-b border-stone-800 text-white">
-              <span className="text-xs font-semibold px-2">{lightboxImage.title}</span>
+              <span className="text-xs font-semibold px-2">
+                {lightboxImage.title}
+              </span>
               <button
                 type="button"
                 onClick={() => setLightboxImage(null)}

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Plus,
+  Minus,
   PlusCircle,
   Edit3,
   Trash2,
@@ -455,8 +456,6 @@ export default function BoatTypesPage() {
         </div>
       </div>
 
-      
-
       {/* Table List Section */}
       <div className="bg-white border border-stone-200/80 rounded-2xl shadow-xs overflow-hidden flex flex-col min-h-[500px]">
         <div className="p-4 sm:p-5 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-50/50">
@@ -501,7 +500,7 @@ export default function BoatTypesPage() {
                 <th className="px-5 py-3.5">ชื่อประเภทเรือ</th>
                 <th className="px-4 py-3.5">ที่นั่ง</th>
                 <th className="px-4 py-3.5">จำนวนที่มี</th>
-                <th className="px-4 py-3.5">ราคา / ชม.</th>
+                <th className="px-4 py-3.5">ราคา </th>
                 <th className="px-4 py-3.5">สถานะ</th>
                 <th className="px-4 py-3.5 text-center">จัดการ</th>
               </tr>
@@ -687,53 +686,125 @@ export default function BoatTypesPage() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
+                  {/* ที่นั่ง (คน) */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">
                       ที่นั่ง (คน) <span className="text-rose-500">*</span>
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
-                      value={form.capacity}
-                      onChange={(e) =>
-                        setForm({ ...form, capacity: Number(e.target.value) })
-                      }
-                    />
+                    <div className="flex items-center border border-stone-200 bg-stone-50 rounded-xl overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-[#0b3b2c]/20 focus-within:border-[#0b3b2c]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            capacity: Math.max(1, (form.capacity || 1) - 1),
+                          })
+                        }
+                        className="px-2.5 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                      >
+                        <Minus size={13} />
+                      </button>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        className="w-full text-center bg-transparent text-xs font-medium text-stone-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        value={form.capacity === 0 ? "" : form.capacity}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            capacity:
+                              e.target.value === ""
+                                ? 0
+                                : Number(e.target.value),
+                          })
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            capacity: (form.capacity || 0) + 1,
+                          })
+                        }
+                        className="px-2.5 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
                   </div>
+
+                  {/* ราคา (บาท) */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">
-                      ราคา/ชม. (บาท) <span className="text-rose-500">*</span>
+                      ราคา (บาท) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
                       required
                       min="0"
                       className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
-                      value={form.price_per_hour}
+                      value={
+                        form.price_per_hour === 0 ? "" : form.price_per_hour
+                      }
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          price_per_hour: Number(e.target.value),
+                          price_per_hour:
+                            e.target.value === "" ? 0 : Number(e.target.value),
                         })
                       }
                     />
                   </div>
+
+                  {/* จำนวน (ลำ) */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">
                       จำนวน (ลำ) <span className="text-rose-500">*</span>
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
-                      value={form.quantity}
-                      onChange={(e) =>
-                        setForm({ ...form, quantity: Number(e.target.value) })
-                      }
-                    />
+                    <div className="flex items-center border border-stone-200 bg-stone-50 rounded-xl overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-[#0b3b2c]/20 focus-within:border-[#0b3b2c]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            quantity: Math.max(1, (form.quantity || 1) - 1),
+                          })
+                        }
+                        className="px-2.5 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                      >
+                        <Minus size={13} />
+                      </button>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        className="w-full text-center bg-transparent text-xs font-medium text-stone-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        value={form.quantity === 0 ? "" : form.quantity}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            quantity:
+                              e.target.value === ""
+                                ? 0
+                                : Number(e.target.value),
+                          })
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            quantity: (form.quantity || 0) + 1,
+                          })
+                        }
+                        className="px-2.5 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -964,59 +1035,137 @@ export default function BoatTypesPage() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-2.5">
+                  {/* ที่นั่ง (คน) */}
                   <div>
                     <label className="block text-[11px] font-bold text-stone-700 mb-1">
                       ที่นั่ง (คน)
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      className="w-full px-2.5 py-1.5 bg-stone-50/50 border border-stone-200 rounded-lg text-xs font-bold text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all"
-                      value={editingBoat.capacity}
-                      onChange={(e) =>
-                        setEditingBoat({
-                          ...editingBoat,
-                          capacity: Number(e.target.value),
-                        })
-                      }
-                    />
+                    <div className="flex items-center border border-stone-200 bg-stone-50/50 rounded-lg overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0b3b2c]/20 focus-within:border-[#0b3b2c]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingBoat({
+                            ...editingBoat,
+                            capacity: Math.max(
+                              1,
+                              (editingBoat.capacity || 1) - 1,
+                            ),
+                          })
+                        }
+                        className="px-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        className="w-full text-center bg-transparent text-xs font-bold text-stone-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        value={
+                          editingBoat.capacity === 0 ? "" : editingBoat.capacity
+                        }
+                        onChange={(e) =>
+                          setEditingBoat({
+                            ...editingBoat,
+                            capacity:
+                              e.target.value === ""
+                                ? 0
+                                : Number(e.target.value),
+                          })
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingBoat({
+                            ...editingBoat,
+                            capacity: (editingBoat.capacity || 0) + 1,
+                          })
+                        }
+                        className="px-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
                   </div>
+
+                  {/* ราคา(บาท) */}
                   <div>
                     <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                      ราคา/ชม. (บาท)
+                      ราคา (บาท)
                     </label>
                     <input
                       type="number"
                       required
                       min="0"
                       className="w-full px-2.5 py-1.5 bg-stone-50/50 border border-stone-200 rounded-lg text-xs font-bold text-[#0b3b2c] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all"
-                      value={editingBoat.price_per_hour}
+                      value={
+                        editingBoat.price_per_hour === 0
+                          ? ""
+                          : editingBoat.price_per_hour
+                      }
                       onChange={(e) =>
                         setEditingBoat({
                           ...editingBoat,
-                          price_per_hour: Number(e.target.value),
+                          price_per_hour:
+                            e.target.value === "" ? 0 : Number(e.target.value),
                         })
                       }
                     />
                   </div>
+
+                  {/* จำนวนเรือ (ลำ) */}
                   <div>
                     <label className="block text-[11px] font-bold text-stone-700 mb-1">
                       จำนวนเรือ (ลำ)
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      className="w-full px-2.5 py-1.5 bg-stone-50/50 border border-stone-200 rounded-lg text-xs font-bold text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all"
-                      value={editingBoat.quantity}
-                      onChange={(e) =>
-                        setEditingBoat({
-                          ...editingBoat,
-                          quantity: Number(e.target.value),
-                        })
-                      }
-                    />
+                    <div className="flex items-center border border-stone-200 bg-stone-50/50 rounded-lg overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0b3b2c]/20 focus-within:border-[#0b3b2c]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingBoat({
+                            ...editingBoat,
+                            quantity: Math.max(
+                              1,
+                              (editingBoat.quantity || 1) - 1,
+                            ),
+                          })
+                        }
+                        className="px-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        className="w-full text-center bg-transparent text-xs font-bold text-stone-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        value={
+                          editingBoat.quantity === 0 ? "" : editingBoat.quantity
+                        }
+                        onChange={(e) =>
+                          setEditingBoat({
+                            ...editingBoat,
+                            quantity:
+                              e.target.value === ""
+                                ? 0
+                                : Number(e.target.value),
+                          })
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingBoat({
+                            ...editingBoat,
+                            quantity: (editingBoat.quantity || 0) + 1,
+                          })
+                        }
+                        className="px-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

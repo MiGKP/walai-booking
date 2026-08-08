@@ -91,6 +91,16 @@ const menuGroups: MenuGroup[] = [
     icon: <Home size={18} />,
     items: [
       {
+        label: "แดชบอร์ดจองห้อง",
+        path: "/admin/rooms",
+        icon: <CreditCard size={16} />,
+      },
+      {
+        label: "จัดการรายห้อง",
+        path: "/admin/rooms/single",
+        icon: <PlusCircle size={16} />,
+      },
+      {
         label: "ประเภทห้องพัก",
         path: "/admin/rooms/types",
         icon: <Home size={16} />,
@@ -100,22 +110,17 @@ const menuGroups: MenuGroup[] = [
         path: "/admin/rooms/amenities",
         icon: <CheckCircle size={16} />,
       },
-      {
-        label: "หมายเลขห้อง",
-        path: "/admin/rooms/single",
-        icon: <PlusCircle size={16} />,
-      },
-      {
-        label: "แดชบอร์ดจองห้อง",
-        path: "/admin/rooms",
-        icon: <CreditCard size={16} />,
-      },
     ],
   },
   {
     title: "เรือคายัค",
     icon: <Anchor size={18} />,
     items: [
+      {
+        label: "แดชบอร์ดจองเรือ",
+        path: "/admin/boats",
+        icon: <CreditCard size={16} />,
+      },
       {
         label: "ประเภทเรือ",
         path: "/admin/boats/types",
@@ -131,11 +136,6 @@ const menuGroups: MenuGroup[] = [
       //   path: "/admin/boat-hours",
       //   icon: <Clock size={16} />,
       // },
-      {
-        label: "แดชบอร์ดจองเรือ",
-        path: "/admin/boats",
-        icon: <CreditCard size={16} />,
-      },
     ],
   },
 ];
