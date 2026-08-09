@@ -20,11 +20,11 @@ router.get('/active', getActivePromotions);
 // Public — ตรวจสอบโค้ดโปรโมชั่น
 router.post('/validate', validatePromoCodeValidator, validate, validatePromoCode);
 
-// Admin only — จัดการโปรโมชั่น
-router.get('/', authenticate, authorize('admin'), getAllPromotions);
-router.post('/', authenticate, authorize('admin'), createPromotionValidator, validate, createPromotion);
-router.put('/:id', authenticate, authorize('admin'), updatePromotionValidator, validate, updatePromotion);
-router.delete('/:id', authenticate, authorize('admin'), deletePromotion);
-router.put('/:id/toggle', authenticate, authorize('admin'), togglePromotion);
+// Admin & Room Staff — จัดการโปรโมชั่น
+router.get('/', authenticate, authorize('admin', 'room_staff'), getAllPromotions);
+router.post('/', authenticate, authorize('admin', 'room_staff'), createPromotionValidator, validate, createPromotion);
+router.put('/:id', authenticate, authorize('admin', 'room_staff'), updatePromotionValidator, validate, updatePromotion);
+router.delete('/:id', authenticate, authorize('admin', 'room_staff'), deletePromotion);
+router.put('/:id/toggle', authenticate, authorize('admin', 'room_staff'), togglePromotion);
 
 export default router;

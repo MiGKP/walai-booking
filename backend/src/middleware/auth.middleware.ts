@@ -32,11 +32,15 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
   }
 };
 
-// สร้าง middleware สำหรับตรวจสอบสิทธิ์ตาม role เช่น admin, room_staff หรือ boat_staff ก่อนให้เข้าถึง route สำคัญ
-export const authorize = (...roles: string[]) => {
+// สร้าง middleware สำหรับตรวจสอบสิทธิ์ตาม role
+export const authorize = (...roles: (string | string[])[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     const authReq = req as AuthRequest;
-    if (!authReq.user || !roles.includes(authReq.user.role)) {
+    
+    // แปลงอาร์เรย์สองชั้นให้เป็นมิติเดียว ป้องกันบั๊กกรณีเผลอใส่ [ ] ใน router
+    const allowedRoles = roles.flat(); 
+
+    if (!authReq.user || !allowedRoles.includes(authReq.user.role)) {
       res.status(403).json({ success: false, message: 'Forbidden' });
       return;
     }

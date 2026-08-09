@@ -14,7 +14,7 @@ import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Public — ดูรีวิวของ room type นั้น
+// Public
 router.get('/public', getPublicReviews);
 router.get('/room-type/:room_type_id', getReviewsByRoomType);
 
@@ -25,7 +25,7 @@ router.post('/', authenticate, createReview);
 router.put('/:id', authenticate, updateReview);
 router.delete('/:id', authenticate, deleteReview);
 
-// Admin routes
+// Admin & Staff routes
 router.get('/admin/all', authenticate, authorize('admin', 'room_staff'), getAllReviews);
 router.delete('/admin/:id', authenticate, authorize('admin', 'room_staff'), adminDeleteReview);
 

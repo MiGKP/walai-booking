@@ -75,7 +75,7 @@ function CustomSelect({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find(
-    (opt) => String(opt.value) === String(value)
+    (opt) => String(opt.value) === String(value),
   );
 
   useEffect(() => {
@@ -160,7 +160,7 @@ const formatDateForInput = (dateStr?: string) => {
 };
 
 export default function PromotionsPage() {
-  const { ready } = useAuthGuard({ allowedRoles: ["admin"] });
+  const { ready } = useAuthGuard({ allowedRoles: ["admin", "room_staff"] });
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -175,8 +175,12 @@ export default function PromotionsPage() {
   ];
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready) return
     fetchPromotions();
+
+    return () => {
+      toast.dismiss();
+    };
   }, [ready]);
 
   const fetchPromotions = async () => {
@@ -273,7 +277,7 @@ export default function PromotionsPage() {
   const filtered = promotions.filter(
     (p) =>
       (p.name && p.name.toLowerCase().includes(search.toLowerCase())) ||
-      (p.code && p.code.toLowerCase().includes(search.toLowerCase()))
+      (p.code && p.code.toLowerCase().includes(search.toLowerCase())),
   );
 
   if (!ready) return null;
@@ -487,7 +491,10 @@ export default function PromotionsPage() {
                           </>
                         ) : (
                           <>
-                            <DollarSign size={14} className="text-emerald-700" />
+                            <DollarSign
+                              size={14}
+                              className="text-emerald-700"
+                            />
                             <span className="font-bold text-emerald-800 text-xs">
                               ฿{Number(p.discount_value).toLocaleString()}
                             </span>
@@ -712,9 +719,7 @@ export default function PromotionsPage() {
                       }))
                     }
                     placeholder={
-                      form.discount_type === "percent"
-                        ? "เช่น 20"
-                        : "เช่น 500"
+                      form.discount_type === "percent" ? "เช่น 20" : "เช่น 500"
                     }
                     required
                   />
