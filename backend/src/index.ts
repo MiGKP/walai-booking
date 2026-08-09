@@ -118,6 +118,10 @@ app.use('/api/promotions', promotionRoutes);
 app.use('/api/members', memberRoutes);
 
 app.get('/favicon.ico', (req, res) => res.status(204).end());
+// Render default health check hits `/` — keep a cheap 200 so deploys don't roll back
+app.get('/', (_req, res): void => {
+  res.status(200).json({ status: 'ok', service: 'walai-booking-api' });
+});
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Walai Booking API is running' });
 });
