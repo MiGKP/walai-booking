@@ -13,7 +13,12 @@ export const getPublicReviews = async (req: Request, res: Response): Promise<voi
        FROM reviews rv
        JOIN members m ON m.member_id = rv.member_id
        JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
-       JOIN rooms r ON r.room_id = rb.room_id
+       JOIN LATERAL (
+         SELECT room_id FROM booking_room
+         WHERE room_booking_id = rb.room_booking_id
+         ORDER BY booking_room_id LIMIT 1
+       ) br ON true
+       JOIN rooms r ON r.room_id = br.room_id
        JOIN room_types rt ON rt.id = r.room_type_id
        WHERE rv.comment IS NOT NULL AND TRIM(rv.comment) <> ''
        ORDER BY rv.review_date DESC
@@ -38,7 +43,12 @@ export const getReviewsByRoomType = async (req: Request, res: Response): Promise
        FROM reviews rv
        JOIN members m ON m.member_id = rv.member_id
        JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
-       JOIN rooms r ON r.room_id = rb.room_id
+       JOIN LATERAL (
+         SELECT room_id FROM booking_room
+         WHERE room_booking_id = rb.room_booking_id
+         ORDER BY booking_room_id LIMIT 1
+       ) br ON true
+       JOIN rooms r ON r.room_id = br.room_id
        WHERE r.room_type_id = $1
        ORDER BY rv.review_date DESC`,
       [room_type_id]
@@ -63,7 +73,12 @@ export const getMyReviews = async (req: Request, res: Response): Promise<void> =
               rb.check_in, rb.check_out
        FROM reviews rv
        JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
-       JOIN rooms r ON r.room_id = rb.room_id
+       JOIN LATERAL (
+         SELECT room_id FROM booking_room
+         WHERE room_booking_id = rb.room_booking_id
+         ORDER BY booking_room_id LIMIT 1
+       ) br ON true
+       JOIN rooms r ON r.room_id = br.room_id
        JOIN room_types rt ON rt.id = r.room_type_id
        WHERE rv.member_id = $1
        ORDER BY rv.review_date DESC`,
@@ -84,10 +99,19 @@ export const getReviewableBookings = async (req: Request, res: Response): Promis
       `SELECT rb.room_booking_id, rb.check_in, rb.check_out,
               rt.room_name, rt.type_name, rt.room_image
        FROM room_bookings rb
-       JOIN rooms r ON r.room_id = rb.room_id
+       JOIN LATERAL (
+         SELECT room_id FROM booking_room
+         WHERE room_booking_id = rb.room_booking_id
+         ORDER BY booking_room_id LIMIT 1
+       ) br ON true
+       JOIN rooms r ON r.room_id = br.room_id
        JOIN room_types rt ON rt.id = r.room_type_id
        WHERE rb.member_id = $1
          AND rb.status = 'approved'
+         AND NOT EXISTS (
+           SELECT 1 FROM booking_room x
+           WHERE x.room_booking_id = rb.room_booking_id AND x.status <> 'checked_out'
+         )
          AND rb.room_booking_id NOT IN (
            SELECT room_booking_id FROM reviews WHERE member_id = $1
          )
@@ -128,7 +152,12 @@ export const getAllReviews = async (req: Request, res: Response): Promise<void> 
        FROM reviews rv
        JOIN members m ON m.member_id = rv.member_id
        JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
-       JOIN rooms r ON r.room_id = rb.room_id
+       JOIN LATERAL (
+         SELECT room_id FROM booking_room
+         WHERE room_booking_id = rb.room_booking_id
+         ORDER BY booking_room_id LIMIT 1
+       ) br ON true
+       JOIN rooms r ON r.room_id = br.room_id
        JOIN room_types rt ON rt.id = r.room_type_id
        ${whereClause}
        ORDER BY rv.review_date DESC`,

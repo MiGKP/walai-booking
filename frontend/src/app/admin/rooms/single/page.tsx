@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import {
   DoorClosed,
   Edit2,
@@ -31,6 +31,7 @@ import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 interface DraftRoom {
   room_number: string;
@@ -124,8 +125,11 @@ function CustomSelect({
   );
 }
 
-export default function SingleRoomsPage() {
+function SingleRoomsPageContent() {
   const { ready } = useAuthGuard({ allowedRoles: ["admin"] });
+  const searchParams = useSearchParams();
+  const typeIdFromQuery = searchParams.get("type_id");
+  const appliedQueryTypeRef = useRef<string | null>(null);
 
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [singleRooms, setSingleRooms] = useState<any[]>([]);
@@ -211,7 +215,7 @@ export default function SingleRoomsPage() {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  const handleRoomTypeChange = async (typeId: string) => {
+  const handleRoomTypeChange = async (typeId: string): Promise<void> => {
     setRoomTypeIdInput(typeId);
     if (!editingRoomId) {
       if (!typeId) {
@@ -231,6 +235,23 @@ export default function SingleRoomsPage() {
       }
     }
   };
+
+  // จากหน้าประเภท: ?type_id= → เลือกประเภท + ฟิลเตอร์ + ดึงโซน/เลขถัดไป
+  useEffect(() => {
+    if (loading || !ready || !typeIdFromQuery) return;
+    if (appliedQueryTypeRef.current === typeIdFromQuery) return;
+
+    const exists = roomTypes.some(
+      (rt) => String(rt.id || rt.room_type_id) === String(typeIdFromQuery),
+    );
+    if (!exists) return;
+
+    appliedQueryTypeRef.current = typeIdFromQuery;
+    setTypeFilter(String(typeIdFromQuery));
+    void handleRoomTypeChange(String(typeIdFromQuery));
+    // Query apply on entry only; intentional omit of handleRoomTypeChange from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, ready, typeIdFromQuery, roomTypes]);
 
   const handleGenerateDrafts = () => {
     if (!roomTypeIdInput) {
@@ -487,6 +508,20 @@ export default function SingleRoomsPage() {
             </button>
           )}
         </div>
+
+        {!editingRoomId && currentPrefix && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200/70 bg-emerald-50/80 px-3 py-2 text-xs text-[#0b3b2c]">
+            <span className="font-bold">โซน {currentPrefix}</span>
+            <span className="text-stone-400">·</span>
+            <span className="font-semibold tabular-nums">
+              เลขถัดไป {currentPrefix}
+              {startNumInput === "" ? 1 : startNumInput}
+            </span>
+            <span className="text-[11px] font-normal text-stone-500">
+              (ต่อจากเลขเดิมในโซนนี้)
+            </span>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <div className={editingRoomId ? "md:col-span-3" : "md:col-span-4"}>
@@ -1078,5 +1113,19 @@ export default function SingleRoomsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function SingleRoomsPage(): React.ReactElement {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#0b3b2c]" />
+        </div>
+      }
+    >
+      <SingleRoomsPageContent />
+    </Suspense>
   );
 }

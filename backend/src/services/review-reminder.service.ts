@@ -8,15 +8,31 @@ export const sendPendingReviewReminders = async (): Promise<void> => {
     const result = await pool.query(
       `SELECT rb.room_booking_id, rb.check_in, rb.check_out,
               m.email, m.first_name, m.last_name,
-              rt.room_name, rt.type_name
+              (
+                SELECT string_agg(rt.room_name, ', ' ORDER BY br.booking_room_id)
+                FROM booking_room br
+                JOIN rooms r ON r.room_id = br.room_id
+                JOIN room_types rt ON rt.id = r.room_type_id
+                WHERE br.room_booking_id = rb.room_booking_id
+              ) AS room_name,
+              (
+                SELECT rt.type_name
+                FROM booking_room br
+                JOIN rooms r ON r.room_id = br.room_id
+                JOIN room_types rt ON rt.id = r.room_type_id
+                WHERE br.room_booking_id = rb.room_booking_id
+                ORDER BY br.booking_room_id LIMIT 1
+              ) AS type_name
        FROM room_bookings rb
-       JOIN rooms r ON rb.room_id = r.room_id
-       JOIN room_types rt ON r.room_type_id = rt.id
        JOIN members m ON rb.member_id = m.member_id
        WHERE rb.status = 'approved'
          AND rb.check_out::date <= CURRENT_DATE
          AND rb.check_out::date >= CURRENT_DATE - INTERVAL '1 day'
          AND rb.review_reminder_sent = false
+         AND NOT EXISTS (
+           SELECT 1 FROM booking_room br
+           WHERE br.room_booking_id = rb.room_booking_id AND br.status <> 'checked_out'
+         )
          AND NOT EXISTS (
            SELECT 1 FROM reviews rv WHERE rv.room_booking_id = rb.room_booking_id
          )`

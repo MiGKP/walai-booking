@@ -90,6 +90,17 @@ export const monthRangeISO = (cursor: MonthCursor): { start: string; end: string
   end: toISODate(new Date(cursor.year, cursor.month + 1, 0)),
 });
 
+/** Inclusive range covering `monthCount` months starting at cursor (for dual-month calendars). */
+export const multiMonthRangeISO = (
+  cursor: MonthCursor,
+  monthCount: number
+): { start: string; end: string } => {
+  const count = Math.max(1, Math.floor(monthCount));
+  const start = monthRangeISO(cursor).start;
+  const end = monthRangeISO(shiftMonth(cursor, count - 1)).end;
+  return { start, end };
+};
+
 /** ตารางเดือนแบบ 7 คอลัมน์ อาทิตย์ต้นสัปดาห์ — null คือช่องว่างก่อน/หลังเดือน */
 export const buildMonthGrid = (cursor: MonthCursor): (string | null)[] => {
   const firstDay = new Date(cursor.year, cursor.month, 1);
