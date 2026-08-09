@@ -7,6 +7,7 @@ import { ArrowRight, Anchor, Calendar, CreditCard, Sparkles, Star, MapPin, Phone
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import { resolveFacebookLink } from '@/lib/social';
+import { pickResortInfo } from '@/lib/resort-info';
 
 // โหลดแยก bundle เพราะ three.js หนัก และฉากต้องรันบนเบราว์เซอร์เท่านั้น
 const WaterHouseScene3D = dynamic(
@@ -356,9 +357,13 @@ export default function HomePage() {
         ]);
 
       if (resortRes.status === "fulfilled")
-        setResortInfo(resortRes.value.data?.data || {});
+        setResortInfo(pickResortInfo(resortRes.value.data?.data, 'main'));
       if (roomsRes.status === "fulfilled")
-        setRoomTypes(roomsRes.value.data?.data || []);
+        setRoomTypes(
+          Array.isArray(roomsRes.value.data?.data)
+            ? roomsRes.value.data.data
+            : []
+        );
       setLoadingRooms(false);
 
       if (reviewsRes.status === "fulfilled")
