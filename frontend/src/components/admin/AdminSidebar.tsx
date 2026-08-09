@@ -286,12 +286,12 @@ export default function AdminSidebar() {
         <div className="bg-white/80 border border-stone-200/80 rounded-xl p-2.5 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-7 h-7 rounded-full bg-forest-800 text-cream-100 flex items-center justify-center font-bold text-xs shrink-0">
-              {user?.first_name?.[0]?.toUpperCase() || "A"}
+              {user?.first_name?.[0]?.toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-forest-800 truncate">
                 {user?.first_name
-                  ? `${user.first_name} ${user.last_name || ""}`
+                  ? `${user.first_name}`
                   : "ผู้ใช้แอดมิน"}
               </p>
               <p className="text-[10px] text-charcoal-400 truncate">

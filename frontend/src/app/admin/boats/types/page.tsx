@@ -100,7 +100,7 @@ export default function BoatTypesPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/kayaks");
+      const res = await api.get("/kayaks/admin/types");
       setBoatTypes(res.data?.data || []);
     } catch {
       toast.error("ไม่สามารถโหลดข้อมูลเรือได้");
@@ -260,20 +260,23 @@ export default function BoatTypesPage() {
   };
 
   const openEditBoat = (bt: any) => {
+    const mainImg = bt.boat_image || bt.main_image || bt.image || "";
+    const rawGallery = Array.isArray(bt.gallery_images)
+      ? bt.gallery_images
+      : Array.isArray(bt.images)
+      ? bt.images
+      : [];
+
     setEditingBoat({
-      id: bt.id,
-      name: bt.name,
+      id: bt.id || bt.boat_type_id,
+      name: bt.name || bt.type_name,
       description: bt.description || "",
-      capacity: bt.capacity,
-      price_per_hour: bt.price_per_hour,
+      capacity: bt.capacity || bt.seat_count,
+      price_per_hour: bt.price_per_hour || bt.price,
       quantity: bt.quantity,
       is_active: bt.is_active !== false,
-      boat_image: bt.main_image || bt.boat_image || "",
-      existing_gallery: Array.isArray(bt.images)
-        ? bt.images.filter(
-            (img: string) => img !== (bt.main_image || bt.boat_image),
-          )
-        : [],
+      boat_image: mainImg,
+      existing_gallery: rawGallery.filter((img: string) => img && img !== mainImg),
     });
     setEditCoverFile(null);
     setEditCoverPreview(null);
@@ -370,10 +373,12 @@ export default function BoatTypesPage() {
 
   const filteredBoatTypes = boatTypes.filter((bt) => {
     const searchLower = searchQuery.toLowerCase().trim();
+    const name = bt.name || bt.type_name || "";
+    const description = bt.description || "";
     return (
       !searchQuery ||
-      (bt.name && bt.name.toLowerCase().includes(searchLower)) ||
-      (bt.description && bt.description.toLowerCase().includes(searchLower))
+      name.toLowerCase().includes(searchLower) ||
+      description.toLowerCase().includes(searchLower)
     );
   });
 
@@ -531,99 +536,103 @@ export default function BoatTypesPage() {
                   </td>
                 </tr>
               ) : (
-                filteredBoatTypes.map((bt: any) => (
-                  <tr
-                    key={bt.id}
-                    className="hover:bg-stone-50/80 transition-colors"
-                  >
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        {bt.main_image || bt.boat_image ? (
-                          <div
-                            onClick={() =>
-                              setLightboxImage({
-                                url: resolveMediaUrl(
-                                  bt.main_image || bt.boat_image,
-                                ),
-                                title: bt.name,
-                              })
-                            }
-                            className="relative w-12 h-12 rounded-xl overflow-hidden border border-stone-200/80 shrink-0 cursor-pointer group shadow-2xs"
-                            title="คลิกเพื่อขยายดูรูปภาพ"
-                          >
-                            <img
-                              src={resolveMediaUrl(
-                                bt.main_image || bt.boat_image,
-                              )}
-                              alt={bt.name}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                            />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                              <Eye size={14} />
+                filteredBoatTypes.map((bt: any) => {
+                  const coverImg = bt.boat_image || bt.main_image || bt.image;
+                  const boatName = bt.name || bt.type_name;
+                  const boatId = bt.id || bt.boat_type_id;
+                  const capacity = bt.capacity || bt.seat_count;
+                  const price = bt.price_per_hour || bt.price;
+
+                  return (
+                    <tr
+                      key={boatId}
+                      className="hover:bg-stone-50/80 transition-colors"
+                    >
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          {coverImg ? (
+                            <div
+                              onClick={() =>
+                                setLightboxImage({
+                                  url: resolveMediaUrl(coverImg),
+                                  title: boatName,
+                                })
+                              }
+                              className="relative w-12 h-12 rounded-xl overflow-hidden border border-stone-200/80 shrink-0 cursor-pointer group shadow-2xs"
+                              title="คลิกเพื่อขยายดูรูปภาพ"
+                            >
+                              <img
+                                src={resolveMediaUrl(coverImg)}
+                                alt={boatName}
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                <Eye size={14} />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 rounded-xl bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0 text-stone-400">
+                              <ImageIcon size={18} />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-bold text-stone-900 text-sm truncate">
+                              {boatName}
+                            </div>
+                            <div className="text-[11px] text-stone-400 truncate max-w-sm font-normal mt-0.5">
+                              {bt.description || "ไม่มีรายละเอียดเพิ่มเติม"}
                             </div>
                           </div>
-                        ) : (
-                          <div className="w-12 h-12 rounded-xl bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0 text-stone-400">
-                            <ImageIcon size={18} />
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <div className="font-bold text-stone-900 text-sm truncate">
-                            {bt.name}
-                          </div>
-                          <div className="text-[11px] text-stone-400 truncate max-w-sm font-normal mt-0.5">
-                            {bt.description || "ไม่มีรายละเอียดเพิ่มเติม"}
-                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-stone-100 text-stone-700 border border-stone-200/60">
-                        <Users size={13} className="text-stone-500" />
-                        {bt.capacity} ที่นั่ง
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap font-medium text-stone-700">
-                      {bt.quantity} ลำ
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="font-bold text-[#0b3b2c] text-sm">
-                        ฿{Number(bt.price_per_hour || 0).toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                          bt.is_active !== false
-                            ? "bg-emerald-100/80 text-emerald-800 border border-emerald-200/60"
-                            : "bg-stone-100 text-stone-500 border border-stone-200"
-                        }`}
-                      >
-                        {bt.is_active !== false ? "เปิดใช้งาน" : "ปิดใช้งาน"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openEditBoat(bt)}
-                          className="p-1.5 text-stone-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all cursor-pointer"
-                          title="แก้ไขข้อมูล"
+                      </td>
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-stone-100 text-stone-700 border border-stone-200/60">
+                          <Users size={13} className="text-stone-500" />
+                          {capacity} ที่นั่ง
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 whitespace-nowrap font-medium text-stone-700">
+                        {bt.quantity} ลำ
+                      </td>
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <span className="font-bold text-[#0b3b2c] text-sm">
+                          ฿{Number(price || 0).toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                            bt.is_active !== false
+                              ? "bg-emerald-100/80 text-emerald-800 border border-emerald-200/60"
+                              : "bg-stone-100 text-stone-500 border border-stone-200"
+                          }`}
                         >
-                          <Edit3 size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => confirmDelete(bt.id)}
-                          className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
-                          title="ลบประเภทเรือ"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {bt.is_active !== false ? "เปิดใช้งาน" : "ปิดใช้งาน"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditBoat(bt)}
+                            className="p-1.5 text-stone-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all cursor-pointer"
+                            title="แก้ไขข้อมูล"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => confirmDelete(boatId)}
+                            className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                            title="ลบประเภทเรือ"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
