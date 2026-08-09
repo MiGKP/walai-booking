@@ -1,242 +1,489 @@
-import { Request, Response } from "express";
-import pool from "../config/database";
-import { AuthPayload } from "../types";
+import { Request, Response } from 'express';
+import pool from '../config/database';
+import { AuthPayload } from '../types';
 import {
   sendBookingConfirmationEmail,
   sendBookingStatusEmail,
-} from "../services/mail.service";
+} from '../services/mail.service';
+import {
+  assertGuestsFitCapacity,
+  lineSubtotal,
+  nightsBetween,
+  sumCapacity,
+  sumSubtotals,
+} from '../services/booking-room.math';
 
-// สร้างรายการจองห้องพักใหม่
+interface BookingItemInput {
+  room_type_id: number;
+  quantity: number;
+}
+
+interface RoomTypeRow {
+  id: number;
+  price: number;
+  capacity: number;
+  room_name: string;
+  type_name: string | null;
+}
+
+const ROOMS_JSON_SQL = `COALESCE((
+  SELECT json_agg(json_build_object(
+    'booking_room_id', br.booking_room_id,
+    'room_id', br.room_id,
+    'room_number', r.room_number,
+    'room_name', rt.room_name,
+    'type_name', rt.type_name,
+    'price_per_night', br.price_per_night,
+    'nights', br.nights,
+    'subtotal', br.subtotal,
+    'status', br.status,
+    'checkout_at', br.checkout_at
+  ) ORDER BY br.booking_room_id)
+  FROM booking_room br
+  JOIN rooms r ON r.room_id = br.room_id
+  JOIN room_types rt ON rt.id = r.room_type_id
+  WHERE br.room_booking_id = rb.room_booking_id
+), '[]'::json)`;
+
+function normalizeItems(body: Record<string, unknown>): BookingItemInput[] {
+  if (Array.isArray(body.items) && body.items.length > 0) {
+    return body.items.map((raw) => {
+      const item = raw as Record<string, unknown>;
+      return {
+        room_type_id: Number(item.room_type_id),
+        quantity: Number(item.quantity),
+      };
+    });
+  }
+  return [{ room_type_id: Number(body.room_type_id), quantity: 1 }];
+}
+
+function normalizeGuests(body: Record<string, unknown>): {
+  adults: number;
+  children: number;
+} {
+  if (body.adults != null) {
+    return {
+      adults: Number(body.adults),
+      children: Number(body.children ?? 0),
+    };
+  }
+  return { adults: Number(body.guests), children: 0 };
+}
+
+async function applyPromotionDiscount(
+  client: { query: typeof pool.query },
+  promotionId: number,
+  basePrice: number,
+  nights: number
+): Promise<number> {
+  const promoRes = await client.query(
+    `SELECT discount_type, discount_value, max_discount, min_nights, min_price, is_active
+     FROM promotions WHERE id = $1`,
+    [promotionId]
+  );
+  if (promoRes.rows.length === 0 || !promoRes.rows[0].is_active) {
+    throw new Error('โปรโมชั่นไม่ถูกต้องหรือหมดอายุแล้ว');
+  }
+  const promo = promoRes.rows[0];
+  if (promo.min_nights != null && nights < Number(promo.min_nights)) {
+    throw new Error(`โปรโมชั่นนี้ต้องจองขั้นต่ำ ${promo.min_nights} คืน`);
+  }
+  if (promo.min_price != null && basePrice < Number(promo.min_price)) {
+    throw new Error(
+      `โปรโมชั่นนี้ต้องมียอดขั้นต่ำ ฿${Number(promo.min_price).toLocaleString()}`
+    );
+  }
+
+  let discountAmount = 0;
+  if (promo.discount_type === 'percent') {
+    discountAmount = (basePrice * Number(promo.discount_value)) / 100;
+    if (promo.max_discount != null) {
+      discountAmount = Math.min(discountAmount, Number(promo.max_discount));
+    }
+  } else {
+    discountAmount = Math.min(Number(promo.discount_value), basePrice);
+  }
+  discountAmount = Math.round(discountAmount);
+  return Math.max(0, basePrice - discountAmount);
+}
+
 export const createRoomBooking = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   const client = await pool.connect();
   try {
     const user = req.user as AuthPayload;
-    const {
-      room_type_id,
-      check_in_date,
-      check_out_date,
-      guests,
-      special_requests,
-      promotion_id,
-    } = req.body;
+    const body = req.body as Record<string, unknown>;
+    const checkInDate = String(body.check_in_date);
+    const checkOutDate = String(body.check_out_date);
+    const specialRequests =
+      typeof body.special_requests === 'string' ? body.special_requests : null;
+    const promotionId =
+      body.promotion_id != null ? Number(body.promotion_id) : null;
 
-    await client.query("BEGIN");
+    const items = normalizeItems(body);
+    const { adults, children } = normalizeGuests(body);
+    const nights = nightsBetween(checkInDate, checkOutDate);
 
-    const roomTypeRes = await client.query(
-      "SELECT price FROM room_types WHERE id = $1 AND status = true",
-      [room_type_id],
-    );
-    if (roomTypeRes.rows.length === 0) {
-      await client.query("ROLLBACK");
-      res.status(404).json({
+    for (const item of items) {
+      if (
+        !Number.isInteger(item.room_type_id) ||
+        item.room_type_id < 1 ||
+        !Number.isInteger(item.quantity) ||
+        item.quantity < 1
+      ) {
+        res.status(400).json({
+          success: false,
+          message: 'รายการห้องไม่ถูกต้อง',
+        });
+        return;
+      }
+    }
+
+    await client.query('BEGIN');
+
+    const typeMap = new Map<number, RoomTypeRow>();
+    for (const item of items) {
+      if (typeMap.has(item.room_type_id)) continue;
+      const roomTypeRes = await client.query(
+        `SELECT id, price, capacity, room_name, type_name
+         FROM room_types WHERE id = $1 AND status = true`,
+        [item.room_type_id]
+      );
+      if (roomTypeRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        res.status(404).json({
+          success: false,
+          message: `ไม่พบประเภทห้อง id ${item.room_type_id}`,
+        });
+        return;
+      }
+      typeMap.set(item.room_type_id, roomTypeRes.rows[0] as RoomTypeRow);
+    }
+
+    const capacityItems = items.map((item) => ({
+      capacity: Number(typeMap.get(item.room_type_id)!.capacity),
+      quantity: item.quantity,
+    }));
+    try {
+      assertGuestsFitCapacity(adults, children, sumCapacity(capacityItems));
+    } catch (err) {
+      await client.query('ROLLBACK');
+      res.status(400).json({
         success: false,
-        message: "Room type not found or unavailable",
+        message: err instanceof Error ? err.message : 'ผู้เข้าพักเกินความจุ',
       });
       return;
     }
 
-    const availableRoom = await client.query(
-      `SELECT r.room_id 
-       FROM rooms r
-       WHERE r.room_type_id = $1 AND r.status != 'maintenance'
-       AND r.room_id NOT IN (
-         SELECT rb.room_id FROM room_bookings rb
-         WHERE rb.status NOT IN ('cancelled', 'rejected')
-         AND (rb.check_in < $3 AND rb.check_out > $2)
-       ) LIMIT 1
-       FOR UPDATE SKIP LOCKED`,
-      [room_type_id, check_in_date, check_out_date],
-    );
+    const lockedRooms: Array<{
+      room_id: number;
+      room_type_id: number;
+      price_per_night: number;
+      room_name: string;
+      room_number: string;
+    }> = [];
 
-    if (availableRoom.rows.length === 0) {
-      await client.query("ROLLBACK");
-      res.status(409).json({
-        success: false,
-        message: "No rooms available for selected dates",
-      });
-      return;
+    for (const item of items) {
+      const roomType = typeMap.get(item.room_type_id)!;
+      for (let i = 0; i < item.quantity; i += 1) {
+        const availableRoom = await client.query(
+          `SELECT r.room_id, r.room_number
+           FROM rooms r
+           WHERE r.room_type_id = $1 AND r.status <> 'maintenance'
+             AND r.room_id NOT IN (
+               SELECT br.room_id
+               FROM booking_room br
+               JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+               WHERE br.status NOT IN ('cancelled', 'rejected')
+                 AND rb.check_in < $3 AND rb.check_out > $2
+             )
+           LIMIT 1
+           FOR UPDATE SKIP LOCKED`,
+          [item.room_type_id, checkInDate, checkOutDate]
+        );
+
+        if (availableRoom.rows.length === 0) {
+          await client.query('ROLLBACK');
+          res.status(409).json({
+            success: false,
+            message: `ห้องประเภท ${roomType.room_name} ว่างไม่พอสำหรับวันที่เลือก`,
+          });
+          return;
+        }
+
+        lockedRooms.push({
+          room_id: availableRoom.rows[0].room_id,
+          room_type_id: item.room_type_id,
+          price_per_night: Number(roomType.price),
+          room_name: roomType.room_name,
+          room_number: String(availableRoom.rows[0].room_number),
+        });
+      }
     }
 
-    const room_id = availableRoom.rows[0].room_id;
+    const subtotals = lockedRooms.map((room) =>
+      lineSubtotal(room.price_per_night, nights)
+    );
+    let totalPrice = sumSubtotals(subtotals);
 
-    const result = await client.query(
-      `INSERT INTO room_bookings (member_id, room_id, check_in, check_out, guest_count, special_request, promotion_id, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending') RETURNING *`,
+    if (promotionId) {
+      try {
+        totalPrice = await applyPromotionDiscount(
+          client,
+          promotionId,
+          totalPrice,
+          nights
+        );
+      } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(400).json({
+          success: false,
+          message: err instanceof Error ? err.message : 'โปรโมชั่นไม่ถูกต้อง',
+        });
+        return;
+      }
+    }
+
+    const guestTotal = adults + children;
+    const headerRes = await client.query(
+      `INSERT INTO room_bookings (
+         member_id, check_in, check_out, guest_count, adults, children,
+         special_request, promotion_id, status, total_price
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9)
+       RETURNING *`,
       [
         user.id,
-        room_id,
-        check_in_date,
-        check_out_date,
-        guests,
-        special_requests,
-        promotion_id || null,
-      ],
+        checkInDate,
+        checkOutDate,
+        guestTotal,
+        adults,
+        children,
+        specialRequests,
+        promotionId,
+        totalPrice,
+      ]
     );
+    const header = headerRes.rows[0];
+    const roomBookingId = header.room_booking_id as number;
 
-    if (promotion_id) {
+    const lineRows: unknown[] = [];
+    for (let i = 0; i < lockedRooms.length; i += 1) {
+      const room = lockedRooms[i];
+      const lineRes = await client.query(
+        `INSERT INTO booking_room (
+           room_booking_id, room_id, price_per_night, nights, subtotal, status
+         ) VALUES ($1, $2, $3, $4, $5, 'pending')
+         RETURNING *`,
+        [
+          roomBookingId,
+          room.room_id,
+          room.price_per_night,
+          nights,
+          subtotals[i],
+        ]
+      );
+      lineRows.push({
+        ...lineRes.rows[0],
+        room_name: room.room_name,
+        room_number: room.room_number,
+      });
+    }
+
+    if (promotionId) {
       await client.query(
-        "UPDATE promotions SET usage_count = usage_count + 1 WHERE id = $1",
-        [promotion_id],
+        'UPDATE promotions SET usage_count = usage_count + 1 WHERE id = $1',
+        [promotionId]
       );
     }
 
-    await client.query("COMMIT");
+    await client.query('COMMIT');
 
     (async () => {
       try {
         const memberRes = await pool.query(
-          "SELECT email, first_name, last_name FROM members WHERE member_id = $1",
-          [user.id],
+          'SELECT email, first_name, last_name FROM members WHERE member_id = $1',
+          [user.id]
         );
-        const roomRes = await pool.query(
-          "SELECT rt.room_name, r.room_number FROM rooms r JOIN room_types rt ON r.room_type_id = rt.id WHERE r.room_id = $1",
-          [room_id],
-        );
-        if (memberRes.rows.length > 0 && roomRes.rows.length > 0) {
-          const m = memberRes.rows[0];
-          const r = roomRes.rows[0];
-          const customerName =
-            `${m.first_name || ""} ${m.last_name || ""}`.trim() || m.email;
-          const checkInStr = new Date(check_in_date).toLocaleDateString(
-            "th-TH",
-          );
-          const checkOutStr = new Date(check_out_date).toLocaleDateString(
-            "th-TH",
-          );
-          await sendBookingConfirmationEmail({
-            to: m.email,
-            customerName,
-            bookingType: "room",
-            bookingId: result.rows[0].room_booking_id,
-            details: `${r.room_name} (ห้อง ${r.room_number})`,
-            dateInfo: `${checkInStr} - ${checkOutStr}`,
-            totalPrice: Number(result.rows[0].total_price || 0),
-          });
-        }
+        if (memberRes.rows.length === 0) return;
+        const m = memberRes.rows[0];
+        const customerName =
+          `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email;
+        const details = lockedRooms
+          .map((r) => `${r.room_name} (ห้อง ${r.room_number})`)
+          .join(', ');
+        const checkInStr = new Date(checkInDate).toLocaleDateString('th-TH');
+        const checkOutStr = new Date(checkOutDate).toLocaleDateString('th-TH');
+        await sendBookingConfirmationEmail({
+          to: m.email,
+          customerName,
+          bookingType: 'room',
+          bookingId: roomBookingId,
+          details,
+          dateInfo: `${checkInStr} - ${checkOutStr}`,
+          totalPrice: Number(totalPrice),
+        });
       } catch (err) {
-        console.error("Send booking confirmation mail error:", err);
+        console.error('Send booking confirmation mail error:', err);
       }
     })();
 
     res.status(201).json({
       success: true,
-      message: "Booking created",
-      data: result.rows[0],
+      message: 'Booking created',
+      data: { ...header, rooms: lineRows },
     });
   } catch (error) {
-    await client.query("ROLLBACK");
-    console.error("Create room booking error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    await client.query('ROLLBACK');
+    console.error('Create room booking error:', error);
+    if (error instanceof Error && error.message.includes('check_out_date')) {
+      res.status(400).json({ success: false, message: error.message });
+      return;
+    }
+    res.status(500).json({ success: false, message: 'Internal server error' });
   } finally {
     client.release();
   }
 };
 
-// ดึงรายการจองของผู้ใช้
 export const getUserRoomBookings = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
     const [result, resortRes] = await Promise.all([
       pool.query(
-        `SELECT rb.room_booking_id as id, rb.check_in as check_in_date, rb.check_out as check_out_date,
-                rb.guest_count as guests, rb.total_price, rb.status, rb.special_request, rb.created_at,
-                rt.room_name, rt.type_name as room_type, r.room_number,
-                
-                u.name as user_name,
-                u.email as user_email,
-                u.phone as user_phone, 
-
-                (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as room_images
+        `SELECT rb.room_booking_id as id, rb.room_booking_id,
+                rb.check_in as check_in_date, rb.check_out as check_out_date,
+                rb.guest_count as guests, rb.adults, rb.children,
+                rb.total_price, rb.status, rb.special_request, rb.created_at,
+                ${ROOMS_JSON_SQL} AS rooms,
+                (
+                  SELECT rt.room_name
+                  FROM booking_room br
+                  JOIN rooms r ON r.room_id = br.room_id
+                  JOIN room_types rt ON rt.id = r.room_type_id
+                  WHERE br.room_booking_id = rb.room_booking_id
+                  ORDER BY br.booking_room_id
+                  LIMIT 1
+                ) AS room_name,
+                (
+                  SELECT rt.type_name
+                  FROM booking_room br
+                  JOIN rooms r ON r.room_id = br.room_id
+                  JOIN room_types rt ON rt.id = r.room_type_id
+                  WHERE br.room_booking_id = rb.room_booking_id
+                  ORDER BY br.booking_room_id
+                  LIMIT 1
+                ) AS room_type,
+                (
+                  SELECT r.room_number
+                  FROM booking_room br
+                  JOIN rooms r ON r.room_id = br.room_id
+                  WHERE br.room_booking_id = rb.room_booking_id
+                  ORDER BY br.booking_room_id
+                  LIMIT 1
+                ) AS room_number,
+                (
+                  SELECT json_agg(image_path)
+                  FROM room_images ri
+                  WHERE ri.room_type_id = (
+                    SELECT r.room_type_id
+                    FROM booking_room br
+                    JOIN rooms r ON r.room_id = br.room_id
+                    WHERE br.room_booking_id = rb.room_booking_id
+                    ORDER BY br.booking_room_id
+                    LIMIT 1
+                  )
+                ) AS room_images
          FROM room_bookings rb
-         JOIN rooms r ON rb.room_id = r.room_id
-         JOIN room_types rt ON r.room_type_id = rt.id
-         
-         JOIN users u ON rb.member_id = u.id 
-         
          WHERE rb.member_id = $1
          ORDER BY rb.created_at DESC`,
-        [user.id],
+        [user.id]
       ),
       pool.query(`SELECT payment_due_days FROM resort_info LIMIT 1`),
     ]);
     const payment_due_days = Number(resortRes.rows[0]?.payment_due_days ?? 3);
     res.json({ success: true, data: result.rows, payment_due_days });
   } catch (error) {
-    console.error("Get user bookings error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Get user bookings error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// ดึงรายละเอียดการจองรายรายการ
 export const getRoomBookingById = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
     const { id } = req.params;
 
     const result = await pool.query(
-      `SELECT rb.room_booking_id as id, rb.check_in as check_in_date, rb.check_out as check_out_date,
-              rb.guest_count as guests, rb.total_price, rb.status, rb.special_request, rb.created_at,
-              rt.room_name, rt.type_name as room_type, r.room_number, rt.price as price_per_night,
-              (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as room_images
+      `SELECT rb.room_booking_id as id, rb.room_booking_id,
+              rb.check_in as check_in_date, rb.check_out as check_out_date,
+              rb.guest_count as guests, rb.adults, rb.children,
+              rb.total_price, rb.status, rb.special_request, rb.created_at,
+              ${ROOMS_JSON_SQL} AS rooms
        FROM room_bookings rb
-       JOIN rooms r ON rb.room_id = r.room_id
-       JOIN room_types rt ON r.room_type_id = rt.id
        WHERE rb.room_booking_id = $1 AND (rb.member_id = $2 OR $3 = 'admin')`,
-      [id, user.id, user.role],
+      [id, user.id, user.role]
     );
 
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Booking not found" });
+      res.status(404).json({ success: false, message: 'Booking not found' });
       return;
     }
 
     const booking = result.rows[0];
     const roomTypeId = await pool.query(
-      "SELECT r.room_type_id FROM rooms r JOIN room_bookings rb ON r.room_id = rb.room_id WHERE rb.room_booking_id = $1",
-      [id],
+      `SELECT r.room_type_id
+       FROM booking_room br
+       JOIN rooms r ON r.room_id = br.room_id
+       WHERE br.room_booking_id = $1
+       ORDER BY br.booking_room_id
+       LIMIT 1`,
+      [id]
     );
     const amResult = await pool.query(
       `SELECT ra.name FROM room_amenities ra
        JOIN room_type_amenities rta ON ra.amenity_id = rta.amenity_id
        WHERE rta.room_type_id = $1 AND ra.status = true`,
-      [roomTypeId.rows[0]?.room_type_id],
+      [roomTypeId.rows[0]?.room_type_id]
     );
-    const amenities = amResult.rows.map((r) => r.name);
+    const amenities = amResult.rows.map((r: { name: string }) => r.name);
 
     res.json({ success: true, data: { ...booking, amenities } });
   } catch (error) {
-    console.error("Get booking error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Get booking error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// ยกเลิกรายการจอง
 export const cancelRoomBooking = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
+  const client = await pool.connect();
   try {
     const user = req.user as AuthPayload;
     const { id } = req.params;
 
-    const booking = await pool.query(
-      "SELECT * FROM room_bookings WHERE room_booking_id = $1 AND member_id = $2",
-      [id, user.id],
+    await client.query('BEGIN');
+    const booking = await client.query(
+      'SELECT * FROM room_bookings WHERE room_booking_id = $1 AND member_id = $2 FOR UPDATE',
+      [id, user.id]
     );
     if (booking.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Booking not found" });
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, message: 'Booking not found' });
       return;
     }
-    if (booking.rows[0].status !== "pending") {
+    if (booking.rows[0].status !== 'pending') {
+      await client.query('ROLLBACK');
       res.status(400).json({
         success: false,
         message: `Cannot cancel booking with status: ${booking.rows[0].status}`,
@@ -244,75 +491,92 @@ export const cancelRoomBooking = async (
       return;
     }
 
-    await pool.query(
-      `UPDATE room_bookings SET status = 'cancelled' WHERE room_booking_id = $1`,
-      [id],
+    await client.query(
+      `UPDATE room_bookings SET status = 'cancelled', updated_at = NOW() WHERE room_booking_id = $1`,
+      [id]
     );
-    res.json({ success: true, message: "Booking cancelled" });
+    await client.query(
+      `UPDATE booking_room SET status = 'cancelled', updated_at = NOW()
+       WHERE room_booking_id = $1 AND status <> 'checked_out'`,
+      [id]
+    );
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Booking cancelled' });
   } catch (error) {
-    console.error("Cancel booking error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    await client.query('ROLLBACK');
+    console.error('Cancel booking error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    client.release();
   }
 };
 
-// ดึงการจองทั้งหมดสำหรับ Admin/Staff
 export const getAllRoomBookings = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   try {
     const result = await pool.query(
       `SELECT rb.room_booking_id, rb.room_booking_id as id,
               rb.check_in, rb.check_out,
               rb.check_in as check_in_date, rb.check_out as check_out_date,
-              rb.checkin_at, 
-              rb.checkout_at, -- 
-              rb.guest_count as guests, rb.total_price, rb.status,
+              rb.checkout_at,
+              rb.guest_count as guests, rb.adults, rb.children,
+              rb.total_price, rb.status,
               rb.payment_status, rb.payment_slip, rb.created_at,
-              rt.type_name as room_name, r.room_number,
-              m.first_name || ' ' || m.last_name as user_name, m.email as user_email,m.phone as user_phone,
-              s.first_name || ' ' || s.last_name as approved_by_name
+              m.first_name || ' ' || m.last_name as user_name,
+              m.email as user_email, m.phone as user_phone,
+              s.first_name || ' ' || s.last_name as approved_by_name,
+              ${ROOMS_JSON_SQL} AS rooms,
+              (
+                SELECT rt.room_name
+                FROM booking_room br
+                JOIN rooms r ON r.room_id = br.room_id
+                JOIN room_types rt ON rt.id = r.room_type_id
+                WHERE br.room_booking_id = rb.room_booking_id
+                ORDER BY br.booking_room_id LIMIT 1
+              ) AS room_name,
+              (
+                SELECT r.room_number
+                FROM booking_room br
+                JOIN rooms r ON r.room_id = br.room_id
+                WHERE br.room_booking_id = rb.room_booking_id
+                ORDER BY br.booking_room_id LIMIT 1
+              ) AS room_number
        FROM room_bookings rb
-       JOIN rooms r ON rb.room_id = r.room_id
-       JOIN room_types rt ON r.room_type_id = rt.id
        JOIN members m ON rb.member_id = m.member_id
        LEFT JOIN staff s ON rb.approved_by_staff_id = s.staff_id
-       ORDER BY rb.created_at DESC`,
+       ORDER BY rb.created_at DESC`
     );
     res.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error("Get all bookings error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Get all bookings error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// อัปเดตสถานะการจองทั่วไป
 export const updateRoomBookingStatus = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
     const { status } = req.body;
     const user = req.user as AuthPayload;
 
-    const allowed = [
-      "approved",
-      "rejected",
-      "pending",
-      "cancelled",
-      "checked_in",
-      "checked_out",
-    ];
+    const allowed = ['approved', 'rejected', 'pending', 'cancelled'];
     if (!allowed.includes(status)) {
-      res.status(400).json({ success: false, message: "Invalid status" });
+      res.status(400).json({ success: false, message: 'Invalid status' });
       return;
     }
 
-    let query = `UPDATE room_bookings SET status = $1, updated_at = NOW()`;
-    const params: any[] = [status];
+    await client.query('BEGIN');
 
-    if (status === "approved" || status === "rejected") {
+    let query = `UPDATE room_bookings SET status = $1, updated_at = NOW()`;
+    const params: Array<string | number> = [status];
+
+    if (status === 'approved' || status === 'rejected') {
       query += `, approved_by_staff_id = $2`;
       params.push(user.id);
     }
@@ -320,133 +584,206 @@ export const updateRoomBookingStatus = async (
     params.push(id);
     query += ` WHERE room_booking_id = $${params.length} RETURNING *`;
 
-    const result = await pool.query(query, params);
+    const result = await client.query(query, params);
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Booking not found" });
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, message: 'Booking not found' });
       return;
     }
 
-    if (status === "approved" || status === "rejected") {
+    await client.query(
+      `UPDATE booking_room SET status = $1, updated_at = NOW()
+       WHERE room_booking_id = $2 AND status <> 'checked_out'`,
+      [status, id]
+    );
+
+    await client.query('COMMIT');
+
+    if (status === 'approved' || status === 'rejected') {
       (async () => {
         try {
           const infoRes = await pool.query(
-            `SELECT m.email, m.first_name, m.last_name, rt.room_name, r.room_number
+            `SELECT m.email, m.first_name, m.last_name,
+                    (
+                      SELECT string_agg(rt.room_name || ' (ห้อง ' || r.room_number || ')', ', ' ORDER BY br.booking_room_id)
+                      FROM booking_room br
+                      JOIN rooms r ON r.room_id = br.room_id
+                      JOIN room_types rt ON rt.id = r.room_type_id
+                      WHERE br.room_booking_id = rb.room_booking_id
+                    ) AS details
              FROM room_bookings rb
              JOIN members m ON rb.member_id = m.member_id
-             JOIN rooms r ON rb.room_id = r.room_id
-             JOIN room_types rt ON r.room_type_id = rt.id
              WHERE rb.room_booking_id = $1`,
-            [id],
+            [id]
           );
           if (infoRes.rows.length > 0) {
             const info = infoRes.rows[0];
             const customerName =
-              `${info.first_name || ""} ${info.last_name || ""}`.trim() ||
+              `${info.first_name || ''} ${info.last_name || ''}`.trim() ||
               info.email;
             await sendBookingStatusEmail({
               to: info.email,
               customerName,
-              bookingType: "room",
+              bookingType: 'room',
               bookingId: Number(id),
-              status: status as "approved" | "rejected",
-              details: `${info.room_name} (ห้อง ${info.room_number})`,
+              status: status as 'approved' | 'rejected',
+              details: info.details || 'การจองห้องพัก',
             });
           }
         } catch (err) {
-          console.error("Send booking status mail error:", err);
+          console.error('Send booking status mail error:', err);
         }
       })();
     }
 
     res.json({
       success: true,
-      message: "Booking status updated",
+      message: 'Booking status updated',
       data: result.rows[0],
     });
   } catch (error) {
-    console.error("Update booking status error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    await client.query('ROLLBACK');
+    console.error('Update booking status error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    client.release();
   }
 };
 
-// 📌 เช็คอินห้องพัก
+/** Check-in is not part of the multi-room schema; keep route for compatibility. */
 export const checkinRoomBooking = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
-  try {
-    const { id } = req.params;
-
-    const booking = await pool.query(
-      "SELECT status FROM room_bookings WHERE room_booking_id = $1",
-      [id],
-    );
-
-    if (booking.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Booking not found" });
-      return;
-    }
-
-    // 🎯 แก้ไข: เพิ่ม status = 'checked_in' เข้าไปในการ UPDATE
-    await pool.query(
-      `UPDATE room_bookings 
-       SET status = 'checked_in',
-           checkin_at = NOW(), 
-           updated_at = NOW() 
-       WHERE room_booking_id = $1`,
-      [id],
-    );
-
-    res.json({ success: true, message: "เช็คอินสำเร็จ" });
-  } catch (error) {
-    console.error("Checkin room booking error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
+  res.status(400).json({
+    success: false,
+    message:
+      'สถานะ checked_in ยังไม่รองรับในระบบ — ใช้สถานะ approved จนถึงเช็คเอาต์ทีละห้อง',
+  });
 };
 
-// 📌 เช็คเอาต์ห้องพัก (แก้ไขแล้ว)
-// 📌 เช็คเอาต์ห้องพัก (อัปเดต status และ checkout_at ลง DB)
+/** Legacy: check out every approved line under a header booking. */
 export const checkoutRoomBooking = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
 
-    // 1. เช็กว่ามีรายการจองนี้ไหม
-    const booking = await pool.query(
-      "SELECT room_id FROM room_bookings WHERE room_booking_id = $1",
-      [id],
+    await client.query('BEGIN');
+    const booking = await client.query(
+      `SELECT status FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE`,
+      [id]
     );
-
     if (booking.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Booking not found" });
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, message: 'Booking not found' });
+      return;
+    }
+    if (booking.rows[0].status !== 'approved') {
+      await client.query('ROLLBACK');
+      res.status(400).json({
+        success: false,
+        message: 'เช็คเอาต์ได้เฉพาะการจองที่อนุมัติแล้ว',
+      });
       return;
     }
 
-    const roomId = booking.rows[0].room_id;
-
-    // 🎯 2. อัปเดต status เป็น 'checked_out' และบันทึก checkout_at = NOW()
-    await pool.query(
-      `UPDATE room_bookings 
-       SET status = 'checked_out', 
-           checkout_at = NOW(), 
-           updated_at = NOW() 
-       WHERE room_booking_id = $1`,
-      [id],
+    const lines = await client.query(
+      `UPDATE booking_room
+       SET status = 'checked_out', checkout_at = NOW(), updated_at = NOW()
+       WHERE room_booking_id = $1 AND status = 'approved'
+       RETURNING room_id`,
+      [id]
     );
 
-    // 3. (Optional) คืนสถานะห้องพักให้พร้อมใช้งานอีกครั้ง
-    if (roomId) {
-      await pool.query(
-        "UPDATE rooms SET status = 'available' WHERE room_id = $1",
-        [roomId],
+    for (const line of lines.rows) {
+      await client.query(
+        `UPDATE rooms SET status = 'available' WHERE room_id = $1 AND status <> 'maintenance'`,
+        [line.room_id]
       );
     }
 
-    res.json({ success: true, message: "เช็คเอาต์สำเร็จเรียบร้อย" });
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      message: 'เช็คเอาต์สำเร็จเรียบร้อย',
+      data: { checked_out_count: lines.rowCount ?? 0 },
+    });
   } catch (error) {
-    console.error("Checkout room booking error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    await client.query('ROLLBACK');
+    console.error('Checkout room booking error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+};
+
+export const checkoutBookingRoom = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const client = await pool.connect();
+  try {
+    const bookingRoomId = Number(req.params.bookingRoomId);
+    if (!Number.isInteger(bookingRoomId) || bookingRoomId < 1) {
+      res.status(400).json({ success: false, message: 'Invalid booking_room id' });
+      return;
+    }
+
+    await client.query('BEGIN');
+    const lineRes = await client.query(
+      `SELECT br.booking_room_id, br.room_id, br.status AS line_status, rb.status AS header_status
+       FROM booking_room br
+       JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+       WHERE br.booking_room_id = $1
+       FOR UPDATE OF br`,
+      [bookingRoomId]
+    );
+
+    if (lineRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, message: 'Booking room not found' });
+      return;
+    }
+
+    const line = lineRes.rows[0];
+    if (line.header_status !== 'approved') {
+      await client.query('ROLLBACK');
+      res.status(400).json({
+        success: false,
+        message: 'เช็คเอาต์ได้เมื่อหัวการจองเป็น approved',
+      });
+      return;
+    }
+    if (line.line_status !== 'approved') {
+      await client.query('ROLLBACK');
+      res.status(400).json({
+        success: false,
+        message: `Cannot check out line with status: ${line.line_status}`,
+      });
+      return;
+    }
+
+    await client.query(
+      `UPDATE booking_room
+       SET status = 'checked_out', checkout_at = NOW(), updated_at = NOW()
+       WHERE booking_room_id = $1`,
+      [bookingRoomId]
+    );
+    await client.query(
+      `UPDATE rooms SET status = 'available' WHERE room_id = $1 AND status <> 'maintenance'`,
+      [line.room_id]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'เช็คเอาต์ห้องสำเร็จ' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Checkout booking room error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    client.release();
   }
 };

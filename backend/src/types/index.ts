@@ -94,15 +94,28 @@ export interface RoomBooking {
 export interface BoatBooking {
   boat_booking_id: number;
   member_id: number;
-  boat_type_id: number;
-  boat_round_id: number;
   booking_date: Date;
+  start_time?: string;
+  end_time?: string;
   num_passengers?: number;
   total_price: number;
   payment_status: 'pending' | 'paid' | 'failed';
   payment_slip?: string;
-  status: 'pending' | 'paid' | 'approved' | 'rejected' | 'cancelled';
+  status: 'pending' | 'paid' | 'approved' | 'rejected' | 'cancelled' | 'checked_out';
   created_at: Date;
+}
+
+export interface BookingBoatLine {
+  booking_boat_id: number;
+  boat_booking_id: number;
+  boat_type_id: number;
+  boat_round_id: number;
+  num_passengers: number;
+  boat_count: number;
+  unit_price: number;
+  subtotal: number;
+  status: string;
+  type_name?: string;
 }
 
 export interface AuthPayload {

@@ -599,7 +599,7 @@ export default function RoomTypesPage() {
                       <Link
                         href={`/admin/rooms/single?type_id=${rt.id}`}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-[#0b3b2c] hover:bg-emerald-100 border border-emerald-200/60 transition-all group"
-                        title="คลิกเพื่อดูและจัดการรายห้อง"
+                        title="เปิดหน้าจัดการห้อง — แสดงโซนและเลขห้องถัดไปของประเภทนี้"
                       >
                         <DoorClosed size={13} />
                         <span>{rt.room_count || 0} ห้อง</span>

@@ -28,11 +28,18 @@ import {
   addDaysISO,
   formatThaiDate,
   monthCursorFromISO,
-  monthRangeISO,
+  multiMonthRangeISO,
   nightsBetween,
   nightsInRange,
   todayISO,
 } from '@/lib/date';
+import {
+  clearRoomCart,
+  loadRoomCart,
+  saveRoomCart,
+  upsertCartItem,
+} from '@/lib/room-cart';
+import PromoPriceBreakdown from '@/components/booking/PromoPriceBreakdown';
 
 type RoomAmenity = string | { id: number; name: string };
 
@@ -60,6 +67,7 @@ interface Review {
 interface AppliedPromo {
   id: number;
   name: string;
+  code?: string;
   discount_amount: number;
   final_price: number;
 }
@@ -116,7 +124,7 @@ export default function RoomDetailPage(): React.ReactElement {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    const { start, end } = monthRangeISO(cursor);
+    const { start, end } = multiMonthRangeISO(cursor, 2);
     setCalendarLoading(true);
 
     fetchRoomCalendar({ start, end, roomTypeId: Number(id) })
@@ -144,7 +152,6 @@ export default function RoomDetailPage(): React.ReactElement {
   }, [range, nights, dayStatus]);
 
   const basePrice = room ? Number(room.price_per_night) * nights : 0;
-  const finalPrice = appliedPromo ? appliedPromo.final_price : basePrice;
 
   useEffect(() => {
     setAppliedPromo(null);
@@ -180,20 +187,18 @@ export default function RoomDetailPage(): React.ReactElement {
 
     setBookingLoading(true);
     try {
-      // backend เก็บแค่ guest_count รวม — แยกผู้ใหญ่/เด็กไว้ในคำขอพิเศษให้แอดมินเห็น
-      const guestNote = `ผู้ใหญ่ ${adults} คน, เด็ก ${children} คน`;
-      const mergedRequest = specialRequests.trim()
-        ? `${guestNote}\n${specialRequests.trim()}`
-        : guestNote;
+      const mergedRequest = specialRequests.trim() || undefined;
 
       const res = await api.post('/bookings/room', {
-        room_type_id: id,
+        room_type_id: Number(id),
         check_in_date: range.start,
         check_out_date: range.end,
-        guests: guestTotal,
+        adults,
+        children,
         special_requests: mergedRequest,
         ...(appliedPromo ? { promotion_id: appliedPromo.id } : {}),
       });
+      clearRoomCart();
       toast.success('จองห้องพักสำเร็จ!');
       router.push(`/payment?booking_type=room&booking_id=${res.data.data.room_booking_id}`);
     } catch (error: unknown) {
@@ -201,6 +206,57 @@ export default function RoomDetailPage(): React.ReactElement {
     } finally {
       setBookingLoading(false);
     }
+  };
+
+  const handleAddToCart = (): void => {
+    if (!range || nights <= 0 || !room) {
+      toast.error('กรุณาเลือกวันเช็คอินและเช็คเอาต์');
+      return;
+    }
+    if (blockedNights.length > 0) {
+      toast.error('ช่วงวันที่เลือกมีวันที่ห้องเต็มแล้ว');
+      return;
+    }
+
+    const existing = loadRoomCart();
+    if (
+      existing &&
+      existing.items.length > 0 &&
+      (existing.check_in !== range.start || existing.check_out !== range.end)
+    ) {
+      const ok = window.confirm(
+        'ตะกร้ามีวันอื่นอยู่ — ล้างแล้วเพิ่มห้องนี้ด้วยวันใหม่?'
+      );
+      if (!ok) return;
+      clearRoomCart();
+    }
+
+    const fresh = loadRoomCart();
+    const base =
+      fresh &&
+      fresh.check_in === range.start &&
+      fresh.check_out === range.end
+        ? { ...fresh, adults, children }
+        : {
+            check_in: range.start,
+            check_out: range.end,
+            adults,
+            children,
+            items: [],
+          };
+
+    const next = upsertCartItem(base, {
+      room_type_id: room.id,
+      room_name: room.room_name,
+      type_name: room.type_name,
+      capacity: room.capacity,
+      price_per_night: Number(room.price_per_night),
+      available_count: Math.max(1, Number((room as { available_count?: number }).available_count ?? 99)),
+      quantity: 1,
+    });
+    saveRoomCart(next);
+    toast.success('เพิ่มเข้าการจองแล้ว — กลับไปหน้าห้องเพื่อยืนยัน');
+    router.push('/rooms');
   };
 
   const handleApplyPromo = async (): Promise<void> => {
@@ -220,6 +276,7 @@ export default function RoomDetailPage(): React.ReactElement {
       setAppliedPromo({
         id: data.id,
         name: data.name,
+        code: typeof data.code === 'string' ? data.code : promoCode.trim(),
         discount_amount: data.discount_amount,
         final_price: data.final_price,
       });
@@ -236,7 +293,7 @@ export default function RoomDetailPage(): React.ReactElement {
       <div className="min-h-screen bg-cream-100/50 pt-20">
         <div className="container mx-auto px-4 py-8">
           <div className="h-6 w-32 animate-pulse rounded-lg bg-stone-200" />
-          <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_380px]">
+          <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_minmax(420px,560px)]">
             <div className="space-y-6">
               <div className="h-10 w-2/3 animate-pulse rounded-xl bg-stone-200" />
               <div className="h-96 animate-pulse rounded-3xl bg-stone-200" />
@@ -284,7 +341,7 @@ export default function RoomDetailPage(): React.ReactElement {
           กลับไปหน้าห้องพักทั้งหมด
         </Link>
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-10">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(420px,560px)] lg:gap-10">
           {/* Main Info Side */}
           <div className="space-y-8">
             {/* Title Header */}
@@ -607,6 +664,10 @@ export default function RoomDetailPage(): React.ReactElement {
                           <div>
                             <p className="text-xs font-bold text-emerald-900">{appliedPromo.name}</p>
                             <p className="text-[11px] font-medium text-emerald-700">
+                              {appliedPromo.code ? (
+                                <span className="font-mono">{appliedPromo.code}</span>
+                              ) : null}
+                              {appliedPromo.code ? ' · ' : ''}
                               ลด ฿{appliedPromo.discount_amount.toLocaleString()}
                             </p>
                           </div>
@@ -652,31 +713,27 @@ export default function RoomDetailPage(): React.ReactElement {
 
               {/* Price Calculation */}
               {nights > 0 && (
-                <div className="mt-5 space-y-2 border-t border-stone-100 pt-4 text-sm">
-                  <div className="flex justify-between text-charcoal-500 text-xs">
-                    <span>฿{Number(room.price_per_night).toLocaleString()} × {nights} คืน</span>
-                    <span className="font-semibold text-charcoal-700">฿{basePrice.toLocaleString()}</span>
-                  </div>
-                  {appliedPromo && (
-                    <div className="flex justify-between text-xs text-emerald-600 font-medium">
-                      <span>ส่วนลดโปรโมชัน</span>
-                      <span>-฿{appliedPromo.discount_amount.toLocaleString()}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between border-t border-stone-100 pt-3 text-base font-bold text-forest-900">
-                    <span>ราคารวมทั้งสิ้น</span>
-                    <span className="font-display text-xl text-forest-900">
-                      ฿{finalPrice.toLocaleString()}
-                    </span>
-                  </div>
+                <div className="mt-5 border-t border-stone-100 pt-4">
+                  <p className="mb-2 text-[11px] text-charcoal-400">
+                    ฿{Number(room.price_per_night).toLocaleString()} × {nights} คืน
+                  </p>
+                  <PromoPriceBreakdown basePrice={basePrice} promo={appliedPromo} />
                 </div>
               )}
 
               {/* Submit Button */}
               <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={nights <= 0 || blockedNights.length > 0}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-forest-800/20 bg-cream-100 py-3.5 font-semibold text-forest-800 transition-all hover:bg-cream-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                เพิ่มเข้าการจอง
+              </button>
+              <button
                 type="submit"
                 disabled={bookingLoading || nights <= 0 || blockedNights.length > 0}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-900 py-3.5 font-semibold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-900 py-3.5 font-semibold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {bookingLoading ? (
                   <>
@@ -684,7 +741,7 @@ export default function RoomDetailPage(): React.ReactElement {
                     กำลังดำเนินการ...
                   </>
                 ) : (
-                  'จองห้องพักนี้'
+                  'จองห้องนี้ทันที'
                 )}
               </button>
               <p className="mt-3 text-center text-[11px] text-charcoal-400">

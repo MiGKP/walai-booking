@@ -36,6 +36,8 @@ interface BaseProps {
   minISO?: string;
   /** จำนวนเดือนที่เลื่อนไปข้างหน้าได้จากเดือนปัจจุบัน */
   maxMonthsAhead?: number;
+  /** จำนวนเดือนที่แสดงพร้อมกัน (ค่าเริ่มต้น 2 — แก้ปัญหาเลือกข้ามเดือน) */
+  visibleMonths?: 1 | 2;
   className?: string;
 }
 
@@ -56,6 +58,151 @@ type BookingCalendarProps = SingleModeProps | RangeModeProps;
 const monthIndex = (cursor: MonthCursor): number =>
   cursor.year * 12 + cursor.month;
 
+interface MonthPanelProps {
+  cursor: MonthCursor;
+  dayStatus?: Record<string, DayStatus>;
+  loading: boolean;
+  today: string;
+  focusedISO: string;
+  selectedStart: string | null;
+  selectedEnd: string | null;
+  rangeNights: Set<string>;
+  mode: "single" | "range";
+  singleValue: string | null;
+  isDisabled: (iso: string) => boolean;
+  onFocusDay: (iso: string) => void;
+  onHoverDay: (iso: string | null) => void;
+  onSelectDay: (iso: string) => void;
+}
+
+function MonthPanel({
+  cursor,
+  dayStatus,
+  loading,
+  today,
+  focusedISO,
+  selectedStart,
+  selectedEnd,
+  rangeNights,
+  mode,
+  singleValue,
+  isDisabled,
+  onFocusDay,
+  onHoverDay,
+  onSelectDay,
+}: MonthPanelProps): React.ReactElement {
+  const cells = useMemo(() => buildMonthGrid(cursor), [cursor]);
+
+  return (
+    <div className="min-w-0 flex-1">
+      <p className="mb-2 text-center font-display text-base text-forest-900">
+        {formatMonthLabel(cursor)}
+      </p>
+
+      <div className="grid grid-cols-7 mb-1">
+        {THAI_WEEKDAYS_SHORT.map((label) => (
+          <div
+            key={`${cursor.year}-${cursor.month}-${label}`}
+            className="text-center text-[11px] font-medium tracking-wide text-charcoal-400 py-1.5"
+          >
+            {label}
+          </div>
+        ))}
+      </div>
+
+      <div
+        role="grid"
+        aria-label={`ปฏิทิน ${formatMonthLabel(cursor)}`}
+        aria-busy={loading}
+        onMouseLeave={() => onHoverDay(null)}
+        className={`grid grid-cols-7 gap-y-0.5 transition-opacity ${loading ? "opacity-45" : "opacity-100"}`}
+      >
+        {cells.map((iso, index) => {
+          if (!iso) {
+            return (
+              <div
+                key={`blank-${cursor.year}-${cursor.month}-${index}`}
+                aria-hidden="true"
+              />
+            );
+          }
+
+          const status = dayStatus?.[iso];
+          const disabled = isDisabled(iso);
+          const isFull = status?.tone === "full";
+          const isStart = iso === selectedStart;
+          const isEnd = iso === selectedEnd;
+          const inRange = mode === "range" && rangeNights.has(iso) && !isStart;
+          const isSelected =
+            isStart ||
+            isEnd ||
+            (mode === "single" && iso === singleValue);
+          const isToday = iso === today;
+
+          return (
+            <div key={iso} role="gridcell" className="relative py-0.5">
+              {inRange && !isEnd && (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-1 left-0 right-0 bg-lagoon-50"
+                />
+              )}
+              {isStart && mode === "range" && selectedEnd && selectedEnd > iso && (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-1 left-1/2 right-0 bg-lagoon-50"
+                />
+              )}
+              {isEnd && (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-1 left-0 right-1/2 bg-lagoon-50"
+                />
+              )}
+              <button
+                type="button"
+                data-iso={iso}
+                tabIndex={iso === focusedISO ? 0 : -1}
+                disabled={disabled}
+                aria-current={isToday ? "date" : undefined}
+                aria-pressed={isSelected}
+                aria-label={`${formatThaiDateLong(iso)}${status?.hint ? ` — ${status.hint}` : ""}`}
+                title={status?.hint}
+                onFocus={() => onFocusDay(iso)}
+                onMouseEnter={() => onHoverDay(iso)}
+                onClick={() => onSelectDay(iso)}
+                className={[
+                  "relative z-10 mx-auto flex h-9 w-9 sm:h-10 sm:w-10 flex-col items-center justify-center rounded-full text-sm tabular-nums transition-colors",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-lagoon-500 focus-visible:ring-offset-1",
+                  isSelected
+                    ? "bg-forest-800 text-cream-100 font-semibold"
+                    : disabled
+                      ? "text-charcoal-300 cursor-not-allowed"
+                      : "text-charcoal-700 hover:bg-forest-50",
+                  isFull && !isSelected
+                    ? "line-through decoration-charcoal-300"
+                    : "",
+                  isToday && !isSelected
+                    ? "ring-1 ring-inset ring-lagoon-300"
+                    : "",
+                ].join(" ")}
+              >
+                {Number(iso.slice(8, 10))}
+                {status?.tone === "low" && !isSelected && !disabled && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute bottom-1 h-1 w-1 rounded-full bg-bamboo-400"
+                  />
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function BookingCalendar(
   props: BookingCalendarProps,
 ): React.ReactElement {
@@ -65,10 +212,12 @@ export default function BookingCalendar(
     dayStatus,
     loading = false,
     maxMonthsAhead = 12,
+    visibleMonths = 2,
     className = "",
   } = props;
   const today = todayISO();
   const minISO = props.minISO ?? today;
+  const monthCount: 1 | 2 = visibleMonths === 1 ? 1 : 2;
 
   const [pendingStart, setPendingStart] = useState<string | null>(null);
   const [hoveredISO, setHoveredISO] = useState<string | null>(null);
@@ -77,25 +226,30 @@ export default function BookingCalendar(
     return props.value?.start ?? minISO;
   });
 
-  const gridRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const shouldRestoreFocus = useRef(false);
 
-  const cells = useMemo(() => buildMonthGrid(cursor), [cursor]);
+  const months = useMemo(() => {
+    return Array.from({ length: monthCount }, (_, index) =>
+      shiftMonth(cursor, index),
+    );
+  }, [cursor, monthCount]);
 
   const currentCursor = monthCursorFromISO(today);
   const canGoPrev = monthIndex(cursor) > monthIndex(monthCursorFromISO(minISO));
   const canGoNext =
-    monthIndex(cursor) < monthIndex(currentCursor) + maxMonthsAhead;
+    monthIndex(cursor) + (monthCount - 1) <
+    monthIndex(currentCursor) + maxMonthsAhead;
 
   const rangeValue: DateRange | null =
     props.mode === "range" ? props.value : null;
 
-  // ระหว่างเลือกช่วง (คลิกแรกแล้ว) ให้ preview ปลายช่วงตามเมาส์หรือโฟกัสคีย์บอร์ด
   const previewRange = useMemo<DateRange | null>(() => {
     if (!pendingStart) return rangeValue;
     const other = hoveredISO ?? focusedISO;
-    if (!other || other <= pendingStart)
+    if (!other || other <= pendingStart) {
       return { start: pendingStart, end: addDaysISO(pendingStart, 1) };
+    }
     return { start: pendingStart, end: other };
   }, [rangeValue, pendingStart, hoveredISO, focusedISO]);
 
@@ -107,15 +261,14 @@ export default function BookingCalendar(
   useEffect(() => {
     if (!shouldRestoreFocus.current) return;
     shouldRestoreFocus.current = false;
-    const target = gridRef.current?.querySelector<HTMLButtonElement>(
+    const target = rootRef.current?.querySelector<HTMLButtonElement>(
       `button[data-iso="${focusedISO}"]`,
     );
     target?.focus();
-  }, [focusedISO, cursor]);
+  }, [focusedISO, cursor, monthCount]);
 
   const isDisabled = (iso: string): boolean => {
     if (iso < minISO) return true;
-    // ในโหมด range วันที่เต็มยังคลิกเป็น "วันเช็คเอาต์" ได้ เพราะคืนนั้นไม่ได้ถูกใช้
     if (props.mode === "range" && pendingStart) return false;
     return dayStatus?.[iso]?.tone === "full";
   };
@@ -148,13 +301,20 @@ export default function BookingCalendar(
     const next = addDaysISO(focusedISO, deltaDays);
     if (next < minISO) return;
     const nextCursor = monthCursorFromISO(next);
-    if (monthIndex(nextCursor) > monthIndex(currentCursor) + maxMonthsAhead)
+    if (monthIndex(nextCursor) > monthIndex(currentCursor) + maxMonthsAhead) {
       return;
+    }
 
     shouldRestoreFocus.current = true;
     setFocusedISO(next);
-    if (monthIndex(nextCursor) !== monthIndex(cursor)) {
+
+    const left = monthIndex(cursor);
+    const right = left + (monthCount - 1);
+    const target = monthIndex(nextCursor);
+    if (target < left) {
       onCursorChange(nextCursor);
+    } else if (target > right) {
+      onCursorChange(shiftMonth(nextCursor, -(monthCount - 1)));
     }
   };
 
@@ -173,12 +333,12 @@ export default function BookingCalendar(
     }
     if (event.key === "PageUp" || event.key === "PageDown") {
       event.preventDefault();
-      const nextCursor = shiftMonth(cursor, event.key === "PageUp" ? -1 : 1);
+      const step = event.key === "PageUp" ? -1 : 1;
       if (event.key === "PageUp" && !canGoPrev) return;
       if (event.key === "PageDown" && !canGoNext) return;
       shouldRestoreFocus.current = true;
-      onCursorChange(nextCursor);
-      setFocusedISO(addDaysISO(focusedISO, event.key === "PageUp" ? -28 : 28));
+      onCursorChange(shiftMonth(cursor, step));
+      setFocusedISO(addDaysISO(focusedISO, step * 28));
     }
   };
 
@@ -188,8 +348,12 @@ export default function BookingCalendar(
     props.mode === "range" ? (previewRange?.end ?? null) : null;
 
   return (
-    <div className={`select-none ${className}`}>
-      <div className="flex items-center justify-between mb-4">
+    <div
+      ref={rootRef}
+      className={`select-none ${className}`}
+      onKeyDown={handleKeyDown}
+    >
+      <div className="mb-3 flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => onCursorChange(shiftMonth(cursor, -1))}
@@ -199,8 +363,10 @@ export default function BookingCalendar(
         >
           <ChevronLeft size={18} />
         </button>
-        <p aria-live="polite" className="font-display text-lg text-forest-900">
-          {formatMonthLabel(cursor)}
+        <p aria-live="polite" className="text-xs sm:text-sm text-charcoal-400 text-center">
+          {monthCount === 2
+            ? `${formatMonthLabel(months[0])} · ${formatMonthLabel(months[1])}`
+            : formatMonthLabel(cursor)}
         </p>
         <button
           type="button"
@@ -213,121 +379,44 @@ export default function BookingCalendar(
         </button>
       </div>
 
-      <div className="grid grid-cols-7 mb-1">
-        {THAI_WEEKDAYS_SHORT.map((label) => (
-          <div
-            key={label}
-            className="text-center text-[11px] font-medium tracking-wide text-charcoal-400 py-1.5"
-          >
-            {label}
-          </div>
-        ))}
-      </div>
-
       <div
-        ref={gridRef}
-        role="grid"
-        aria-label="ปฏิทินเลือกวันที่"
-        aria-busy={loading}
-        onKeyDown={handleKeyDown}
-        onMouseLeave={() => setHoveredISO(null)}
-        className={`grid grid-cols-7 gap-y-0.5 transition-opacity ${loading ? "opacity-45" : "opacity-100"}`}
+        className={
+          monthCount === 2
+            ? "flex flex-col gap-5 sm:flex-row sm:gap-4"
+            : undefined
+        }
       >
-        {cells.map((iso, index) => {
-          if (!iso) return <div key={`blank-${index}`} aria-hidden="true" />;
-
-          const status = dayStatus?.[iso];
-          const disabled = isDisabled(iso);
-          const isFull = status?.tone === "full";
-          const isStart = iso === selectedStart;
-          const isEnd = iso === selectedEnd;
-          const inRange =
-            props.mode === "range" && rangeNights.has(iso) && !isStart;
-          const isSelected =
-            isStart ||
-            isEnd ||
-            (props.mode === "single" && iso === props.value);
-          const isToday = iso === today;
-
-          return (
-            <div key={iso} role="gridcell" className="relative py-0.5">
-              {inRange && !isEnd && (
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-y-1 left-0 right-0 bg-lagoon-50"
-                />
-              )}
-              {isStart &&
-                props.mode === "range" &&
-                selectedEnd &&
-                selectedEnd > iso && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-y-1 left-1/2 right-0 bg-lagoon-50"
-                  />
-                )}
-              {isEnd && (
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-y-1 left-0 right-1/2 bg-lagoon-50"
-                />
-              )}
-              <button
-                type="button"
-                data-iso={iso}
-                tabIndex={iso === focusedISO ? 0 : -1}
-                disabled={disabled}
-                aria-current={isToday ? "date" : undefined}
-                aria-pressed={isSelected}
-                aria-label={`${formatThaiDateLong(iso)}${status?.hint ? ` — ${status.hint}` : ""}`}
-                title={status?.hint}
-                onFocus={() => setFocusedISO(iso)}
-                onMouseEnter={() => setHoveredISO(iso)}
-                onClick={() => handleSelect(iso)}
-                className={[
-                  "relative z-10 mx-auto flex h-10 w-10 flex-col items-center justify-center rounded-full text-sm tabular-nums transition-colors",
-                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-lagoon-500 focus-visible:ring-offset-1",
-                  isSelected
-                    ? "bg-forest-800 text-cream-100 font-semibold"
-                    : disabled
-                      ? "text-charcoal-300 cursor-not-allowed"
-                      : "text-charcoal-700 hover:bg-forest-50",
-                  isFull && !isSelected
-                    ? "line-through decoration-charcoal-300"
-                    : "",
-                  isToday && !isSelected
-                    ? "ring-1 ring-inset ring-lagoon-300"
-                    : "",
-                ].join(" ")}
-              >
-                {Number(iso.slice(8, 10))}
-                {status?.tone === "low" && !isSelected && !disabled && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute bottom-1 h-1 w-1 rounded-full bg-bamboo-400"
-                  />
-                )}
-              </button>
-            </div>
-          );
-        })}
+        {months.map((monthCursor, index) => (
+          <MonthPanel
+            key={`${monthCursor.year}-${monthCursor.month}`}
+            cursor={monthCursor}
+            dayStatus={dayStatus}
+            loading={loading}
+            today={today}
+            focusedISO={focusedISO}
+            selectedStart={selectedStart}
+            selectedEnd={selectedEnd}
+            rangeNights={rangeNights}
+            mode={props.mode}
+            singleValue={props.mode === "single" ? props.value : null}
+            isDisabled={isDisabled}
+            onFocusDay={setFocusedISO}
+            onHoverDay={setHoveredISO}
+            onSelectDay={handleSelect}
+          />
+        ))}
       </div>
 
       <div className="mt-4 border-t border-stone-100 pt-2.5">
         <div className="flex flex-wrap items-center justify-start gap-4 text-[12px] text-charcoal-500">
-          {/* วันที่เลือก */}
           <div className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-forest-900" />
             <span>วันที่เลือก</span>
           </div>
-
-          {/* เหลือน้อย */}
           <div className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
             <span>เหลือน้อย</span>
           </div>
-
-          {/* เต็ม (ใช้การขีดฆ่าตัวหนังสือเนียนๆ หรือจุดสีชิดขอบ) */}
           <div className="flex items-center gap-1.5 text-stone-400">
             <span className="h-2.5 w-2.5 rounded-full bg-stone-300" />
             <span className="line-through decoration-stone-400">เต็ม</span>
