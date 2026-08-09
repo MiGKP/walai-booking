@@ -259,14 +259,22 @@ Details: `CONTRIBUTING.md`, `docs/TEAM_SETUP.md`.
 
 ## Known product direction (do not implement casually)
 
-**Multi-room booking in one checkout** was designed in discussion but not shipped:
+**Multi-room booking (shipped pattern):**
 
-- Multiple room types allowed
-- One payment
-- Shared check-in / check-out dates
-- Recommended model: new `booking_groups` header + many `room_bookings` rows linked by `booking_group_id`
+- Header: `room_bookings` (shared dates, guests, payment, group status)
+- Lines: `booking_room` (one row per physical room: `room_id`, price snapshot, line status)
+- Create with `items: [{ room_type_id, quantity }]` or legacy single `room_type_id`
+- Approve/reject the header (syncs lines); check-out via `PUT /api/bookings/booking-rooms/:bookingRoomId/checkout`
+- Spec: `docs/superpowers/specs/2026-08-09-multi-room-booking-design.md`
 
-Do not start this without an approved plan/spec. Related brainstorming may continue in chat; write a design doc under `docs/superpowers/specs/` before coding.
+**Multi-kayak booking (shipped pattern):**
+
+- Header: `boat_bookings` (shared date, `start_time`/`end_time`, payment, group status)
+- Lines: `booking_boat` (per boat type: passengers, `boat_count = ceil(pax/seats)`, subtotal, status)
+- Create with `items: [{ boat_type_id, num_passengers }]` + date + time window, or legacy `kayak_id` + `boat_round_id`
+- Inventory counts `SUM(boat_count)` on lines; pool slots still shared by matching time window
+- Approve/reject/check-out on header syncs all lines
+- Spec: `docs/superpowers/specs/2026-08-09-multi-kayak-booking-design.md`
 
 Adding a `checked_in` status also requires a DB CHECK migration and UI updates — not a one-line status string change.
 

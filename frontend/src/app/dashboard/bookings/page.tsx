@@ -136,13 +136,32 @@ export default function BookingsPage() {
                         <>
                           <p>เช็คอิน: {new Date(b.check_in_date || b.check_in).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                           <p>เช็คเอาต์: {new Date(b.check_out_date || b.check_out).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                          <p>ผู้เข้าพัก: {b.guests || b.guest_count} คน</p>
+                          <p>ผู้เข้าพัก: {b.guests || b.guest_count} คน{b.adults != null ? ` (ผู้ใหญ่ ${b.adults}, เด็ก ${b.children ?? 0})` : ''}</p>
+                          {Array.isArray(b.rooms) && b.rooms.length > 0 && (
+                            <ul className="mt-2 space-y-1 text-xs text-gray-600">
+                              {b.rooms.map((line: { booking_room_id: number; room_name: string; room_number: string; status: string }) => (
+                                <li key={line.booking_room_id}>
+                                  {line.room_name} · ห้อง {line.room_number}
+                                  {line.status === 'checked_out' ? ' (เช็คเอาต์แล้ว)' : ''}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </>
                       ) : (
                         <>
                           <p>วันที่: {new Date(b.booking_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                           <p>เวลา: {b.start_time?.slice(0,5)} - {b.end_time?.slice(0,5)} น.</p>
                           <p>ผู้โดยสาร: {b.num_passengers} คน</p>
+                          {Array.isArray(b.boats) && b.boats.length > 0 && (
+                            <ul className="mt-2 space-y-1 text-xs text-gray-600">
+                              {b.boats.map((line: { booking_boat_id: number; type_name?: string; num_passengers?: number; boat_count?: number }) => (
+                                <li key={line.booking_boat_id}>
+                                  {line.type_name || 'เรือ'} · {line.num_passengers ?? 0} คน · {line.boat_count ?? 0} ลำ
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </>
                       )}
                     </div>

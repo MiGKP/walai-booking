@@ -1119,6 +1119,30 @@ function BoatStaffDashboardContent() {
                             <p className="font-semibold text-stone-800 leading-snug">
                               {b.kayak_name || b.boat_name || "-"}
                             </p>
+                            {Array.isArray(b.boats) && b.boats.length > 1 && (
+                              <ul className="mt-1 space-y-0.5 text-[11px] text-stone-500">
+                                {b.boats.map(
+                                  (line: {
+                                    booking_boat_id: number;
+                                    type_name?: string;
+                                    num_passengers?: number;
+                                    boat_count?: number;
+                                  }) => (
+                                    <li key={line.booking_boat_id}>
+                                      {line.type_name || "เรือ"} ·{" "}
+                                      {line.num_passengers ?? 0} คน ·{" "}
+                                      {line.boat_count ?? 0} ลำ
+                                    </li>
+                                  ),
+                                )}
+                              </ul>
+                            )}
+                            {Array.isArray(b.boats) && b.boats.length === 1 && (
+                              <p className="mt-0.5 text-[11px] text-stone-500">
+                                {b.boats[0].num_passengers ?? 0} คน ·{" "}
+                                {b.boats[0].boat_count ?? 0} ลำ
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -1434,6 +1458,27 @@ function BoatStaffDashboardContent() {
                       <strong className="text-stone-700">ประเภทเรือ:</strong>{" "}
                       {booking.kayak_name || booking.boat_name}
                     </p>
+                    {Array.isArray(booking.boats) && booking.boats.length > 0 && (
+                      <ul className="mt-1 space-y-0.5 pl-1 text-stone-600">
+                        {booking.boats.map(
+                          (line: {
+                            booking_boat_id: number;
+                            type_name?: string;
+                            num_passengers?: number;
+                            boat_count?: number;
+                            subtotal?: number;
+                          }) => (
+                            <li key={line.booking_boat_id}>
+                              {line.type_name || "เรือ"} — {line.num_passengers ?? 0}{" "}
+                              คน / {line.boat_count ?? 0} ลำ
+                              {line.subtotal != null
+                                ? ` · ฿${Number(line.subtotal).toLocaleString()}`
+                                : ""}
+                            </li>
+                          ),
+                        )}
+                      </ul>
+                    )}
                     <p>
                       <strong className="text-stone-700">วันที่จอง:</strong>{" "}
                       {booking.booking_date

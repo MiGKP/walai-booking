@@ -20,6 +20,15 @@ export const cancelExpiredBookings = async (): Promise<void> => {
       [dueDays]
     );
 
+    if ((roomResult.rowCount ?? 0) > 0) {
+      const ids = roomResult.rows.map((r: { room_booking_id: number }) => r.room_booking_id);
+      await pool.query(
+        `UPDATE booking_room SET status = 'cancelled', updated_at = NOW()
+         WHERE room_booking_id = ANY($1::int[]) AND status <> 'checked_out'`,
+        [ids]
+      );
+    }
+
     // Cancel boat_bookings ที่หมดเวลา
     const boatResult = await pool.query(
       `UPDATE boat_bookings
@@ -29,6 +38,15 @@ export const cancelExpiredBookings = async (): Promise<void> => {
        RETURNING boat_booking_id`,
       [dueDays]
     );
+
+    if ((boatResult.rowCount ?? 0) > 0) {
+      const ids = boatResult.rows.map((r: { boat_booking_id: number }) => r.boat_booking_id);
+      await pool.query(
+        `UPDATE booking_boat SET status = 'cancelled', updated_at = NOW()
+         WHERE boat_booking_id = ANY($1::int[])`,
+        [ids]
+      );
+    }
 
     const roomCancelled = roomResult.rowCount ?? 0;
     const boatCancelled = boatResult.rowCount ?? 0;
