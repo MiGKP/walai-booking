@@ -46,7 +46,6 @@ const roomStaffAllowedPaths = [
   "/admin/rooms/location",
   "/admin/promotions",
   "/admin/reviews",
-  "/admin/rooms",
   "/admin/rooms/single",
   "/admin/rooms/amenities",
 ];
@@ -54,7 +53,6 @@ const roomStaffAllowedPaths = [
 const boatStaffAllowedPaths = [
   "/admin/calendar",
   "/admin/boats/location",
-  "/admin/boats",
   "/admin/boats/types",
   "/admin/boats/rounds",
 ];
@@ -161,17 +159,23 @@ export default function AdminSidebar() {
   // ฟังก์ชันแปลง Path จาก /admin เป็น /staff/... ตาม Role
   const resolvePath = (path: string) => {
     if (user?.role === "room_staff") {
-      if (path === "/admin/rooms") return "/staff/rooms/dashboard";
+      if (path === "/admin") return "/staff/rooms/dashboard";
+
       // ถ้า path มี /admin/rooms อยู่แล้ว ให้เปลี่ยนแค่ /admin เป็น /staff (เพื่อไม่ให้ซ้ำ)
       if (path.startsWith("/admin/rooms")) {
-        return path.replace("/admin/rooms", "/staff/rooms");
+        return path.replace("/admin", "/staff");
       }
       // ถ้าเป็น path อื่นๆ เช่น /admin/calendar -> /staff/rooms/calendar
-      return path.replace("/admin", "/staff/rooms");
+      if (path.startsWith("/admin")) {
+        return path.replace("/admin", "/staff/rooms");
+      }
     }
 
     if (user?.role === "boat_staff") {
-      if (path === "/admin/boats") return "/staff/boats/dashboard";
+      // หน้าภาพรวมของ boat_staff ชี้ไปที่แดชบอร์ดของระบบเรือ
+      if (path === "/admin") return "/staff/boats/dashboard";
+      // เมนู "แดชบอร์ดจองเรือ" (/admin/boats) เปลี่ยนเป็นหน้าจัดการการจองเรือแยกต่างหาก
+      if (path === "/admin/boats") return "/staff/boats";
       if (path.startsWith("/admin/boats")) {
         return path.replace("/admin/boats", "/staff/boats");
       }

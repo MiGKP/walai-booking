@@ -441,7 +441,8 @@ export default function AdminReviewsPage() {
                 ยืนยันการลบรีวิว
               </h3>
               <p className="text-xs text-stone-500 leading-relaxed">
-                คุณแน่ใจหรือไม่ว่าต้องการลบรีวิวนี้? การดำเนินการนี้ไม่สามารถย้อนกลับได้
+                คุณแน่ใจหรือไม่ว่าต้องการลบรีวิวนี้?
+                การดำเนินการนี้ไม่สามารถย้อนกลับได้
               </p>
             </div>
 
@@ -465,8 +466,6 @@ export default function AdminReviewsPage() {
           </div>
         </div>
       )}
-
-     
     </div>
   );
 }

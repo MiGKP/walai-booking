@@ -131,8 +131,18 @@ function CustomDatePicker({
   }, []);
 
   const monthNames = [
-    "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-    "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+    "มกราคม",
+    "กุมภาพันธ์",
+    "มีนาคม",
+    "เมษายน",
+    "พฤษภาคม",
+    "มิถุนายน",
+    "กรกฎาคม",
+    "สิงหาคม",
+    "กันยายน",
+    "ตุลาคม",
+    "พฤศจิกายน",
+    "ธันวาคม",
   ];
 
   const year = viewDate.getFullYear();
@@ -255,8 +265,8 @@ function CustomDatePicker({
                     selected
                       ? "bg-[#0b3b2c] text-white font-bold shadow-xs scale-105"
                       : today
-                      ? "bg-emerald-100 text-[#0b3b2c] font-bold border border-emerald-300"
-                      : "text-stone-700 hover:bg-stone-100"
+                        ? "bg-emerald-100 text-[#0b3b2c] font-bold border border-emerald-300"
+                        : "text-stone-700 hover:bg-stone-100"
                   }`}
                 >
                   {day}
@@ -394,9 +404,7 @@ export default function RoomStaffDashboard() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const { ready } = useAuthGuard({
-    allowedRoles: ["admin", "room_staff"],
-  });
+  const { ready } = useAuthGuard({ allowedRoles: ["admin", "room_staff"] });
 
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -601,7 +609,11 @@ export default function RoomStaffDashboard() {
           setBookings((prev) =>
             prev.map((b) =>
               b.id === id
-                ? { ...b, status: "checked_in", checkin_at: new Date().toISOString() }
+                ? {
+                    ...b,
+                    status: "checked_in",
+                    checkin_at: new Date().toISOString(),
+                  }
                 : b,
             ),
           );
@@ -628,7 +640,11 @@ export default function RoomStaffDashboard() {
           setBookings((prev) =>
             prev.map((b) =>
               b.id === id
-                ? { ...b, status: "checked_out", checkout_at: new Date().toISOString() }
+                ? {
+                    ...b,
+                    status: "checked_out",
+                    checkout_at: new Date().toISOString(),
+                  }
                 : b,
             ),
           );
@@ -843,7 +859,8 @@ export default function RoomStaffDashboard() {
             </span>
           </div>
           <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจอง เช็คอิน และเช็คเอาต์ผู้เข้าพัก
+            ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจอง เช็คอิน
+            และเช็คเอาต์ผู้เข้าพัก
           </p>
         </div>
       </div>
@@ -1501,7 +1518,10 @@ export default function RoomStaffDashboard() {
 
                   <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 space-y-1.5 print:bg-white print:border-stone-200">
                     <div className="flex items-center gap-2 font-semibold text-stone-800 text-sm mb-1">
-                      <BedDouble size={15} className="text-stone-500 print:hidden" />
+                      <BedDouble
+                        size={15}
+                        className="text-stone-500 print:hidden"
+                      />
                       <span>รายละเอียดห้องพัก</span>
                     </div>
                     <p>
@@ -1515,28 +1535,39 @@ export default function RoomStaffDashboard() {
                       {booking.room_number || booking.room_id}
                     </p>
                     <p>
-                      <strong className="text-stone-700">ระยะเวลาเข้าพัก:</strong>{" "}
+                      <strong className="text-stone-700">
+                        ระยะเวลาเข้าพัก:
+                      </strong>{" "}
                       {booking.check_in
-                        ? new Date(booking.check_in).toLocaleDateString("th-TH", {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                          })
+                        ? new Date(booking.check_in).toLocaleDateString(
+                            "th-TH",
+                            {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            },
+                          )
                         : "-"}{" "}
                       ถึง{" "}
                       {booking.check_out
-                        ? new Date(booking.check_out).toLocaleDateString("th-TH", {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                          })
+                        ? new Date(booking.check_out).toLocaleDateString(
+                            "th-TH",
+                            {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            },
+                          )
                         : "-"}{" "}
                       ({nights} คืน)
                     </p>
 
                     <div className="pt-2 mt-2 border-t border-stone-200/60">
                       <div className="flex items-center gap-1.5 text-stone-700 font-semibold mb-1">
-                        <MessageSquare size={13} className="text-[#0b3b2c] print:hidden" />
+                        <MessageSquare
+                          size={13}
+                          className="text-[#0b3b2c] print:hidden"
+                        />
                         <span>คำขอพิเศษ (Special Request):</span>
                       </div>
                       <p className="text-stone-600 bg-white p-2 rounded-xl border border-stone-200/80 leading-relaxed italic print:border-stone-300">
@@ -1579,12 +1610,15 @@ export default function RoomStaffDashboard() {
                     </div>
                   </div>
 
-                  {booking.status === "rejected" && (booking.reject_reason || booking.reason) && (
-                    <div className="p-3 bg-rose-50 rounded-2xl border border-rose-200/80 space-y-1 text-rose-800 print:bg-white print:border-rose-300">
-                      <span className="font-semibold">เหตุผลที่ปฏิเสธ:</span>
-                      <p className="italic text-rose-700">{booking.reject_reason || booking.reason}</p>
-                    </div>
-                  )}
+                  {booking.status === "rejected" &&
+                    (booking.reject_reason || booking.reason) && (
+                      <div className="p-3 bg-rose-50 rounded-2xl border border-rose-200/80 space-y-1 text-rose-800 print:bg-white print:border-rose-300">
+                        <span className="font-semibold">เหตุผลที่ปฏิเสธ:</span>
+                        <p className="italic text-rose-700">
+                          {booking.reject_reason || booking.reason}
+                        </p>
+                      </div>
+                    )}
 
                   <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 flex justify-between items-center print:bg-white print:border-stone-200">
                     <span className="font-semibold text-stone-700">

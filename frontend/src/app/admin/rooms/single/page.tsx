@@ -125,7 +125,7 @@ function CustomSelect({
 }
 
 export default function SingleRoomsPage() {
-  const { ready } = useAuthGuard({ allowedRoles: ["admin"] });
+const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
 
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [singleRooms, setSingleRooms] = useState<any[]>([]);

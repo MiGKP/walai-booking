@@ -28,22 +28,24 @@ const router = Router();
 router.get('/', getAllRooms);
 router.get('/availability', checkRoomAvailability);
 router.get('/calendar', getRoomCalendar);
-router.get('/amenities/all', getAmenities);
-router.get('/single/all', getAllSingleRooms);
+
+
+router.get('/amenities/all', authenticate, authorize('admin', 'room_staff'), getAmenities);
+router.get('/single/all', authenticate, authorize('admin', 'room_staff'), getAllSingleRooms);
 // ดึงลำดับห้องถัดไปอัตโนมัติ
-router.get('/single/next-number', getNextRoomNumber);
+router.get('/single/next-number', authenticate, authorize('admin', 'room_staff'), getNextRoomNumber);
 
-// Single room routes
-router.post('/single/batch', authenticate, authorize('admin'), createBatchSingleRooms); // ✅ แก้ไข Path และวางไว้ก่อน /single
-router.post('/single', authenticate, authorize('admin'), createSingleRoom);
-router.put('/single/:id', authenticate, authorize('admin'), updateSingleRoom);
-router.delete('/single/:id', authenticate, authorize('admin'), deleteSingleRoom);
+// Single room routes (เปิดสิทธิ์ให้ room_staff)
+router.post('/single/batch', authenticate, authorize('admin', 'room_staff'), createBatchSingleRooms);
+router.post('/single', authenticate, authorize('admin', 'room_staff'), createSingleRoom);
+router.put('/single/:id', authenticate, authorize('admin', 'room_staff'), updateSingleRoom);
+router.delete('/single/:id', authenticate, authorize('admin', 'room_staff'), deleteSingleRoom);
 
-// Amenity routes
-router.post('/amenity', authenticate, authorize('admin'), createRoomAmenity);
-router.put('/amenity/:id', authenticate, authorize('admin'), updateAmenity);
-router.patch('/amenity/:id/status', authenticate, authorize('admin'), toggleAmenityStatus); 
-router.delete('/amenity/:id', authenticate, authorize('admin'), deleteAmenity);
+// Amenity routes (เปิดสิทธิ์ให้ room_staff)
+router.post('/amenity', authenticate, authorize('admin', 'room_staff'), createRoomAmenity);
+router.put('/amenity/:id', authenticate, authorize('admin', 'room_staff'), updateAmenity);
+router.patch('/amenity/:id/status', authenticate, authorize('admin', 'room_staff'), toggleAmenityStatus); 
+router.delete('/amenity/:id', authenticate, authorize('admin', 'room_staff'), deleteAmenity);
 
 // Room type routes (dynamic - must come last)
 router.post('/type', authenticate, authorize('admin'), createRoom);
