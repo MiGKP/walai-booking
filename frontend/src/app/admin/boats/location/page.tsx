@@ -38,9 +38,7 @@ const DAYS_OPTIONS = [
 
 export default function BoatLocationPage() {
   // อนุญาตให้ admin และ boat_staff เข้าถึงได้
-  const { ready } = useAuthGuard({
-    allowedRoles: ["admin", "boat_staff"],
-  });
+  const { ready } = useAuthGuard({ allowedRoles: ["boat_staff", "admin"] });
 
   const [recordId, setRecordId] = useState<number | string | null>(5);
   const [form, setForm] = useState({
@@ -116,7 +114,7 @@ export default function BoatLocationPage() {
     const isMonToFri =
       days.length === 5 &&
       ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์"].every((d) =>
-        days.includes(d)
+        days.includes(d),
       );
     if (isMonToFri) return "จันทร์ - ศุกร์";
 
@@ -141,8 +139,7 @@ export default function BoatLocationPage() {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () =>
-      document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -160,8 +157,7 @@ export default function BoatLocationPage() {
           if (Array.isArray(rawData)) {
             d =
               rawData.find(
-                (item: any) =>
-                  item.id === 5 || item.name?.includes("เรือ")
+                (item: any) => item.id === 5 || item.name?.includes("เรือ"),
               ) ||
               rawData[2] ||
               rawData[0];
@@ -202,7 +198,7 @@ export default function BoatLocationPage() {
     } else {
       const allDays = DAYS_OPTIONS.map((d) => d.full);
       updated = [...selectedDays, day].sort(
-        (a, b) => allDays.indexOf(a) - allDays.indexOf(b)
+        (a, b) => allDays.indexOf(a) - allDays.indexOf(b),
       );
     }
     setSelectedDays(updated);
@@ -266,7 +262,8 @@ export default function BoatLocationPage() {
               ตั้งค่าจุดบริการเรือ & ท่าเรือ
             </h1>
             <p className="text-stone-500 mt-0.5 text-xs md:text-sm">
-              จัดการเบอร์ติดต่อ พิกัดจุดขึ้นเรือ/เคาน์เตอร์ วัน และเวลาทำการประจำจุดบริการเรือ
+              จัดการเบอร์ติดต่อ พิกัดจุดขึ้นเรือ/เคาน์เตอร์ วัน
+              และเวลาทำการประจำจุดบริการเรือ
             </p>
           </div>
 
@@ -307,7 +304,8 @@ export default function BoatLocationPage() {
               <div className="space-y-4 pt-1">
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                    ชื่อจุดบริการ / ท่าเรือ <span className="text-rose-500">*</span>
+                    ชื่อจุดบริการ / ท่าเรือ{" "}
+                    <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -357,7 +355,8 @@ export default function BoatLocationPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                      <MessageCircle size={14} className="text-stone-400" /> Line ID
+                      <MessageCircle size={14} className="text-stone-400" />{" "}
+                      Line ID
                     </label>
                     <input
                       type="text"
@@ -496,7 +495,8 @@ export default function BoatLocationPage() {
                   {/* เวลาทำการ */}
                   <div>
                     <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                      <Clock size={14} className="text-emerald-600" /> เวลาเปิดให้บริการเรือ
+                      <Clock size={14} className="text-emerald-600" />{" "}
+                      เวลาเปิดให้บริการเรือ
                     </label>
 
                     <div className="flex items-center gap-2">

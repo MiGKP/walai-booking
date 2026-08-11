@@ -30,7 +30,8 @@ export const getAllPromotions = async (req: Request, res: Response): Promise<voi
     const result = await pool.query(
       `SELECT id, code, name, description, discount_type, discount_value,
               min_nights, min_price, max_discount, start_date, end_date,
-              usage_limit, usage_count, is_active, created_at
+              usage_limit, usage_count, is_active, created_at,
+              room_type_id, room_count, boat_ticket_count
        FROM promotions
        ORDER BY created_at DESC`
     );
@@ -124,7 +125,7 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
     const {
       code, name, description, discount_type, discount_value,
       min_nights, min_price, max_discount, start_date, end_date,
-      usage_limit, is_active,
+      usage_limit, is_active, room_type_id, room_count, boat_ticket_count
     } = req.body;
 
     // ตรวจสอบ code ซ้ำ
@@ -137,8 +138,8 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
     const result = await pool.query(
       `INSERT INTO promotions (code, name, description, discount_type, discount_value,
                                min_nights, min_price, max_discount, start_date, end_date,
-                               usage_limit, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                               usage_limit, is_active, room_type_id, room_count, boat_ticket_count)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *`,
       [
         code.toUpperCase().trim(), name, description || null,
@@ -146,6 +147,7 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
         min_nights || null, min_price || null, max_discount || null,
         start_date || null, end_date || null,
         usage_limit || null, is_active !== false,
+        room_type_id || null, room_count || 1, boat_ticket_count || 0
       ]
     );
 
@@ -156,14 +158,14 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
   }
 };
 
-// อัปเดตโปรโมชั่น (Admin only)
+// อัปเดตโปรโมชั่น (Admin & Room Staff)
 export const updatePromotion = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const {
       code, name, description, discount_type, discount_value,
       min_nights, min_price, max_discount, start_date, end_date,
-      usage_limit, is_active,
+      usage_limit, is_active, room_type_id, room_count, boat_ticket_count
     } = req.body;
 
     // ตรวจสอบ code ซ้ำ (ยกเว้น id ปัจจุบัน)
@@ -192,15 +194,28 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
            end_date = $10,
            usage_limit = $11,
            is_active = COALESCE($12, is_active),
+           room_type_id = $13,
+           room_count = COALESCE($14, room_count),
+           boat_ticket_count = COALESCE($15, boat_ticket_count),
            updated_at = NOW()
-       WHERE id = $13
+       WHERE id = $16
        RETURNING *`,
       [
-        code?.toUpperCase().trim() || null, name || null, description || null,
-        discount_type || null, discount_value || null,
-        min_nights || null, min_price || null, max_discount || null,
-        start_date || null, end_date || null,
-        usage_limit || null, is_active !== undefined ? is_active : null,
+        code?.toUpperCase().trim() || null,
+        name || null,
+        description || null,
+        discount_type || null,
+        discount_value || null,
+        min_nights ?? null,
+        min_price ?? null,
+        max_discount ?? null,
+        start_date || null,
+        end_date || null,
+        usage_limit ?? null,
+        is_active !== undefined ? is_active : null,
+        room_type_id ?? null,
+        room_count ?? 1,
+        boat_ticket_count ?? 0,
         id,
       ]
     );
@@ -221,12 +236,25 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
 export const deletePromotion = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM promotions WHERE id = $1 RETURNING id', [id]);
-    if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: 'Promotion not found' });
+
+    // 1. เช็คว่าถูกใช้งานไปแล้วหรือยัง[cite: 1, 2]
+    const checkUsage = await pool.query('SELECT usage_count FROM promotions WHERE id = $1', [id]);
+    if (checkUsage.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'ไม่พบข้อมูลโปรโมชั่น' });
       return;
     }
-    res.json({ success: true, message: 'ลบโปรโมชั่นสำเร็จ' });
+
+    if (checkUsage.rows[0].usage_count > 0) {
+      res.status(400).json({ 
+        success: false, 
+        message: 'ไม่สามารถลบได้ เนื่องจากแพ็คเกจ/โปรโมชั่นนี้เคยถูกใช้งานแล้ว' 
+      });
+      return;
+    }
+
+    // 2. ถ้ายังไม่เคยถูกใช้งาน ให้ลบได้[cite: 1, 2]
+    await pool.query('DELETE FROM promotions WHERE id = $1', [id]);
+    res.json({ success: true, message: 'ลบแพ็คเกจสำเร็จ' });
   } catch (error) {
     console.error('Delete promotion error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });

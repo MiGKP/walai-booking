@@ -27,7 +27,7 @@ export interface Amenity {
 }
 
 export default function AmenitiesPage() {
-  const { ready } = useAuthGuard({ allowedRoles: ["admin"] });
+const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
 
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [loading, setLoading] = useState(true);

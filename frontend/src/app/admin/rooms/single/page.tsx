@@ -126,7 +126,7 @@ function CustomSelect({
 }
 
 function SingleRoomsPageContent() {
-  const { ready } = useAuthGuard({ allowedRoles: ["admin"] });
+  const { ready } = useAuthGuard({ allowedRoles: ["admin", "room_staff"] });
   const searchParams = useSearchParams();
   const typeIdFromQuery = searchParams.get("type_id");
   const appliedQueryTypeRef = useRef<string | null>(null);

@@ -1,0 +1,1 @@
+export { default } from "@/app/admin/rooms/amenities/page";

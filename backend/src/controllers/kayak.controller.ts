@@ -285,7 +285,7 @@ export const getKayakCalendar = async (
        rounds AS (
          SELECT br.boat_round_id, br.start_time, br.end_time, br.total_slots
          FROM boat_rounds br
-         WHERE br.is_active = true AND br.boat_type_id = $1::int
+         WHERE br.is_active = true AND (br.boat_type_id = $1::int OR $1::int IN (SELECT boat_type_id FROM round_boats WHERE boat_round_id = br.boat_round_id))
        ),
        stock AS (
          SELECT COALESCE(quantity, 0)::int AS quantity FROM boat_types WHERE boat_type_id = $1::int
@@ -431,7 +431,7 @@ export const getKayakDayRounds = async (
              )
          ), 0)::int AS pool_booked
        FROM boat_rounds br
-       WHERE br.is_active = true AND br.boat_type_id = $1::int
+       WHERE br.is_active = true AND (br.boat_type_id = $1::int OR $1::int IN (SELECT boat_type_id FROM round_boats WHERE boat_round_id = br.boat_round_id))
        ORDER BY br.start_time`,
       [kayakId, booking_date],
     );
@@ -488,7 +488,7 @@ export const getKayakSchedule = async (
     let query = `SELECT * FROM boat_rounds WHERE is_active = true`;
     const params = [];
     if (kayak_id) {
-      query += ` AND boat_type_id = $1`;
+      query += ` AND (boat_type_id = $1 OR boat_round_id IN (SELECT boat_round_id FROM round_boats WHERE boat_type_id = $1))`;
       params.push(kayak_id);
     }
     query += ` ORDER BY start_time`;
@@ -634,7 +634,9 @@ export const createKayakBooking = async (
       const roundResult = await client.query(
         `SELECT boat_round_id, max_booking, total_slots, start_time, end_time
          FROM boat_rounds
-         WHERE boat_type_id = $1
+         WHERE (boat_type_id = $1 OR boat_round_id IN (
+                  SELECT boat_round_id FROM round_boats WHERE boat_type_id = $1
+                ))
            AND is_active = true
            AND start_time = $2::time
            AND end_time = $3::time
@@ -935,16 +937,23 @@ export const getAllKayakBookings = async (
        FROM boat_bookings bb
        JOIN members m ON bb.member_id = m.member_id
        LEFT JOIN staff s ON bb.approved_by_staff_id = s.staff_id
-       ORDER BY bb.created_at DESC`,
+       ORDER BY bb.boat_booking_id DESC`,
     );
+
     res.json({ success: true, data: result.rows });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Get all kayak bookings error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
 
-export const getAllKayaksAdmin = async (req: Request, res: Response): Promise<void> => {
+export const getAllKayaksAdmin = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const query = `
       SELECT 
@@ -972,14 +981,14 @@ export const getAllKayaksAdmin = async (req: Request, res: Response): Promise<vo
     `;
 
     const result = await pool.query(query);
-    
-    res.status(200).json({ 
-      success: true, 
-      data: result.rows 
+
+    res.status(200).json({
+      success: true,
+      data: result.rows,
     });
   } catch (error) {
-    console.error('getAllKayaksAdmin error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error("getAllKayaksAdmin error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -1230,7 +1239,7 @@ export const updateKayakBookingStatus = async (
               bookingType: "kayak",
               bookingId: Number(id),
               status: status as "approved" | "rejected",
-              details: `เรือคายัค ${info.type_name || ""} (รอบเวลา ${timeRange})`,
+              details: `เรือคายัค ${info.type_name || "เรือคายัค"} (รอบเวลา ${timeRange})`,
             });
           }
         } catch (err) {
@@ -1343,7 +1352,10 @@ export const deleteKayak = async (
       if (row.image_path) {
         await deleteCloudinaryImage(row.image_path).catch(
           (cleanupError: unknown) => {
-            console.error("Delete kayak Cloudinary cleanup error:", cleanupError);
+            console.error(
+              "Delete kayak Cloudinary cleanup error:",
+              cleanupError,
+            );
           },
         );
       }
@@ -1537,10 +1549,7 @@ export const updateKayak = async (
       // 7. สั่งลบรูปที่ไม่ได้ใช้แล้วออกจาก Cloudinary
       for (const imgPath of removedImagePaths) {
         await deleteCloudinaryImage(imgPath).catch((cleanupError: unknown) => {
-          console.error(
-            "Update kayak Cloudinary cleanup error:",
-            cleanupError,
-          );
+          console.error("Update kayak Cloudinary cleanup error:", cleanupError);
         });
       }
     }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Menu, X, User, LogOut, ChevronDown, Star } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveAvatarUrl } from "@/lib/avatar";
@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import Image from "next/image";
 
 export default function Navbar() {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
@@ -53,6 +54,12 @@ export default function Navbar() {
     router.push("/");
     setDropdownOpen(false);
   };
+
+  // ซ่อน Navbar เฉพาะเมื่ออยู่ในหน้าระบบจัดการ (/admin หรือ /staff)
+  // เพื่อให้ Navbar ยังคงแสดงผลปกติเมื่อ Admin/Staff ออกมาดูหน้าเว็บจริง
+  if (pathname.startsWith("/admin") || pathname.startsWith("/staff")) {
+    return null;
+  }
 
   return (
     <nav

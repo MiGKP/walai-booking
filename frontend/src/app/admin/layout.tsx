@@ -1,11 +1,16 @@
+"use client";
 // src/app/admin/layout.tsx
 import AdminSidebar from '@/components/admin/AdminSidebar';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { ready } = useAuthGuard({ allowedRoles: ['admin'] });
+
+  if (!ready) return null;
   return (
     <div className="flex min-h-[calc(100vh-4rem)]" style={{ backgroundColor: 'var(--color-stone-100)' }}>
       {/* Sidebar แสดงผลทางซ้ายสำหรับทุกหน้าใต้ /admin */}

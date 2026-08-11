@@ -41,6 +41,22 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
+const roomStaffAllowedPaths = [
+  "/admin/calendar",
+  "/admin/rooms/location",
+  "/admin/promotions",
+  "/admin/reviews",
+  "/admin/rooms/single",
+  "/admin/rooms/amenities",
+];
+
+const boatStaffAllowedPaths = [
+  "/admin/calendar",
+  "/admin/boats/location",
+  "/admin/boats/types",
+  "/admin/boats/rounds",
+];
+
 const menuGroups: MenuGroup[] = [
   {
     title: "ข้อมูลสวนและรายงาน",
@@ -131,11 +147,6 @@ const menuGroups: MenuGroup[] = [
         path: "/admin/boats/rounds",
         icon: <Sailboat size={16} />,
       },
-      // {
-      //   label: "เวลาทำการ",
-      //   path: "/admin/boat-hours",
-      //   icon: <Clock size={16} />,
-      // },
     ],
   },
 ];
@@ -145,17 +156,82 @@ export default function AdminSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
 
+  // ฟังก์ชันแปลง Path จาก /admin เป็น /staff/... ตาม Role
+  const resolvePath = (path: string) => {
+    if (user?.role === "room_staff") {
+      if (path === "/admin") return "/staff/rooms/dashboard";
+
+      // ถ้า path มี /admin/rooms อยู่แล้ว ให้เปลี่ยนแค่ /admin เป็น /staff (เพื่อไม่ให้ซ้ำ)
+      if (path.startsWith("/admin/rooms")) {
+        return path.replace("/admin", "/staff");
+      }
+      // ถ้าเป็น path อื่นๆ เช่น /admin/calendar -> /staff/rooms/calendar
+      if (path.startsWith("/admin")) {
+        return path.replace("/admin", "/staff/rooms");
+      }
+    }
+
+    if (user?.role === "boat_staff") {
+      // หน้าภาพรวมของ boat_staff ชี้ไปที่แดชบอร์ดของระบบเรือ
+      if (path === "/admin") return "/staff/boats/dashboard";
+      // เมนู "แดชบอร์ดจองเรือ" (/admin/boats) เปลี่ยนเป็นหน้าจัดการการจองเรือแยกต่างหาก
+      if (path === "/admin/boats") return "/staff/boats";
+      if (path.startsWith("/admin/boats")) {
+        return path.replace("/admin/boats", "/staff/boats");
+      }
+      return path.replace("/admin", "/staff/boats");
+    }
+
+    return path;
+  };
+
+  const dashboardHref = resolvePath("/admin");
+  const calendarHref = resolvePath("/admin/calendar");
+  const profileHref = resolvePath("/admin/profile");
+
+  // กรองเมนูและแปลง Path ย่อยตามสิทธิ์ของ user role
+  const filteredMenuGroups = menuGroups
+    .map((group) => {
+      let allowedItems = group.items;
+
+      if (user?.role === "room_staff") {
+        allowedItems = group.items.filter((item) =>
+          roomStaffAllowedPaths.includes(item.path),
+        );
+      } else if (user?.role === "boat_staff") {
+        allowedItems = group.items.filter((item) =>
+          boatStaffAllowedPaths.includes(item.path),
+        );
+      }
+
+      return {
+        ...group,
+        items: allowedItems.map((item) => ({
+          ...item,
+          path: resolvePath(item.path),
+        })),
+      };
+    })
+    .filter((group) => group.items.length > 0);
+
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
-    const activeGroup = menuGroups.find((g) =>
+    const activeGroup = filteredMenuGroups.find((g) =>
       g.items.some((item) => item.path === pathname),
     );
-    return activeGroup ? [activeGroup.title] : ["ข้อมูลสวนและรายงาน"];
+    return activeGroup ? [activeGroup.title] : ["ห้องพัก"];
   });
 
   const toggleGroup = (title: string) => {
     setOpenGroups((prev) =>
       prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title],
     );
+  };
+
+  const getRoleTitle = () => {
+    if (user?.role === "room_staff")
+      return "ระบบจัดการสำหรับเจ้าหน้าที่ห้องพัก";
+    if (user?.role === "boat_staff") return "ระบบจัดการสำหรับเจ้าหน้าที่เรือ";
+    return "ระบบจัดการผู้ดูแลระบบ";
   };
 
   const navContent = (
@@ -165,17 +241,17 @@ export default function AdminSidebar() {
         <h2 className="font-display font-semibold text-base text-forest-800">
           สวนวลัยรุกขเวช
         </h2>
-        <p className="text-[11px] text-charcoal-400">ระบบจัดการผู้ดูแลระบบ</p>
+        <p className="text-[11px] text-charcoal-400">{getRoleTitle()}</p>
       </div>
 
       {/* Nav Links */}
       <nav className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
         {/* Dashboard Main Link */}
         <Link
-          href="/admin"
+          href={dashboardHref}
           onClick={() => setMobileOpen(false)}
           className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-            pathname === "/admin"
+            pathname === dashboardHref
               ? "bg-forest-800 text-cream-100 shadow-sm"
               : "text-charcoal-600 hover:bg-stone-200/50"
           }`}
@@ -184,11 +260,12 @@ export default function AdminSidebar() {
           <span>ภาพรวม (Dashboard)</span>
         </Link>
 
+        {/* Calendar Link */}
         <Link
-          href="/admin/calendar"
+          href={calendarHref}
           onClick={() => setMobileOpen(false)}
           className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-            pathname === "/admin/calendar"
+            pathname === calendarHref
               ? "bg-forest-800 text-cream-100 shadow-sm"
               : "text-charcoal-600 hover:bg-stone-200/50"
           }`}
@@ -198,7 +275,7 @@ export default function AdminSidebar() {
         </Link>
 
         {/* Accordion Groups */}
-        {menuGroups.map((group) => {
+        {filteredMenuGroups.map((group) => {
           const isOpen = openGroups.includes(group.title);
           const hasActiveChild = group.items.some(
             (item) => item.path === pathname,
@@ -290,19 +367,17 @@ export default function AdminSidebar() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-forest-800 truncate">
-                {user?.first_name
-                  ? `${user.first_name}`
-                  : "ผู้ใช้แอดมิน"}
+                {user?.first_name ? `${user.first_name}` : "ผู้ใช้ระบบ"}
               </p>
               <p className="text-[10px] text-charcoal-400 truncate">
-                {user?.email || "admin@walai.com"}
+                {user?.email || "user@walai.com"}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-1 pt-1.5 border-t border-stone-100">
             <Link
-              href="/admin/profile"
+              href={profileHref}
               onClick={() => setMobileOpen(false)}
               className="flex items-center justify-center gap-1 py-1 text-[11px] font-medium text-charcoal-600 hover:text-forest-800 hover:bg-stone-100 rounded-lg transition-colors"
             >

@@ -19,10 +19,19 @@ import {
   ChevronDown,
   Copy,
   AlertCircle,
+  Ship,
+  Bed,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import toast from "react-hot-toast";
+
+interface RoomType {
+  id: number;
+  name?: string;
+  type_name?: string;
+  room_name?: string;
+}
 
 interface Promotion {
   id: number;
@@ -40,6 +49,10 @@ interface Promotion {
   usage_count: number;
   is_active: boolean;
   created_at: string;
+  room_type_id?: number;
+  room_type_name?: string;
+  room_count?: number;
+  boat_ticket_count?: number;
 }
 
 const defaultForm = {
@@ -55,6 +68,9 @@ const defaultForm = {
   end_date: "",
   usage_limit: "",
   is_active: true,
+  room_type_id: "",
+  room_count: "1",
+  boat_ticket_count: "0",
 };
 
 // 🌟 Component Custom Dropdown
@@ -75,7 +91,7 @@ function CustomSelect({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find(
-    (opt) => String(opt.value) === String(value)
+    (opt) => String(opt.value) === String(value),
   );
 
   useEffect(() => {
@@ -160,14 +176,19 @@ const formatDateForInput = (dateStr?: string) => {
 };
 
 export default function PromotionsPage() {
-  const { ready } = useAuthGuard({ allowedRoles: ["admin"] });
+  const { ready } = useAuthGuard({ allowedRoles: ["admin", "room_staff"] });
   const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(defaultForm);
   const [saving, setSaving] = useState(false);
+
+  // 🌟 State สำหรับ ป๊อบอัพยืนยันการลบ
+  const [deletingPromotion, setDeletingPromotion] = useState<Promotion | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const DISCOUNT_TYPE_OPTIONS = [
     { value: "percent", label: "เปอร์เซ็นต์ (%)" },
@@ -177,6 +198,11 @@ export default function PromotionsPage() {
   useEffect(() => {
     if (!ready) return;
     fetchPromotions();
+    fetchRoomTypes();
+
+    return () => {
+      toast.dismiss();
+    };
   }, [ready]);
 
   const fetchPromotions = async () => {
@@ -190,6 +216,23 @@ export default function PromotionsPage() {
       setLoading(false);
     }
   };
+
+  const fetchRoomTypes = async () => {
+    try {
+      const res = await api.get("/rooms");
+      setRoomTypes(res.data?.data || res.data || []);
+    } catch (err) {
+      console.error("โหลดข้อมูลประเภทห้องพักไม่สำเร็จ", err);
+    }
+  };
+
+  const roomTypeOptions = [
+    { value: "", label: "ทุกประเภทห้องพัก" },
+    ...roomTypes.map((rt) => ({
+      value: rt.id,
+      label: rt.type_name || rt.room_name || rt.name || `ห้อง ${rt.id}`,
+    })),
+  ];
 
   const openCreate = () => {
     setEditingId(null);
@@ -212,6 +255,11 @@ export default function PromotionsPage() {
       end_date: formatDateForInput(p.end_date),
       usage_limit: p.usage_limit ? String(p.usage_limit) : "",
       is_active: p.is_active,
+      room_type_id: p.room_type_id ? String(p.room_type_id) : "",
+      room_count: p.room_count ? String(p.room_count) : "1",
+      boat_ticket_count: p.boat_ticket_count
+        ? String(p.boat_ticket_count)
+        : "0",
     });
     setShowModal(true);
   };
@@ -229,6 +277,11 @@ export default function PromotionsPage() {
         usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
         start_date: form.start_date || null,
         end_date: form.end_date || null,
+        room_type_id: form.room_type_id ? Number(form.room_type_id) : null,
+        room_count: form.room_count ? Number(form.room_count) : 1,
+        boat_ticket_count: form.boat_ticket_count
+          ? Number(form.boat_ticket_count)
+          : 0,
       };
 
       if (editingId) {
@@ -258,22 +311,27 @@ export default function PromotionsPage() {
     }
   };
 
-  const handleDelete = async (p: Promotion) => {
-    if (!confirm(`ต้องการลบโปรโมชั่น "${p.name}" ใช่ไหม?`)) return;
+  // 🌟 ฟังก์ชันกดยืนยันลบจริง
+  const confirmDelete = async () => {
+    if (!deletingPromotion) return;
+    setDeleting(true);
     try {
-      await api.delete(`/promotions/${p.id}`);
+      await api.delete(`/promotions/${deletingPromotion.id}`);
       toast.success("ลบโปรโมชั่นสำเร็จ");
       fetchPromotions();
+      setDeletingPromotion(null);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       toast.error(error.response?.data?.message || "ลบไม่สำเร็จ");
+    } finally {
+      setDeleting(false);
     }
   };
 
   const filtered = promotions.filter(
     (p) =>
       (p.name && p.name.toLowerCase().includes(search.toLowerCase())) ||
-      (p.code && p.code.toLowerCase().includes(search.toLowerCase()))
+      (p.code && p.code.toLowerCase().includes(search.toLowerCase())),
   );
 
   if (!ready) return null;
@@ -284,10 +342,10 @@ export default function PromotionsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200/80">
         <div>
           <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-            จัดการโปรโมชั่น
+            จัดการโปรโมชั่น / แพ็คเกจ
           </h1>
           <p className="text-stone-400 mt-0.5 text-xs md:text-sm">
-            สร้างและจัดการโค้ดส่วนลดสำหรับการจองห้องพัก
+            สร้างและจัดการโค้ดส่วนลดและแพ็คเกจห้องพักพร้อมบัตรพายเรือ
           </p>
         </div>
 
@@ -296,18 +354,17 @@ export default function PromotionsPage() {
           className="inline-flex items-center justify-center gap-2 bg-[#0b3b2c] hover:bg-[#07271d] text-white px-4 py-2.5 rounded-xl font-medium shadow-2xs transition-all text-sm active:scale-95 cursor-pointer"
         >
           <Plus size={18} />
-          <span>เพิ่มโปรโมชั่น</span>
+          <span>เพิ่มโปรโมชั่น / แพ็คเกจ</span>
         </button>
       </div>
 
       {/* 🌟 Stats Cards (4 Columns) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        {/* Card 1: โปรโมชั่นทั้งหมด */}
         <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-2xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider">
-                โปรโมชั่นทั้งหมด
+                รายการทั้งหมด
               </p>
               <h3 className="text-2xl font-extrabold text-[#0b3b2c] mt-1">
                 {promotions.length}
@@ -319,7 +376,6 @@ export default function PromotionsPage() {
           </div>
         </div>
 
-        {/* Card 2: กำลังเปิดใช้งาน */}
         <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-2xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
@@ -336,7 +392,6 @@ export default function PromotionsPage() {
           </div>
         </div>
 
-        {/* Card 3: ถูกใช้งานไปแล้ว */}
         <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-2xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
@@ -356,7 +411,6 @@ export default function PromotionsPage() {
           </div>
         </div>
 
-        {/* Card 4: หมดอายุ / สิทธิ์เต็ม */}
         <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-2xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
@@ -403,7 +457,8 @@ export default function PromotionsPage() {
             <thead>
               <tr className="bg-stone-50 border-b border-stone-200/80 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
                 <th className="px-5 py-3.5">โค้ด</th>
-                <th className="px-5 py-3.5">ชื่อโปรโมชั่น</th>
+                <th className="px-5 py-3.5">ชื่อแพ็คเกจ/โปรโมชั่น</th>
+                <th className="px-5 py-3.5">ห้องพัก & บัตรพายเรือ</th>
                 <th className="px-5 py-3.5">ส่วนลด</th>
                 <th className="px-5 py-3.5">เงื่อนไข</th>
                 <th className="px-5 py-3.5">ระยะเวลา</th>
@@ -416,7 +471,7 @@ export default function PromotionsPage() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-6 py-12 text-center text-stone-400"
                   >
                     <div className="flex flex-col items-center justify-center gap-2">
@@ -431,7 +486,7 @@ export default function PromotionsPage() {
               ) : filtered.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-6 py-12 text-center text-stone-400"
                   >
                     <div className="flex flex-col items-center justify-center gap-1">
@@ -446,159 +501,188 @@ export default function PromotionsPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((p) => (
-                  <tr
-                    key={p.id}
-                    className="hover:bg-stone-50/80 transition-colors"
-                  >
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <span className="inline-flex items-center font-mono font-bold text-[#0b3b2c] bg-[#0b3b2c]/10 border border-[#0b3b2c]/20 px-2.5 py-1 rounded-lg text-xs tracking-wider">
-                          {p.code}
-                        </span>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(p.code);
-                            toast.success("คัดลอกโค้ดเรียบร้อย");
-                          }}
-                          className="text-stone-400 hover:text-stone-700 p-1 rounded-md hover:bg-stone-100 transition-colors cursor-pointer"
-                          title="คัดลอกโค้ด"
-                        >
-                          <Copy size={13} />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <p className="font-bold text-stone-900">{p.name}</p>
-                      {p.description && (
-                        <p className="text-[11px] text-stone-400 mt-0.5 line-clamp-1">
-                          {p.description}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1">
-                        {p.discount_type === "percent" ? (
-                          <>
-                            <Percent size={14} className="text-emerald-700" />
-                            <span className="font-bold text-emerald-800 text-xs">
-                              {p.discount_value}%
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <DollarSign size={14} className="text-emerald-700" />
-                            <span className="font-bold text-emerald-800 text-xs">
-                              ฿{Number(p.discount_value).toLocaleString()}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      {p.max_discount && (
-                        <p className="text-[10px] text-stone-400 mt-0.5">
-                          สูงสุด ฿{Number(p.max_discount).toLocaleString()}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 text-xs text-stone-600 whitespace-nowrap">
-                      {p.min_nights && <p>• ขั้นต่ำ {p.min_nights} คืน</p>}
-                      {p.min_price && (
-                        <p>• ขั้นต่ำ ฿{Number(p.min_price).toLocaleString()}</p>
-                      )}
-                      {!p.min_nights && !p.min_price && (
-                        <span className="text-stone-300">-</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 text-xs text-stone-600 whitespace-nowrap">
-                      {p.start_date
-                        ? new Date(p.start_date).toLocaleDateString("th-TH", {
-                            day: "numeric",
-                            month: "short",
-                            year: "2-digit",
-                          })
-                        : "∞"}
-                      {" – "}
-                      {p.end_date
-                        ? new Date(p.end_date).toLocaleDateString("th-TH", {
-                            day: "numeric",
-                            month: "short",
-                            year: "2-digit",
-                          })
-                        : "∞"}
-                    </td>
-                    <td className="px-5 py-4 text-xs font-semibold text-stone-700 whitespace-nowrap">
-                      {p.usage_count}
-                      {p.usage_limit ? ` / ${p.usage_limit}` : ""} ครั้ง
-                    </td>
+                filtered.map((p) => {
+                  const targetRoom = roomTypes.find(
+                    (r) => r.id === p.room_type_id,
+                  );
+                  const roomName =
+                    p.room_type_name || targetRoom?.name || "ทุกประเภทห้อง";
 
-                    <td className="px-5 py-4 whitespace-nowrap">
-                      {(() => {
-                        const isExpired =
-                          p.end_date && new Date(p.end_date) < new Date();
-                        const isLimitReached =
-                          p.usage_limit && p.usage_count >= p.usage_limit;
-
-                        if (isExpired) {
-                          return (
-                            <span className="inline-flex items-center gap-1 text-xs bg-rose-50 text-rose-700 border border-rose-200 font-semibold px-2.5 py-1 rounded-full">
-                              หมดอายุ
-                            </span>
-                          );
-                        }
-                        if (isLimitReached) {
-                          return (
-                            <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-700 border border-amber-200 font-semibold px-2.5 py-1 rounded-full">
-                              สิทธิ์เต็มแล้ว
-                            </span>
-                          );
-                        }
-                        return (
+                  return (
+                    <tr
+                      key={p.id}
+                      className="hover:bg-stone-50/80 transition-colors"
+                    >
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center font-mono font-bold text-[#0b3b2c] bg-[#0b3b2c]/10 border border-[#0b3b2c]/20 px-2.5 py-1 rounded-lg text-xs tracking-wider">
+                            {p.code}
+                          </span>
                           <button
-                            onClick={() => handleToggle(p)}
-                            className="inline-flex items-center focus:outline-none transition-transform active:scale-95 cursor-pointer"
+                            onClick={() => {
+                              navigator.clipboard.writeText(p.code);
+                              toast.success("คัดลอกโค้ดเรียบร้อย");
+                            }}
+                            className="text-stone-400 hover:text-stone-700 p-1 rounded-md hover:bg-stone-100 transition-colors cursor-pointer"
+                            title="คัดลอกโค้ด"
                           >
-                            {p.is_active ? (
-                              <span className="inline-flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold px-2.5 py-1 rounded-full">
-                                <ToggleRight
-                                  size={14}
-                                  className="text-emerald-600"
-                                />{" "}
-                                เปิดใช้งาน
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 text-xs bg-stone-100 text-stone-500 border border-stone-200 font-semibold px-2.5 py-1 rounded-full">
-                                <ToggleLeft
-                                  size={14}
-                                  className="text-stone-400"
-                                />{" "}
-                                ปิดใช้งาน
-                              </span>
-                            )}
+                            <Copy size={13} />
                           </button>
-                        );
-                      })()}
-                    </td>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="font-bold text-stone-900">{p.name}</p>
+                        {p.description && (
+                          <p className="text-[11px] text-stone-400 mt-0.5 line-clamp-1">
+                            {p.description}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1 text-stone-700 font-semibold">
+                            <Bed size={13} className="text-[#0b3b2c]" />
+                            <span>
+                              {roomName} ({p.room_count || 1} ห้อง)
+                            </span>
+                          </div>
+                          {Boolean(p.boat_ticket_count) && (
+                            <div className="flex items-center gap-1 text-sky-700 font-semibold">
+                              <Ship size={13} className="text-sky-600" />
+                              <span>บัตรพายเรือ {p.boat_ticket_count} ใบ</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1">
+                          {p.discount_type === "percent" ? (
+                            <>
+                              <Percent size={14} className="text-emerald-700" />
+                              <span className="font-bold text-emerald-800 text-xs">
+                                {p.discount_value}%
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <DollarSign
+                                size={14}
+                                className="text-emerald-700"
+                              />
+                              <span className="font-bold text-emerald-800 text-xs">
+                                ฿{Number(p.discount_value).toLocaleString()}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {p.max_discount && (
+                          <p className="text-[10px] text-stone-400 mt-0.5">
+                            สูงสุด ฿{Number(p.max_discount).toLocaleString()}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-xs text-stone-600 whitespace-nowrap">
+                        {p.min_nights && <p>• ขั้นต่ำ {p.min_nights} คืน</p>}
+                        {p.min_price && (
+                          <p>
+                            • ขั้นต่ำ ฿{Number(p.min_price).toLocaleString()}
+                          </p>
+                        )}
+                        {!p.min_nights && !p.min_price && (
+                          <span className="text-stone-300">-</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-xs text-stone-600 whitespace-nowrap">
+                        {p.start_date
+                          ? new Date(p.start_date).toLocaleDateString("th-TH", {
+                              day: "numeric",
+                              month: "short",
+                              year: "2-digit",
+                            })
+                          : "∞"}
+                        {" – "}
+                        {p.end_date
+                          ? new Date(p.end_date).toLocaleDateString("th-TH", {
+                              day: "numeric",
+                              month: "short",
+                              year: "2-digit",
+                            })
+                          : "∞"}
+                      </td>
+                      <td className="px-5 py-4 text-xs font-semibold text-stone-700 whitespace-nowrap">
+                        {p.usage_count}
+                        {p.usage_limit ? ` / ${p.usage_limit}` : ""} ครั้ง
+                      </td>
 
-                    <td className="px-5 py-4 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => openEdit(p)}
-                          className="p-1.5 text-stone-400 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all cursor-pointer"
-                          title="แก้ไข"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p)}
-                          className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
-                          title="ลบ"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        {(() => {
+                          const isExpired =
+                            p.end_date && new Date(p.end_date) < new Date();
+                          const isLimitReached =
+                            p.usage_limit && p.usage_count >= p.usage_limit;
+
+                          if (isExpired) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-xs bg-rose-50 text-rose-700 border border-rose-200 font-semibold px-2.5 py-1 rounded-full">
+                                หมดอายุ
+                              </span>
+                            );
+                          }
+                          if (isLimitReached) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-700 border border-amber-200 font-semibold px-2.5 py-1 rounded-full">
+                                สิทธิ์เต็มแล้ว
+                              </span>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={() => handleToggle(p)}
+                              className="inline-flex items-center focus:outline-none transition-transform active:scale-95 cursor-pointer"
+                            >
+                              {p.is_active ? (
+                                <span className="inline-flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold px-2.5 py-1 rounded-full">
+                                  <ToggleRight
+                                    size={14}
+                                    className="text-emerald-600"
+                                  />{" "}
+                                  เปิดใช้งาน
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-xs bg-stone-100 text-stone-500 border border-stone-200 font-semibold px-2.5 py-1 rounded-full">
+                                  <ToggleLeft
+                                    size={14}
+                                    className="text-stone-400"
+                                  />{" "}
+                                  ปิดใช้งาน
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })()}
+                      </td>
+
+                      <td className="px-5 py-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => openEdit(p)}
+                            className="p-1.5 text-stone-400 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all cursor-pointer"
+                            title="แก้ไข"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => setDeletingPromotion(p)}
+                            className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                            title="ลบ"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -617,7 +701,9 @@ export default function PromotionsPage() {
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-stone-50/50">
               <h3 className="text-sm font-bold text-[#0b3b2c]">
-                {editingId ? "แก้ไขโปรโมชั่น" : "เพิ่มโปรโมชั่นใหม่"}
+                {editingId
+                  ? "แก้ไขโปรโมชั่น / แพ็คเกจ"
+                  : "เพิ่มโปรโมชั่น / แพ็คเกจใหม่"}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
@@ -631,7 +717,8 @@ export default function PromotionsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-stone-600 mb-1">
-                    โค้ดโปรโมชั่น <span className="text-rose-500">*</span>
+                    โค้ดโปรโมชั่น / แพ็คเกจ{" "}
+                    <span className="text-rose-500">*</span>
                   </label>
                   <input
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-xs font-mono font-bold uppercase text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
@@ -642,13 +729,14 @@ export default function PromotionsPage() {
                         code: e.target.value.toUpperCase(),
                       }))
                     }
-                    placeholder="เช่น SUMMER20"
+                    placeholder="เช่น BOATPKG01"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-stone-600 mb-1">
-                    ชื่อโปรโมชั่น <span className="text-rose-500">*</span>
+                    ชื่อแพ็คเกจ / โปรโมชั่น{" "}
+                    <span className="text-rose-500">*</span>
                   </label>
                   <input
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
@@ -656,7 +744,7 @@ export default function PromotionsPage() {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, name: e.target.value }))
                     }
-                    placeholder="เช่น ลดฤดูร้อน 20%"
+                    placeholder="เช่น แพ็คเกจห้องพักพร้อมบัตรพายเรือ"
                     required
                   />
                 </div>
@@ -664,7 +752,7 @@ export default function PromotionsPage() {
 
               <div>
                 <label className="block text-xs font-bold text-stone-600 mb-1">
-                  คำอธิบาย
+                  คำอธิบาย / รายละเอียดแพ็คเกจ
                 </label>
                 <textarea
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all resize-none shadow-2xs"
@@ -673,8 +761,56 @@ export default function PromotionsPage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, description: e.target.value }))
                   }
-                  placeholder="รายละเอียดเพิ่มเติม..."
+                  placeholder="เช่น รวมบัตรพายเรือคายัค 1 ชั่วโมงฟรี..."
                 />
+              </div>
+
+              {/* ข้อมูลห้องพักและบัตรพายเรือ */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-stone-50/60 p-3.5 rounded-xl border border-stone-200/60">
+                <div>
+                  <label className="block text-xs font-bold text-stone-600 mb-1">
+                    ประเภทห้องพัก
+                  </label>
+                  <CustomSelect
+                    options={roomTypeOptions}
+                    value={form.room_type_id}
+                    onChange={(val) =>
+                      setForm((f) => ({ ...f, room_type_id: val }))
+                    }
+                    placeholder="ทุกประเภทห้อง"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-stone-600 mb-1">
+                    จำนวนห้อง
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="w-full bg-white border border-stone-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20"
+                    value={form.room_count}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, room_count: e.target.value }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-stone-600 mb-1">
+                    จำนวนบัตรพายเรือ (ใบ)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="w-full bg-white border border-stone-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20"
+                    value={form.boat_ticket_count}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        boat_ticket_count: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -712,9 +848,7 @@ export default function PromotionsPage() {
                       }))
                     }
                     placeholder={
-                      form.discount_type === "percent"
-                        ? "เช่น 20"
-                        : "เช่น 500"
+                      form.discount_type === "percent" ? "เช่น 20" : "เช่น 500"
                     }
                     required
                   />
@@ -772,7 +906,7 @@ export default function PromotionsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-stone-600 mb-1">
-                    วันเริ่ม
+                    วันที่เริ่มใช้งาน
                   </label>
                   <input
                     type="date"
@@ -785,7 +919,7 @@ export default function PromotionsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-stone-600 mb-1">
-                    วันสิ้นสุด
+                    วันที่สิ้นสุดการใช้งาน
                   </label>
                   <input
                     type="date"
@@ -817,7 +951,7 @@ export default function PromotionsPage() {
               {/* Toggle เปิด/ปิดการใช้งาน */}
               <div className="flex items-center justify-between pt-2">
                 <span className="text-xs font-bold text-stone-600">
-                  สถานะโปรโมชั่น
+                  สถานะโปรโมชั่น / แพ็คเกจ
                 </span>
                 <label className="inline-flex items-center gap-2 cursor-pointer">
                   <input
@@ -854,10 +988,73 @@ export default function PromotionsPage() {
                   ) : (
                     <Save size={14} />
                   )}
-                  <span>{saving ? "กำลังบันทึก..." : "บันทึกโปรโมชั่น"}</span>
+                  <span>{saving ? "กำลังบันทึก..." : "บันทึกข้อมูล"}</span>
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🌟 Delete Confirmation Modal */}
+      {deletingPromotion && (
+        <div
+          className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all animate-in fade-in duration-150"
+          onClick={() => !deleting && setDeletingPromotion(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-stone-200 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
+                <AlertCircle size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-stone-900">
+                  ยืนยันการลบโปรโมชั่น
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  การดำเนินการนี้จะไม่สามารถย้อนกลับได้
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-3.5 text-xs text-stone-700">
+              คุณต้องการลบโปรโมชั่น{" "}
+              <span className="font-bold text-rose-600">
+                "{deletingPromotion.name}"
+              </span>{" "}
+              (โค้ด:{" "}
+              <span className="font-mono font-bold text-stone-900">
+                {deletingPromotion.code}
+              </span>
+              ) ใช่หรือไม่?
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setDeletingPromotion(null)}
+                className="px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={confirmDelete}
+                className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {deleting ? (
+                  <Clock size={14} className="animate-spin" />
+                ) : (
+                  <Trash2 size={14} />
+                )}
+                <span>{deleting ? "กำลังลบ..." : "ยืนยันลบข้อมูล"}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
