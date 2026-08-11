@@ -61,57 +61,13 @@ UPDATE room_bookings
 SET status = 'approved'
 WHERE status = 'checked_out';
 
--- Price trigger: skip when room_id is null (multi-room header; app sets total_price)
+-- Price trigger must NOT read room_bookings.room_id (column dropped below).
+-- Header total_price is set by the app from booking_room line subtotals + promo.
 CREATE OR REPLACE FUNCTION public.calculate_booking_price()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
-DECLARE
-  room_price_per_night NUMERIC(10,2);
-  stay_days INTEGER;
-  promo_discount_type VARCHAR(20);
-  promo_discount_value NUMERIC(10,2);
-  promo_max_discount NUMERIC(10,2);
-  promo_min_nights INTEGER;
-  promo_min_price NUMERIC(10,2);
-  base_price NUMERIC(10,2);
-  discount_amount NUMERIC(10,2) DEFAULT 0;
 BEGIN
-  IF NEW.room_id IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  SELECT price INTO room_price_per_night
-  FROM public.room_types
-  WHERE id = (SELECT room_type_id FROM public.rooms WHERE room_id = NEW.room_id);
-
-  stay_days := NEW.check_out - NEW.check_in;
-  IF stay_days <= 0 THEN stay_days := 1; END IF;
-
-  base_price := room_price_per_night * stay_days;
-
-  IF NEW.promotion_id IS NOT NULL THEN
-    SELECT discount_type, discount_value, max_discount, min_nights, min_price
-    INTO promo_discount_type, promo_discount_value, promo_max_discount, promo_min_nights, promo_min_price
-    FROM public.promotions
-    WHERE id = NEW.promotion_id AND is_active = true;
-
-    IF FOUND THEN
-      IF (promo_min_nights IS NULL OR stay_days >= promo_min_nights) AND
-         (promo_min_price IS NULL OR base_price >= promo_min_price) THEN
-        IF promo_discount_type = 'percent' THEN
-          discount_amount := (base_price * promo_discount_value) / 100;
-          IF promo_max_discount IS NOT NULL THEN
-            discount_amount := LEAST(discount_amount, promo_max_discount);
-          END IF;
-        ELSE
-          discount_amount := LEAST(promo_discount_value, base_price);
-        END IF;
-      END IF;
-    END IF;
-  END IF;
-
-  NEW.total_price := GREATEST(0, base_price - discount_amount);
   RETURN NEW;
 END;
 $function$;

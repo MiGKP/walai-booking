@@ -58,8 +58,11 @@ function normalizeKayakItems(body: Record<string, unknown>): KayakItemInput[] {
 
 function normalizeTimePart(value: unknown): string {
   const raw = String(value ?? "").trim();
-  if (/^\d{2}:\d{2}$/.test(raw)) return `${raw}:00`;
-  if (/^\d{2}:\d{2}:\d{2}$/.test(raw)) return raw;
+  // Accept "15:00", "15:00:00", or Date/ISO fragments that start with HH:MM:SS
+  const hhmm = raw.match(/^(\d{2}:\d{2})(?::(\d{2}))?/);
+  if (hhmm) {
+    return `${hhmm[1]}:${hhmm[2] ?? "00"}`;
+  }
   return raw;
 }
 

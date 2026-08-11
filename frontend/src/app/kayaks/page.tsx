@@ -46,6 +46,8 @@ interface SharedSlot {
   end_time: string;
   remaining: number;
   available: boolean;
+  /** Remaining boats for each type that has this time window; missing key = no round */
+  remainingByType: Record<number, number>;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -75,22 +77,29 @@ function mergeDayStatus(dayMaps: Array<Record<string, DayStatus>>): Record<strin
   return merged;
 }
 
-function mergeSharedSlots(roundLists: KayakRound[][]): SharedSlot[] {
+function mergeSharedSlots(
+  boatRoundLists: Array<{ boatId: number; rounds: KayakRound[] }>
+): SharedSlot[] {
   const byKey = new Map<
     string,
-    { start_time: string; end_time: string; remainings: number[]; anyAvailable: boolean }
+    {
+      start_time: string;
+      end_time: string;
+      remainingByType: Record<number, number>;
+      anyAvailable: boolean;
+    }
   >();
 
-  roundLists.forEach((rounds) => {
+  boatRoundLists.forEach(({ boatId, rounds }) => {
     rounds.forEach((round) => {
       const key = slotKey(round.start_time, round.end_time);
       const prev = byKey.get(key) ?? {
         start_time: round.start_time,
         end_time: round.end_time,
-        remainings: [],
+        remainingByType: {},
         anyAvailable: false,
       };
-      prev.remainings.push(round.remaining);
+      prev.remainingByType[boatId] = round.remaining;
       prev.anyAvailable = prev.anyAvailable || round.available;
       byKey.set(key, prev);
     });
@@ -98,18 +107,25 @@ function mergeSharedSlots(roundLists: KayakRound[][]): SharedSlot[] {
 
   return Array.from(byKey.entries())
     .map(([key, value]) => {
-      const remaining = value.remainings.length
-        ? Math.min(...value.remainings)
-        : 0;
+      const remainings = Object.values(value.remainingByType);
+      const remaining = remainings.length ? Math.min(...remainings) : 0;
       return {
         key,
         start_time: value.start_time,
         end_time: value.end_time,
         remaining,
         available: value.anyAvailable && remaining > 0,
+        remainingByType: value.remainingByType,
       };
     })
     .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
+}
+
+function normalizeSlotTime(value: string): string {
+  const raw = String(value || '').trim();
+  if (/^\d{2}:\d{2}$/.test(raw)) return `${raw}:00`;
+  if (/^\d{2}:\d{2}:\d{2}/.test(raw)) return raw.slice(0, 8);
+  return raw;
 }
 
 export default function KayaksPage(): React.ReactElement {
@@ -181,7 +197,9 @@ export default function KayaksPage(): React.ReactElement {
 
     Promise.all(
       boats.map((boat) =>
-        fetchKayakRounds({ kayakId: boat.id, bookingDate: selectedDate })
+        fetchKayakRounds({ kayakId: boat.id, bookingDate: selectedDate }).then(
+          (rounds) => ({ boatId: boat.id, rounds })
+        )
       )
     )
       .then((lists) => {
@@ -262,13 +280,22 @@ export default function KayaksPage(): React.ReactElement {
       toast.error('กรุณาระบุผู้โดยสารอย่างน้อย 1 ประเภทเรือ');
       return;
     }
+    const unavailable = cartLines.filter(
+      (line) => selectedSlot.remainingByType[line.boat_type_id] == null
+    );
+    if (unavailable.length > 0) {
+      toast.error(
+        `ไม่มีรอบเวลานี้สำหรับ: ${unavailable.map((line) => line.name).join(', ')}`
+      );
+      return;
+    }
 
     setBookingLoading(true);
     try {
       const res = await api.post('/kayaks/bookings', {
         booking_date: selectedDate,
-        start_time: selectedSlot.start_time,
-        end_time: selectedSlot.end_time,
+        start_time: normalizeSlotTime(selectedSlot.start_time),
+        end_time: normalizeSlotTime(selectedSlot.end_time),
         items: cartLines.map((line) => ({
           boat_type_id: line.boat_type_id,
           num_passengers: line.num_passengers,
@@ -424,6 +451,9 @@ export default function KayaksPage(): React.ReactElement {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
                   {boats.map((boat) => {
+                    const slotRemaining = selectedSlot.remainingByType[boat.id];
+                    const hasRound = slotRemaining != null;
+                    const remaining = hasRound ? Number(slotRemaining) : 0;
                     const passengers = passengersByType[boat.id] ?? 0;
                     const needed =
                       passengers > 0 ? boatsNeeded(passengers, boat.capacity) : 0;
@@ -431,8 +461,12 @@ export default function KayaksPage(): React.ReactElement {
                       needed > 0
                         ? lineSubtotal(Number(boat.price_per_hour), needed)
                         : 0;
+                    const disabled = !hasRound || remaining < 1;
                     return (
-                      <div key={boat.id} className="card overflow-hidden p-0">
+                      <div
+                        key={boat.id}
+                        className={`card overflow-hidden p-0 ${disabled ? 'opacity-60' : ''}`}
+                      >
                         <div className="h-32 bg-stone-200">
                           {boat.image ? (
                             <img
@@ -458,32 +492,45 @@ export default function KayaksPage(): React.ReactElement {
                               </p>
                             </div>
                           </div>
-                          <div>
-                            <label
-                              htmlFor={`pax-${boat.id}`}
-                              className="mb-1.5 block text-sm font-medium text-charcoal-600"
-                            >
-                              ผู้โดยสาร
-                            </label>
-                            <input
-                              id={`pax-${boat.id}`}
-                              type="number"
-                              min={0}
-                              max={50}
-                              className="input-field"
-                              value={passengers}
-                              onChange={(event) =>
-                                handlePassengersChange(
-                                  boat.id,
-                                  Number(event.target.value)
-                                )
-                              }
-                            />
-                          </div>
-                          {needed > 0 && (
-                            <p className="text-sm text-forest-800">
-                              ต้องใช้ {needed} ลำ · ฿{subtotal.toLocaleString()}
+                          {disabled ? (
+                            <p className="text-sm text-charcoal-400">
+                              {!hasRound
+                                ? 'ไม่มีรอบเวลานี้สำหรับเรือประเภทนี้'
+                                : 'เต็มในรอบนี้'}
                             </p>
+                          ) : (
+                            <>
+                              <div>
+                                <label
+                                  htmlFor={`pax-${boat.id}`}
+                                  className="mb-1.5 block text-sm font-medium text-charcoal-600"
+                                >
+                                  ผู้โดยสาร
+                                  <span className="ml-2 font-normal text-charcoal-400">
+                                    เหลือ {remaining} ลำ
+                                  </span>
+                                </label>
+                                <input
+                                  id={`pax-${boat.id}`}
+                                  type="number"
+                                  min={0}
+                                  max={50}
+                                  className="input-field"
+                                  value={passengers}
+                                  onChange={(event) =>
+                                    handlePassengersChange(
+                                      boat.id,
+                                      Number(event.target.value)
+                                    )
+                                  }
+                                />
+                              </div>
+                              {needed > 0 && (
+                                <p className="text-sm text-forest-800">
+                                  ต้องใช้ {needed} ลำ · ฿{subtotal.toLocaleString()}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
