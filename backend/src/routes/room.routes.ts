@@ -26,6 +26,7 @@ const router = Router();
 
 // Static routes (must come before dynamic /:id)
 router.get('/', getAllRooms);
+router.get('/types', getAllRooms);
 router.get('/availability', checkRoomAvailability);
 router.get('/calendar', getRoomCalendar);
 

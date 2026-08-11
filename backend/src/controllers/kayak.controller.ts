@@ -80,9 +80,13 @@ export const checkKayakAvailability = async (
 
     const [conflictRes, boatRes, roundRes, poolRes] = await Promise.all([
       pool.query(
-        `SELECT COUNT(*) as booked_count FROM boat_bookings
-         WHERE boat_type_id = $1 AND booking_date = $2 AND boat_round_id = $3
-         AND status NOT IN ('cancelled', 'rejected')`,
+        `SELECT COUNT(*) as booked_count 
+         FROM boat_bookings bb
+         LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
+         WHERE (bk.boat_type_id = $1 OR bb.boat_booking_id IN (SELECT boat_booking_id FROM booking_boat WHERE boat_type_id = $1))
+           AND bb.booking_date = $2 
+           AND (bk.boat_round_id = $3 OR bb.boat_round_id = $3)
+           AND bb.status NOT IN ('cancelled', 'rejected')`,
         [kayak_id, booking_date, boat_round_id],
       ),
       pool.query(`SELECT quantity FROM boat_types WHERE boat_type_id = $1`, [
@@ -93,14 +97,16 @@ export const checkKayakAvailability = async (
         [boat_round_id],
       ),
       pool.query(
-        `SELECT COUNT(*) as total_booked FROM boat_bookings
-         WHERE booking_date = $1
-         AND boat_round_id IN (
-           SELECT boat_round_id FROM boat_rounds
-           WHERE start_time = (SELECT start_time FROM boat_rounds WHERE boat_round_id = $2)
-             AND end_time   = (SELECT end_time   FROM boat_rounds WHERE boat_round_id = $2)
-         )
-         AND status NOT IN ('cancelled', 'rejected')`,
+        `SELECT COUNT(*) as total_booked 
+         FROM boat_bookings bb
+         LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
+         WHERE bb.booking_date = $1
+           AND COALESCE(bk.boat_round_id, bb.boat_round_id) IN (
+             SELECT boat_round_id FROM boat_rounds
+             WHERE start_time = (SELECT start_time FROM boat_rounds WHERE boat_round_id = $2)
+               AND end_time   = (SELECT end_time   FROM boat_rounds WHERE boat_round_id = $2)
+           )
+           AND bb.status NOT IN ('cancelled', 'rejected')`,
         [booking_date, boat_round_id],
       ),
     ]);
@@ -222,7 +228,7 @@ export const getKayakCalendar = async (
        rounds AS (
          SELECT br.boat_round_id, br.start_time, br.end_time, br.total_slots
          FROM boat_rounds br
-         WHERE br.is_active = true AND br.boat_type_id = $1::int
+         WHERE br.is_active = true AND (br.boat_type_id = $1::int OR $1::int IN (SELECT boat_type_id FROM round_boats WHERE boat_round_id = br.boat_round_id))
        ),
        stock AS (
          SELECT COALESCE(quantity, 0)::int AS quantity FROM boat_types WHERE boat_type_id = $1::int
@@ -235,16 +241,18 @@ export const getKayakCalendar = async (
            (SELECT quantity FROM stock) AS quantity,
            COALESCE((
              SELECT COUNT(*) FROM boat_bookings bb
-             WHERE bb.boat_type_id = $1::int
+             LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
+             WHERE (bk.boat_type_id = $1::int OR bb.boat_booking_id IN (SELECT boat_booking_id FROM booking_boat WHERE boat_type_id = $1::int))
                AND bb.booking_date = d.day
-               AND bb.boat_round_id = r.boat_round_id
+               AND COALESCE(bk.boat_round_id, bb.boat_round_id) = r.boat_round_id
                AND bb.status NOT IN ('cancelled', 'rejected')
            ), 0)::int AS type_booked,
            COALESCE((
              SELECT COUNT(*) FROM boat_bookings bb
+             LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
              WHERE bb.booking_date = d.day
                AND bb.status NOT IN ('cancelled', 'rejected')
-               AND bb.boat_round_id IN (
+               AND COALESCE(bk.boat_round_id, bb.boat_round_id) IN (
                  SELECT br2.boat_round_id FROM boat_rounds br2
                  WHERE br2.start_time = r.start_time AND br2.end_time = r.end_time
                )
@@ -349,22 +357,24 @@ export const getKayakDayRounds = async (
          (SELECT quantity FROM stock) AS total,
          COALESCE((
            SELECT COUNT(*) FROM boat_bookings bb
-           WHERE bb.boat_type_id = $1::int
+           LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
+           WHERE (bk.boat_type_id = $1::int OR bb.boat_booking_id IN (SELECT boat_booking_id FROM booking_boat WHERE boat_type_id = $1::int))
              AND bb.booking_date = $2::date
-             AND bb.boat_round_id = br.boat_round_id
+             AND COALESCE(bk.boat_round_id, bb.boat_round_id) = br.boat_round_id
              AND bb.status NOT IN ('cancelled', 'rejected')
          ), 0)::int AS booked,
          COALESCE((
            SELECT COUNT(*) FROM boat_bookings bb
+           LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
            WHERE bb.booking_date = $2::date
              AND bb.status NOT IN ('cancelled', 'rejected')
-             AND bb.boat_round_id IN (
+             AND COALESCE(bk.boat_round_id, bb.boat_round_id) IN (
                SELECT br2.boat_round_id FROM boat_rounds br2
                WHERE br2.start_time = br.start_time AND br2.end_time = br.end_time
              )
          ), 0)::int AS pool_booked
        FROM boat_rounds br
-       WHERE br.is_active = true AND br.boat_type_id = $1::int
+       WHERE br.is_active = true AND (br.boat_type_id = $1::int OR $1::int IN (SELECT boat_type_id FROM round_boats WHERE boat_round_id = br.boat_round_id))
        ORDER BY br.start_time`,
       [kayakId, booking_date],
     );
@@ -421,7 +431,7 @@ export const getKayakSchedule = async (
     let query = `SELECT * FROM boat_rounds WHERE is_active = true`;
     const params = [];
     if (kayak_id) {
-      query += ` AND boat_type_id = $1`;
+      query += ` AND (boat_type_id = $1 OR boat_round_id IN (SELECT boat_round_id FROM round_boats WHERE boat_type_id = $1))`;
       params.push(kayak_id);
     }
     query += ` ORDER BY start_time`;
@@ -481,8 +491,12 @@ export const createKayakBooking = async (
 
     const conflict = await client.query(
       `SELECT COUNT(*) as booked_count, COALESCE(SUM(num_passengers), 0) as total_passengers
-       FROM boat_bookings
-       WHERE boat_type_id = $1 AND booking_date = $2 AND boat_round_id = $3 AND status NOT IN ('cancelled', 'rejected')`,
+       FROM boat_bookings bb
+       LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
+       WHERE (bk.boat_type_id = $1 OR bb.boat_booking_id IN (SELECT boat_booking_id FROM booking_boat WHERE boat_type_id = $1)) 
+         AND bb.booking_date = $2 
+         AND COALESCE(bk.boat_round_id, bb.boat_round_id) = $3 
+         AND bb.status NOT IN ('cancelled', 'rejected')`,
       [kayak_id, booking_date, round_id],
     );
 
@@ -510,14 +524,15 @@ export const createKayakBooking = async (
     if (total_slots) {
       const allBoatsInRound = await client.query(
         `SELECT COUNT(*) as total_booked
-         FROM boat_bookings
-         WHERE booking_date = $1
-           AND boat_round_id IN (
+         FROM boat_bookings bb
+         LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
+         WHERE bb.booking_date = $1
+           AND COALESCE(bk.boat_round_id, bb.boat_round_id) IN (
              SELECT boat_round_id FROM boat_rounds
              WHERE start_time = (SELECT start_time FROM boat_rounds WHERE boat_round_id = $2)
                AND end_time   = (SELECT end_time   FROM boat_rounds WHERE boat_round_id = $2)
            )
-           AND status NOT IN ('cancelled', 'rejected')`,
+           AND bb.status NOT IN ('cancelled', 'rejected')`,
         [booking_date, round_id],
       );
       const totalBooked = Number(allBoatsInRound.rows[0].total_booked);
@@ -531,17 +546,25 @@ export const createKayakBooking = async (
       }
     }
 
+    // 1. บันทึกเข้าตารางหลัก boat_bookings
     const result = await client.query(
-      `INSERT INTO boat_bookings (member_id, boat_type_id, boat_round_id, booking_date, num_passengers, total_price, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending') RETURNING *`,
+      `INSERT INTO boat_bookings (member_id, booking_date, num_passengers, total_price, status)
+       VALUES ($1, $2, $3, $4, 'pending') RETURNING *`,
       [
         user.id,
-        kayak_id,
-        round_id,
         booking_date,
         num_passengers || 1,
         price_per_hour,
       ],
+    );
+
+    const newBookingId = result.rows[0].boat_booking_id;
+
+    // 2. บันทึกเข้าตารางรายละเอียด booking_boat
+    await client.query(
+      `INSERT INTO booking_boat (boat_booking_id, boat_type_id, boat_round_id, boat_count, num_passengers, unit_price, subtotal, status)
+       VALUES ($1, $2, $3, 1, $4, $5, $5, 'pending')`,
+      [newBookingId, kayak_id, round_id, num_passengers || 1, price_per_hour]
     );
 
     await client.query("COMMIT");
@@ -602,12 +625,14 @@ export const getUserKayakBookings = async (
   try {
     const user = req.user as AuthPayload;
     const result = await pool.query(
-      `SELECT bb.*, bt.type_name as kayak_name, 
-              (SELECT image_path FROM boat_images bi WHERE bi.boat_type_id = bt.boat_type_id LIMIT 1) as kayak_image,
+      `SELECT bb.*, 
+              COALESCE(bt.type_name, 'เรือคายัค') as kayak_name, 
+              (SELECT image_path FROM boat_images bi WHERE bi.boat_type_id = bk.boat_type_id LIMIT 1) as kayak_image,
               br.start_time, br.end_time
        FROM boat_bookings bb
-       JOIN boat_types bt ON bb.boat_type_id = bt.boat_type_id
-       LEFT JOIN boat_rounds br ON bb.boat_round_id = br.boat_round_id
+       LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
+       LEFT JOIN boat_types bt ON bk.boat_type_id = bt.boat_type_id
+       LEFT JOIN boat_rounds br ON bk.boat_round_id = br.boat_round_id
        WHERE bb.member_id = $1
        ORDER BY bb.created_at DESC`,
       [user.id],
@@ -648,6 +673,11 @@ export const cancelKayakBooking = async (
       `UPDATE boat_bookings SET status = 'cancelled' WHERE boat_booking_id = $1`,
       [id],
     );
+    await pool.query(
+      `UPDATE booking_boat SET status = 'cancelled' WHERE boat_booking_id = $1`,
+      [id],
+    );
+
     res.json({ success: true, message: "Boat booking cancelled" });
   } catch (error) {
     console.error("Cancel kayak booking error:", error);
@@ -662,25 +692,39 @@ export const getAllKayakBookings = async (
 ): Promise<void> => {
   try {
     const result = await pool.query(
-      `SELECT bb.*, bt.type_name as kayak_name,
-              m.first_name || ' ' || m.last_name as user_name, m.email as user_email,
-              br.start_time, br.end_time,
-              s.first_name || ' ' || s.last_name as approved_by_name
+      `SELECT 
+          bb.*, 
+          COALESCE(bt.type_name, 'เรือคายัค') AS kayak_name,
+          COALESCE(m.first_name || ' ' || m.last_name, m.email, 'ไม่ระบุชื่อ') AS user_name, 
+          m.email AS user_email,
+          m.phone AS user_phone,
+          br.start_time, 
+          br.end_time,
+          COALESCE(s.first_name || ' ' || s.last_name, 'Staff') AS approved_by_name
        FROM boat_bookings bb
-       JOIN boat_types bt ON bb.boat_type_id = bt.boat_type_id
-       JOIN members m ON bb.member_id = m.member_id
-       LEFT JOIN boat_rounds br ON bb.boat_round_id = br.boat_round_id
+       LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
+       LEFT JOIN boat_types bt ON bk.boat_type_id = bt.boat_type_id
+       LEFT JOIN members m ON bb.member_id = m.member_id
+       LEFT JOIN boat_rounds br ON bk.boat_round_id = br.boat_round_id
        LEFT JOIN staff s ON bb.approved_by_staff_id = s.staff_id
-       ORDER BY bb.created_at DESC`,
+       ORDER BY bb.boat_booking_id DESC`,
     );
+
     res.json({ success: true, data: result.rows });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Get all kayak bookings error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      errorDetail: error.message || String(error),
+    });
   }
 };
 
-export const getAllKayaksAdmin = async (req: Request, res: Response): Promise<void> => {
+export const getAllKayaksAdmin = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const query = `
       SELECT 
@@ -708,14 +752,14 @@ export const getAllKayaksAdmin = async (req: Request, res: Response): Promise<vo
     `;
 
     const result = await pool.query(query);
-    
-    res.status(200).json({ 
-      success: true, 
-      data: result.rows 
+
+    res.status(200).json({
+      success: true,
+      data: result.rows,
     });
   } catch (error) {
-    console.error('getAllKayaksAdmin error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error("getAllKayaksAdmin error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -926,15 +970,22 @@ export const updateKayakBookingStatus = async (
       return;
     }
 
+    // อัปเดตสถานะในตาราง booking_boat ตามด้วย
+    await pool.query(
+      `UPDATE booking_boat SET status = $1, updated_at = NOW() WHERE boat_booking_id = $2`,
+      [status, id]
+    );
+
     if (status === "approved" || status === "rejected") {
       (async () => {
         try {
           const infoRes = await pool.query(
             `SELECT m.email, m.first_name, m.last_name, bt.type_name, br.start_time, br.end_time
              FROM boat_bookings bb
-             JOIN members m ON bb.member_id = m.member_id
-             JOIN boat_types bt ON bb.boat_type_id = bt.boat_type_id
-             JOIN boat_rounds br ON bb.boat_round_id = br.boat_round_id
+             LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
+             LEFT JOIN members m ON bb.member_id = m.member_id
+             LEFT JOIN boat_types bt ON bk.boat_type_id = bt.boat_type_id
+             LEFT JOIN boat_rounds br ON bk.boat_round_id = br.boat_round_id
              WHERE bb.boat_booking_id = $1`,
             [id],
           );
@@ -950,7 +1001,7 @@ export const updateKayakBookingStatus = async (
               bookingType: "kayak",
               bookingId: Number(id),
               status: status as "approved" | "rejected",
-              details: `เรือคายัค ${info.type_name} (รอบเวลา ${timeRange})`,
+              details: `เรือคายัค ${info.type_name || "เรือคายัค"} (รอบเวลา ${timeRange})`,
             });
           }
         } catch (err) {
@@ -998,6 +1049,11 @@ export const checkoutKayakBooking = async (
       `UPDATE boat_bookings SET status = 'checked_out', updated_at = NOW() WHERE boat_booking_id = $1`,
       [id],
     );
+    await pool.query(
+      `UPDATE booking_boat SET status = 'checked_out', updated_at = NOW() WHERE boat_booking_id = $1`,
+      [id],
+    );
+
     res.json({ success: true, message: "เช็คเอาต์สำเร็จ" });
   } catch (error) {
     console.error("Checkout kayak booking error:", error);
@@ -1014,8 +1070,11 @@ export const deleteKayak = async (
     const { id } = req.params;
 
     const bookingCheck = await pool.query(
-      `SELECT COUNT(*) as count FROM boat_bookings 
-       WHERE boat_type_id = $1 AND status NOT IN ('cancelled', 'rejected')`,
+      `SELECT COUNT(*) as count 
+       FROM boat_bookings bb
+       LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
+       WHERE (bk.boat_type_id = $1 OR bb.boat_booking_id IN (SELECT boat_booking_id FROM booking_boat WHERE boat_type_id = $1)) 
+         AND bb.status NOT IN ('cancelled', 'rejected')`,
       [id],
     );
 
@@ -1048,7 +1107,10 @@ export const deleteKayak = async (
       if (row.image_path) {
         await deleteCloudinaryImage(row.image_path).catch(
           (cleanupError: unknown) => {
-            console.error("Delete kayak Cloudinary cleanup error:", cleanupError);
+            console.error(
+              "Delete kayak Cloudinary cleanup error:",
+              cleanupError,
+            );
           },
         );
       }
@@ -1242,10 +1304,7 @@ export const updateKayak = async (
       // 7. สั่งลบรูปที่ไม่ได้ใช้แล้วออกจาก Cloudinary
       for (const imgPath of removedImagePaths) {
         await deleteCloudinaryImage(imgPath).catch((cleanupError: unknown) => {
-          console.error(
-            "Update kayak Cloudinary cleanup error:",
-            cleanupError,
-          );
+          console.error("Update kayak Cloudinary cleanup error:", cleanupError);
         });
       }
     }
@@ -1363,8 +1422,11 @@ export const deleteBoatRound = async (
     const { id } = req.params;
 
     const bookingCheck = await client.query(
-      `SELECT COUNT(*) as count FROM boat_bookings 
-       WHERE boat_round_id = $1 AND status NOT IN ('cancelled', 'rejected')`,
+      `SELECT COUNT(*) as count 
+       FROM boat_bookings bb
+       LEFT JOIN booking_boat bk ON bb.boat_booking_id = bk.boat_booking_id
+       WHERE (bk.boat_round_id = $1 OR bb.boat_round_id = $1) 
+         AND bb.status NOT IN ('cancelled', 'rejected')`,
       [id],
     );
 

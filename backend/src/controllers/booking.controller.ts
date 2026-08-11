@@ -148,16 +148,15 @@ export const getUserRoomBookings = async (
                 rb.guest_count as guests, rb.total_price, rb.status, rb.special_request, rb.created_at,
                 rt.room_name, rt.type_name as room_type, r.room_number,
                 
-                u.name as user_name,
-                u.email as user_email,
-                u.phone as user_phone, 
+                m.first_name || ' ' || m.last_name as user_name,
+                m.email as user_email,
+                m.phone as user_phone, 
 
                 (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as room_images
          FROM room_bookings rb
          JOIN rooms r ON rb.room_id = r.room_id
          JOIN room_types rt ON r.room_type_id = rt.id
-         
-         JOIN users u ON rb.member_id = u.id 
+         JOIN members m ON rb.member_id = m.member_id
          
          WHERE rb.member_id = $1
          ORDER BY rb.created_at DESC`,
@@ -190,7 +189,7 @@ export const getRoomBookingById = async (
        FROM room_bookings rb
        JOIN rooms r ON rb.room_id = r.room_id
        JOIN room_types rt ON r.room_type_id = rt.id
-       WHERE rb.room_booking_id = $1 AND (rb.member_id = $2 OR $3 = 'admin')`,
+       WHERE rb.room_booking_id = $1 AND (rb.member_id = $2 OR $3 = 'admin' OR $3 = 'staff')`,
       [id, user.id, user.role],
     );
 
@@ -256,6 +255,7 @@ export const cancelRoomBooking = async (
 };
 
 // ดึงการจองทั้งหมดสำหรับ Admin/Staff
+// ดึงการจองทั้งหมดสำหรับ Admin/Staff
 export const getAllRoomBookings = async (
   req: Request,
   res: Response,
@@ -266,16 +266,18 @@ export const getAllRoomBookings = async (
               rb.check_in, rb.check_out,
               rb.check_in as check_in_date, rb.check_out as check_out_date,
               rb.checkin_at, 
-              rb.checkout_at, -- 
+              rb.checkout_at,
               rb.guest_count as guests, rb.total_price, rb.status,
               rb.payment_status, rb.payment_slip, rb.created_at,
-              rt.type_name as room_name, r.room_number,
-              m.first_name || ' ' || m.last_name as user_name, m.email as user_email,m.phone as user_phone,
+              COALESCE(rt.room_name, rt.type_name, '-') as room_name,
+              COALESCE(rt.type_name, '-') as type_name,
+              COALESCE(r.room_number, '-') as room_number,
+              m.first_name || ' ' || m.last_name as user_name, m.email as user_email, m.phone as user_phone,
               s.first_name || ' ' || s.last_name as approved_by_name
        FROM room_bookings rb
-       JOIN rooms r ON rb.room_id = r.room_id
-       JOIN room_types rt ON r.room_type_id = rt.id
-       JOIN members m ON rb.member_id = m.member_id
+       LEFT JOIN rooms r ON rb.room_id = r.room_id
+       LEFT JOIN room_types rt ON r.room_type_id = rt.id
+       LEFT JOIN members m ON rb.member_id = m.member_id
        LEFT JOIN staff s ON rb.approved_by_staff_id = s.staff_id
        ORDER BY rb.created_at DESC`,
     );
@@ -293,7 +295,7 @@ export const updateRoomBookingStatus = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, reject_reason } = req.body;
     const user = req.user as AuthPayload;
 
     const allowed = [
@@ -369,7 +371,7 @@ export const updateRoomBookingStatus = async (
   }
 };
 
-// 📌 เช็คอินห้องพัก
+// เช็คอินห้องพัก
 export const checkinRoomBooking = async (
   req: Request,
   res: Response,
@@ -387,7 +389,6 @@ export const checkinRoomBooking = async (
       return;
     }
 
-    // 🎯 แก้ไข: เพิ่ม status = 'checked_in' เข้าไปในการ UPDATE
     await pool.query(
       `UPDATE room_bookings 
        SET status = 'checked_in',
@@ -404,8 +405,7 @@ export const checkinRoomBooking = async (
   }
 };
 
-// 📌 เช็คเอาต์ห้องพัก (แก้ไขแล้ว)
-// 📌 เช็คเอาต์ห้องพัก (อัปเดต status และ checkout_at ลง DB)
+// เช็คเอาต์ห้องพัก
 export const checkoutRoomBooking = async (
   req: Request,
   res: Response,
@@ -413,7 +413,6 @@ export const checkoutRoomBooking = async (
   try {
     const { id } = req.params;
 
-    // 1. เช็กว่ามีรายการจองนี้ไหม
     const booking = await pool.query(
       "SELECT room_id FROM room_bookings WHERE room_booking_id = $1",
       [id],
@@ -426,7 +425,6 @@ export const checkoutRoomBooking = async (
 
     const roomId = booking.rows[0].room_id;
 
-    // 🎯 2. อัปเดต status เป็น 'checked_out' และบันทึก checkout_at = NOW()
     await pool.query(
       `UPDATE room_bookings 
        SET status = 'checked_out', 
@@ -436,7 +434,6 @@ export const checkoutRoomBooking = async (
       [id],
     );
 
-    // 3. (Optional) คืนสถานะห้องพักให้พร้อมใช้งานอีกครั้ง
     if (roomId) {
       await pool.query(
         "UPDATE rooms SET status = 'available' WHERE room_id = $1",

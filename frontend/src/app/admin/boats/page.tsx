@@ -145,11 +145,13 @@ function CustomDatePicker({
 
   const handlePrevMonth = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setViewDate(new Date(year, month - 1, 1));
   };
 
   const handleNextMonth = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setViewDate(new Date(year, month + 1, 1));
   };
 
@@ -210,6 +212,7 @@ function CustomDatePicker({
         <div className="absolute left-0 top-full mt-2 w-64 bg-white border border-stone-200 rounded-2xl shadow-xl z-50 p-3 animate-in fade-in zoom-in-95 duration-150">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-stone-100">
             <button
+              type="button"
               onClick={handlePrevMonth}
               className="p-1 rounded-lg hover:bg-stone-100 text-stone-600 transition-colors"
             >
@@ -219,6 +222,7 @@ function CustomDatePicker({
               {monthNames[month]} {year + 543}
             </span>
             <button
+              type="button"
               onClick={handleNextMonth}
               className="p-1 rounded-lg hover:bg-stone-100 text-stone-600 transition-colors"
             >
@@ -266,6 +270,7 @@ function CustomDatePicker({
 
           <div className="flex items-center justify-between pt-2 mt-2 border-t border-stone-100 text-[10px]">
             <button
+              type="button"
               onClick={() => {
                 const today = new Date().toISOString().split("T")[0];
                 onChange(today);
@@ -276,6 +281,7 @@ function CustomDatePicker({
               วันนี้
             </button>
             <button
+              type="button"
               onClick={() => {
                 onChange("");
                 setIsOpen(false);
@@ -330,6 +336,7 @@ function CustomSelect({
         type="button"
         onClick={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           setIsOpen(!isOpen);
         }}
         className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-700/20 shadow-2xs"
@@ -355,6 +362,7 @@ function CustomSelect({
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   onChange(opt.value);
                   setIsOpen(false);
                 }}
@@ -490,22 +498,23 @@ export default function BoatStaffDashboard() {
     updateQueryParams({ page });
   };
 
-  useEffect(() => {
-    if (!ready) return;
-    fetchBookings();
-  }, [ready]);
-
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get("/kayaks/bookings/all");
       setBookings(res.data?.data || []);
-    } catch {
+    } catch (error: any) {
+      console.error("Fetch bookings error:", error?.response?.data || error);
       toast.error("ไม่สามารถโหลดข้อมูลการจองได้");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    fetchBookings();
+  }, [ready, fetchBookings]);
 
   const openConfirmDialog = (
     title: string,
@@ -688,14 +697,18 @@ export default function BoatStaffDashboard() {
       list = list.filter((b) => (b.kayak_name || b.boat_name) === boatType);
     }
 
-    // 3. Filter ตามช่วงวันที่จองเรือ
+    // 3. Filter ตามช่วงวันที่จองเรือ (เปรียบเทียบในรูปแบบ YYYY-MM-DD เพื่อเลี่ยงปัญหากเรื่อง ไทม์โซน)
     if (dateFrom)
       list = list.filter(
-        (b) => b.booking_date && new Date(b.booking_date) >= new Date(dateFrom),
+        (b) =>
+          b.booking_date &&
+          new Date(b.booking_date).toISOString().split("T")[0] >= dateFrom,
       );
     if (dateTo)
       list = list.filter(
-        (b) => b.booking_date && new Date(b.booking_date) <= new Date(dateTo),
+        (b) =>
+          b.booking_date &&
+          new Date(b.booking_date).toISOString().split("T")[0] <= dateTo,
       );
 
     // 4. Search Filter

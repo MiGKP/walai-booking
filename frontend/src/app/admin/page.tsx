@@ -61,7 +61,7 @@ export default function AdminPage() {
     setLoading(true);
     try {
       const [rb, kb, st, mb] = await Promise.all([
-        api.get("/bookings"),
+        api.get("/bookings").catch(() => ({ data: { data: [] } })),
         api.get("/kayaks/bookings/all").catch(() => ({ data: { data: [] } })),
         api.get("/auth/staff").catch(() => ({ data: { data: [] } })),
         api.get("/members").catch(() => ({ data: { data: [] } })),
