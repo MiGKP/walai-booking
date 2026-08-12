@@ -23,6 +23,17 @@ export function cartTotal(lines: KayakCartLine[]): number {
   }, 0);
 }
 
+export function cartPassengerTotal(lines: KayakCartLine[]): number {
+  return lines.reduce((sum, line) => sum + Number(line.num_passengers || 0), 0);
+}
+
+export function cartBoatTotal(lines: KayakCartLine[]): number {
+  return lines.reduce(
+    (sum, line) => sum + boatsNeeded(line.num_passengers, line.capacity),
+    0
+  );
+}
+
 export function slotKey(startTime: string, endTime: string): string {
   return `${String(startTime).slice(0, 8)}|${String(endTime).slice(0, 8)}`;
 }

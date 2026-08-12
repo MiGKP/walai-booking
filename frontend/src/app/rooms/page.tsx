@@ -76,6 +76,20 @@ export default function RoomsPage(): React.ReactElement {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkIn = params.get("check_in");
+    const checkOut = params.get("check_out");
+    if (
+      checkIn &&
+      checkOut &&
+      nightsBetween(checkIn, checkOut) > 0
+    ) {
+      setRange({ start: checkIn, end: checkOut });
+      setCursor(monthCursorFromISO(checkIn));
+    }
+  }, []);
+
+  useEffect(() => {
     if (cart) saveRoomCart(cart);
   }, [cart]);
 

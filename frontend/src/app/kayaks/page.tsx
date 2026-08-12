@@ -15,6 +15,8 @@ import {
 } from '@/lib/booking-calendar';
 import {
   boatsNeeded,
+  cartBoatTotal,
+  cartPassengerTotal,
   cartTotal,
   lineSubtotal,
   slotKey,
@@ -240,6 +242,8 @@ export default function KayaksPage(): React.ReactElement {
   }, [boats, passengersByType]);
 
   const totalPrice = cartTotal(cartLines);
+  const totalPassengers = cartPassengerTotal(cartLines);
+  const totalBoats = cartBoatTotal(cartLines);
 
   const handleSelectDate = (date: string | null): void => {
     setSelectedDate(date);
@@ -538,6 +542,16 @@ export default function KayaksPage(): React.ReactElement {
                   })}
                 </div>
               )}
+
+              {cartLines.length > 0 && (
+                <div className="mt-5 rounded-2xl border border-forest-800/15 bg-forest-50/60 px-4 py-3 text-sm text-forest-900">
+                  <p className="font-medium">รวมทุกประเภท</p>
+                  <p className="mt-1 text-charcoal-600">
+                    ผู้โดยสาร {totalPassengers} คน · เรือ {totalBoats} ลำ · ฿
+                    {totalPrice.toLocaleString()}
+                  </p>
+                </div>
+              )}
             </section>
           </div>
 
@@ -588,6 +602,19 @@ export default function KayaksPage(): React.ReactElement {
                   })
                 )}
               </div>
+
+              {cartLines.length > 0 && (
+                <dl className="mt-4 space-y-2 rounded-xl bg-forest-50/70 px-3 py-3 text-sm text-forest-900">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-charcoal-500">ผู้โดยสารทั้งหมด</dt>
+                    <dd className="font-medium tabular-nums">{totalPassengers} คน</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-charcoal-500">เรือทั้งหมด</dt>
+                    <dd className="font-medium tabular-nums">{totalBoats} ลำ</dd>
+                  </div>
+                </dl>
+              )}
 
               <div className="mt-5 flex items-baseline justify-between border-t border-stone-200 pt-5">
                 <span className="text-sm font-semibold text-forest-900">ราคารวม</span>

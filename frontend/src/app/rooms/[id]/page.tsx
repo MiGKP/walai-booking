@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   Calendar as CalendarIcon,
   Check,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Info,
@@ -14,10 +13,8 @@ import {
   Star,
   Users,
   X,
-  Tag,
-  Loader2,
 } from 'lucide-react';
-import api, { getApiErrorMessage } from '@/lib/api';
+import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -33,13 +30,6 @@ import {
   nightsInRange,
   todayISO,
 } from '@/lib/date';
-import {
-  clearRoomCart,
-  loadRoomCart,
-  saveRoomCart,
-  upsertCartItem,
-} from '@/lib/room-cart';
-import PromoPriceBreakdown from '@/components/booking/PromoPriceBreakdown';
 
 type RoomAmenity = string | { id: number; name: string };
 
@@ -64,17 +54,8 @@ interface Review {
   review_date: string;
 }
 
-interface AppliedPromo {
-  id: number;
-  name: string;
-  code?: string;
-  discount_amount: number;
-  final_price: number;
-}
-
 export default function RoomDetailPage(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const today = todayISO();
 
@@ -91,19 +72,11 @@ export default function RoomDetailPage(): React.ReactElement {
   const [dayStatus, setDayStatus] = useState<Record<string, DayStatus>>({});
   const [calendarLoading, setCalendarLoading] = useState(true);
 
-  const [adults, setAdults] = useState(1);
-  const [children, setChildren] = useState(0);
-  const [specialRequests, setSpecialRequests] = useState('');
-  const [bookingLoading, setBookingLoading] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [avgRating, setAvgRating] = useState<number | null>(null);
-  const [promoCode, setPromoCode] = useState('');
-  const [promoLoading, setPromoLoading] = useState(false);
-  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
 
   const nights = range ? nightsBetween(range.start, range.end) : 0;
-  const guestTotal = adults + children;
 
   useEffect(() => {
     api
@@ -152,141 +125,6 @@ export default function RoomDetailPage(): React.ReactElement {
   }, [range, nights, dayStatus]);
 
   const basePrice = room ? Number(room.price_per_night) * nights : 0;
-
-  useEffect(() => {
-    setAppliedPromo(null);
-  }, [range]);
-
-  const handleBooking = async (event: React.FormEvent): Promise<void> => {
-    event.preventDefault();
-    if (typeof window !== 'undefined' && !localStorage.getItem('token')) {
-      toast.error('กรุณาเข้าสู่ระบบก่อนทำการจอง');
-      router.push('/auth/login');
-      return;
-    }
-    if (!range || nights <= 0) {
-      toast.error('กรุณาเลือกวันเช็คอินและเช็คเอาต์');
-      return;
-    }
-    if (!room) {
-      toast.error('ไม่พบข้อมูลห้องพัก');
-      return;
-    }
-    if (blockedNights.length > 0) {
-      toast.error('ช่วงวันที่เลือกมีวันที่ห้องเต็มแล้ว กรุณาเลือกช่วงอื่น');
-      return;
-    }
-    if (adults < 1) {
-      toast.error('ต้องมีผู้ใหญ่อย่างน้อย 1 คน');
-      return;
-    }
-    if (guestTotal > room.capacity) {
-      toast.error(`ผู้เข้าพักรวมต้องไม่เกิน ${room.capacity} คน`);
-      return;
-    }
-
-    setBookingLoading(true);
-    try {
-      const mergedRequest = specialRequests.trim() || undefined;
-
-      const res = await api.post('/bookings/room', {
-        room_type_id: Number(id),
-        check_in_date: range.start,
-        check_out_date: range.end,
-        adults,
-        children,
-        special_requests: mergedRequest,
-        ...(appliedPromo ? { promotion_id: appliedPromo.id } : {}),
-      });
-      clearRoomCart();
-      toast.success('จองห้องพักสำเร็จ!');
-      router.push(`/payment?booking_type=room&booking_id=${res.data.data.room_booking_id}`);
-    } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'จองห้องพักไม่สำเร็จ (ห้องอาจถูกจองเต็มแล้ว)'));
-    } finally {
-      setBookingLoading(false);
-    }
-  };
-
-  const handleAddToCart = (): void => {
-    if (!range || nights <= 0 || !room) {
-      toast.error('กรุณาเลือกวันเช็คอินและเช็คเอาต์');
-      return;
-    }
-    if (blockedNights.length > 0) {
-      toast.error('ช่วงวันที่เลือกมีวันที่ห้องเต็มแล้ว');
-      return;
-    }
-
-    const existing = loadRoomCart();
-    if (
-      existing &&
-      existing.items.length > 0 &&
-      (existing.check_in !== range.start || existing.check_out !== range.end)
-    ) {
-      const ok = window.confirm(
-        'ตะกร้ามีวันอื่นอยู่ — ล้างแล้วเพิ่มห้องนี้ด้วยวันใหม่?'
-      );
-      if (!ok) return;
-      clearRoomCart();
-    }
-
-    const fresh = loadRoomCart();
-    const base =
-      fresh &&
-      fresh.check_in === range.start &&
-      fresh.check_out === range.end
-        ? { ...fresh, adults, children }
-        : {
-            check_in: range.start,
-            check_out: range.end,
-            adults,
-            children,
-            items: [],
-          };
-
-    const next = upsertCartItem(base, {
-      room_type_id: room.id,
-      room_name: room.room_name,
-      type_name: room.type_name,
-      capacity: room.capacity,
-      price_per_night: Number(room.price_per_night),
-      available_count: Math.max(1, Number((room as { available_count?: number }).available_count ?? 99)),
-      quantity: 1,
-    });
-    saveRoomCart(next);
-    toast.success('เพิ่มเข้าการจองแล้ว — กลับไปหน้าห้องเพื่อยืนยัน');
-    router.push('/rooms');
-  };
-
-  const handleApplyPromo = async (): Promise<void> => {
-    if (!promoCode.trim()) return;
-    if (!basePrice || nights <= 0) {
-      toast.error('กรุณาเลือกวันเช็คอินและเช็คเอาต์ก่อนใช้โค้ด');
-      return;
-    }
-    setPromoLoading(true);
-    try {
-      const res = await api.post('/promotions/validate', {
-        code: promoCode,
-        price: basePrice,
-        nights,
-      });
-      const data = res.data.data;
-      setAppliedPromo({
-        id: data.id,
-        name: data.name,
-        code: typeof data.code === 'string' ? data.code : promoCode.trim(),
-        discount_amount: data.discount_amount,
-        final_price: data.final_price,
-      });
-      toast.success(`ใช้โค้ด "${data.code}" สำเร็จ — ส่วนลด ฿${data.discount_amount.toLocaleString()}`);
-    } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'โค้ดส่วนลดไม่ถูกต้องหรือหมดอายุ'));
-    } finally {
-      setPromoLoading(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -502,9 +340,9 @@ export default function RoomDetailPage(): React.ReactElement {
             </div>
           </div>
 
-          {/* Booking Card Sidebar */}
+          {/* Detail sidebar — book only from /rooms list */}
           <aside className="lg:sticky lg:top-24 lg:self-start">
-            <form onSubmit={handleBooking} className="rounded-3xl bg-white p-6 shadow-xl shadow-stone-200/50 border border-stone-100/80 backdrop-blur-md">
+            <div className="rounded-3xl bg-white p-6 shadow-xl shadow-stone-200/50 border border-stone-100/80 backdrop-blur-md">
               <div className="flex items-baseline justify-between border-b border-stone-100 pb-4">
                 <div>
                   <span className="text-xs text-charcoal-400 font-medium">ราคาเริ่มต้น</span>
@@ -515,17 +353,14 @@ export default function RoomDetailPage(): React.ReactElement {
                     <span className="text-xs text-charcoal-400">/ คืน</span>
                   </p>
                 </div>
-                {nights > 0 && (
-                  <span className="rounded-full bg-forest-50 px-3 py-1 text-xs font-semibold text-forest-800">
-                    {nights} คืน
-                  </span>
-                )}
+                <span className="flex items-center gap-1 text-xs text-charcoal-400">
+                  <Users size={14} /> สูงสุด {room.capacity} คน
+                </span>
               </div>
 
-              {/* Calendar Section */}
               <div className="mt-5">
                 <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-charcoal-500">
-                  <CalendarIcon size={14} className="text-forest-800" /> เลือกวันเข้าพัก
+                  <CalendarIcon size={14} className="text-forest-800" /> ดูวันว่างของห้องนี้
                 </label>
                 <div className="rounded-2xl border border-stone-200 bg-stone-50/50 p-2">
                   <BookingCalendar
@@ -541,7 +376,6 @@ export default function RoomDetailPage(): React.ReactElement {
                 </div>
               </div>
 
-              {/* Date Preview */}
               <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-cream-50/80 p-3 text-xs border border-cream-200/60">
                 <div>
                   <span className="text-charcoal-400 block font-medium">เช็คอิน</span>
@@ -557,197 +391,35 @@ export default function RoomDetailPage(): React.ReactElement {
                 </div>
               </div>
 
-              {/* Blocked Nights Warning */}
               {blockedNights.length > 0 && (
                 <div className="mt-4 flex gap-2 rounded-2xl bg-red-50 p-3.5 text-xs text-red-700 border border-red-100">
                   <Info size={16} className="shrink-0 text-red-500" />
                   <p className="leading-relaxed">
-                    มีคืนที่ห้องเต็มแล้ว ({blockedNights.map(formatThaiDate).join(', ')}) กรุณาเลือกช่วงวันอื่น
+                    มีคืนที่ห้องเต็มแล้ว ({blockedNights.map(formatThaiDate).join(', ')})
                   </p>
                 </div>
               )}
 
-              {/* Form Inputs */}
-              <div className="mt-5 space-y-4">
-                <div>
-                  <p className="mb-1.5 text-sm font-medium text-charcoal-600">
-                    ผู้เข้าพัก (สูงสุด {room.capacity} คน)
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label
-                        htmlFor="adults"
-                        className="mb-1.5 block text-xs text-charcoal-400"
-                      >
-                        ผู้ใหญ่
-                      </label>
-                      <input
-                        id="adults"
-                        type="number"
-                        required
-                        min={1}
-                        max={room.capacity}
-                        className="input-field"
-                        value={adults}
-                        onChange={(event) => {
-                          const value = Number(event.target.value);
-                          if (!Number.isFinite(value)) return;
-                          const nextAdults = Math.min(
-                            Math.max(Math.floor(value), 1),
-                            room.capacity
-                          );
-                          setAdults(nextAdults);
-                          // ตัดเด็กเมื่อรวมเกินความจุ — ไม่ให้ผู้ใหญ่ลดเองแล้วยังเกิน
-                          setChildren((prev) =>
-                            Math.min(prev, room.capacity - nextAdults)
-                          );
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="children"
-                        className="mb-1.5 block text-xs text-charcoal-400"
-                      >
-                        เด็ก
-                      </label>
-                      <input
-                        id="children"
-                        type="number"
-                        required
-                        min={0}
-                        max={Math.max(room.capacity - adults, 0)}
-                        className="input-field"
-                        value={children}
-                        onChange={(event) => {
-                          const value = Number(event.target.value);
-                          if (!Number.isFinite(value)) return;
-                          setChildren(
-                            Math.min(
-                              Math.max(Math.floor(value), 0),
-                              room.capacity - adults
-                            )
-                          );
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <p className="mt-1.5 text-xs text-charcoal-400">
-                    รวม {guestTotal} / {room.capacity} คน
-                  </p>
-                </div>
-
-                <div>
-                  <label htmlFor="special-requests" className="mb-1.5 block text-xs font-semibold text-charcoal-600">
-                    คำขอพิเศษ (ถ้ามี)
-                  </label>
-                  <textarea
-                    id="special-requests"
-                    rows={2}
-                    className="w-full resize-none rounded-xl border border-stone-200 px-3.5 py-2 text-sm transition-all focus:border-forest-600 focus:outline-none focus:ring-2 focus:ring-forest-600/20"
-                    placeholder="เช่น ต้องการเตียงเสริม หรือ เข้าพักช่วงค่ำ"
-                    value={specialRequests}
-                    onChange={(event) => setSpecialRequests(event.target.value)}
-                  />
-                </div>
-
-                {/* Promo Code Input */}
-                {nights > 0 && (
-                  <div>
-                    <label htmlFor="promo-code" className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-charcoal-600">
-                      <Tag size={13} className="text-forest-700" /> โค้ดส่วนลด
-                    </label>
-                    {appliedPromo ? (
-                      <div className="flex items-center justify-between rounded-2xl bg-emerald-50/80 p-3 border border-emerald-200/80">
-                        <div className="flex items-center gap-2.5">
-                          <CheckCircle2 size={18} className="text-emerald-600" />
-                          <div>
-                            <p className="text-xs font-bold text-emerald-900">{appliedPromo.name}</p>
-                            <p className="text-[11px] font-medium text-emerald-700">
-                              {appliedPromo.code ? (
-                                <span className="font-mono">{appliedPromo.code}</span>
-                              ) : null}
-                              {appliedPromo.code ? ' · ' : ''}
-                              ลด ฿{appliedPromo.discount_amount.toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAppliedPromo(null);
-                            setPromoCode('');
-                          }}
-                          className="rounded-full p-1 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                        >
-                          <X size={15} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <input
-                          id="promo-code"
-                          className="w-full rounded-xl border border-stone-200 px-3.5 py-2 font-mono text-sm uppercase transition-all focus:border-forest-600 focus:outline-none focus:ring-2 focus:ring-forest-600/20"
-                          placeholder="กรอกโค้ดส่วนลด"
-                          value={promoCode}
-                          onChange={(event) => setPromoCode(event.target.value.toUpperCase())}
-                          onKeyDown={(event) => {
-                            if (event.key !== 'Enter') return;
-                            event.preventDefault();
-                            void handleApplyPromo();
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => void handleApplyPromo()}
-                          disabled={promoLoading || !promoCode.trim()}
-                          className="shrink-0 rounded-xl bg-forest-900 px-4 text-xs font-semibold text-white transition-all hover:bg-forest-800 disabled:opacity-40"
-                        >
-                          {promoLoading ? <Loader2 size={14} className="animate-spin" /> : 'ใช้โค้ด'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Price Calculation */}
-              {nights > 0 && (
-                <div className="mt-5 border-t border-stone-100 pt-4">
-                  <p className="mb-2 text-[11px] text-charcoal-400">
-                    ฿{Number(room.price_per_night).toLocaleString()} × {nights} คืน
-                  </p>
-                  <PromoPriceBreakdown basePrice={basePrice} promo={appliedPromo} />
-                </div>
+              {nights > 0 && blockedNights.length === 0 && (
+                <p className="mt-4 text-sm text-charcoal-500">
+                  ประมาณ ฿{basePrice.toLocaleString()} สำหรับ {nights} คืน
+                </p>
               )}
 
-              {/* Submit Button */}
-              <button
-                type="button"
-                onClick={handleAddToCart}
-                disabled={nights <= 0 || blockedNights.length > 0}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-forest-800/20 bg-cream-100 py-3.5 font-semibold text-forest-800 transition-all hover:bg-cream-200 disabled:cursor-not-allowed disabled:opacity-50"
+              <Link
+                href={
+                  range && nights > 0
+                    ? `/rooms?check_in=${range.start}&check_out=${range.end}`
+                    : '/rooms'
+                }
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-900 py-3.5 font-semibold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800"
               >
-                เพิ่มเข้าการจอง
-              </button>
-              <button
-                type="submit"
-                disabled={bookingLoading || nights <= 0 || blockedNights.length > 0}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-900 py-3.5 font-semibold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {bookingLoading ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    กำลังดำเนินการ...
-                  </>
-                ) : (
-                  'จองห้องนี้ทันที'
-                )}
-              </button>
+                ไปจองที่หน้ารายการห้อง
+              </Link>
               <p className="mt-3 text-center text-[11px] text-charcoal-400">
-                ยังไม่มีการตัดเงินในขั้นตอนนี้
+                เลือกประเภทและจำนวนห้องได้ที่หน้ารายการ — หน้านี้สำหรับดูรายละเอียดเท่านั้น
               </p>
-            </form>
+            </div>
           </aside>
         </div>
       </div>

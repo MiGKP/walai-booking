@@ -68,7 +68,7 @@ export default function LoginPage(): React.ReactElement | null {
         `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
         user.email;
       toast.success(`ยินดีต้อนรับ, ${displayName}!`);
-      router.push(redirectUrl || "/dashboard");
+      router.push(redirectUrl || "/");
     } catch (error: unknown) {
       toast.error(getLoginErrorMessage(error));
     } finally {
