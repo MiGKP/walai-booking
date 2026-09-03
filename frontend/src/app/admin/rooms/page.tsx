@@ -37,6 +37,16 @@ import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import toast, { Toaster } from "react-hot-toast";
 
+// ตัวเลือกเหตุผลในการปฏิเสธ
+const REJECT_REASONS = [
+  "สลิปไม่ชัดเจน / อ่านข้อมูลไม่ได้",
+  "ยอดเงินไม่ถูกต้อง / ไม่ครบถ้วน",
+  "บัญชีโอนเงินไม่ถูกต้อง",
+  "ไม่พบยอดเงินโอนในระบบ",
+  "รายการจองซ้ำซ้อน",
+  "อื่นๆ",
+];
+
 // Mapping สถานะสำหรับ UI
 const statusLabel: Record<string, string> = {
   pending: "รอดำเนินการ",
@@ -216,7 +226,6 @@ function CustomDatePicker({
 
       {isOpen && (
         <div className="absolute left-0 top-full mt-2 w-64 bg-white border border-stone-200 rounded-2xl shadow-xl z-50 p-3 animate-in fade-in zoom-in-95 duration-150">
-          {/* Calendar Header */}
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-stone-100">
             <button
               onClick={handlePrevMonth}
@@ -235,7 +244,6 @@ function CustomDatePicker({
             </button>
           </div>
 
-          {/* Weekday Headers */}
           <div className="grid grid-cols-7 text-center text-[10px] font-bold text-stone-400 mb-1">
             <span>อา</span>
             <span>จ</span>
@@ -246,7 +254,6 @@ function CustomDatePicker({
             <span>ส</span>
           </div>
 
-          {/* Days Grid */}
           <div className="grid grid-cols-7 gap-1 text-center">
             {Array.from({ length: firstDayOfWeek }).map((_, i) => (
               <div key={`empty-${i}`} />
@@ -275,7 +282,6 @@ function CustomDatePicker({
             })}
           </div>
 
-          {/* Quick Select Buttons */}
           <div className="flex items-center justify-between pt-2 mt-2 border-t border-stone-100 text-[10px]">
             <button
               onClick={() => {
@@ -451,12 +457,18 @@ export default function RoomStaffDashboard() {
     onConfirm: () => {},
   });
 
-  // Modal กรณีปฏิเสธการจอง (ระบุเหตุผล)
+  // Modal กรณีปฏิเสธการจอง (เพิ่ม selectedReason และ customReason)
   const [rejectModal, setRejectModal] = useState<{
     open: boolean;
     bookingId: number | null;
-    reason: string;
-  }>({ open: false, bookingId: null, reason: "" });
+    selectedReason: string;
+    customReason: string;
+  }>({
+    open: false,
+    bookingId: null,
+    selectedReason: REJECT_REASONS[0],
+    customReason: "",
+  });
 
   const itemsPerPage = 10;
 
@@ -488,7 +500,6 @@ export default function RoomStaffDashboard() {
     return () => clearTimeout(timer);
   }, [searchInput, searchParam, updateQueryParams]);
 
-  // ซิงค์ SearchInput หาก URL เปลี่ยนโดยตรง
   useEffect(() => {
     setSearchInput(searchParam);
   }, [searchParam]);
@@ -569,25 +580,42 @@ export default function RoomStaffDashboard() {
     );
   };
 
-  // handleRejectSubmit (ปฏิเสธพร้อมระบุเหตุผล)
+  // handleRejectSubmit (ปฏิเสธพร้อมประมวลผลข้อความเหตุผล)
   const handleRejectSubmit = async () => {
     if (!rejectModal.bookingId) return;
+
+    // คำนวณเหตุผลสุดท้ายที่จะส่งให้ Backend
+    const finalReason =
+      rejectModal.selectedReason === "อื่นๆ"
+        ? rejectModal.customReason.trim()
+        : rejectModal.selectedReason;
+
+    if (rejectModal.selectedReason === "อื่นๆ" && !finalReason) {
+      toast.error("กรุณาระบุเหตุผลเพิ่มเติม");
+      return;
+    }
+
     try {
       await api.put(`/bookings/${rejectModal.bookingId}/status`, {
         status: "rejected",
-        reject_reason: rejectModal.reason.trim() || "ข้อมูลหลักฐานไม่ถูกต้อง",
+        reject_reason: finalReason || "ข้อมูลหลักฐานไม่ถูกต้อง",
       });
       toast.success("ปฏิเสธรายการจองเรียบร้อยแล้ว");
 
       setBookings((prev) =>
         prev.map((b) =>
           b.id === rejectModal.bookingId
-            ? { ...b, status: "rejected", reject_reason: rejectModal.reason }
+            ? { ...b, status: "rejected", reject_reason: finalReason }
             : b,
         ),
       );
 
-      setRejectModal({ open: false, bookingId: null, reason: "" });
+      setRejectModal({
+        open: false,
+        bookingId: null,
+        selectedReason: REJECT_REASONS[0],
+        customReason: "",
+      });
       fetchBookings();
     } catch (err: any) {
       toast.error(err.response?.data?.message || "ปฏิเสธการจองไม่สำเร็จ");
@@ -656,12 +684,10 @@ export default function RoomStaffDashboard() {
     );
   };
 
-  // พิมพ์รายละเอียดการจอง / ใบเสร็จ
   const handlePrintDetails = () => {
     window.print();
   };
 
-  // รวบรวมประเภทห้องพักทั้งหมดที่มีในระบบ
   const roomTypes = useMemo(() => {
     const types = new Set<string>();
     bookings.forEach((b) => {
@@ -678,7 +704,6 @@ export default function RoomStaffDashboard() {
     ];
   }, [roomTypes]);
 
-  // คำนวณสรุปสถิติต่างๆ
   const counts = useMemo(() => {
     const approvedList = bookings.filter((b) =>
       ["approved", "checked_in", "checked_out"].includes(b.status),
@@ -713,11 +738,9 @@ export default function RoomStaffDashboard() {
     };
   }, [bookings]);
 
-  // ระบบกรองข้อมูลหลัก
   const filtered = useMemo(() => {
     let list = bookings;
 
-    // 1. Filter ตามสถานะ
     if (filter === "has_slip")
       list = list.filter(
         (b) =>
@@ -739,12 +762,10 @@ export default function RoomStaffDashboard() {
     else if (filter === "checked_out")
       list = list.filter((b) => b.status === "checked_out");
 
-    // 2. Filter ตามประเภทห้องพัก
     if (roomType !== "all") {
       list = list.filter((b) => (b.type_name || b.room_name) === roomType);
     }
 
-    // 3. Filter ตามช่วงวันที่เข้าพัก
     if (dateFrom)
       list = list.filter(
         (b) => b.check_in && new Date(b.check_in) >= new Date(dateFrom),
@@ -754,7 +775,6 @@ export default function RoomStaffDashboard() {
         (b) => b.check_in && new Date(b.check_in) <= new Date(dateTo),
       );
 
-    // 4. Search Filter
     if (searchParam.trim()) {
       const q = searchParam.toLowerCase().trim();
       list = list.filter((b) => {
@@ -812,7 +832,6 @@ export default function RoomStaffDashboard() {
 
   return (
     <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
-      {/* CSS สำหรับจัดแต่งการพิมพ์ (Print Stylesheet) */}
       <style jsx global>{`
         @media print {
           body * {
@@ -859,8 +878,7 @@ export default function RoomStaffDashboard() {
             </span>
           </div>
           <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจอง เช็คอิน
-            และเช็คเอาต์ผู้เข้าพัก
+            ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจอง เช็คอิน และเช็คเอาต์ผู้เข้าพัก
           </p>
         </div>
       </div>
@@ -955,7 +973,6 @@ export default function RoomStaffDashboard() {
 
       {/* Control Bar */}
       <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs space-y-4 print:hidden">
-        {/* Tabs Filter */}
         <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5">
           {(
             [
@@ -993,10 +1010,8 @@ export default function RoomStaffDashboard() {
           })}
         </div>
 
-        {/* ค้นหา + ตัวกรองประเภทห้อง + ช่วงวันที่ + ปุ่มรีเฟรช */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-stone-100">
           <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-            {/* Search Input */}
             <div className="relative flex-1 sm:w-64 min-w-[200px]">
               <Search
                 size={16}
@@ -1022,7 +1037,6 @@ export default function RoomStaffDashboard() {
               )}
             </div>
 
-            {/* Room Type Selector */}
             <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
               <BedDouble size={15} className="text-stone-400" />
               <span className="font-medium text-stone-500 whitespace-nowrap">
@@ -1038,7 +1052,6 @@ export default function RoomStaffDashboard() {
               />
             </div>
 
-            {/* 🔥 Custom Date Range Picker ปรับปรุงดีไซน์ปฏิทินสวยงาม */}
             <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
               <CalendarDays size={15} className="text-[#0b3b2c]" />
               <span className="font-medium text-stone-500 whitespace-nowrap">
@@ -1057,7 +1070,6 @@ export default function RoomStaffDashboard() {
               />
             </div>
 
-            {/* Clear Filters */}
             {hasActiveFilters && (
               <button
                 onClick={handleClearFilters}
@@ -1070,7 +1082,6 @@ export default function RoomStaffDashboard() {
             )}
           </div>
 
-          {/* Refresh Button */}
           <button
             onClick={fetchBookings}
             className="px-3.5 py-2 text-stone-700 bg-white hover:bg-stone-100/80 rounded-xl border border-stone-200 shadow-xs transition-all text-xs font-medium flex items-center gap-2 active:scale-95 ml-auto"
@@ -1330,7 +1341,8 @@ export default function RoomStaffDashboard() {
                                   setRejectModal({
                                     open: true,
                                     bookingId,
-                                    reason: "",
+                                    selectedReason: REJECT_REASONS[0],
+                                    customReason: "",
                                   })
                                 }
                                 className="inline-flex items-center gap-1 text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold px-3 py-1.5 rounded-xl border border-rose-200 transition-all active:scale-95"
@@ -1652,7 +1664,7 @@ export default function RoomStaffDashboard() {
           );
         })()}
 
-      {/* Reject Modal */}
+      {/* Reject Modal (ปรับปรุงให้มี Preset ช้อยส์เลือก และแสดง textarea เมื่อเลือก "อื่นๆ") */}
       {rejectModal.open && (
         <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 print:hidden">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-stone-100 text-center space-y-4">
@@ -1665,24 +1677,74 @@ export default function RoomStaffDashboard() {
                 ปฏิเสธรายการจองนี้?
               </h3>
               <p className="text-xs text-stone-500 mt-1">
-                กรุณาระบุเหตุผลในการปฏิเสธสลิปหรือการจอง
+                โปรดเลือกเหตุผลในการปฏิเสธการจอง
               </p>
             </div>
 
-            <textarea
-              rows={3}
-              placeholder="ระบุเหตุผล เช่น ยอดเงินไม่ครบ, สลิปไม่ชัดเจน, บัญชีโอนไม่ถูกต้อง..."
-              value={rejectModal.reason}
-              onChange={(e) =>
-                setRejectModal((prev) => ({ ...prev, reason: e.target.value }))
-              }
-              className="w-full p-3 bg-stone-50 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs text-stone-800 placeholder:text-stone-400"
-            />
+            {/* รายการตัวเลือกเหตุผล */}
+            <div className="space-y-1.5 text-left">
+              {REJECT_REASONS.map((reason) => {
+                const isSelected = rejectModal.selectedReason === reason;
+                return (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() =>
+                      setRejectModal((prev) => ({
+                        ...prev,
+                        selectedReason: reason,
+                      }))
+                    }
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl border text-xs font-medium transition-all flex items-center justify-between ${
+                      isSelected
+                        ? "border-rose-500 bg-rose-50/60 text-rose-900 font-bold"
+                        : "border-stone-200 bg-stone-50/50 text-stone-700 hover:bg-stone-100"
+                    }`}
+                  >
+                    <span>{reason}</span>
+                    <span
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                        isSelected
+                          ? "border-rose-600 bg-rose-600"
+                          : "border-stone-300"
+                      }`}
+                    >
+                      {isSelected && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* แสดงช่องกรอกข้อความเฉพาะเมื่อเลือก "อื่นๆ" */}
+            {rejectModal.selectedReason === "อื่นๆ" && (
+              <div className="text-left animate-in fade-in duration-150">
+                <textarea
+                  rows={2}
+                  placeholder="ระบุเหตุผลเพิ่มเติม..."
+                  value={rejectModal.customReason}
+                  onChange={(e) =>
+                    setRejectModal((prev) => ({
+                      ...prev,
+                      customReason: e.target.value,
+                    }))
+                  }
+                  className="w-full p-3 bg-stone-50 rounded-xl border border-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs text-stone-800 placeholder:text-stone-400"
+                />
+              </div>
+            )}
 
             <div className="flex items-center gap-2 pt-1">
               <button
                 onClick={() =>
-                  setRejectModal({ open: false, bookingId: null, reason: "" })
+                  setRejectModal({
+                    open: false,
+                    bookingId: null,
+                    selectedReason: REJECT_REASONS[0],
+                    customReason: "",
+                  })
                 }
                 className="flex-1 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-colors"
               >

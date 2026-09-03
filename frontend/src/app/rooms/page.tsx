@@ -6,7 +6,6 @@ import Image from "next/image";
 import {
   ArrowRight,
   Users,
-  Sparkles,
   Calendar,
   Moon,
   AlertCircle,
@@ -39,6 +38,15 @@ interface RoomType {
   main_image: string;
   available_count: number;
 }
+
+// เส้นระลอกน้ำใต้ header — โมทีฟเดียวกับ Navbar/Footer เพื่อให้ทุกหน้าดูเป็นชุดเดียวกัน
+const WAVE_BOTTOM = {
+  backgroundImage:
+    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='8' viewBox='0 0 44 8'%3E%3Cpath d='M0 4 Q11 0 22 4 T44 4' fill='none' stroke='%23BFD3C4' stroke-width='1.2'/%3E%3C/svg%3E\")",
+  backgroundRepeat: "repeat-x",
+  backgroundPosition: "bottom",
+  backgroundSize: "44px 8px",
+} as const;
 
 export default function RoomsPage(): React.ReactElement {
   const today = todayISO();
@@ -123,14 +131,17 @@ export default function RoomsPage(): React.ReactElement {
     : "ยังไม่เลือกวันที่";
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] pt-10">
+    <div className="min-h-screen bg-cream-100 pt-10">
       {/* Header Section */}
-      <header className="border-b border-stone-200/80 bg-gradient-to-b from-stone-100/50 to-[#FDFBF7]">
+      <header
+        className="bg-gradient-to-b from-stone-100/50 to-cream-100"
+        style={WAVE_BOTTOM}
+      >
         <div className="container mx-auto px-4 py-6 lg:py-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             {/* Title Block */}
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold tracking-widest uppercase text-lagoon-600">
+              <span className="text-[11px] font-semibold tracking-widest uppercase text-forest-700">
                 ที่พักริมน้ำ
               </span>
               <h1 className="font-display text-2xl font-medium tracking-tight text-forest-900 sm:text-3xl">
@@ -153,7 +164,7 @@ export default function RoomsPage(): React.ReactElement {
           <aside className="lg:sticky lg:top-24 lg:self-start">
             <div className="card overflow-hidden rounded-2xl border border-stone-200/80 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md sm:p-6">
               <div className="mb-4 flex items-center gap-2 text-forest-900">
-                <Calendar className="h-5 w-5 text-lagoon-600" />
+                <Calendar className="h-5 w-5 text-bamboo-600" />
                 <h3 className="font-display text-lg font-medium">
                   เลือกวันเข้าพัก
                 </h3>
@@ -225,7 +236,7 @@ export default function RoomsPage(): React.ReactElement {
             ) : rooms.length === 0 ? (
               /* Empty State */
               <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-white/50 px-6 py-20 text-center backdrop-blur-sm">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-stone-100 text-stone-400">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-forest-50 text-forest-700">
                   <AlertCircle className="h-6 w-6" />
                 </div>
                 <p className="mt-4 font-display text-xl font-medium text-forest-900">
@@ -242,7 +253,7 @@ export default function RoomsPage(): React.ReactElement {
                 <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3 border-b border-stone-200/80 pb-4">
                   <h2 className="font-display text-2xl text-forest-900">
                     พบห้องว่าง{" "}
-                    <span className="font-bold text-lagoon-600">
+                    <span className="font-bold text-bamboo-600">
                       {availableRooms.length}
                     </span>{" "}
                     ประเภท
@@ -273,7 +284,7 @@ export default function RoomsPage(): React.ReactElement {
                         key={room.id}
                         className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 sm:flex-row ${
                           isAvailable
-                            ? "border-stone-200/80 hover:-translate-y-1 hover:border-lagoon-300 hover:shadow-xl hover:shadow-stone-200/50"
+                            ? "border-stone-200/80 hover:-translate-y-1 hover:border-bamboo-300 hover:shadow-xl hover:shadow-stone-200/50"
                             : "border-stone-200/50 bg-stone-50/50 opacity-60"
                         }`}
                       >
@@ -288,7 +299,7 @@ export default function RoomsPage(): React.ReactElement {
                               className="object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                           ) : (
-                            <div className="grid h-full w-full place-items-center bg-lagoon-50/50 font-display text-sm font-medium text-lagoon-600">
+                            <div className="grid h-full w-full place-items-center bg-forest-50 font-display text-sm font-medium text-forest-700">
                               ที่พักริมน้ำ
                             </div>
                           )}
@@ -298,7 +309,7 @@ export default function RoomsPage(): React.ReactElement {
                             <span
                               className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium backdrop-blur-md shadow-sm ${
                                 isAvailable
-                                  ? "bg-emerald-500/90 text-white"
+                                  ? "bg-forest-700/90 text-cream-100"
                                   : "bg-stone-800/80 text-stone-200"
                               }`}
                             >
@@ -314,7 +325,7 @@ export default function RoomsPage(): React.ReactElement {
                           <div>
                             <div className="flex items-start justify-between gap-4">
                               <div>
-                                <h3 className="font-display text-xl font-medium text-forest-900 group-hover:text-lagoon-700 transition-colors">
+                                <h3 className="font-display text-xl font-medium text-forest-900 transition-colors group-hover:text-bamboo-600">
                                   {room.room_name}
                                 </h3>
                                 {room.type_name && (
@@ -364,7 +375,7 @@ export default function RoomsPage(): React.ReactElement {
                                 )}
                                 <Link
                                   href={`/rooms/${room.id}?check_in=${searchedRange.start}&check_out=${searchedRange.end}`}
-                                  className="inline-flex items-center gap-2 rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-forest-800 hover:shadow-md active:scale-95"
+                                  className="inline-flex items-center gap-2 rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-cream-100 transition-all duration-200 hover:bg-forest-800 hover:shadow-md active:scale-95"
                                 >
                                   ดูรายละเอียด
                                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

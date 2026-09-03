@@ -16,6 +16,35 @@ interface ResortContact {
   line_id?: string;
 }
 
+// เส้นระลอกน้ำบนขอบ footer — คู่กับ WAVE_BORDER ใน Navbar
+const WAVE_TOP = {
+  backgroundImage:
+    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='8' viewBox='0 0 44 8'%3E%3Cpath d='M0 4 Q11 8 22 4 T44 4' fill='none' stroke='%23274F41' stroke-width='1.2'/%3E%3C/svg%3E\")",
+  backgroundRepeat: "repeat-x",
+  backgroundPosition: "top",
+  backgroundSize: "44px 8px",
+} as const;
+
+function FooterHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h4 className="font-display font-semibold text-cream-100 text-lg mb-1">
+      {children}
+    </h4>
+  );
+}
+
+function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="relative inline-block text-cream-400 hover:text-bamboo-400 transition-colors duration-200 group"
+    >
+      {children}
+      <span className="absolute -bottom-0.5 left-0 right-0 h-px bg-bamboo-400 scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left" />
+    </Link>
+  );
+}
+
 export default function Footer() {
   const [info, setInfo] = useState<ResortContact>({});
 
@@ -30,12 +59,11 @@ export default function Footer() {
   const facebookLink = resolveFacebookLink(info.facebook);
 
   return (
-    <footer className="bg-forest-800 text-cream-300">
-      <div className="container mx-auto px-4 py-14">
+    <footer className="bg-forest-800 text-cream-300" style={WAVE_TOP}>
+      <div className="container mx-auto px-4 pt-16 pb-14">
         <div className="grid md:grid-cols-4 gap-10">
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2.5 mb-4 group">
-              {/* ✅ เปลี่ยนจาก SVG เป็น Image Component */}
               <div className="w-8 h-8 rounded-full bg-cream-100 p-0.5 flex items-center justify-center overflow-hidden">
                 <Image
                   src="/images/logo_walai.png"
@@ -69,80 +97,32 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="font-display font-semibold text-cream-100 mb-4 text-lg">
-              บริการ
-            </h4>
+            <FooterHeading>บริการ</FooterHeading>
+            <span className="block w-8 h-[2px] rounded-full bg-bamboo-400 mb-4" />
             <ul className="space-y-2.5 text-sm">
-              <li>
-                <Link
-                  href="/rooms"
-                  className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200"
-                >
-                  ห้องพักลอยน้ำ
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/kayaks"
-                  className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200"
-                >
-                  เรือคายัค
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/dashboard/bookings"
-                  className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200"
-                >
-                  การจองของฉัน
-                </Link>
-              </li>
+              <li><FooterLink href="/rooms">ห้องพักลอยน้ำ</FooterLink></li>
+              <li><FooterLink href="/kayaks">เรือคายัค</FooterLink></li>
+              <li><FooterLink href="/dashboard/bookings">การจองของฉัน</FooterLink></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-display font-semibold text-cream-100 mb-4 text-lg">
-              บัญชีผู้ใช้
-            </h4>
+            <FooterHeading>บัญชีผู้ใช้</FooterHeading>
+            <span className="block w-8 h-[2px] rounded-full bg-bamboo-400 mb-4" />
             <ul className="space-y-2.5 text-sm">
-              <li>
-                <Link
-                  href="/auth/login"
-                  className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200"
-                >
-                  เข้าสู่ระบบ
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/auth/register"
-                  className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200"
-                >
-                  สมัครสมาชิก
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/dashboard"
-                  className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200"
-                >
-                  โปรไฟล์
-                </Link>
-              </li>
+              <li><FooterLink href="/auth/login">เข้าสู่ระบบ</FooterLink></li>
+              <li><FooterLink href="/auth/register">สมัครสมาชิก</FooterLink></li>
+              <li><FooterLink href="/dashboard">โปรไฟล์</FooterLink></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-display font-semibold text-cream-100 mb-4 text-lg">
-              ติดต่อ
-            </h4>
+            <FooterHeading>ติดต่อ</FooterHeading>
+            <span className="block w-8 h-[2px] rounded-full bg-bamboo-400 mb-4" />
             <ul className="space-y-3 text-sm">
               {info.address && (
                 <li className="flex items-start gap-2.5">
-                  <MapPin
-                    size={16}
-                    className="text-bamboo-400 mt-0.5 shrink-0"
-                  />
+                  <MapPin size={16} className="text-bamboo-400 mt-0.5 shrink-0" />
                   <span className="text-cream-400">{info.address}</span>
                 </li>
               )}
@@ -187,7 +167,14 @@ export default function Footer() {
       </div>
       <div
         className="py-5 text-center text-sm text-cream-500"
-        style={{ borderTop: "1px solid rgba(253,252,247,0.1)" }}
+        style={{
+          backgroundImage:
+            "linear-gradient(90deg, transparent, var(--color-bamboo-400, #C9A876), transparent)",
+          backgroundRepeat: "no-repeat",
+          backgroundSize: "100% 1px",
+          backgroundPosition: "top",
+          opacity: 1,
+        }}
       >
         © {year} {info.name || "วลัย"} ที่พักลอยน้ำ — สงวนลิขสิทธิ์ทุกประการ
       </div>

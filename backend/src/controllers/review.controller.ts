@@ -16,7 +16,8 @@ export const getPublicReviews = async (
        FROM reviews rv
        JOIN members m ON m.member_id = rv.member_id
        JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
-       JOIN room_types rt ON rt.id = rb.room_type_id
+       JOIN rooms r ON r.room_id = rb.room_id
+       JOIN room_types rt ON rt.id = r.room_type_id
        WHERE rv.comment IS NOT NULL AND TRIM(rv.comment) <> ''
        ORDER BY rv.review_date DESC
        LIMIT $1`,
@@ -43,7 +44,8 @@ export const getReviewsByRoomType = async (
        FROM reviews rv
        JOIN members m ON m.member_id = rv.member_id
        JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
-       JOIN room_types rt ON rt.id = rb.room_type_id
+       JOIN rooms r ON r.room_id = rb.room_id
+       JOIN room_types rt ON rt.id = r.room_type_id
        WHERE rt.id = $1
        ORDER BY rv.review_date DESC`,
       [room_type_id],
@@ -133,7 +135,7 @@ export const getAllReviews = async (
     let idx = 1;
 
     if (room_type_id) {
-      whereClause += ` AND rt.id = $${idx++}`; // ✅ เปลี่ยนจาก r.room_type_id เป็น rt.id
+      whereClause += ` AND rt.id = $${idx++}`;
       params.push(Number(room_type_id));
     }
     if (min_rating) {
@@ -145,6 +147,7 @@ export const getAllReviews = async (
       params.push(Number(max_rating));
     }
 
+    // 🔧 เพิ่ม JOIN rooms r ON r.room_id = rb.room_id และเปลี่ยน JOIN room_types เป็น rt.id = r.room_type_id
     const result = await pool.query(
       `SELECT rv.review_id, rv.rating, rv.comment, rv.review_date,
               m.first_name, m.last_name, m.image_profile, m.email,
@@ -153,7 +156,8 @@ export const getAllReviews = async (
        FROM reviews rv
        JOIN members m ON m.member_id = rv.member_id
        JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
-       JOIN room_types rt ON rt.id = rb.room_type_id
+       JOIN rooms r ON r.room_id = rb.room_id
+       JOIN room_types rt ON rt.id = r.room_type_id
        ${whereClause}
        ORDER BY rv.review_date DESC`,
       params,
