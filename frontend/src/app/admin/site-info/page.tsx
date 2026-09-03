@@ -27,6 +27,7 @@ import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import toast from "react-hot-toast";
 import MapPickerModal from "@/components/admin/MapPickerModal";
+import { pickResortInfo } from "@/lib/resort-info";
 
 // รายการวันทั้งหมดในสัปดาห์
 const DAYS_OPTIONS = [
@@ -151,9 +152,9 @@ export default function GeneralSettingsPage() {
       .get("/settings/resort")
       .then((res) => {
         const rawData = res.data?.data;
-        const d = Array.isArray(rawData) ? rawData[0] : rawData;
+        const d = pickResortInfo(rawData, 'main');
 
-        if (d) {
+        if (d && (d.id || d.name || d.phone)) {
           const daysStr = d.operating_days ?? "";
           setForm({
             name: d.name ?? "",

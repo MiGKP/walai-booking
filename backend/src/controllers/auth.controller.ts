@@ -151,7 +151,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
           auth_provider: member.auth_provider || 'email'
         }, 
         token,
-        redirectUrl: '/dashboard'
+        redirectUrl: '/'
       },
     });
   } catch (error) {

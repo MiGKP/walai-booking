@@ -91,7 +91,7 @@ export default function RegisterPage(): React.ReactElement | null {
       });
       await login(response.data.data.token);
       toast.success('สมัครสมาชิกสำเร็จ!');
-      router.push('/dashboard');
+      router.push('/');
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, 'สมัครสมาชิกไม่สำเร็จ'));
     } finally {

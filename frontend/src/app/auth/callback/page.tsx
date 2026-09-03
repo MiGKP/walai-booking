@@ -26,7 +26,7 @@ function CallbackContent(): React.ReactElement {
     if (token) {
       login(token).then(() => {
         toast.success('เข้าสู่ระบบสำเร็จ!');
-        router.push('/dashboard');
+        router.push('/');
       }).catch(() => {
         clearAuthToken();
         toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่');

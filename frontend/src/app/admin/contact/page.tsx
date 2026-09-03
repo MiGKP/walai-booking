@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { pickResortInfo } from '@/lib/resort-info';
 
 export default function ContactInfoPage() {
   const { ready, user } = useAuthGuard({ allowedRoles: ['admin', 'room_staff', 'boat_staff'] });
@@ -22,7 +23,7 @@ export default function ContactInfoPage() {
     if (!ready) return;
     api.get('/settings/resort').then(res => {
       if (res.data?.data) {
-        const d = res.data.data;
+        const d = pickResortInfo(res.data.data, 'main');
         setForm({
           phone: d.phone || '', email: d.email || '',
           line_id: d.line_id || '', facebook: d.facebook || '',
@@ -37,10 +38,17 @@ export default function ContactInfoPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put('/settings/resort', form);
+      await api.put('/settings/resort', { id: 3, ...form });
       toast.success('บันทึกข้อมูลติดต่อสำเร็จ');
-    } catch (err: any) { toast.error(err.response?.data?.message || 'บันทึกไม่สำเร็จ'); }
-    finally { setSaving(false); }
+    } catch (err: unknown) {
+      toast.error(
+        err && typeof err === 'object' && 'response' in err
+          ? String((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'บันทึกไม่สำเร็จ')
+          : 'บันทึกไม่สำเร็จ'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!ready) return null;

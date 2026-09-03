@@ -156,8 +156,9 @@ App default: `http://localhost:3000`
 | `members` | Customer accounts |
 | `staff` | Staff and admin accounts (`admin`, `room_staff`, `boat_staff`) |
 | `room_types`, `rooms` | Room catalog and physical units |
-| `room_bookings` | Room reservations |
-| `boat_types`, `boat_rounds`, `boat_bookings` | Kayak catalog, rounds, and reservations |
+| `room_bookings` | Room reservation header (dates, payment, guests) |
+| `booking_room` | Physical rooms assigned to a room booking |
+| `boat_types`, `boat_rounds`, `boat_bookings`, `booking_boat` | Kayak catalog, rounds, booking header + per-type lines |
 | `promotions` | Discount codes |
 | `resort_info` | Contact and payment display settings |
 

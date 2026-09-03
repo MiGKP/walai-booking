@@ -1,8 +1,13 @@
 import passport from 'passport';
-import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import { Profile, Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
 import pool from './database';
 import dotenv from 'dotenv';
+import {
+  extractGoogleAvatar,
+  extractGoogleEmail,
+  extractGoogleName,
+} from '../services/google-oauth.profile';
 
 dotenv.config();
 
@@ -39,58 +44,83 @@ passport.use(
       clientID: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
       callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
+      // v3 userinfo returns email for Google Workspace (.ac.th) more reliably than People API
+      userProfileURL: 'https://www.googleapis.com/oauth2/v3/userinfo',
     },
     // callback นี้เป็นหัวใจของ social login โดยจะ map บัญชี Google ให้ตรงกับ member ในฐานข้อมูล
-    async (accessToken, refreshToken, profile, done) => {
+    async (_accessToken: string, _refreshToken: string, profile: Profile, done) => {
       try {
-        const email = profile.emails?.[0]?.value;
-        const avatar = profile.photos?.[0]?.value;
+        const email = extractGoogleEmail(profile);
+        const avatar = extractGoogleAvatar(profile);
 
-        if (!email) return done(new Error('No email from Google'), false);
-
-        // Check in members table
-        const existing = await pool.query('SELECT * FROM members WHERE google_id = $1 OR email = $2', [
-          profile.id,
-          email,
-        ]);
-
-        if (existing.rows.length > 0) {
-          const user = existing.rows[0];
-          // If this email was registered via email/password, block Google login to prevent account merge
-          if (user.auth_provider === 'email' && !user.google_id) {
-            return done(new Error('This email is already registered. Please login with your email and password.'), false);
-          }
-          // If already linked to Google or has google_id, allow login
-          if (!user.google_id) {
-            await pool.query('UPDATE members SET google_id = $1, avatar_url = $2 WHERE member_id = $3', [
-              profile.id,
-              avatar,
-              user.member_id,
-            ]);
-          }
-          return done(null, user);
+        if (!email) {
+          return done(null, false, { message: 'no_email' });
         }
 
-        // Create new member
-        const nameParts = profile.displayName?.split(' ') || ['', ''];
+        const existing = await pool.query(
+          `SELECT * FROM members
+           WHERE google_id = $1 OR LOWER(email) = LOWER($2)
+           ORDER BY CASE WHEN google_id = $1 THEN 0 ELSE 1 END
+           LIMIT 1`,
+          [profile.id, email]
+        );
+
+        if (existing.rows.length > 0) {
+          const user = existing.rows[0] as { member_id: number; google_id: string | null; is_active: boolean };
+          if (user.is_active === false) {
+            return done(null, false, { message: 'account_disabled' });
+          }
+          // Google already verified this mailbox — link it even if the row was email/password.
+          if (!user.google_id) {
+            await pool.query(
+              `UPDATE members
+               SET google_id = $1,
+                   avatar_url = COALESCE($2, avatar_url),
+                   updated_at = NOW()
+               WHERE member_id = $3`,
+              [profile.id, avatar, user.member_id]
+            );
+          }
+          return done(null, existing.rows[0]);
+        }
+
+        const { firstName, lastName } = extractGoogleName(profile, email);
         const newUser = await pool.query(
           `INSERT INTO members (first_name, last_name, email, google_id, avatar_url, auth_provider)
            VALUES ($1, $2, $3, $4, $5, 'google') RETURNING *`,
-          [nameParts[0] || '', nameParts[1] || '', email, profile.id, avatar]
+          [firstName, lastName, email, profile.id, avatar]
         );
 
         return done(null, newUser.rows[0]);
       } catch (error) {
-        return done(error, false);
+        const code =
+          error && typeof error === 'object' && 'code' in error
+            ? String((error as { code: unknown }).code)
+            : '';
+        // Unique email/google_id race: look up again instead of crashing the OAuth callback.
+        if (code === '23505') {
+          const email = extractGoogleEmail(profile);
+          const retry = await pool.query(
+            `SELECT * FROM members
+             WHERE google_id = $1 OR ($2::text IS NOT NULL AND LOWER(email) = LOWER($2))
+             LIMIT 1`,
+            [profile.id, email]
+          );
+          if (retry.rows.length > 0) {
+            return done(null, retry.rows[0]);
+          }
+        }
+        console.error('Google verify error:', error);
+        return done(null, false, { message: 'google_failed' });
       }
     }
   )
 );
 
 // serialize ใช้เก็บ id ของผู้ใช้ลง session เมื่อ Passport ต้องจัดการ session-based auth
-passport.serializeUser((user: any, done) => {
-  // Handle both members and staff
-  const id = user.member_id || user.staff_id;
+passport.serializeUser((user: Express.User, done) => {
+  const record = user as { member_id?: number; staff_id?: number };
+  const id = record.member_id || record.staff_id;
   done(null, id);
 });
 

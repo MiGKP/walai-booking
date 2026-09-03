@@ -6,6 +6,7 @@ import { MapPin, Phone, Mail, Facebook } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveFacebookLink } from '@/lib/social';
 import Image from 'next/image';
+import { pickResortInfo } from '@/lib/resort-info';
 
 interface ResortContact {
   name?: string;
@@ -51,7 +52,7 @@ export default function Footer() {
   useEffect(() => {
     api
       .get("/settings/resort")
-      .then((res) => setInfo(res.data?.data || {}))
+      .then((res) => setInfo(pickResortInfo(res.data?.data, 'main')))
       .catch(() => {});
   }, []);
 

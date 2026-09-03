@@ -3,30 +3,40 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Users,
   Calendar,
   Moon,
   AlertCircle,
+  Plus,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import toast from "react-hot-toast";
 import BookingCalendar, {
   DateRange,
   DayStatus,
 } from "@/components/booking/BookingCalendar";
+import RoomCartPanel from "@/components/booking/RoomCartPanel";
 import { fetchRoomCalendar, toRoomDayStatus } from "@/lib/booking-calendar";
 import {
   MonthCursor,
   addDaysISO,
   formatThaiDate,
   monthCursorFromISO,
-  monthRangeISO,
+  multiMonthRangeISO,
   nightsBetween,
   todayISO,
 } from "@/lib/date";
+import {
+  RoomCartState,
+  clearRoomCart,
+  loadRoomCart,
+  saveRoomCart,
+  upsertCartItem,
+} from "@/lib/room-cart";
 
 interface RoomType {
   id: number;
@@ -49,6 +59,7 @@ const WAVE_BOTTOM = {
 } as const;
 
 export default function RoomsPage(): React.ReactElement {
+  const router = useRouter();
   const today = todayISO();
 
   const [range, setRange] = useState<DateRange | null>({
@@ -63,12 +74,122 @@ export default function RoomsPage(): React.ReactElement {
   const [rooms, setRooms] = useState<RoomType[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchedRange, setSearchedRange] = useState<DateRange | null>(null);
+  const [cart, setCart] = useState<RoomCartState | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const nights = range ? nightsBetween(range.start, range.end) : 0;
 
   useEffect(() => {
+    const existing = loadRoomCart();
+    if (existing) setCart(existing);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkIn = params.get("check_in");
+    const checkOut = params.get("check_out");
+    if (
+      checkIn &&
+      checkOut &&
+      nightsBetween(checkIn, checkOut) > 0
+    ) {
+      setRange({ start: checkIn, end: checkOut });
+      setCursor(monthCursorFromISO(checkIn));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (cart) saveRoomCart(cart);
+  }, [cart]);
+
+  const handleRangeSelect = (next: DateRange | null): void => {
+    if (
+      cart &&
+      cart.items.length > 0 &&
+      next &&
+      (next.start !== cart.check_in || next.end !== cart.check_out)
+    ) {
+      const ok = window.confirm(
+        "เปลี่ยนวันที่จะล้างรายการห้องในตะกร้า ต้องการดำเนินการต่อหรือไม่?",
+      );
+      if (!ok) return;
+      clearRoomCart();
+      setCart(null);
+    }
+    setRange(next);
+  };
+
+  const ensureCart = (selected: DateRange): RoomCartState => {
+    if (
+      cart &&
+      cart.check_in === selected.start &&
+      cart.check_out === selected.end
+    ) {
+      return cart;
+    }
+    return {
+      check_in: selected.start,
+      check_out: selected.end,
+      adults: cart?.adults ?? 1,
+      children: cart?.children ?? 0,
+      items: [],
+    };
+  };
+
+  const handleAddToCart = (room: RoomType): void => {
+    if (!searchedRange) {
+      toast.error("กรุณาเลือกวันเข้าพักก่อน");
+      return;
+    }
+    const base = ensureCart(searchedRange);
+    const next = upsertCartItem(base, {
+      room_type_id: room.id,
+      room_name: room.room_name,
+      type_name: room.type_name,
+      capacity: room.capacity,
+      price_per_night: Number(room.price_per_night),
+      available_count: Number(room.available_count),
+      quantity: 1,
+    });
+    setCart(next);
+    toast.success(`เพิ่ม ${room.room_name} แล้ว`);
+  };
+
+  const handleCheckout = async (options?: {
+    promotion_id?: number;
+  }): Promise<void> => {
+    if (!cart || cart.items.length === 0) return;
+    setCheckoutLoading(true);
+    try {
+      const res = await api.post("/bookings/room", {
+        check_in_date: cart.check_in,
+        check_out_date: cart.check_out,
+        adults: cart.adults,
+        children: cart.children,
+        items: cart.items.map((item) => ({
+          room_type_id: item.room_type_id,
+          quantity: item.quantity,
+        })),
+        ...(options?.promotion_id
+          ? { promotion_id: options.promotion_id }
+          : {}),
+      });
+      clearRoomCart();
+      setCart(null);
+      toast.success("จองห้องพักสำเร็จ!");
+      router.push(
+        `/payment?booking_type=room&booking_id=${res.data.data.room_booking_id}`,
+      );
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "จองห้องพักไม่สำเร็จ"));
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  useEffect(() => {
     let cancelled = false;
-    const { start, end } = monthRangeISO(cursor);
+    const { start, end } = multiMonthRangeISO(cursor, 2);
     setCalendarLoading(true);
 
     fetchRoomCalendar({ start, end })
@@ -159,10 +280,10 @@ export default function RoomsPage(): React.ReactElement {
 
       {/* Main Content Layout */}
       <div className="container mx-auto px-4 py-5 lg:py-6">
-        <div className="grid gap-8 lg:grid-cols-[340px_1fr] lg:gap-12">
+        <div className="grid gap-8 lg:grid-cols-[minmax(300px,640px)_1fr] lg:gap-10">
           {/* Sticky Sidebar (Booking Calendar) */}
           <aside className="lg:sticky lg:top-24 lg:self-start">
-            <div className="card overflow-hidden rounded-2xl border border-stone-200/80 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md sm:p-6">
+            <div className="card overflow-hidden rounded-2xl border border-stone-200/80 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-md sm:p-5">
               <div className="mb-4 flex items-center gap-2 text-forest-900">
                 <Calendar className="h-5 w-5 text-bamboo-600" />
                 <h3 className="font-display text-lg font-medium">
@@ -173,7 +294,7 @@ export default function RoomsPage(): React.ReactElement {
               <BookingCalendar
                 mode="range"
                 value={range}
-                onSelect={setRange}
+                onSelect={handleRangeSelect}
                 cursor={cursor}
                 onCursorChange={setCursor}
                 dayStatus={dayStatus}
@@ -206,6 +327,21 @@ export default function RoomsPage(): React.ReactElement {
                 </div>
               </div>
             </div>
+
+            {cart && (
+              <div className="mt-4">
+                <RoomCartPanel
+                  cart={cart}
+                  onChange={setCart}
+                  onClear={() => {
+                    clearRoomCart();
+                    setCart(null);
+                  }}
+                  onCheckout={handleCheckout}
+                  checkoutLoading={checkoutLoading}
+                />
+              </div>
+            )}
           </aside>
 
           {/* Rooms List Section */}
@@ -362,7 +498,7 @@ export default function RoomsPage(): React.ReactElement {
                             </div>
 
                             {isAvailable && searchedRange ? (
-                              <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-3 flex-wrap justify-end">
                                 {searchNights > 0 && (
                                   <div className="text-right">
                                     <span className="block text-xs text-charcoal-400">
@@ -373,6 +509,14 @@ export default function RoomsPage(): React.ReactElement {
                                     </span>
                                   </div>
                                 )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddToCart(room)}
+                                  className="inline-flex items-center gap-1.5 rounded-xl border border-forest-800/20 bg-cream-100 px-3 py-2 text-sm font-medium text-forest-800 hover:bg-cream-200"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                  เพิ่ม
+                                </button>
                                 <Link
                                   href={`/rooms/${room.id}?check_in=${searchedRange.start}&check_out=${searchedRange.end}`}
                                   className="inline-flex items-center gap-2 rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-medium text-cream-100 transition-all duration-200 hover:bg-forest-800 hover:shadow-md active:scale-95"

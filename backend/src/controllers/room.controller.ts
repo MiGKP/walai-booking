@@ -52,8 +52,10 @@ export const getAllRooms = async (
         SELECT COUNT(*) FROM rooms r
         WHERE r.room_type_id = rt.id AND r.status != 'maintenance'
         AND r.room_id NOT IN (
-          SELECT rb.room_id FROM room_bookings rb
-          WHERE rb.status NOT IN ('cancelled', 'rejected')
+          SELECT br.room_id
+          FROM booking_room br
+          JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+          WHERE br.status NOT IN ('cancelled', 'rejected')
           AND rb.check_in < $${idx} AND rb.check_out > $${idx + 1}
         )
       )`;
@@ -230,10 +232,11 @@ export const getRoomCalendar = async (
          to_char(d.day, 'YYYY-MM-DD') AS date,
          s.total_rooms,
          GREATEST(s.total_rooms - COALESCE((
-           SELECT COUNT(DISTINCT rb.room_id)
-           FROM room_bookings rb
-           JOIN rooms r ON r.room_id = rb.room_id
-           WHERE rb.status NOT IN ('cancelled', 'rejected')
+           SELECT COUNT(DISTINCT br.room_id)
+           FROM booking_room br
+           JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+           JOIN rooms r ON r.room_id = br.room_id
+           WHERE br.status NOT IN ('cancelled', 'rejected')
              AND r.status <> 'maintenance'
              AND ($1::int IS NULL OR r.room_type_id = $1::int)
              AND rb.check_in <= d.day
@@ -294,8 +297,10 @@ export const checkRoomAvailability = async (
        FROM rooms r
        WHERE r.room_type_id = $1 AND r.status != 'maintenance'
        AND r.room_id NOT IN (
-         SELECT rb.room_id FROM room_bookings rb
-         WHERE rb.status NOT IN ('cancelled', 'rejected')
+         SELECT br.room_id
+         FROM booking_room br
+         JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+         WHERE br.status NOT IN ('cancelled', 'rejected')
          AND (rb.check_in < $3 AND rb.check_out > $2)
        ) LIMIT 1`,
       [room_type_id, check_in_date, check_out_date],
@@ -622,7 +627,7 @@ export const deleteSingleRoom = async (
   try {
     const { id } = req.params;
     const bookingCheck = await pool.query(
-      `SELECT COUNT(*) as count FROM room_bookings WHERE room_id = $1 AND status NOT IN ('cancelled', 'rejected')`,
+      `SELECT COUNT(*) as count FROM booking_room WHERE room_id = $1 AND status NOT IN ('cancelled', 'rejected')`,
       [id],
     );
     if (Number(bookingCheck.rows[0].count) > 0) {

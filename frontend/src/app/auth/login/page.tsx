@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import {
   ArrowLeft,
@@ -44,6 +44,32 @@ const getLoginErrorMessage = (error: unknown): string => {
   return "เข้าสู่ระบบไม่สำเร็จ";
 };
 
+const getGoogleLoginErrorMessage = (code: string): string => {
+  switch (code) {
+    case "no_email":
+      return "บัญชีนี้ไม่ได้แชร์อีเมลให้แอป (บัญชีองค์กรเช่น MSU เจอบ่อย) — อนุญาตสิทธิ์ Email หรือใช้ Gmail";
+    case "account_disabled":
+      return "บัญชีนี้ถูกปิดการใช้งาน กรุณาติดต่อเจ้าหน้าที่";
+    case "google_failed":
+    case "server_error":
+      return "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่";
+    default:
+      return "เข้าสู่ระบบด้วย Google ไม่สำเร็จ กรุณาลองใหม่";
+  }
+};
+
+function GoogleAuthErrorToast(): React.ReactElement | null {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (!error) return;
+    toast.error(getGoogleLoginErrorMessage(error));
+  }, [searchParams]);
+
+  return null;
+}
+
 export default function LoginPage(): React.ReactElement | null {
   const router = useRouter();
   const { login } = useAuth();
@@ -68,7 +94,7 @@ export default function LoginPage(): React.ReactElement | null {
         `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
         user.email;
       toast.success(`ยินดีต้อนรับ, ${displayName}!`);
-      router.push(redirectUrl || "/dashboard");
+      router.push(redirectUrl || "/");
     } catch (error: unknown) {
       toast.error(getLoginErrorMessage(error));
     } finally {
@@ -82,6 +108,9 @@ export default function LoginPage(): React.ReactElement | null {
 
   return (
     <div className="min-h-screen bg-stone-100 p-3 sm:p-5 lg:p-6">
+      <Suspense fallback={null}>
+        <GoogleAuthErrorToast />
+      </Suspense>
       <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-[1500px] overflow-hidden rounded-[28px] border border-stone-200 bg-cream-100 shadow-[0_28px_90px_rgba(18,60,48,0.14)] sm:min-h-[calc(100vh-2.5rem)] lg:min-h-[calc(100vh-3rem)] lg:grid-cols-[1.12fr_0.88fr] lg:rounded-[36px]">
         <section className="relative min-h-[250px] overflow-hidden bg-[#d9ece7] sm:min-h-[300px] lg:min-h-0">
           <LoginScene3D />

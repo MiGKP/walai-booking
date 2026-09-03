@@ -91,7 +91,6 @@ export const initAdminValidator = [
 // ─── Room Booking ─────────────────────────────────────────────────────────────
 
 export const createRoomBookingValidator = [
-  body('room_type_id').isInt({ min: 1 }).withMessage('Valid room_type_id is required'),
   body('check_in_date').isISO8601().withMessage('Valid check_in_date (ISO 8601) is required'),
   body('check_out_date')
     .isISO8601()
@@ -102,9 +101,26 @@ export const createRoomBookingValidator = [
       }
       return true;
     }),
-  body('guests').isInt({ min: 1, max: 20 }).withMessage('Guests must be between 1 and 20'),
+  body('items').optional().isArray({ min: 1 }).withMessage('items must be a non-empty array'),
+  body('items.*.room_type_id').optional().isInt({ min: 1 }).withMessage('Valid room_type_id is required'),
+  body('items.*.quantity').optional().isInt({ min: 1, max: 20 }).withMessage('quantity must be 1-20'),
+  body('room_type_id').optional().isInt({ min: 1 }).withMessage('Valid room_type_id is required'),
+  body('guests').optional().isInt({ min: 1, max: 50 }).withMessage('Guests must be between 1 and 50'),
+  body('adults').optional().isInt({ min: 1, max: 50 }).withMessage('adults must be between 1 and 50'),
+  body('children').optional().isInt({ min: 0, max: 50 }).withMessage('children must be between 0 and 50'),
   body('special_requests').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 500 }).withMessage('Special requests cannot exceed 500 characters'),
   body('promotion_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Invalid promotion_id'),
+  body().custom((_, { req }) => {
+    const hasItems = Array.isArray(req.body.items) && req.body.items.length > 0;
+    const hasType = req.body.room_type_id != null;
+    if (!hasItems && !hasType) {
+      throw new Error('items or room_type_id is required');
+    }
+    if (req.body.guests == null && req.body.adults == null) {
+      throw new Error('adults or guests is required');
+    }
+    return true;
+  }),
 ];
 
 export const updateRoomBookingStatusValidator = [
@@ -117,10 +133,39 @@ export const updateRoomBookingStatusValidator = [
 // ─── Kayak Booking ────────────────────────────────────────────────────────────
 
 export const createKayakBookingValidator = [
-  body('kayak_id').isInt({ min: 1 }).withMessage('Valid kayak_id is required'),
   body('booking_date').isISO8601().withMessage('Valid booking_date (ISO 8601) is required'),
-  body('boat_round_id').isInt({ min: 1 }).withMessage('Valid boat_round_id is required'),
-  body('num_passengers').optional().isInt({ min: 1, max: 10 }).withMessage('num_passengers must be between 1 and 10'),
+  body('items').optional().isArray({ min: 1 }).withMessage('items must be a non-empty array'),
+  body('items.*.boat_type_id').optional().isInt({ min: 1 }).withMessage('Valid boat_type_id is required'),
+  body('items.*.num_passengers')
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .withMessage('num_passengers must be between 1 and 50'),
+  body('kayak_id').optional().isInt({ min: 1 }).withMessage('Valid kayak_id is required'),
+  body('boat_round_id').optional().isInt({ min: 1 }).withMessage('Valid boat_round_id is required'),
+  body('num_passengers').optional().isInt({ min: 1, max: 50 }).withMessage('num_passengers must be between 1 and 50'),
+  body('start_time')
+    .optional()
+    .matches(/^\d{2}:\d{2}(:\d{2})?$/)
+    .withMessage('start_time must be in HH:MM or HH:MM:SS format'),
+  body('end_time')
+    .optional()
+    .matches(/^\d{2}:\d{2}(:\d{2})?$/)
+    .withMessage('end_time must be in HH:MM or HH:MM:SS format'),
+  body().custom((_, { req }) => {
+    const hasItems = Array.isArray(req.body.items) && req.body.items.length > 0;
+    const hasLegacy = req.body.kayak_id != null && req.body.boat_round_id != null;
+    if (!hasItems && !hasLegacy) {
+      throw new Error('items or (kayak_id + boat_round_id) is required');
+    }
+    if (hasItems) {
+      const hasTimes = req.body.start_time != null && req.body.end_time != null;
+      const hasRound = req.body.boat_round_id != null;
+      if (!hasTimes && !hasRound) {
+        throw new Error('start_time/end_time or boat_round_id is required with items');
+      }
+    }
+    return true;
+  }),
 ];
 
 export const updateKayakBookingStatusValidator = [

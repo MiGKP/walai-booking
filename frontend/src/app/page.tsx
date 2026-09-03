@@ -425,9 +425,13 @@ export default function HomePage() {
         ]);
 
       if (resortRes.status === "fulfilled")
-        setResortInfo(resortRes.value.data?.data || {});
+        setResortInfo(pickResortInfo(resortRes.value.data?.data, 'main'));
       if (roomsRes.status === "fulfilled")
-        setRoomTypes(roomsRes.value.data?.data || []);
+        setRoomTypes(
+          Array.isArray(roomsRes.value.data?.data)
+            ? roomsRes.value.data.data
+            : []
+        );
       setLoadingRooms(false);
 
       if (reviewsRes.status === "fulfilled")

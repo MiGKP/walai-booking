@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   CalendarDays,
@@ -405,7 +405,7 @@ const calculateNights = (checkIn?: string, checkOut?: string) => {
   return diffDays > 0 ? diffDays : 0;
 };
 
-export default function RoomStaffDashboard() {
+function RoomStaffDashboardContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -653,11 +653,11 @@ export default function RoomStaffDashboard() {
     );
   };
 
-  // handleCheckout
+  // handleCheckout — check out all approved lines under header
   const handleCheckout = (id: number) => {
     openConfirmDialog(
-      "ยืนยันการเช็คเอาต์?",
-      "เมื่อยืนยัน สถานะจะเปลี่ยนเป็น 'เช็คเอาต์แล้ว' และคืนสถานะห้องพัก",
+      "ยืนยันการเช็คเอาต์ทุกห้อง?",
+      "เมื่อยืนยัน จะเช็คเอาต์ทุกห้องที่ยัง approved ในการจองนี้",
       "warning",
       "ยืนยัน Check-out",
       "bg-emerald-700",
@@ -665,17 +665,25 @@ export default function RoomStaffDashboard() {
         try {
           await api.put(`/bookings/${id}/checkout`);
           toast.success("เช็คเอาต์สำเร็จเรียบร้อย");
-          setBookings((prev) =>
-            prev.map((b) =>
-              b.id === id
-                ? {
-                    ...b,
-                    status: "checked_out",
-                    checkout_at: new Date().toISOString(),
-                  }
-                : b,
-            ),
-          );
+          fetchBookings();
+        } catch (err: any) {
+          toast.error(err.response?.data?.message || "เช็คเอาต์ไม่สำเร็จ");
+        }
+      },
+    );
+  };
+
+  const handleCheckoutLine = (bookingRoomId: number) => {
+    openConfirmDialog(
+      "ยืนยันเช็คเอาต์ห้องนี้?",
+      "คืนสถานะห้องนี้เป็นว่าง",
+      "warning",
+      "เช็คเอาต์ห้อง",
+      "bg-emerald-700",
+      async () => {
+        try {
+          await api.put(`/bookings/booking-rooms/${bookingRoomId}/checkout`);
+          toast.success("เช็คเอาต์ห้องสำเร็จ");
           fetchBookings();
         } catch (err: any) {
           toast.error(err.response?.data?.message || "เช็คเอาต์ไม่สำเร็จ");
@@ -1192,11 +1200,39 @@ export default function RoomStaffDashboard() {
                               {b.room_name || b.type_name || "-"}
                             </p>
                             <p className="text-[11px] text-stone-500">
-                              ห้อง{" "}
-                              <span className="font-mono font-medium">
-                                {b.room_number || b.room_id}
-                              </span>
+                              {Array.isArray(b.rooms) && b.rooms.length > 1
+                                ? `${b.rooms.length} ห้อง`
+                                : (
+                                  <>
+                                    ห้อง{" "}
+                                    <span className="font-mono font-medium">
+                                      {b.room_number ||
+                                        b.rooms?.[0]?.room_number ||
+                                        b.room_id ||
+                                        "-"}
+                                    </span>
+                                  </>
+                                )}
                             </p>
+                            {Array.isArray(b.rooms) && b.rooms.length > 1 && (
+                              <ul className="mt-1 space-y-0.5 text-[10px] text-stone-500">
+                                {b.rooms.map(
+                                  (line: {
+                                    booking_room_id: number;
+                                    room_number: string;
+                                    room_name: string;
+                                    status: string;
+                                  }) => (
+                                    <li key={line.booking_room_id}>
+                                      {line.room_name} #{line.room_number}
+                                      {line.status === "checked_out"
+                                        ? " ✓"
+                                        : ""}
+                                    </li>
+                                  ),
+                                )}
+                              </ul>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -1304,22 +1340,39 @@ export default function RoomStaffDashboard() {
                             <span className="text-xs text-teal-700 font-semibold bg-teal-50 border border-teal-200/80 px-3 py-1 rounded-xl inline-block">
                               เช็คเอาต์แล้ว
                             </span>
-                          ) : b.status === "checked_in" ? (
-                            <button
-                              onClick={() => handleCheckout(bookingId)}
-                              className="inline-flex items-center gap-1.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
-                            >
-                              <LogOut size={13} />
-                              <span>Check-out</span>
-                            </button>
                           ) : b.status === "approved" ? (
-                            <button
-                              onClick={() => handleCheckin(bookingId)}
-                              className="inline-flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
-                            >
-                              <LogIn size={13} />
-                              <span>Check-in</span>
-                            </button>
+                            <div className="flex flex-col items-end gap-1.5">
+                              {Array.isArray(b.rooms) &&
+                                b.rooms
+                                  .filter(
+                                    (line: { status: string }) =>
+                                      line.status === "approved",
+                                  )
+                                  .map(
+                                    (line: {
+                                      booking_room_id: number;
+                                      room_number: string;
+                                    }) => (
+                                      <button
+                                        key={line.booking_room_id}
+                                        onClick={() =>
+                                          handleCheckoutLine(line.booking_room_id)
+                                        }
+                                        className="inline-flex items-center gap-1.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
+                                      >
+                                        <LogOut size={13} />
+                                        <span>ออก #{line.room_number}</span>
+                                      </button>
+                                    ),
+                                  )}
+                              <button
+                                onClick={() => handleCheckout(bookingId)}
+                                className="inline-flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
+                              >
+                                <LogOut size={13} />
+                                <span>ออกทุกห้อง</span>
+                              </button>
+                            </div>
                           ) : b.status === "rejected" ? (
                             <span className="text-xs text-rose-600 font-semibold bg-rose-50 border border-rose-200/80 px-3 py-1 rounded-xl inline-block">
                               ปฏิเสธแล้ว

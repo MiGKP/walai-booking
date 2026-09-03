@@ -144,10 +144,20 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
           `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE room_booking_id = $2 AND member_id = $3`,
           [uploadedSlip.url, bId, user.id]
         );
+        await pool.query(
+          `UPDATE booking_room SET status = 'paid', updated_at = NOW()
+           WHERE room_booking_id = $1 AND status <> 'checked_out'`,
+          [bId]
+        );
       } else {
         await pool.query(
         `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3`,
           [uploadedSlip.url, bId, user.id]
+        );
+        await pool.query(
+          `UPDATE booking_boat SET status = 'paid', updated_at = NOW()
+           WHERE boat_booking_id = $1`,
+          [bId]
         );
       }
     } catch (error) {
@@ -225,6 +235,11 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
          WHERE room_booking_id = $2`,
         [authUser.id, bId]
       );
+      await pool.query(
+        `UPDATE booking_room SET status = 'approved', updated_at = NOW()
+         WHERE room_booking_id = $1 AND status <> 'checked_out'`,
+        [bId]
+      );
     } else if (bType === 'kayak') {
       const bookingCheck = await pool.query(
         `SELECT payment_slip FROM boat_bookings WHERE boat_booking_id = $1`,
@@ -241,6 +256,11 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
       await pool.query(
         `UPDATE boat_bookings 
          SET payment_status = 'paid', status = 'approved'
+         WHERE boat_booking_id = $1`,
+        [bId]
+      );
+      await pool.query(
+        `UPDATE booking_boat SET status = 'approved', updated_at = NOW()
          WHERE boat_booking_id = $1`,
         [bId]
       );
