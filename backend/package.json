@@ -11,7 +11,8 @@
     "seed": "node -r ts-node/register src/db/seed.ts",
     "test:cloudinary": "node --test -r ts-node/register src/services/cloudinary.service.test.ts",
     "test:booking-room-math": "node --test -r ts-node/register src/services/booking-room.math.test.ts",
-    "test:booking-boat-math": "node --test -r ts-node/register src/services/booking-boat.math.test.ts"
+    "test:booking-boat-math": "node --test -r ts-node/register src/services/booking-boat.math.test.ts",
+    "test:google-oauth-profile": "node --test -r ts-node/register src/services/google-oauth.profile.test.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",

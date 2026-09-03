@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import passport from 'passport';
 import {
   register,
@@ -53,15 +53,52 @@ router.post('/login', loginValidator, validate, login);
 router.post('/forgot-password', forgotPasswordValidator, validate, forgotPassword);
 router.post('/reset-password', resetPasswordValidator, validate, resetPassword);
 
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+const redirectGoogleFailure = (res: Response, code: string): void => {
+  const frontend = process.env.FRONTEND_URL || 'http://localhost:3000';
+  res.redirect(`${frontend}/auth/login?error=${encodeURIComponent(code)}`);
+};
+
+router.get(
+  '/google',
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+    prompt: 'select_account',
+  })
+);
 router.get(
   '/google/callback',
-  passport.authenticate('google', { failureRedirect: '/api/auth/google/failed', session: false }),
+  (req: Request, res: Response, next: NextFunction): void => {
+    // Custom callback: Passport `done(err)` would otherwise dump JSON 500 on this URL.
+    passport.authenticate(
+      'google',
+      { session: false },
+      (err: unknown, user: Express.User | false | undefined, info: unknown) => {
+        if (err) {
+          console.error('Google authenticate error:', err);
+          redirectGoogleFailure(res, 'google_failed');
+          return;
+        }
+        if (!user) {
+          const message =
+            info &&
+            typeof info === 'object' &&
+            'message' in info &&
+            typeof (info as { message: unknown }).message === 'string'
+              ? (info as { message: string }).message
+              : 'google_failed';
+          redirectGoogleFailure(res, message);
+          return;
+        }
+        req.user = user;
+        next();
+      }
+    )(req, res, next);
+  },
   googleCallback
 );
 router.get('/google/failed', (req, res) => {
-  const error = req.query.error as string || 'Google authentication failed';
-  res.redirect(`${process.env.FRONTEND_URL}/auth/login?error=${encodeURIComponent(error)}`);
+  const error = (req.query.error as string) || 'google_failed';
+  redirectGoogleFailure(res, error);
 });
 
 // Members management (admin only)
