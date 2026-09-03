@@ -3,12 +3,11 @@
 import { useState, useEffect, useRef, useId } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { ArrowRight, Anchor, Calendar, CreditCard, Sparkles, Star, MapPin, Phone, Waves, Facebook, Compass } from 'lucide-react';
+import { ArrowRight, Anchor, Calendar, CreditCard, Star, MapPin, Phone, Waves, Facebook, Compass } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import { resolveFacebookLink } from '@/lib/social';
-import { pickResortInfo } from '@/lib/resort-info';
-
+import Navbar from '@/components/layout/Navbar';
 // โหลดแยก bundle เพราะ three.js หนัก และฉากต้องรันบนเบราว์เซอร์เท่านั้น
 const WaterHouseScene3D = dynamic(
   () => import('@/components/3D/WaterHouseScene3D'),
@@ -93,15 +92,33 @@ function useRevealOnScroll(...deps: unknown[]) {
 }
 
 /* ———————————————————————————————
-   Decorative SVG components
+   Wave divider — the one recurring motif that ties sections
+   back to the floating-house / water theme. Used sparingly,
+   only at the two structural transitions that need it.
    ——————————————————————————————— */
-function LeafPattern({ className }: { className?: string }) {
+function WaveDivider({
+  className = "",
+  flip = false,
+}: {
+  className?: string;
+  flip?: boolean;
+}) {
   return (
-    <svg className={className} width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M160 20C160 20 60 80 60 180C60 240 100 280 160 300C220 280 260 240 260 180C260 80 160 20 160 20Z" stroke="currentColor" strokeWidth="1" opacity="0.12" fill="none" />
-      <path d="M160 60C160 60 90 110 90 190C90 230 120 260 160 275C200 260 230 230 230 190C230 110 160 60 160 60Z" stroke="currentColor" strokeWidth="1" opacity="0.08" fill="none" />
-      <path d="M160 100C160 100 120 130 120 190C120 215 135 235 160 245C185 235 200 215 200 190C200 130 160 100 160 100Z" stroke="currentColor" strokeWidth="0.5" opacity="0.06" fill="none" />
-    </svg>
+    <div
+      aria-hidden="true"
+      className={`w-full overflow-hidden leading-[0] ${className}`}
+    >
+      <svg
+        viewBox="0 0 1200 64"
+        preserveAspectRatio="none"
+        className={`w-full h-10 md:h-16 ${flip ? "rotate-180" : ""}`}
+      >
+        <path
+          d="M0 34C140 12 280 12 420 30C560 48 700 52 840 34C960 18 1080 14 1200 28V64H0V34Z"
+          fill="currentColor"
+        />
+      </svg>
+    </div>
   );
 }
 
@@ -136,10 +153,10 @@ function ScrollMouseIndicator({ targetId }: { targetId: string }) {
       aria-label="เลื่อนลงเพื่อดูเนื้อหา"
     >
       <div className="relative w-6 h-10 rounded-full border-2 border-forest-800/40 group-hover:border-forest-800 group-hover:scale-110 transition-all duration-300 flex justify-center pt-2 bg-white/30 backdrop-blur-xs">
-        <div className="w-1.5 h-1.5 rounded-full bg-bamboo-500 animate-bounce" />
+        <div className="w-1.5 h-1.5 rounded-full bg-bamboo-400 animate-bounce" />
       </div>
-      <span className="text-[11px] font-semibold text-forest-800/70 tracking-widest uppercase group-hover:text-forest-800 transition-colors">
-        เลื่อนลง
+      <span className="text-[11px] font-medium text-forest-800/70 group-hover:text-forest-800 transition-colors">
+        เลื่อนลงเพื่อดูต่อ
       </span>
     </div>
   );
@@ -197,26 +214,24 @@ function StatItem({
 }) {
   const { count, ref } = useCountUp(decimal ? number * 10 : number);
 
-  // ถ้าเป็นทศนิยม ให้แยกเลขหน้าจุด และเลขหลังจุดออกจากกัน
   const integerPart = decimal ? Math.floor(count / 10) : count;
   const decimalPart = decimal ? count % 10 : null;
 
   return (
-    <div ref={ref} className="text-center py-6 px-4">
-      <span className="font-display text-3xl md:text-5xl font-bold text-forest-800 tracking-tight inline-flex items-baseline justify-center">
+    <div ref={ref} className="flex items-baseline gap-3 py-5">
+      <span className="font-display text-3xl md:text-4xl font-bold text-forest-800 tabular-nums inline-flex items-baseline">
         {decimal ? (
           <>
             <span>{integerPart}</span>
-            {/* เว้นระยะห่างซ้าย-ขวาของจุดทศนิยมให้ดูสบายตา ไม่ติดตัวเลข */}
-            <span className="text-bamboo-500 mx-0.5 font-normal">.</span>
+            <span className="text-bamboo-400 mx-0.5 font-normal">.</span>
             <span>{decimalPart}</span>
           </>
         ) : (
           count
         )}
-        <span className="text-bamboo-500 ml-1 text-2xl md:text-4xl">{suffix}</span>
+        <span className="text-bamboo-400 ml-0.5 text-xl md:text-2xl">{suffix}</span>
       </span>
-      <p className="text-charcoal-400 text-sm mt-1.5 font-medium">{label}</p>
+      <p className="text-charcoal-400 text-sm leading-snug max-w-[9rem]">{label}</p>
     </div>
   );
 }
@@ -232,7 +247,64 @@ function getReviewerName(review: LandingReview): string {
 }
 
 /* ———————————————————————————————
-   Review Carousel
+   Room card — full-bleed photographic treatment.
+   The featured room is deliberately larger and more
+   detailed than the two runners-up beside it.
+   ——————————————————————————————— */
+function RoomCard({ room, large = false }: { room: LandingRoomType; large?: boolean }) {
+  return (
+    <Link
+      href={`/rooms/${room.id}`}
+      className={`group relative block overflow-hidden rounded-2xl bg-stone-200 ${
+        large ? "h-[420px] md:h-full md:min-h-[520px]" : "h-[210px] md:h-[248px]"
+      }`}
+    >
+      {room.main_image ? (
+        <img
+          src={resolveMediaUrl(room.main_image)}
+          alt={room.room_name}
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-stone-500 text-sm">
+          ไม่มีรูปภาพ
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-forest-900/90 via-forest-900/10 to-transparent" />
+
+      <div className="absolute inset-x-0 bottom-0 p-5 md:p-6 text-cream-100">
+        <span className="text-xs font-medium text-bamboo-300">{room.type_name}</span>
+        <h3
+          className={`font-display font-bold leading-snug mt-0.5 ${
+            large ? "text-2xl md:text-[1.75rem]" : "text-lg"
+          }`}
+        >
+          {room.room_name}
+        </h3>
+        {large && (
+          <p className="text-cream-100/75 text-sm mt-2 max-w-md font-light line-clamp-2">
+            {room.description || "สัมผัสประสบการณ์การพักผ่อนริมน้ำสุดพิเศษ..."}
+          </p>
+        )}
+        <div className="flex items-end justify-between mt-3 md:mt-4">
+          <div>
+            <span className="text-[11px] text-cream-100/65">เริ่มต้น</span>
+            <div className="font-display font-bold text-lg leading-none">
+              ฿{formatPrice(room.price_per_night)}
+              <span className="text-xs font-normal text-cream-100/70"> /คืน</span>
+            </div>
+          </div>
+          <span className="text-[11px] bg-white/15 backdrop-blur-sm px-2.5 py-1 rounded-full whitespace-nowrap">
+            พักได้ {room.capacity} ท่าน
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/* ———————————————————————————————
+   Review carousel — editorial pull-quote, not a boxed card
    ——————————————————————————————— */
 function ReviewCarousel({ reviews }: { reviews: LandingReview[] }) {
   const [current, setCurrent] = useState(0);
@@ -248,75 +320,71 @@ function ReviewCarousel({ reviews }: { reviews: LandingReview[] }) {
 
   if (reviews.length === 0) {
     return (
-      <div className="text-center text-charcoal-400 py-10 bg-white/60 backdrop-blur-md rounded-2xl border border-stone-200">
+      <div className="text-center text-charcoal-400 py-10 border-y border-stone-200">
         ยังไม่มีรีวิวจากแขกผู้เข้าพัก — มาเป็นคนแรกที่แชร์ประสบการณ์กับเรา
       </div>
     );
   }
 
   return (
-    <div className="relative max-w-3xl mx-auto text-center px-4">
-      <div className="bg-white/80 backdrop-blur-xl p-8 md:p-12 rounded-3xl border border-white/60 shadow-xl shadow-forest-800/5 relative overflow-hidden">
-        <span className="font-display text-8xl md:text-9xl text-bamboo-300/20 leading-none select-none absolute -top-4 left-6 pointer-events-none">
-          “
-        </span>
-
-        <div className="relative min-h-[160px] flex items-center justify-center">
+    <div
+      className="max-w-3xl mx-auto px-4"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      <div className="border-l-2 border-bamboo-400 pl-6 md:pl-10">
+        <div className="relative min-h-[190px] md:min-h-[160px]">
           {reviews.map((review, i) => (
             <div
               key={review.review_id}
-              className={`transition-all duration-700 absolute inset-0 flex flex-col justify-center items-center ${
+              className={`transition-opacity duration-700 ${
                 i === current
-                  ? "opacity-100 scale-100 pointer-events-auto"
-                  : "opacity-0 scale-95 pointer-events-none"
+                  ? "opacity-100 relative"
+                  : "opacity-0 absolute inset-0 pointer-events-none"
               }`}
             >
-              <div className="flex gap-1 mb-4">
-                {Array.from({ length: review.rating }).map((_, j) => (
-                  <Star
-                    key={j}
-                    size={18}
-                    className="fill-amber-400 text-amber-400"
-                  />
-                ))}
-              </div>
-              <p className="text-lg md:text-xl text-charcoal leading-relaxed font-light mb-6 max-w-xl">
-                "{review.comment}"
+              <p className="font-display text-2xl md:text-[1.75rem] text-forest-800 leading-snug font-medium mb-6">
+                {review.comment}
               </p>
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-[2px] bg-bamboo-400" />
-                <span className="font-display font-semibold text-forest-800">
-                  {getReviewerName(review)}
-                </span>
-                <div className="w-6 h-[2px] bg-bamboo-400" />
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <span className="font-semibold text-forest-800">
+                    {getReviewerName(review)}
+                  </span>
+                  {(review.room_name || review.type_name) && (
+                    <span className="text-charcoal-400 text-sm block">
+                      {review.room_name || review.type_name}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-0.5">
+                  {Array.from({ length: review.rating }).map((_, j) => (
+                    <Star key={j} size={15} className="fill-amber-400 text-amber-400" />
+                  ))}
+                </div>
               </div>
-              {(review.room_name || review.type_name) && (
-                <span className="text-xs text-charcoal-400 mt-1 font-medium">
-                  {review.room_name || review.type_name}
-                </span>
-              )}
             </div>
           ))}
         </div>
-
-        {reviews.length > 1 && (
-          <div className="flex justify-center gap-2 mt-8">
-            {reviews.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrent(i)}
-                aria-label={`ไปที่รีวิวที่ ${i + 1}`}
-                aria-current={i === current ? "true" : "false"}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  i === current
-                    ? "bg-forest-800 w-8"
-                    : "bg-stone-300 w-2 hover:bg-stone-400"
-                }`}
-              />
-            ))}
-          </div>
-        )}
       </div>
+
+      {reviews.length > 1 && (
+        <div className="flex gap-2 mt-8 pl-6 md:pl-10">
+          {reviews.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrent(i)}
+              aria-label={`ไปที่รีวิวที่ ${i + 1}`}
+              aria-current={i === current ? "true" : "false"}
+              className={`h-1 rounded-full transition-all duration-300 ${
+                i === current
+                  ? "bg-forest-800 w-9"
+                  : "bg-stone-300 w-3 hover:bg-stone-400"
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -387,14 +455,38 @@ export default function HomePage() {
   }, []);
 
   const featuredRooms = roomTypes.slice(0, 3);
+  const featured = featuredRooms[0];
+  const secondary = featuredRooms.slice(1, 3);
+
+  const features = [
+    {
+      icon: <Waves className="text-lagoon-600" size={22} />,
+      title: "เรือนแพลอยน้ำ",
+      desc: "สัมผัสความเย็นสบายของสายน้ำ เปิดรับทัศนียภาพแบบ 360 องศาจากระเบียงห้องพัก",
+    },
+    {
+      icon: <Anchor className="text-forest-700" size={22} />,
+      title: "กิจกรรมเรือคายัค",
+      desc: "พายเรือออกสำรวจความสมบูรณ์ของระบบนิเวศ เหมาะสำหรับทั้งมือใหม่และครอบครัว",
+    },
+    {
+      icon: <Compass className="text-bamboo-600" size={22} />,
+      title: "ทำเลเงียบสงบ",
+      desc: "โอบล้อมด้วยแมกไม้และธรรมชาติอันบริสุทธิ์ ให้คุณได้สูดอากาศสดชื่นเต็มปอด",
+    },
+    {
+      icon: <CreditCard className="text-amber-600" size={22} />,
+      title: "จองง่าย สะดวกรวดเร็ว",
+      desc: "ระบบจองห้องพักออนไลน์ รองรับการชำระเงินผ่าน QR PromptPay ทันที",
+    },
+  ];
 
   return (
-    <div className="bg-[#FAF8F5] text-charcoal min-h-screen overflow-x-hidden">
+    <div className="bg-cream-100 text-charcoal min-h-screen overflow-x-hidden">
       {/* ═══════════════════════════════
           1. HERO SECTION
           ═══════════════════════════════ */}
       <section className="relative min-h-screen flex items-center overflow-hidden">
-        {/* Ambient gradient washes */}
         <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-gradient-to-b from-lagoon-100/40 via-bamboo-100/20 to-transparent blur-3xl pointer-events-none" />
         <div className="absolute bottom-10 left-0 w-1/3 h-1/3 bg-forest-800/5 blur-3xl pointer-events-none" />
 
@@ -402,32 +494,37 @@ export default function HomePage() {
           <div className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
             {/* Left — Text content */}
             <div className="lg:col-span-7">
-              {/* Eyebrow badge */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 mb-6 rounded-full bg-forest-800/5 border border-forest-800/10 text-forest-800 text-xs font-semibold tracking-wide uppercase animate-reveal-up">
-                <Sparkles size={14} className="text-bamboo-500" aria-hidden="true" />
-                รีสอร์ต &amp; ที่พักลอยน้ำ
-              </div>
-
-              {/* Headline */}
-              <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-forest-800 leading-[1.12] mb-6 animate-reveal-up">
-                {resortInfo.name || 'สวนวลัยรุกขเวช'}
-                <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-lagoon-600 via-forest-700 to-bamboo-600">
-                  สัมผัสธรรมชาติลอยน้ำ
-                </span>
-              </h1>
-
-              {/* Subtitle */}
               <p
-                className="text-lg md:text-xl text-charcoal-400 leading-relaxed max-w-2xl mb-10 animate-reveal-up"
-                style={{ animationDelay: '120ms' }}
+                className="flex items-center gap-3 text-forest-700 font-medium text-sm mb-7 animate-reveal-up"
+              >
+                <span className="w-8 h-px bg-bamboo-400" />
+                รีสอร์ตและที่พักลอยน้ำ กลางสวนพฤกษศาสตร์
+              </p>
+
+              <h1
+                className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-forest-800 leading-[1.08] mb-4 animate-reveal-up"
+              >
+                {resortInfo.name || 'สวนวลัยรุกขเวช'}
+              </h1>
+              <p
+                className="font-display text-2xl md:text-3xl text-bamboo-600 mb-8 animate-reveal-up"
+                style={{ animationDelay: '80ms' }}
+              >
+                สัมผัสธรรมชาติลอยน้ำ
+              </p>
+
+              <p
+                className="text-lg text-charcoal-400 leading-relaxed max-w-xl mb-10 animate-reveal-up"
+                style={{ animationDelay: '160ms' }}
               >
                 หลบหนีความวุ่นวายมาผ่อนคลายกับที่พักเรือนแพลอยน้ำบรรยากาศสุดสโลว์ไลฟ์
                 พร้อมกิจกรรมพายเรือคายัคชมทัศนียภาพอันร่มรื่นกลางผืนน้ำ
               </p>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <div
+                className="flex flex-col sm:flex-row gap-4 pt-2 animate-reveal-up"
+                style={{ animationDelay: '220ms' }}
+              >
                 <Link
                   href="/rooms"
                   className="inline-flex items-center justify-center gap-2 bg-forest-800 text-cream-100 font-semibold px-8 py-4 rounded-2xl shadow-lg shadow-forest-800/20 hover:bg-forest-700 active:scale-[0.97] transition-all duration-200"
@@ -438,7 +535,7 @@ export default function HomePage() {
                 </Link>
                 <Link
                   href="/kayaks"
-                  className="inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 rounded-2xl bg-cream-100 border border-stone-200 text-forest-800 shadow-sm hover:border-forest-800/30 hover:bg-cream-200 active:scale-[0.97] transition-all duration-200"
+                  className="inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 rounded-2xl border border-forest-800/20 text-forest-800 hover:bg-white active:scale-[0.97] transition-all duration-200"
                 >
                   <Anchor size={18} aria-hidden="true" />
                   บริการเรือคายัค
@@ -456,7 +553,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Scroll Mouse Indicator */}
         <ScrollMouseIndicator targetId="stats-section" />
       </section>
 
@@ -465,14 +561,14 @@ export default function HomePage() {
           ═══════════════════════════════ */}
       <section
         id="stats-section"
-        className="py-8 bg-white border-y border-stone-200/80 shadow-xs"
+        className="border-t border-stone-200"
       >
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-stone-200/80">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 divide-y md:divide-y-0 divide-stone-200">
             <StatItem
               number={landingStats.room_type_count || roomTypes.length}
               suffix="+"
-              label="ประเภทห้องพัก"
+              label="ประเภทห้องพักให้เลือก"
             />
             <StatItem
               number={landingStats.boat_type_count || 5}
@@ -495,16 +591,14 @@ export default function HomePage() {
       </section>
 
       {/* ═══════════════════════════════
-          3. TESTIMONIALS SECTION (ย้ายขึ้นมาต่อจาก Stats)
+          3. TESTIMONIALS SECTION
           ═══════════════════════════════ */}
-      <section className="py-24 bg-stone-50/50 border-b border-stone-200/60" ref={testimonialsRef}>
+      <section className="py-24 bg-white" ref={testimonialsRef}>
         <div className="container mx-auto px-4">
-          <div className="text-center max-w-xl mx-auto mb-12">
-            <span className="text-bamboo-600 font-semibold tracking-wider text-xs uppercase">
-              REVIEWS
-            </span>
-            <h2 className="font-display text-4xl md:text-5xl font-bold text-forest-800 mt-2">
-              ความประทับใจจากแขก
+          <div className="max-w-3xl mx-auto px-4 mb-12">
+            <p className="text-forest-700 font-medium text-sm mb-3">เสียงจากแขกผู้เข้าพัก</p>
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-forest-800">
+              ความประทับใจที่เล่าต่อกันมา
             </h2>
           </div>
           <ReviewCarousel reviews={reviews} />
@@ -512,121 +606,62 @@ export default function HomePage() {
       </section>
 
       {/* ═══════════════════════════════
-          4. ROOM TYPES SECTION (ย้ายมาต่อจาก รีวิว)
+          4. ROOM TYPES SECTION
           ═══════════════════════════════ */}
-      <section
-        className="py-24 bg-white/50 border-b border-stone-200/80"
-        ref={roomsRef}
-      >
+      <section className="py-24" ref={roomsRef}>
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
             <div>
-              <span className="text-bamboo-600 font-semibold tracking-wider text-xs uppercase">
-                ACCOMMODATION
-              </span>
-              <h2 className="font-display text-4xl md:text-5xl font-bold text-forest-800 mt-2">
+              <p className="text-forest-700 font-medium text-sm mb-3">ที่พัก</p>
+              <h2 className="font-display text-3xl md:text-4xl font-bold text-forest-800">
                 ห้องพักแนะนำ
               </h2>
             </div>
             <Link
               href="/rooms"
-              className="inline-flex items-center gap-2 text-forest-800 font-semibold hover:text-lagoon-600 transition-colors mt-4 md:mt-0"
+              className="inline-flex items-center gap-2 text-forest-800 font-semibold hover:text-bamboo-400 transition-colors mt-4 md:mt-0"
             >
               ดูห้องพักทั้งหมด
               <ArrowRight size={18} />
             </Link>
           </div>
 
-          {/* Rooms Cards */}
-          <div className="grid md:grid-cols-3 gap-8">
-            {loadingRooms
-              ? Array.from({ length: 3 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="bg-white rounded-3xl p-6 border border-stone-200/80 animate-pulse space-y-4"
-                  >
-                    <div className="h-48 bg-stone-200 rounded-2xl w-full" />
-                    <div className="h-4 bg-stone-200 rounded w-1/3" />
-                    <div className="h-6 bg-stone-200 rounded w-2/3" />
-                    <div className="h-10 bg-stone-200 rounded w-full mt-4" />
-                  </div>
-                ))
-              : featuredRooms.map((room) => (
-                  <div
-                    key={room.id}
-                    className="bg-white rounded-3xl overflow-hidden border border-stone-200/80 shadow-md hover:shadow-xl transition-all flex flex-col group"
-                  >
-                    <div className="relative h-60 overflow-hidden bg-stone-100">
-                      {room.main_image ? (
-                        <img
-                          src={resolveMediaUrl(room.main_image)}
-                          alt={room.room_name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-stone-400">
-                          ไม่มีรูปภาพ
-                        </div>
-                      )}
-                      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-forest-800 border border-stone-200">
-                        พักได้ {room.capacity} ท่าน
-                      </div>
-                    </div>
-
-                    <div className="p-6 flex flex-col justify-between flex-1">
-                      <div>
-                        <span className="text-xs text-bamboo-600 font-semibold uppercase">
-                          {room.type_name}
-                        </span>
-                        <h3 className="font-display text-2xl font-bold text-forest-800 mt-1 mb-2">
-                          {room.room_name}
-                        </h3>
-                        <p className="text-charcoal-400 text-sm line-clamp-2 font-light">
-                          {room.description ||
-                            "สัมผัสประสบการณ์การพักผ่อนริมน้ำสุดพิเศษ..."}
-                        </p>
-                      </div>
-
-                      <div className="pt-6 mt-6 border-t border-stone-100 flex items-center justify-between">
-                        <div>
-                          <span className="text-xs text-charcoal-400">
-                            ราคาเริ่มต้น
-                          </span>
-                          <div className="font-display text-2xl font-bold text-forest-800">
-                            ฿{formatPrice(room.price_per_night)}
-                            <span className="text-xs font-normal text-charcoal-400">
-                              {" "}
-                              /คืน
-                            </span>
-                          </div>
-                        </div>
-                        <Link
-                          href={`/rooms/${room.id}`}
-                          className="p-3 rounded-xl bg-stone-100 text-forest-800 hover:bg-forest-800 hover:text-white transition-colors"
-                          aria-label={`ดูรายละเอียดห้อง ${room.room_name}`}
-                        >
-                          <ArrowRight size={20} />
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-          </div>
+          {loadingRooms ? (
+            <div className="grid lg:grid-cols-5 gap-5">
+              <div className="lg:col-span-3 h-[420px] md:h-[520px] rounded-2xl bg-stone-200 animate-pulse" />
+              <div className="lg:col-span-2 grid gap-5">
+                <div className="h-[210px] md:h-[248px] rounded-2xl bg-stone-200 animate-pulse" />
+                <div className="h-[210px] md:h-[248px] rounded-2xl bg-stone-200 animate-pulse" />
+              </div>
+            </div>
+          ) : (
+            <div className="grid lg:grid-cols-5 gap-5">
+              {featured && (
+                <div className="lg:col-span-3">
+                  <RoomCard room={featured} large />
+                </div>
+              )}
+              {secondary.length > 0 && (
+                <div className="lg:col-span-2 grid gap-5">
+                  {secondary.map((room) => (
+                    <RoomCard key={room.id} room={room} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
       {/* ═══════════════════════════════
           5. EXPERIENCE SECTION (Why Choose Us)
           ═══════════════════════════════ */}
-      <section className="py-24" ref={experienceRef}>
+      <section className="py-24 bg-white" ref={experienceRef}>
         <div className="container mx-auto px-4 md:px-6">
-          <div className="grid md:grid-cols-12 gap-12 items-center">
-            {/* Title */}
-            <div className="md:col-span-5 space-y-4">
-              <span className="text-bamboo-600 font-semibold tracking-wider text-xs uppercase">
-                WHY CHOOSE US
-              </span>
-              <h2 className="font-display text-4xl md:text-5xl font-bold text-forest-800 leading-tight">
+          <div className="grid md:grid-cols-12 gap-12 items-start">
+            <div className="md:col-span-5 space-y-4 md:sticky md:top-24">
+              <p className="text-forest-700 font-medium text-sm">เหตุผลที่ควรมาพัก</p>
+              <h2 className="font-display text-3xl md:text-4xl font-bold text-forest-800 leading-tight">
                 เติมเต็มวันพักผ่อน
                 <br />
                 ด้วยบรรยากาศธรรมชาติ
@@ -640,43 +675,20 @@ export default function HomePage() {
               </p>
             </div>
 
-            {/* Feature Cards Grid */}
-            <div className="md:col-span-7 grid sm:grid-cols-2 gap-6">
-              {[
-                {
-                  icon: <Waves className="text-lagoon-600" size={26} />,
-                  title: "เรือนแพลอยน้ำ",
-                  desc: "สัมผัสความเย็นสบายของสายน้ำ เปิดรับทัศนียภาพแบบ 360 องศาจากระเบียงห้องพัก",
-                },
-                {
-                  icon: <Anchor className="text-forest-700" size={26} />,
-                  title: "กิจกรรมเรือคายัค",
-                  desc: "พายเรือออกสำรวจความสมบูรณ์ของระบบนิเวศ เหมาะสำหรับทั้งมือใหม่และครอบครัว",
-                },
-                {
-                  icon: <Compass className="text-bamboo-600" size={26} />,
-                  title: "ทำเลเงียบสงบ",
-                  desc: "โอบล้อมด้วยแมกไม้และธรรมชาติอันบริสุทธิ์ ให้คุณได้สูดอากาศสดชื่นเต็มปอด",
-                },
-                {
-                  icon: <CreditCard className="text-amber-600" size={26} />,
-                  title: "จองง่าย สะดวกรวดเร็ว",
-                  desc: "ระบบจองห้องพักออนไลน์ รองรับการชำระเงินผ่าน QR PromptPay ทันที",
-                },
-              ].map((item, idx) => (
-                <div
-                  key={idx}
-                  className="bg-white p-7 rounded-2xl border border-stone-200/70 shadow-sm hover:shadow-md hover:border-forest-800/20 transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-stone-100 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+            <div className="md:col-span-7 divide-y divide-stone-200">
+              {features.map((item, idx) => (
+                <div key={idx} className="flex items-start gap-5 py-6 first:pt-0 last:pb-0">
+                  <div className="w-11 h-11 rounded-full bg-stone-50 border border-stone-200 flex items-center justify-center shrink-0">
                     {item.icon}
                   </div>
-                  <h3 className="font-display text-xl font-semibold text-forest-800 mb-2">
-                    {item.title}
-                  </h3>
-                  <p className="text-charcoal-400 text-sm leading-relaxed">
-                    {item.desc}
-                  </p>
+                  <div>
+                    <h3 className="font-display text-xl font-semibold text-forest-800 mb-1">
+                      {item.title}
+                    </h3>
+                    <p className="text-charcoal-400 text-sm leading-relaxed">
+                      {item.desc}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -687,17 +699,13 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           6. LOCATION & MAP SECTION
           ═══════════════════════════════ */}
-      <section
-        className="py-2 bg-stone-100/60 border-t border-stone-200"
-        ref={locationRef}
-      >
+      <section className="bg-stone-50" ref={locationRef}>
+        <WaveDivider className="text-white" />
         <div className="container mx-auto px-4 md:px-6 py-16">
-          <div className="grid lg:grid-cols-12 gap-8 items-center">
+          <div className="grid lg:grid-cols-12 gap-10 items-center">
             <div className="lg:col-span-5 space-y-6">
-              <span className="text-bamboo-600 font-semibold tracking-wider text-xs uppercase">
-                LOCATION
-              </span>
-              <h2 className="font-display text-4xl font-bold text-forest-800">
+              <p className="text-forest-700 font-medium text-sm">แผนที่และการเดินทาง</p>
+              <h2 className="font-display text-3xl md:text-4xl font-bold text-forest-800">
                 การเดินทาง & ที่ตั้ง
               </h2>
               <div className="space-y-4 text-charcoal/80">
@@ -713,10 +721,10 @@ export default function HomePage() {
                   <span>{resortInfo.phone || "080-000-0000"}</span>
                 </div>
               </div>
-              {/* Facebook */}
+
               {facebookLink && (
                 <div className="flex items-start gap-3">
-                  <Facebook size={18} className="text-bamboo-500 mt-1 shrink-0" />
+                  <Facebook size={18} className="text-bamboo-400 mt-1 shrink-0" />
                   <div className="min-w-0">
                     <p className="font-display font-semibold text-forest-800 mb-0.5">Facebook</p>
                     <a
@@ -730,9 +738,9 @@ export default function HomePage() {
                   </div>
                 </div>
               )}
-              {/* Hours */}
+
               <div className="flex items-start gap-3">
-                <Waves size={18} className="text-bamboo-500 mt-1 shrink-0" />
+                <Waves size={18} className="text-bamboo-400 mt-1 shrink-0" />
                 <div>
                   <p className="font-display font-semibold text-forest-800 mb-0.5">เวลาเปิด-ปิด</p>
                   <p className="text-charcoal-400 text-sm">
@@ -744,8 +752,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Embed Map View */}
-            <div className="lg:col-span-7 h-80 rounded-3xl overflow-hidden border border-stone-300 shadow-sm relative">
+            <div className="lg:col-span-7 h-80 rounded-2xl overflow-hidden border border-stone-200 relative">
               <iframe
                 title={`แผนที่ ${resortInfo.name || "สวนวลัยรุกขเวช"}`}
                 aria-labelledby={mapTitleId}
@@ -758,6 +765,28 @@ export default function HomePage() {
               </span>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════
+          7. FINAL CTA
+          ═══════════════════════════════ */}
+      <section className="relative bg-forest-800 text-cream-100" ref={ctaRef}>
+        <WaveDivider className="text-stone-50 -mb-px" flip />
+        <div className="container mx-auto px-4 py-20 md:py-28 text-center">
+          <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
+            พร้อมพักผ่อนกลางสายน้ำหรือยัง?
+          </h2>
+          <p className="text-cream-100/70 max-w-xl mx-auto mb-10 text-lg font-light">
+            จองห้องพักวันนี้ พร้อมกิจกรรมพายเรือคายัคชมทัศนียภาพอันร่มรื่นกลางผืนน้ำ
+          </p>
+          <Link
+            href="/rooms"
+            className="inline-flex items-center justify-center gap-2 bg-bamboo-400 text-forest-900 font-semibold px-8 py-4 rounded-2xl hover:bg-bamboo-500 active:scale-[0.97] transition-all duration-200"
+          >
+            <Calendar size={18} aria-hidden="true" />
+            จองห้องพักตอนนี้
+          </Link>
         </div>
       </section>
     </div>

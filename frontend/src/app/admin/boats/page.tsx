@@ -33,13 +33,21 @@ import {
   Printer,
   Ship,
   Timer,
-  Layers,
-  ArrowRight,
 } from "lucide-react";
 import api from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import toast, { Toaster } from "react-hot-toast";
+
+// ตัวเลือกเหตุผลในการปฏิเสธ
+const REJECT_REASONS = [
+  "สลิปไม่ชัดเจน / อ่านข้อมูลไม่ได้",
+  "ยอดเงินไม่ถูกต้อง / ไม่ครบถ้วน",
+  "บัญชีโอนเงินไม่ถูกต้อง",
+  "ไม่พบยอดเงินโอนในระบบ",
+  "รายการจองซ้ำซ้อน",
+  "อื่นๆ",
+];
 
 // Mapping สถานะสำหรับ UI
 const statusLabel: Record<string, string> = {
@@ -87,9 +95,6 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string }> =
 
 type FilterType = "all" | "has_slip" | "pending" | "approved" | "checked_out";
 
-// -------------------------------------------------------------
-// Component: Custom DatePicker ปฏิทินดีไซน์สวยงาม
-// -------------------------------------------------------------
 function CustomDatePicker({
   value,
   onChange,
@@ -439,12 +444,18 @@ function BoatStaffDashboardContent() {
     onConfirm: () => {},
   });
 
-  // Modal กรณีปฏิเสธการจอง (ระบุเหตุผล)
+  // Modal กรณีปฏิเสธการจอง (ใช้เลือกรายการ + กรอกเหตุผลเพิ่มเติม)
   const [rejectModal, setRejectModal] = useState<{
     open: boolean;
     bookingId: number | null;
-    reason: string;
-  }>({ open: false, bookingId: null, reason: "" });
+    selectedReason: string;
+    customReason: string;
+  }>({
+    open: false,
+    bookingId: null,
+    selectedReason: REJECT_REASONS[0], // ค่าเริ่มต้นตัวแรก
+    customReason: "",
+  });
 
   const itemsPerPage = 10;
 
@@ -564,25 +575,41 @@ function BoatStaffDashboardContent() {
     );
   };
 
-  // handleRejectSubmit (ปฏิเสธพร้อมระบุเหตุผล)
+  // handleRejectSubmit (ประมวลผลข้อความเหตุผลส่งให้ API)
   const handleRejectSubmit = async () => {
     if (!rejectModal.bookingId) return;
+
+    const finalReason =
+      rejectModal.selectedReason === "อื่นๆ"
+        ? rejectModal.customReason.trim()
+        : rejectModal.selectedReason;
+
+    if (rejectModal.selectedReason === "อื่นๆ" && !finalReason) {
+      toast.error("กรุณาระบุเหตุผลเพิ่มเติม");
+      return;
+    }
+
     try {
       await api.put(`/kayaks/bookings/${rejectModal.bookingId}/status`, {
         status: "rejected",
-        reject_reason: rejectModal.reason.trim() || "ข้อมูลหลักฐานไม่ถูกต้อง",
+        reject_reason: finalReason || "ข้อมูลหลักฐานไม่ถูกต้อง",
       });
       toast.success("ปฏิเสธรายการจองเรียบร้อยแล้ว");
 
       setBookings((prev) =>
         prev.map((b) =>
           (b.boat_booking_id || b.id) === rejectModal.bookingId
-            ? { ...b, status: "rejected", reject_reason: rejectModal.reason }
+            ? { ...b, status: "rejected", reject_reason: finalReason }
             : b,
         ),
       );
 
-      setRejectModal({ open: false, bookingId: null, reason: "" });
+      setRejectModal({
+        open: false,
+        bookingId: null,
+        selectedReason: REJECT_REASONS[0],
+        customReason: "",
+      });
       fetchBookings();
     } catch (err: any) {
       toast.error(err.response?.data?.message || "ปฏิเสธการจองไม่สำเร็จ");
@@ -620,12 +647,10 @@ function BoatStaffDashboardContent() {
     );
   };
 
-  // พิมพ์รายละเอียดการจอง / ใบเสร็จ
   const handlePrintDetails = () => {
     window.print();
   };
 
-  // รวบรวมประเภทเรือทั้งหมดที่มีในระบบ
   const boatTypes = useMemo(() => {
     const types = new Set<string>();
     bookings.forEach((b) => {
@@ -642,7 +667,6 @@ function BoatStaffDashboardContent() {
     ];
   }, [boatTypes]);
 
-  // คำนวณสรุปสถิติต่างๆ
   const counts = useMemo(() => {
     const approvedList = bookings.filter((b) =>
       ["approved", "checked_out"].includes(b.status),
@@ -672,11 +696,9 @@ function BoatStaffDashboardContent() {
     };
   }, [bookings]);
 
-  // ระบบกรองข้อมูลหลัก
   const filtered = useMemo(() => {
     let list = bookings;
 
-    // 1. Filter ตามสถานะ
     if (filter === "has_slip")
       list = list.filter(
         (b) =>
@@ -692,12 +714,10 @@ function BoatStaffDashboardContent() {
     else if (filter === "checked_out")
       list = list.filter((b) => b.status === "checked_out");
 
-    // 2. Filter ตามประเภทเรือ
     if (boatType !== "all") {
       list = list.filter((b) => (b.kayak_name || b.boat_name) === boatType);
     }
 
-    // 3. Filter ตามช่วงวันที่จองเรือ (เปรียบเทียบในรูปแบบ YYYY-MM-DD เพื่อเลี่ยงปัญหากเรื่อง ไทม์โซน)
     if (dateFrom)
       list = list.filter(
         (b) =>
@@ -711,7 +731,6 @@ function BoatStaffDashboardContent() {
           new Date(b.booking_date).toISOString().split("T")[0] <= dateTo,
       );
 
-    // 4. Search Filter
     if (searchParam.trim()) {
       const q = searchParam.toLowerCase().trim();
       list = list.filter((b) => {
@@ -769,7 +788,6 @@ function BoatStaffDashboardContent() {
 
   return (
     <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
-      {/* CSS สำหรับจัดแต่งการพิมพ์ (Print Stylesheet) */}
       <style jsx global>{`
         @media print {
           body * {
@@ -804,7 +822,7 @@ function BoatStaffDashboardContent() {
         }
       `}</style>
 
-      {/* Header Bar + Sub-Navigation Bar */}
+      {/* Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-stone-200/60 print:hidden">
         <div>
           <div className="flex items-center gap-2">
@@ -911,7 +929,6 @@ function BoatStaffDashboardContent() {
 
       {/* Control Bar */}
       <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs space-y-4 print:hidden">
-        {/* Tabs Filter */}
         <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5">
           {(
             [
@@ -948,10 +965,8 @@ function BoatStaffDashboardContent() {
           })}
         </div>
 
-        {/* ค้นหา + ตัวกรองประเภทเรือ + ช่วงวันที่ + ปุ่มรีเฟรช */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-stone-100">
           <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-            {/* Search Input */}
             <div className="relative flex-1 sm:w-64 min-w-[200px]">
               <Search
                 size={16}
@@ -977,7 +992,6 @@ function BoatStaffDashboardContent() {
               )}
             </div>
 
-            {/* Boat Type Selector */}
             <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
               <Ship size={15} className="text-stone-400" />
               <span className="font-medium text-stone-500 whitespace-nowrap">
@@ -993,7 +1007,6 @@ function BoatStaffDashboardContent() {
               />
             </div>
 
-            {/* Custom Date Range Picker */}
             <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
               <CalendarDays size={15} className="text-cyan-800" />
               <span className="font-medium text-stone-500 whitespace-nowrap">
@@ -1012,7 +1025,6 @@ function BoatStaffDashboardContent() {
               />
             </div>
 
-            {/* Clear Filters */}
             {hasActiveFilters && (
               <button
                 onClick={handleClearFilters}
@@ -1025,7 +1037,6 @@ function BoatStaffDashboardContent() {
             )}
           </div>
 
-          {/* Refresh Button */}
           <button
             onClick={fetchBookings}
             className="px-3.5 py-2 text-stone-700 bg-white hover:bg-stone-100/80 rounded-xl border border-stone-200 shadow-xs transition-all text-xs font-medium flex items-center gap-2 active:scale-95 ml-auto"
@@ -1278,7 +1289,8 @@ function BoatStaffDashboardContent() {
                                   setRejectModal({
                                     open: true,
                                     bookingId,
-                                    reason: "",
+                                    selectedReason: REJECT_REASONS[0],
+                                    customReason: "",
                                   })
                                 }
                                 className="inline-flex items-center gap-1 text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold px-3 py-1.5 rounded-xl border border-rose-200 transition-all active:scale-95"
@@ -1588,45 +1600,100 @@ function BoatStaffDashboardContent() {
           );
         })()}
 
-      {/* Reject Modal */}
+      {/* Reject Modal (ระบบเลือกเหตุผลการปฏิเสธ) */}
       {rejectModal.open && (
         <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 print:hidden">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-stone-100 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center bg-rose-50 border border-rose-100 text-rose-600">
+            {/* ไอคอนแจ้งเตือน */}
+            <div className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center bg-rose-50 border border-rose-100 text-rose-500">
               <AlertTriangle size={24} />
             </div>
 
+            {/* หัวข้อ */}
             <div>
-              <h3 className="text-base font-bold text-stone-800">
+              <h3 className="text-lg font-bold text-stone-800">
                 ปฏิเสธรายการจองนี้?
               </h3>
-              <p className="text-xs text-stone-500 mt-1">
-                กรุณาระบุเหตุผลในการปฏิเสธสลิปหรือการจอง
+              <p className="text-xs text-stone-400 mt-1">
+                โปรดเลือกเหตุผลในการปฏิเสธการจอง
               </p>
             </div>
 
-            <textarea
-              rows={3}
-              placeholder="ระบุเหตุผล เช่น ยอดเงินไม่ครบ, สลิปไม่ชัดเจน, บัญชีโอนไม่ถูกต้อง..."
-              value={rejectModal.reason}
-              onChange={(e) =>
-                setRejectModal((prev) => ({ ...prev, reason: e.target.value }))
-              }
-              className="w-full p-3 bg-[#fbfbfa] rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs text-stone-800 placeholder:text-stone-400"
-            />
+            {/* รายการเหตุผลแบบ Radio List */}
+            <div className="space-y-2 text-left">
+              {REJECT_REASONS.map((reason) => {
+                const isSelected = rejectModal.selectedReason === reason;
+                return (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() =>
+                      setRejectModal((prev) => ({
+                        ...prev,
+                        selectedReason: reason,
+                      }))
+                    }
+                    className={`w-full flex items-center justify-between p-3.5 rounded-2xl border text-xs font-semibold transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-rose-50/50 border-rose-400 text-rose-700 shadow-2xs"
+                        : "bg-stone-50/60 border-stone-200/80 text-stone-600 hover:bg-stone-100/70"
+                    }`}
+                  >
+                    <span>{reason}</span>
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                        isSelected
+                          ? "border-rose-500 bg-rose-500"
+                          : "border-stone-300 bg-white"
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="w-2 h-2 rounded-full bg-white" />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
 
-            <div className="flex items-center gap-2 pt-1">
+              {/* ช่องกรอกเพิ่มเติมเฉพาะเมื่อเลือก "อื่นๆ" */}
+              {rejectModal.selectedReason === "อื่นๆ" && (
+                <div className="pt-1 animate-in fade-in duration-150">
+                  <textarea
+                    rows={2}
+                    placeholder="โปรดระบุเหตุผลเพิ่มเติม..."
+                    value={rejectModal.customReason}
+                    onChange={(e) =>
+                      setRejectModal((prev) => ({
+                        ...prev,
+                        customReason: e.target.value,
+                      }))
+                    }
+                    className="w-full p-3 bg-stone-50 rounded-2xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs text-stone-800 placeholder:text-stone-400 resize-none"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* ปุ่มกดกดยืนยัน / ยกเลิก */}
+            <div className="flex items-center gap-3 pt-2">
               <button
+                type="button"
                 onClick={() =>
-                  setRejectModal({ open: false, bookingId: null, reason: "" })
+                  setRejectModal({
+                    open: false,
+                    bookingId: null,
+                    selectedReason: REJECT_REASONS[0],
+                    customReason: "",
+                  })
                 }
-                className="flex-1 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-colors"
+                className="flex-1 py-3 rounded-2xl bg-stone-100 hover:bg-stone-200/80 text-stone-600 text-xs font-bold transition-colors"
               >
                 ยกเลิก
               </button>
               <button
+                type="button"
                 onClick={handleRejectSubmit}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition-opacity"
+                className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-200 active:scale-95 transition-all"
               >
                 ยืนยันปฏิเสธ
               </button>
@@ -1714,24 +1781,5 @@ function BoatStaffDashboardContent() {
         }}
       />
     </div>
-  );
-}
-
-export default function BoatStaffDashboard() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center p-8">
-          <div className="flex flex-col items-center gap-3">
-            <RefreshCw size={28} className="animate-spin text-cyan-800" />
-            <span className="text-xs font-semibold text-stone-500">
-              กำลังโหลดข้อมูล...
-            </span>
-          </div>
-        </div>
-      }
-    >
-      <BoatStaffDashboardContent />
-    </Suspense>
   );
 }
