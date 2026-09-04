@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { usePathname } from "next/navigation";
 import {
   Ship,
   Clock,
@@ -14,14 +13,15 @@ import {
   Save,
   Loader2,
 } from "lucide-react";
+import api, { getApiErrorMessage } from "@/lib/api";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 import toast, { Toaster } from "react-hot-toast";
 
-// URL ของ API Backend
-const API_BASE_URL = "http://localhost:5000/api/kayaks";
-
 export interface BoatType {
-  boat_type_id: number;
-  type_name: string;
+  boat_type_id?: number;
+  id?: number;
+  type_name?: string;
+  name?: string;
 }
 
 export interface BoatQuantityItem {
@@ -38,8 +38,21 @@ export interface BoatRound {
   max_booking?: number;
   is_active: boolean;
   boats?: BoatQuantityItem[];
+  round_boats?: BoatQuantityItem[];
   boat_type_id?: number;
   type_name?: string;
+}
+
+interface AdminRoundRow extends BoatRound {
+  round_boats?: BoatQuantityItem[];
+}
+
+function boatTypeKey(bt: BoatType): number | undefined {
+  return bt.boat_type_id ?? bt.id;
+}
+
+function boatTypeLabel(bt: BoatType): string {
+  return bt.type_name ?? bt.name ?? "";
 }
 
 // -------------------------------------------------------------
@@ -199,8 +212,8 @@ const ThaiTimePicker: React.FC<ThaiTimePickerProps> = ({
 // -------------------------------------------------------------
 // MAIN PAGE COMPONENT
 // -------------------------------------------------------------
-export default function BoatRoundsPage() {
-  const pathname = usePathname();
+export default function BoatRoundsPage(): React.ReactElement | null {
+  const { ready } = useAuthGuard({ allowedRoles: ["admin", "boat_staff"] });
 
   const [rounds, setRounds] = useState<BoatRound[]>([]);
   const [boatTypes, setBoatTypes] = useState<BoatType[]>([]);
@@ -249,50 +262,55 @@ export default function BoatRoundsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (): Promise<void> => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
 
-      const headers = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-
-      const typesRes = await fetch(`${API_BASE_URL}/types`, { headers });
-      const typesData = await typesRes.json();
-      const boatTypesArray = Array.isArray(typesData)
-        ? typesData
-        : typesData.data || typesData.kayaks || [];
+      const typesRes = await api.get("/kayaks/types");
+      const typesPayload: unknown = typesRes.data;
+      const boatTypesArray = Array.isArray(typesPayload)
+        ? typesPayload
+        : typesPayload &&
+            typeof typesPayload === "object" &&
+            Array.isArray((typesPayload as { data?: unknown }).data)
+          ? (typesPayload as { data: BoatType[] }).data
+          : typesPayload &&
+              typeof typesPayload === "object" &&
+              Array.isArray((typesPayload as { kayaks?: unknown }).kayaks)
+            ? (typesPayload as { kayaks: BoatType[] }).kayaks
+            : [];
 
       if (boatTypesArray.length > 0) setBoatTypes(boatTypesArray);
 
-      const scheduleRes = await fetch(`${API_BASE_URL}/admin/schedule`, {
-        headers,
-      });
-      const scheduleData = await scheduleRes.json();
-      const roundsArray = Array.isArray(scheduleData)
-        ? scheduleData
-        : scheduleData.data || [];
+      const scheduleRes = await api.get("/kayaks/admin/schedule");
+      const schedulePayload: unknown = scheduleRes.data;
+      const roundsArray: AdminRoundRow[] = Array.isArray(schedulePayload)
+        ? (schedulePayload as AdminRoundRow[])
+        : schedulePayload &&
+            typeof schedulePayload === "object" &&
+            Array.isArray((schedulePayload as { data?: unknown }).data)
+          ? ((schedulePayload as { data: AdminRoundRow[] }).data)
+          : [];
 
-      const formattedRounds = roundsArray.map((r: any) => ({
+      const formattedRounds = roundsArray.map((r) => ({
         ...r,
         boats:
           r.round_boats && r.round_boats.length > 0 ? r.round_boats : r.boats,
       }));
 
       setRounds(formattedRounds);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Fetch data error:", error);
-      toast.error("ไม่สามารถดึงข้อมูลได้");
+      toast.error(getApiErrorMessage(error, "ไม่สามารถดึงข้อมูลได้"));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!ready) return;
+    void fetchData();
+  }, [ready]);
 
   const totalBoatCount = Object.values(selectedBoatsMap).reduce(
   (sum: number, qty) => sum + (Number(qty) || 0),
@@ -334,7 +352,7 @@ export default function BoatRoundsPage() {
     setIsDropdownOpen(false);
   };
 
-  const handleSubmitForm = async (e: React.FormEvent) => {
+  const handleSubmitForm = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     const selectedBoatEntries = Object.entries(selectedBoatsMap);
 
@@ -344,65 +362,43 @@ export default function BoatRoundsPage() {
     }
 
     try {
-      const token = localStorage.getItem("token");
       const boatsPayload = selectedBoatEntries.map(([id, qty]) => ({
         boat_type_id: Number(id),
         quantity: Math.max(1, Number(qty) || 1),
       }));
 
       const payload = {
-        boat_type_id: Number(selectedBoatEntries[0][0]),
         start_time: cleanTimeForBackend(startTime),
         end_time: cleanTimeForBackend(endTime),
         total_slots: totalBoatCount,
-        max_booking: totalBoatCount,
         is_active: isActive,
         boats: boatsPayload,
       };
 
-      const url = editingRoundId
-        ? `${API_BASE_URL}/rounds/${editingRoundId}`
-        : `${API_BASE_URL}/rounds`;
-
-      const res = await fetch(url, {
-        method: editingRoundId ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success !== false) {
-        toast.success(
-          editingRoundId ? "อัปเดตรอบเวลาเรียบร้อย" : "เพิ่มรอบเวลาสำเร็จ"
-        );
-        handleResetForm();
-        fetchData();
+      if (editingRoundId) {
+        await api.put(`/kayaks/rounds/${editingRoundId}`, payload);
+        toast.success("อัปเดตรอบเวลาเรียบร้อย");
       } else {
-        toast.error(data.message || "เกิดข้อผิดพลาดในการบันทึก");
+        await api.post("/kayaks/rounds", payload);
+        toast.success("เพิ่มรอบเวลาสำเร็จ");
       }
-    } catch (error) {
-      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+      handleResetForm();
+      await fetchData();
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "เกิดข้อผิดพลาดในการบันทึก"));
     }
   };
 
   const renderBoatChips = (round: BoatRound) => {
     if (round.boats && Array.isArray(round.boats) && round.boats.length > 0) {
       return round.boats.map((b, idx) => {
-        const matchedType = boatTypes.find((bt: any) => {
-          const typeId = bt.boat_type_id ?? bt.id ?? bt.type_id;
-          return String(typeId) === String(b.boat_type_id);
-        });
+        const matchedType = boatTypes.find(
+          (bt) => String(boatTypeKey(bt)) === String(b.boat_type_id)
+        );
 
         const name =
           b.type_name ||
-          (b as any).name ||
-          (b as any).boat_type_name ||
-          matchedType?.type_name ||
-          (matchedType as any)?.name ||
-          (matchedType as any)?.type_title ||
+          (matchedType ? boatTypeLabel(matchedType) : "") ||
           `ประเภทเรือ ${b.boat_type_id}`;
 
         return (
@@ -421,16 +417,13 @@ export default function BoatRoundsPage() {
     }
 
     if (round.boat_type_id) {
-      const matchedType = boatTypes.find((bt: any) => {
-        const typeId = bt.boat_type_id ?? bt.id ?? bt.type_id;
-        return String(typeId) === String(round.boat_type_id);
-      });
+      const matchedType = boatTypes.find(
+        (bt) => String(boatTypeKey(bt)) === String(round.boat_type_id)
+      );
 
       const name =
         round.type_name ||
-        (round as any).name ||
-        matchedType?.type_name ||
-        (matchedType as any)?.name ||
+        (matchedType ? boatTypeLabel(matchedType) : "") ||
         `ประเภทเรือ ${round.boat_type_id}`;
 
       const total = round.total_slots || round.max_booking || 1;
@@ -458,10 +451,11 @@ export default function BoatRoundsPage() {
     setIsActive(round.is_active);
 
     const newMap: Record<number, number> = {};
-    const boatList = round.boats || (round as any).round_boats;
+    const boatList =
+      round.boats && round.boats.length > 0 ? round.boats : round.round_boats;
 
-    if (boatList && Array.isArray(boatList) && boatList.length > 0) {
-      boatList.forEach((b: any) => {
+    if (boatList && boatList.length > 0) {
+      boatList.forEach((b) => {
         if (b.boat_type_id) {
           newMap[b.boat_type_id] = Number(b.quantity) || 1;
         }
@@ -474,23 +468,19 @@ export default function BoatRoundsPage() {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = async (): Promise<void> => {
     if (!deleteRoundId) return;
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_BASE_URL}/rounds/${deleteRoundId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        toast.success("ลบรอบเวลาเรียบร้อยแล้ว");
-        setDeleteRoundId(null);
-        fetchData();
-      }
-    } catch (error) {
-      toast.error("เกิดข้อผิดพลาดในการลบ");
+      await api.delete(`/kayaks/rounds/${deleteRoundId}`);
+      toast.success("ลบรอบเวลาเรียบร้อยแล้ว");
+      setDeleteRoundId(null);
+      await fetchData();
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "เกิดข้อผิดพลาดในการลบ"));
     }
   };
+
+  if (!ready) return null;
 
   return (
     <div className="w-full min-h-screen flex flex-col font-sans space-y-6 pb-12 text-stone-800">
@@ -508,7 +498,7 @@ export default function BoatRoundsPage() {
             </h1>
           </div>
           <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            กำหนดรอบเวลาบริการ และจัดสรรจำนวนโควตาเรือ
+            รอบหนึ่งช่วงเวลา เลือกได้หลายประเภท — จำนวนลำคือเพดานจองในรอบนั้น
           </p>
         </div>
 
@@ -578,7 +568,7 @@ export default function BoatRoundsPage() {
 
           <div className="md:col-span-2">
             <label className="block text-[11px] font-bold text-stone-700 mb-1">
-              จำนวนเรือทั้งหมด (ลำ)
+              รวมโควตาในรอบนี้ (ลำ)
             </label>
             <input
               type="number"
@@ -609,9 +599,10 @@ export default function BoatRoundsPage() {
 
             {isDropdownOpen && (
               <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-stone-200 rounded-xl shadow-lg z-30 p-2 space-y-2 max-h-60 overflow-y-auto">
-                {boatTypes.map((bt: any, index) => {
-                  const id = bt.boat_type_id ?? bt.id;
-                  const name = bt.type_name ?? bt.name;
+                {boatTypes.map((bt, index) => {
+                  const id = boatTypeKey(bt);
+                  const name = boatTypeLabel(bt);
+                  if (id == null) return null;
                   const isSelected = selectedBoatsMap[id] !== undefined;
                   const rawQty = selectedBoatsMap[id] ?? 1;
                   const currentNum = Number(rawQty) || 0;

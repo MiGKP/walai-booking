@@ -184,10 +184,22 @@ export const createKayakValidator = [
 ];
 
 export const createBoatRoundValidator = [
-  body('boat_type_id').isInt({ min: 1 }).withMessage('Valid boat_type_id is required'),
   body('start_time').matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage('start_time must be in HH:MM format'),
   body('end_time').matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage('end_time must be in HH:MM format'),
+  body('boats').optional().isArray({ min: 1 }).withMessage('boats must be a non-empty array'),
+  body('boats.*.boat_type_id').optional().isInt({ min: 1 }).withMessage('Valid boat_type_id is required'),
+  body('boats.*.quantity').optional().isInt({ min: 1 }).withMessage('quantity must be at least 1'),
+  body('boat_type_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Valid boat_type_id is required'),
+  body('total_slots').optional({ nullable: true }).isInt({ min: 1 }).withMessage('total_slots must be a positive integer'),
   body('max_booking').optional({ nullable: true }).isInt({ min: 1 }).withMessage('max_booking must be a positive integer'),
+  body().custom((_, { req }) => {
+    const hasBoats = Array.isArray(req.body.boats) && req.body.boats.length > 0;
+    const hasLegacy = req.body.boat_type_id != null;
+    if (!hasBoats && !hasLegacy) {
+      throw new Error('boats or boat_type_id is required');
+    }
+    return true;
+  }),
 ];
 
 // ─── Payment ──────────────────────────────────────────────────────────────────

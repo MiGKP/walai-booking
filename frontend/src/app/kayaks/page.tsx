@@ -101,7 +101,10 @@ function mergeSharedSlots(
         remainingByType: {},
         anyAvailable: false,
       };
-      prev.remainingByType[boatId] = round.remaining;
+      prev.remainingByType[boatId] =
+        prev.remainingByType[boatId] == null
+          ? round.remaining
+          : Math.min(prev.remainingByType[boatId], round.remaining);
       prev.anyAvailable = prev.anyAvailable || round.available;
       byKey.set(key, prev);
     });

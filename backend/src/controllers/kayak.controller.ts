@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { PoolClient } from "pg";
 import pool from "../config/database";
 import { AuthPayload } from "../types";
 import {
@@ -12,6 +13,18 @@ import {
   sumPassengerCounts,
   sumSubtotals,
 } from "../services/booking-boat.math";
+import {
+  MEMBER_TYPE_IDS_SQL,
+  memberTypeIdsFromRow,
+  parseRoundBoats,
+  pickCanonicalRoundId,
+  pickRoundForType,
+  remainingBoats,
+  roundIncludesTypeSql,
+  roundTypeQuantitySql,
+  typeCapacity,
+  type RoundBoatInput,
+} from "../services/round-boats";
 
 interface KayakItemInput {
   boat_type_id: number;
@@ -64,6 +77,41 @@ function normalizeTimePart(value: unknown): string {
     return `${hhmm[1]}:${hhmm[2] ?? "00"}`;
   }
   return raw;
+}
+
+async function replaceRoundBoats(
+  client: PoolClient,
+  roundId: number,
+  boats: RoundBoatInput[]
+): Promise<void> {
+  await client.query(`DELETE FROM round_boats WHERE boat_round_id = $1`, [
+    roundId,
+  ]);
+  for (const item of boats) {
+    await client.query(
+      `INSERT INTO round_boats (boat_round_id, boat_type_id, quantity)
+       VALUES ($1, $2, $3)`,
+      [roundId, item.boat_type_id, item.quantity],
+    );
+  }
+}
+
+async function boatTypesExist(
+  client: PoolClient,
+  typeIds: number[]
+): Promise<boolean> {
+  const unique = [...new Set(typeIds)];
+  if (unique.length === 0) return false;
+  const result = await client.query(
+    `SELECT COUNT(*)::int AS count FROM boat_types WHERE boat_type_id = ANY($1::int[])`,
+    [unique],
+  );
+  return Number(result.rows[0].count) === unique.length;
+}
+
+function toTimeSql(value: unknown): string {
+  const raw = String(value ?? "");
+  return raw.includes("T") ? raw.split("T")[1].slice(0, 8) : raw;
 }
 
 // ดึงรายการประเภทเรือทั้งหมดที่เปิดใช้งานอยู่ พร้อมข้อมูลที่ frontend ใช้แสดง เช่น ความจุ ราคา และรูปหลัก
@@ -137,7 +185,7 @@ export const checkKayakAvailability = async (
   try {
     const { kayak_id, booking_date, boat_round_id } = req.query;
 
-    const [conflictRes, boatRes, roundRes, poolRes] = await Promise.all([
+    const [conflictRes, boatRes, roundRes, poolRes, quotaRes] = await Promise.all([
       pool.query(
         `SELECT COALESCE(SUM(bnb.boat_count), 0) as booked_count
          FROM booking_boat bnb
@@ -150,7 +198,7 @@ export const checkKayakAvailability = async (
         kayak_id,
       ]),
       pool.query(
-        `SELECT total_slots, start_time, end_time FROM boat_rounds WHERE boat_round_id = $1`,
+        `SELECT total_slots, start_time, end_time, boat_type_id FROM boat_rounds WHERE boat_round_id = $1`,
         [boat_round_id],
       ),
       pool.query(
@@ -166,20 +214,29 @@ export const checkKayakAvailability = async (
          AND bnb.status NOT IN ('cancelled', 'rejected')`,
         [booking_date, boat_round_id],
       ),
+      pool.query(
+        `SELECT quantity FROM round_boats WHERE boat_round_id = $1 AND boat_type_id = $2`,
+        [boat_round_id, kayak_id],
+      ),
     ]);
 
     const booked = Number(conflictRes.rows[0].booked_count);
-    const total = boatRes.rows[0]?.quantity || 0;
+    const fleet = Number(boatRes.rows[0]?.quantity || 0);
+    const isSharedRound = roundRes.rows[0]?.boat_type_id == null;
+    const roundQuantity =
+      isSharedRound && quotaRes.rows.length > 0
+        ? Number(quotaRes.rows[0].quantity)
+        : null;
+    const total = typeCapacity(fleet, roundQuantity);
     const total_slots = roundRes.rows[0]?.total_slots ?? null;
     const pool_booked = Number(poolRes.rows[0].total_booked);
-
-    const remaining_type = Math.max(0, total - booked);
-    const remaining_pool =
-      total_slots !== null ? Math.max(0, total_slots - pool_booked) : null;
-    const remaining =
-      remaining_pool !== null
-        ? Math.min(remaining_type, remaining_pool)
-        : remaining_type;
+    const remaining = remainingBoats({
+      fleetQuantity: fleet,
+      roundQuantity,
+      typeBooked: booked,
+      totalSlots: total_slots === null ? null : Number(total_slots),
+      poolBooked: pool_booked,
+    });
 
     res.json({
       success: true,
@@ -278,24 +335,36 @@ export const getKayakCalendar = async (
       return;
     }
 
+    const typeExpr = "$1::int";
+    const membershipSql = roundIncludesTypeSql("br", typeExpr);
+    const roundQtySql = roundTypeQuantitySql("br", typeExpr);
+
     const result = await pool.query(
       `WITH days AS (
          SELECT generate_series($2::date, $3::date, interval '1 day')::date AS day
        ),
        rounds AS (
-         SELECT br.boat_round_id, br.start_time, br.end_time, br.total_slots
+         SELECT DISTINCT ON (br.start_time, br.end_time)
+           br.boat_round_id,
+           br.start_time,
+           br.end_time,
+           br.total_slots,
+           LEAST(
+             (SELECT COALESCE(quantity, 0)::int FROM boat_types WHERE boat_type_id = $1::int),
+             (${roundQtySql})::int
+           ) AS quantity
          FROM boat_rounds br
-         WHERE br.is_active = true AND (br.boat_type_id = $1::int OR $1::int IN (SELECT boat_type_id FROM round_boats WHERE boat_round_id = br.boat_round_id))
-       ),
-       stock AS (
-         SELECT COALESCE(quantity, 0)::int AS quantity FROM boat_types WHERE boat_type_id = $1::int
+         WHERE br.is_active = true AND ${membershipSql}
+         ORDER BY br.start_time, br.end_time,
+           (SELECT COUNT(*) FROM round_boats rb WHERE rb.boat_round_id = br.boat_round_id) DESC,
+           br.boat_round_id ASC
        ),
        grid AS (
          SELECT
            d.day,
            r.boat_round_id,
            r.total_slots,
-           (SELECT quantity FROM stock) AS quantity,
+           r.quantity,
            COALESCE((
              SELECT SUM(bnb.boat_count) FROM booking_boat bnb
              JOIN boat_bookings bb ON bb.boat_booking_id = bnb.boat_booking_id
@@ -402,16 +471,18 @@ export const getKayakDayRounds = async (
       return;
     }
 
+    const typeExpr = "$1::int";
+    const membershipSql = roundIncludesTypeSql("br", typeExpr);
+    const roundQtySql = roundTypeQuantitySql("br", typeExpr);
+
     const result = await pool.query(
-      `WITH stock AS (
-         SELECT COALESCE(quantity, 0)::int AS quantity FROM boat_types WHERE boat_type_id = $1::int
-       )
-       SELECT
+      `SELECT DISTINCT ON (br.start_time, br.end_time)
          br.boat_round_id,
          br.start_time,
          br.end_time,
          br.total_slots,
-         (SELECT quantity FROM stock) AS total,
+         (SELECT COALESCE(quantity, 0)::int FROM boat_types WHERE boat_type_id = $1::int) AS fleet,
+         (${roundQtySql})::int AS round_qty,
          COALESCE((
            SELECT SUM(bnb.boat_count) FROM booking_boat bnb
            JOIN boat_bookings bb ON bb.boat_booking_id = bnb.boat_booking_id
@@ -431,25 +502,28 @@ export const getKayakDayRounds = async (
              )
          ), 0)::int AS pool_booked
        FROM boat_rounds br
-       WHERE br.is_active = true AND (br.boat_type_id = $1::int OR $1::int IN (SELECT boat_type_id FROM round_boats WHERE boat_round_id = br.boat_round_id))
-       ORDER BY br.start_time`,
+       WHERE br.is_active = true AND ${membershipSql}
+       ORDER BY br.start_time, br.end_time,
+         (SELECT COUNT(*) FROM round_boats rb WHERE rb.boat_round_id = br.boat_round_id) DESC,
+         br.boat_round_id ASC`,
       [kayakId, booking_date],
     );
 
     const rounds: KayakRoundAvailability[] = result.rows.map((row) => {
-      const total = Number(row.total);
+      const fleet = Number(row.fleet);
+      const roundQuantity = Number(row.round_qty);
       const booked = Number(row.booked);
       const totalSlots =
         row.total_slots === null ? null : Number(row.total_slots);
       const poolBooked = Number(row.pool_booked);
-
-      const remainingType = Math.max(0, total - booked);
-      const remainingPool =
-        totalSlots === null ? null : Math.max(0, totalSlots - poolBooked);
-      const remaining =
-        remainingPool === null
-          ? remainingType
-          : Math.min(remainingType, remainingPool);
+      const total = typeCapacity(fleet, roundQuantity);
+      const remaining = remainingBoats({
+        fleetQuantity: fleet,
+        roundQuantity,
+        typeBooked: booked,
+        totalSlots,
+        poolBooked,
+      });
 
       return {
         boat_round_id: Number(row.boat_round_id),
@@ -485,13 +559,13 @@ export const getKayakSchedule = async (
 ): Promise<void> => {
   try {
     const { kayak_id } = req.query;
-    let query = `SELECT * FROM boat_rounds WHERE is_active = true`;
-    const params = [];
+    let query = `SELECT * FROM boat_rounds br WHERE br.is_active = true`;
+    const params: string[] = [];
     if (kayak_id) {
-      query += ` AND (boat_type_id = $1 OR boat_round_id IN (SELECT boat_round_id FROM round_boats WHERE boat_type_id = $1))`;
-      params.push(kayak_id);
+      query += ` AND ${roundIncludesTypeSql("br", "$1")}`;
+      params.push(String(kayak_id));
     }
-    query += ` ORDER BY start_time`;
+    query += ` ORDER BY br.start_time`;
 
     const result = await pool.query(query, params);
     res.json({ success: true, data: result.rows });
@@ -603,6 +677,30 @@ export const createKayakBooking = async (
     // Lock types in ascending id order to reduce deadlock risk
     const sortedItems = [...items].sort((a, b) => a.boat_type_id - b.boat_type_id);
 
+    const candidateRes = await client.query(
+      `SELECT br.boat_round_id, br.boat_type_id, br.max_booking, br.total_slots,
+              ${MEMBER_TYPE_IDS_SQL} AS member_type_ids
+       FROM boat_rounds br
+       WHERE br.is_active = true
+         AND br.start_time = $1::time
+         AND br.end_time = $2::time
+       FOR UPDATE OF br`,
+      [startTime, endTime],
+    );
+
+    const candidates = candidateRes.rows.map((row) => ({
+      boat_round_id: Number(row.boat_round_id),
+      boat_type_id: row.boat_type_id == null ? null : Number(row.boat_type_id),
+      memberTypeIds: memberTypeIdsFromRow(row),
+      max_booking: row.max_booking == null ? null : Number(row.max_booking),
+      total_slots: row.total_slots == null ? null : Number(row.total_slots),
+    }));
+
+    const coveringRoundId = pickCanonicalRoundId(
+      candidates,
+      sortedItems.map((item) => item.boat_type_id),
+    );
+
     for (const item of sortedItems) {
       const btResult = await client.query(
         `SELECT boat_type_id, type_name, price, quantity, seat_count
@@ -631,19 +729,10 @@ export const createKayakBooking = async (
         return;
       }
 
-      const roundResult = await client.query(
-        `SELECT boat_round_id, max_booking, total_slots, start_time, end_time
-         FROM boat_rounds
-         WHERE (boat_type_id = $1 OR boat_round_id IN (
-                  SELECT boat_round_id FROM round_boats WHERE boat_type_id = $1
-                ))
-           AND is_active = true
-           AND start_time = $2::time
-           AND end_time = $3::time
-         FOR UPDATE`,
-        [item.boat_type_id, startTime, endTime],
-      );
-      if (roundResult.rows.length === 0) {
+      const roundId =
+        coveringRoundId ?? pickRoundForType(candidates, item.boat_type_id);
+      const round = candidates.find((c) => c.boat_round_id === roundId);
+      if (roundId == null || !round) {
         await client.query("ROLLBACK");
         res.status(409).json({
           success: false,
@@ -651,9 +740,8 @@ export const createKayakBooking = async (
         });
         return;
       }
-      const round = roundResult.rows[0];
       if (poolSlots === null && round.total_slots != null) {
-        poolSlots = Number(round.total_slots);
+        poolSlots = round.total_slots;
       }
 
       const conflict = await client.query(
@@ -670,7 +758,21 @@ export const createKayakBooking = async (
 
       const bookedBoats = Number(conflict.rows[0].booked_boats);
       const totalPassengers = Number(conflict.rows[0].total_passengers);
-      const quantity = Number(boatType.quantity || 0);
+
+      const quotaRes = await client.query(
+        `SELECT quantity FROM round_boats
+         WHERE boat_round_id = $1 AND boat_type_id = $2
+         FOR UPDATE`,
+        [round.boat_round_id, item.boat_type_id],
+      );
+      const roundQuantity =
+        round.boat_type_id == null && quotaRes.rows.length > 0
+          ? Number(quotaRes.rows[0].quantity)
+          : null;
+      const quantity = typeCapacity(
+        Number(boatType.quantity || 0),
+        roundQuantity,
+      );
 
       if (bookedBoats + boatCount > quantity) {
         await client.query("ROLLBACK");
@@ -681,8 +783,9 @@ export const createKayakBooking = async (
         return;
       }
 
-      const maxBooking =
-        round.max_booking == null ? null : Number(round.max_booking);
+      // Passenger cap stays per-type only on leftover 1:1 rounds.
+      // Shared M2M rounds use round_boats.quantity + total_slots instead.
+      const maxBooking = coveringRoundId != null ? null : round.max_booking;
       if (maxBooking != null && totalPassengers + item.num_passengers > maxBooking) {
         await client.query("ROLLBACK");
         res.status(409).json({
@@ -695,14 +798,14 @@ export const createKayakBooking = async (
       const unitPrice = Number(boatType.price);
       prepared.push({
         boat_type_id: item.boat_type_id,
-        boat_round_id: Number(round.boat_round_id),
+        boat_round_id: round.boat_round_id,
         type_name: String(boatType.type_name),
         num_passengers: item.num_passengers,
         boat_count: boatCount,
         unit_price: unitPrice,
         subtotal: lineSubtotal(unitPrice, boatCount),
         max_booking: maxBooking,
-        total_slots: round.total_slots == null ? null : Number(round.total_slots),
+        total_slots: round.total_slots,
         quantity,
       });
     }
@@ -1103,7 +1206,10 @@ export const createBoatRound = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { start_time, end_time, max_booking, total_slots, boats } = req.body;
+    const body = req.body as Record<string, unknown>;
+    const boats = parseRoundBoats(body);
+    const start_time = body.start_time;
+    const end_time = body.end_time;
 
     if (!start_time || !end_time) {
       res.status(400).json({
@@ -1113,40 +1219,63 @@ export const createBoatRound = async (
       return;
     }
 
-    const formattedStartTime = String(start_time).includes("T")
-      ? start_time.split("T")[1].slice(0, 8)
-      : start_time;
-    const formattedEndTime = String(end_time).includes("T")
-      ? end_time.split("T")[1].slice(0, 8)
-      : end_time;
+    if (boats.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: "กรุณาเลือกประเภทเรืออย่างน้อย 1 ประเภท",
+      });
+      return;
+    }
+
+    const typeIds = boats.map((item) => item.boat_type_id);
+    if (new Set(typeIds).size !== typeIds.length) {
+      res.status(400).json({
+        success: false,
+        message: "ไม่สามารถเลือกประเภทเรือซ้ำในรอบเดียวกันได้",
+      });
+      return;
+    }
+
+    const formattedStartTime = toTimeSql(start_time);
+    const formattedEndTime = toTimeSql(end_time);
+    if (formattedEndTime <= formattedStartTime) {
+      res.status(400).json({
+        success: false,
+        message: "เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น",
+      });
+      return;
+    }
+
+    const quotaSum = boats.reduce((sum, item) => sum + item.quantity, 0);
+    const totalSlots =
+      body.total_slots === "" || body.total_slots == null
+        ? quotaSum
+        : Number(body.total_slots);
+    const maxBooking =
+      body.max_booking === "" || body.max_booking == null
+        ? null
+        : Number(body.max_booking);
 
     await client.query("BEGIN");
 
-    // บันทึกรอบเวลา (ไม่ต้องบังคับใส่ boat_type_id)
+    if (!(await boatTypesExist(client, typeIds))) {
+      await client.query("ROLLBACK");
+      res.status(400).json({
+        success: false,
+        message: "มีประเภทเรือที่ไม่ถูกต้องในรายการ",
+      });
+      return;
+    }
+
+    // Shared round: types live in round_boats, not boat_rounds.boat_type_id
     const result = await client.query(
-      `INSERT INTO boat_rounds (start_time, end_time, max_booking, total_slots, is_active)
-       VALUES ($1, $2, $3, $4, true) RETURNING *`,
-      [
-        formattedStartTime,
-        formattedEndTime,
-        max_booking || null,
-        total_slots || null,
-      ],
+      `INSERT INTO boat_rounds (start_time, end_time, max_booking, total_slots, is_active, boat_type_id)
+       VALUES ($1, $2, $3, $4, true, NULL) RETURNING *`,
+      [formattedStartTime, formattedEndTime, maxBooking, totalSlots],
     );
 
-    const newRoundId = result.rows[0].boat_round_id;
-
-    // วนลูปบันทึกเรือทุกประเภทที่ส่งมาจาก Frontend ลงตาราง round_boats
-    if (Array.isArray(boats) && boats.length > 0) {
-      for (const item of boats) {
-        if (item.boat_type_id) {
-          await client.query(
-            `INSERT INTO round_boats (boat_round_id, boat_type_id, quantity) VALUES ($1, $2, $3)`,
-            [newRoundId, Number(item.boat_type_id), Number(item.quantity || 1)],
-          );
-        }
-      }
-    }
+    const newRoundId = Number(result.rows[0].boat_round_id);
+    await replaceRoundBoats(client, newRoundId, boats);
 
     await client.query("COMMIT");
     res.status(201).json({
@@ -1154,12 +1283,12 @@ export const createBoatRound = async (
       message: "Boat round created",
       data: result.rows[0],
     });
-  } catch (error: any) {
+  } catch (error) {
     await client.query("ROLLBACK");
     console.error("Create boat round error:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: "Internal server error",
     });
   } finally {
     client.release();
@@ -1573,14 +1702,42 @@ export const updateBoatRound = async (
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const body = req.body;
-    const { boats, boat_type_id } = body;
+    const body = req.body as Record<string, unknown>;
+    const hasBoatsPayload =
+      Array.isArray(body.boats) || body.boat_type_id != null;
+    const boats = hasBoatsPayload ? parseRoundBoats(body) : [];
+
+    if (hasBoatsPayload && boats.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: "กรุณาเลือกประเภทเรืออย่างน้อย 1 ประเภท",
+      });
+      return;
+    }
+
+    if (hasBoatsPayload) {
+      const typeIds = boats.map((item) => item.boat_type_id);
+      if (new Set(typeIds).size !== typeIds.length) {
+        res.status(400).json({
+          success: false,
+          message: "ไม่สามารถเลือกประเภทเรือซ้ำในรอบเดียวกันได้",
+        });
+        return;
+      }
+    }
 
     await client.query("BEGIN");
 
-    // 1. อัปเดตข้อมูลพื้นฐานในตาราง boat_rounds
+    if (hasBoatsPayload && !(await boatTypesExist(client, boats.map((b) => b.boat_type_id)))) {
+      await client.query("ROLLBACK");
+      res.status(400).json({
+        success: false,
+        message: "มีประเภทเรือที่ไม่ถูกต้องในรายการ",
+      });
+      return;
+    }
+
     const allowedFields = [
-      "boat_type_id",
       "start_time",
       "end_time",
       "max_booking",
@@ -1588,62 +1745,50 @@ export const updateBoatRound = async (
       "is_active",
     ];
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
     let paramIndex = 1;
 
     allowedFields.forEach((field) => {
       if (body[field] !== undefined) {
         updates.push(`${field} = $${paramIndex}`);
-        let val =
+        let val: unknown =
           (field === "max_booking" || field === "total_slots") &&
           body[field] === ""
             ? null
             : body[field];
         if (
           (field === "start_time" || field === "end_time") &&
-          typeof val === "string" &&
-          val.includes("T")
+          typeof val === "string"
         ) {
-          val = val.split("T")[1].slice(0, 8);
+          val = toTimeSql(val);
         }
         values.push(val);
         paramIndex++;
       }
     });
 
+    // Membership is round_boats; clear leftover 1:1 column when types are posted.
+    if (hasBoatsPayload) {
+      updates.push(`boat_type_id = NULL`);
+    }
+
     if (updates.length > 0) {
       values.push(id);
       const query = `
-        UPDATE boat_rounds 
-        SET ${updates.join(", ")} 
-        WHERE boat_round_id = $${paramIndex} 
+        UPDATE boat_rounds
+        SET ${updates.join(", ")}
+        WHERE boat_round_id = $${paramIndex}
         RETURNING *`;
-      await client.query(query, values);
+      const updated = await client.query(query, values);
+      if (updated.rows.length === 0) {
+        await client.query("ROLLBACK");
+        res.status(404).json({ success: false, message: "Boat round not found" });
+        return;
+      }
     }
 
-    // 2. อัปเดตข้อมูลรายการเรือลงในตาราง round_boats
-    if (Array.isArray(boats) && boats.length > 0) {
-      // กรณี Frontend ส่งมาเป็น Array หลายประเภท
-      await client.query(`DELETE FROM round_boats WHERE boat_round_id = $1`, [
-        id,
-      ]);
-      for (const item of boats) {
-        if (item.boat_type_id) {
-          await client.query(
-            `INSERT INTO round_boats (boat_round_id, boat_type_id, quantity) VALUES ($1, $2, $3)`,
-            [id, Number(item.boat_type_id), Number(item.quantity || 1)],
-          );
-        }
-      }
-    } else if (boat_type_id) {
-      // กรณี Frontend แบบเก่าส่งมาแค่ประเภทเดียว (Fallback)
-      await client.query(`DELETE FROM round_boats WHERE boat_round_id = $1`, [
-        id,
-      ]);
-      await client.query(
-        `INSERT INTO round_boats (boat_round_id, boat_type_id, quantity) VALUES ($1, $2, 1)`,
-        [id, Number(boat_type_id)],
-      );
+    if (hasBoatsPayload) {
+      await replaceRoundBoats(client, Number(id), boats);
     }
 
     await client.query("COMMIT");
