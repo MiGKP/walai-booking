@@ -23,7 +23,7 @@ import {
 
 const router = Router();
 
-router.get('/active', getActivePromotions);
+router.get('/active', optionalAuthenticate, getActivePromotions);
 router.post(
   '/validate',
   optionalAuthenticate,

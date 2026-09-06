@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { clearAuthToken, useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
+import { consumePostLoginRedirect } from '@/lib/auth-redirect';
 import toast from 'react-hot-toast';
 import { LoaderCircle, Waves } from 'lucide-react';
 
@@ -26,7 +27,7 @@ function CallbackContent(): React.ReactElement {
     if (token) {
       login(token).then(() => {
         toast.success('เข้าสู่ระบบสำเร็จ!');
-        router.push('/');
+        router.push(consumePostLoginRedirect() ?? '/');
       }).catch(() => {
         clearAuthToken();
         toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่');

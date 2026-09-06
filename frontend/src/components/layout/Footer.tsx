@@ -92,6 +92,14 @@ export default function Footer() {
               </li>
               <li>
                 <Link
+                  href="/promotions"
+                  className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200"
+                >
+                  คูปองส่วนลด
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/dashboard/bookings"
                   className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200"
                 >
