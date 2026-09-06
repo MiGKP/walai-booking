@@ -164,11 +164,12 @@ export default function RoomCartPanel({
         </ul>
       )}
 
-      {!empty && nights > 0 && (
+      {!empty && nights > 0 ? (
         <div className="mb-4 space-y-3 border-t border-stone-200 pt-3">
           <PromoCodeFields
             basePrice={baseTotal}
             nights={nights}
+            scope="room"
             onChange={(ids, next) => {
               setPromoIds(ids);
               setPromoPreview(next);
@@ -190,7 +191,19 @@ export default function RoomCartPanel({
             lines={promoPreview?.lines}
           />
         </div>
-      )}
+      ) : nights > 0 ? (
+        <div className="mb-4 space-y-3 border-t border-stone-200 pt-3">
+          <PromoCodeFields
+            basePrice={0}
+            nights={nights}
+            scope="room"
+            onChange={(ids, next) => {
+              setPromoIds(ids);
+              setPromoPreview(next);
+            }}
+          />
+        </div>
+      ) : null}
 
       {empty && (
         <div className="border-t border-stone-200 pt-3 mb-4 flex items-center justify-between">

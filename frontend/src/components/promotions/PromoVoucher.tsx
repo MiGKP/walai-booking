@@ -6,7 +6,12 @@ import { Loader2 } from 'lucide-react';
 import {
   formatPromoDiscount,
   formatPromoWindow,
+  bookingPromoHref,
+  parseAppliesTo,
+  promoAllowsScope,
+  appliesToLabel,
   type CatalogPromo,
+  type PromoAppliesTo,
   type WalletStatus,
 } from '@/lib/promotions';
 
@@ -19,6 +24,7 @@ interface PromoVoucherProps {
   startDate: string | null;
   endDate: string | null;
   stackable: boolean;
+  appliesTo?: PromoAppliesTo | string | null;
   muted?: boolean;
   badge?: string;
   footer: ReactNode;
@@ -33,10 +39,15 @@ export function PromoVoucher({
   startDate,
   endDate,
   stackable,
+  appliesTo,
   muted = false,
   badge,
   footer,
 }: PromoVoucherProps): React.ReactElement {
+  const appliesLabel =
+    parseAppliesTo(appliesTo) === 'both'
+      ? ''
+      : ` · ${appliesToLabel(parseAppliesTo(appliesTo))}`;
   return (
     <article
       className={`relative flex overflow-hidden rounded-[22px] border bg-cream-100 ${
@@ -81,6 +92,7 @@ export function PromoVoucher({
         <p className="text-xs text-charcoal-400">
           {formatPromoWindow(startDate, endDate)}
           {stackable ? ' · ใช้ร่วมโค้ดอื่นได้' : ''}
+          {appliesLabel}
         </p>
         <div className="mt-auto flex flex-wrap items-center gap-2">{footer}</div>
       </div>
@@ -89,34 +101,71 @@ export function PromoVoucher({
 }
 
 interface CollectButtonProps {
+  code: string;
   loading: boolean;
   status: WalletStatus | null;
   isCollectible: boolean;
   isCustomer: boolean;
   isAuthenticated: boolean;
+  appliesTo?: PromoAppliesTo | string | null;
   onCollect: () => void;
   onLogin: () => void;
 }
 
+interface PromoBookingLinksProps {
+  code: string;
+  appliesTo?: PromoAppliesTo | string | null;
+  roomLabel: string;
+  kayakLabel: string;
+}
+
+export function PromoBookingLinks({
+  code,
+  appliesTo,
+  roomLabel,
+  kayakLabel,
+}: PromoBookingLinksProps): React.ReactElement {
+  const parsed = parseAppliesTo(appliesTo);
+  const showRoom = promoAllowsScope(parsed, 'room');
+  const showKayak = promoAllowsScope(parsed, 'kayak');
+  return (
+    <>
+      {showRoom ? (
+        <Link href={bookingPromoHref('room', code)} className="btn-primary px-4 py-2 text-sm">
+          {roomLabel}
+        </Link>
+      ) : null}
+      {showKayak ? (
+        <Link
+          href={bookingPromoHref('kayak', code)}
+          className={`${showRoom ? 'btn-secondary' : 'btn-primary'} px-4 py-2 text-sm`}
+        >
+          {kayakLabel}
+        </Link>
+      ) : null}
+    </>
+  );
+}
+
 export function PromoCollectAction({
+  code,
   loading,
   status,
   isCollectible,
   isCustomer,
   isAuthenticated,
+  appliesTo,
   onCollect,
   onLogin,
 }: CollectButtonProps): React.ReactElement {
   if (!isCollectible) {
     return (
-      <>
-        <Link href="/rooms" className="btn-primary px-4 py-2 text-sm">
-          ใช้ตอนจองห้อง
-        </Link>
-        <Link href="/kayaks" className="btn-secondary px-4 py-2 text-sm">
-          ใช้ตอนจองเรือ
-        </Link>
-      </>
+      <PromoBookingLinks
+        code={code}
+        appliesTo={appliesTo}
+        roomLabel="ใช้ตอนจองห้อง"
+        kayakLabel="ใช้ตอนจองเรือ"
+      />
     );
   }
 
@@ -124,9 +173,12 @@ export function PromoCollectAction({
     return (
       <>
         <span className="text-sm font-semibold text-forest-800">เก็บแล้ว</span>
-        <Link href="/rooms" className="btn-primary px-4 py-2 text-sm">
-          ไปจองห้อง
-        </Link>
+        <PromoBookingLinks
+          code={code}
+          appliesTo={appliesTo}
+          roomLabel="ไปจองห้อง"
+          kayakLabel="ไปจองเรือ"
+        />
       </>
     );
   }

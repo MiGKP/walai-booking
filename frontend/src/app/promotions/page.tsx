@@ -92,14 +92,17 @@ export default function PromotionsPage(): React.ReactElement {
                   startDate={promo.start_date}
                   endDate={promo.end_date}
                   stackable={Boolean(promo.stackable)}
+                  appliesTo={promo.applies_to}
                   badge={promo.is_collectible ? 'ต้องเก็บก่อนใช้' : 'พิมพ์ตอนจอง'}
                   footer={
                     <PromoCollectAction
+                      code={promo.code}
                       loading={collectingId === promo.id}
                       status={promo.wallet_status}
                       isCollectible={Boolean(promo.is_collectible)}
                       isCustomer={user?.role === 'customer'}
                       isAuthenticated={isAuthenticated}
+                      appliesTo={promo.applies_to}
                       onCollect={() => {
                         void handleCollect(promo.id);
                       }}

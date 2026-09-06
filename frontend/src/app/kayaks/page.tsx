@@ -626,16 +626,17 @@ export default function KayaksPage(): React.ReactElement {
                 </dl>
               )}
 
-              {cartLines.length > 0 && (
-                <div className="mt-5 space-y-3 border-t border-stone-200 pt-5">
-                  <PromoCodeFields
-                    basePrice={totalPrice}
-                    nights={null}
-                    onChange={(ids, next) => {
-                      setPromoIds(ids);
-                      setPromoPreview(next);
-                    }}
-                  />
+              <div className="mt-5 space-y-3 border-t border-stone-200 pt-5">
+                <PromoCodeFields
+                  basePrice={totalPrice}
+                  nights={null}
+                  scope="kayak"
+                  onChange={(ids, next) => {
+                    setPromoIds(ids);
+                    setPromoPreview(next);
+                  }}
+                />
+                {cartLines.length > 0 ? (
                   <PromoPriceBreakdown
                     basePrice={totalPrice}
                     promo={
@@ -650,8 +651,8 @@ export default function KayaksPage(): React.ReactElement {
                     }
                     lines={promoPreview?.lines}
                   />
-                </div>
-              )}
+                ) : null}
+              </div>
 
               <div className="mt-5 flex items-baseline justify-between border-t border-stone-200 pt-5">
                 <span className="text-sm font-semibold text-forest-900">ราคารวม</span>

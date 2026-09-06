@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Loader2, Tag, X } from 'lucide-react';
 import axios from 'axios';
 import api, { getApiErrorMessage } from '@/lib/api';
@@ -24,6 +25,7 @@ export interface PromoPreview {
 interface PromoCodeFieldsProps {
   basePrice: number;
   nights: number | null;
+  scope: 'room' | 'kayak';
   onChange: (ids: number[], preview: PromoPreview | null) => void;
 }
 
@@ -83,22 +85,30 @@ function previewFromPayload(data: ValidatePayload): PromoPreview {
   };
 }
 
-export default function PromoCodeFields({
+export default function PromoCodeFields(props: PromoCodeFieldsProps): React.ReactElement {
+  return (
+    <Suspense fallback={null}>
+      <PromoCodeFieldsInner {...props} />
+    </Suspense>
+  );
+}
+
+function PromoCodeFieldsInner({
   basePrice,
   nights,
+  scope,
   onChange,
 }: PromoCodeFieldsProps): React.ReactElement {
-  const [promoCode, setPromoCode] = useState('');
+  const searchParams = useSearchParams();
+  const urlPromo = (searchParams.get('promo') ?? '').trim().toUpperCase();
+  const [promoCode, setPromoCode] = useState(urlPromo);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<PromoPreview | null>(null);
   const [collectId, setCollectId] = useState<number | null>(null);
-
-  useEffect(() => {
-    setPreview(null);
-    setPromoCode('');
-    setCollectId(null);
-    onChange([], null);
-  }, [basePrice, nights]);
+  const lineIdsRef = useRef<number[]>([]);
+  const userClearedRef = useRef(false);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   const canStack =
     preview != null &&
@@ -110,25 +120,34 @@ export default function PromoCodeFields({
     setPreview(next);
     setPromoCode('');
     setCollectId(null);
-    onChange(
+    lineIdsRef.current = next.lines.map((line) => line.id);
+    onChangeRef.current(
       next.lines.map((line) => line.id),
       next
     );
   };
 
+  const clearApplied = (): void => {
+    setPreview(null);
+    setCollectId(null);
+    lineIdsRef.current = [];
+    onChangeRef.current([], null);
+  };
+
   const validateRequest = async (
     body: Record<string, unknown>
   ): Promise<ValidatePayload> => {
-    const res = await api.post('/promotions/validate', body);
+    const res = await api.post('/promotions/validate', { ...body, scope });
     return res.data.data as ValidatePayload;
   };
 
-  const handleApply = async (): Promise<void> => {
-    if (!promoCode.trim() || basePrice <= 0) return;
+  const applyByCode = async (code: string, silent: boolean): Promise<void> => {
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed || basePrice <= 0) return;
     setLoading(true);
     try {
       const first = await validateRequest({
-        code: promoCode.trim(),
+        code: trimmed,
         price: basePrice,
         ...(nights != null ? { nights } : {}),
       });
@@ -142,19 +161,66 @@ export default function PromoCodeFields({
       } else {
         applyPayload(first);
       }
-      toast.success(`ใช้โค้ด "${first.code}" สำเร็จ`);
+      if (!silent) {
+        toast.success(`ใช้โค้ด "${first.code}" สำเร็จ`);
+      }
     } catch (error: unknown) {
       const needId = collectIdFromError(error);
       if (needId != null) {
         setCollectId(needId);
+        setPromoCode(trimmed);
         toast.error(getApiErrorMessage(error, 'ต้องเก็บโค้ดนี้ก่อนใช้'));
       } else {
         setCollectId(null);
+        setPromoCode(trimmed);
         toast.error(getApiErrorMessage(error, 'โค้ดส่วนลดไม่ถูกต้องหรือหมดอายุ'));
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (urlPromo && !userClearedRef.current) {
+      setPromoCode(urlPromo);
+    }
+  }, [urlPromo]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncPromo = async (): Promise<void> => {
+      const ids = lineIdsRef.current;
+      if (ids.length > 0 && basePrice > 0) {
+        try {
+          const data = await validateRequest({
+            promotion_ids: ids,
+            price: basePrice,
+            ...(nights != null ? { nights } : {}),
+          });
+          if (!cancelled) applyPayload(data);
+        } catch {
+          if (!cancelled) clearApplied();
+        }
+        return;
+      }
+
+      if (urlPromo && basePrice > 0 && !userClearedRef.current && ids.length === 0) {
+        await applyByCode(urlPromo, true);
+      }
+    };
+
+    void syncPromo();
+    return () => {
+      cancelled = true;
+    };
+    // Re-run when cart price/nights/scope or incoming ?promo= change. applyByCode reads latest state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [basePrice, nights, urlPromo, scope]);
+
+  const handleApply = async (): Promise<void> => {
+    userClearedRef.current = false;
+    await applyByCode(promoCode, false);
   };
 
   const handleCollect = async (): Promise<void> => {
@@ -163,7 +229,7 @@ export default function PromoCodeFields({
     try {
       await api.post(`/promotions/${collectId}/collect`);
       toast.success('เก็บโค้ดแล้ว');
-      await handleApply();
+      await applyByCode(promoCode || urlPromo, false);
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, 'เก็บโค้ดไม่สำเร็จ'));
       setLoading(false);
@@ -171,10 +237,9 @@ export default function PromoCodeFields({
   };
 
   const handleClear = (): void => {
-    setPreview(null);
+    userClearedRef.current = true;
     setPromoCode('');
-    setCollectId(null);
-    onChange([], null);
+    clearApplied();
   };
 
   const handleRemoveLast = (): void => {
@@ -212,6 +277,11 @@ export default function PromoCodeFields({
           ดูคูปองทั้งหมด
         </Link>
       </div>
+      {urlPromo && basePrice <= 0 ? (
+        <p className="text-[11px] text-charcoal-400">
+          จะใช้โค้ด <span className="font-mono font-semibold">{urlPromo}</span> เมื่อมีรายการจอง
+        </p>
+      ) : null}
       {preview && preview.lines.length > 0 ? (
         <div className="space-y-2">
           {preview.lines.map((line) => (
@@ -250,7 +320,7 @@ export default function PromoCodeFields({
           <button
             type="button"
             onClick={() => void handleApply()}
-            disabled={loading || !promoCode.trim()}
+            disabled={loading || !promoCode.trim() || basePrice <= 0}
             className="shrink-0 rounded-xl bg-forest-900 px-3 text-xs font-semibold text-white disabled:opacity-40"
           >
             {loading ? <Loader2 size={14} className="animate-spin" /> : 'ใช้โค้ด'}

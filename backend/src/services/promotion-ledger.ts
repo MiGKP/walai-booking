@@ -4,6 +4,7 @@ import {
   ApplyResult,
   CatalogPromo,
   PromoApplyError,
+  parseAppliesTo,
   shouldRestoreQuota,
   walletStatusAfterUse,
 } from './promotion-apply';
@@ -36,6 +37,7 @@ function mapCatalogRow(row: Record<string, unknown>): CatalogPromo {
     usage_limit_per_member: toNullableNumber(row.usage_limit_per_member),
     is_collectible: Boolean(row.is_collectible),
     stackable: Boolean(row.stackable),
+    applies_to: parseAppliesTo(row.applies_to),
   };
 }
 
@@ -48,7 +50,7 @@ export async function loadPromosForApply(
     `SELECT id, code, name, description, discount_type, discount_value,
             min_nights, min_price, max_discount, usage_limit, usage_count,
             is_active, start_date, end_date,
-            usage_limit_per_member, is_collectible, stackable
+            usage_limit_per_member, is_collectible, stackable, applies_to
      FROM promotions WHERE id = ANY($1::int[])`,
     [ids]
   );

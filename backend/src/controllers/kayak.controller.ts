@@ -864,6 +864,7 @@ export const createKayakBooking = async (
           nights: null,
           basePrice: totalPrice,
           now: new Date(),
+          scope: 'kayak',
           ...ctxExtra,
         });
         totalPrice = applyResult.totalPrice;

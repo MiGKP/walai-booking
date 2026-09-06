@@ -6,7 +6,7 @@ import { Ticket } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import DashboardTabs from '@/components/dashboard/DashboardTabs';
-import { PromoVoucher } from '@/components/promotions/PromoVoucher';
+import { PromoVoucher, PromoBookingLinks } from '@/components/promotions/PromoVoucher';
 import {
   walletStatusLabel,
   type WalletPromo,
@@ -136,17 +136,18 @@ export default function CouponsPage(): React.ReactElement | null {
                   startDate={item.start_date}
                   endDate={item.end_date}
                   stackable={Boolean(item.stackable)}
+                  appliesTo={item.applies_to}
                   muted={item.status !== 'saved'}
                   badge={walletStatusLabel(item.status)}
                   footer={
                     item.status === 'saved' ? (
                       <>
-                        <Link href="/rooms" className="btn-primary px-4 py-2 text-sm">
-                          ใช้กับห้องพัก
-                        </Link>
-                        <Link href="/kayaks" className="btn-secondary px-4 py-2 text-sm">
-                          ใช้กับเรือ
-                        </Link>
+                        <PromoBookingLinks
+                          code={item.code}
+                          appliesTo={item.applies_to}
+                          roomLabel="ใช้กับห้องพัก"
+                          kayakLabel="ใช้กับเรือ"
+                        />
                         <button
                           type="button"
                           className="text-xs font-medium text-charcoal-400 hover:text-red-600"

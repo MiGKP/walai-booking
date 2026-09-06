@@ -28,6 +28,7 @@ function promo(partial: Partial<CatalogPromo> & Pick<CatalogPromo, 'id'>): Catal
     usage_limit_per_member: null,
     is_collectible: false,
     stackable: false,
+    applies_to: 'both',
     ...partial,
   };
 }
@@ -154,6 +155,89 @@ describe('applyPromotionList', () => {
         err instanceof PromoApplyError &&
         err.message === 'ต้องเก็บโค้ดนี้ก่อนใช้'
     );
+  });
+
+  it('rejects a room-only code on kayak scope', (): void => {
+    assert.throws(
+      () =>
+        applyPromotionList([promo({ id: 1, applies_to: 'room' })], {
+          memberId: 1,
+          nights: null,
+          basePrice: 200,
+          now,
+          memberUsedCountByPromoId: {},
+          walletsByPromoId: {},
+          scope: 'kayak',
+        }),
+      (err: unknown) =>
+        err instanceof PromoApplyError &&
+        err.message === 'โค้ดนี้ใช้กับห้องพักเท่านั้น'
+    );
+  });
+
+  it('rejects a kayak-only code on room scope', (): void => {
+    assert.throws(
+      () =>
+        applyPromotionList([promo({ id: 1, applies_to: 'kayak' })], {
+          memberId: 1,
+          nights: 1,
+          basePrice: 500,
+          now,
+          memberUsedCountByPromoId: {},
+          walletsByPromoId: {},
+          scope: 'room',
+        }),
+      (err: unknown) =>
+        err instanceof PromoApplyError &&
+        err.message === 'โค้ดนี้ใช้กับเรือคายัคเท่านั้น'
+    );
+  });
+
+  it('allows a both code on kayak scope', (): void => {
+    const result = applyPromotionList(
+      [promo({ id: 1, applies_to: 'both', discount_type: 'fixed', discount_value: 50 })],
+      {
+        memberId: 1,
+        nights: null,
+        basePrice: 200,
+        now,
+        memberUsedCountByPromoId: {},
+        walletsByPromoId: {},
+        scope: 'kayak',
+      }
+    );
+    assert.equal(result.totalPrice, 150);
+  });
+
+  it('allows a room-only code on room scope', (): void => {
+    const result = applyPromotionList(
+      [promo({ id: 1, applies_to: 'room', discount_type: 'fixed', discount_value: 50 })],
+      {
+        memberId: 1,
+        nights: 1,
+        basePrice: 500,
+        now,
+        memberUsedCountByPromoId: {},
+        walletsByPromoId: {},
+        scope: 'room',
+      }
+    );
+    assert.equal(result.totalPrice, 450);
+  });
+
+  it('skips applies_to check when scope is omitted', (): void => {
+    const result = applyPromotionList(
+      [promo({ id: 1, applies_to: 'room', discount_type: 'fixed', discount_value: 50 })],
+      {
+        memberId: 1,
+        nights: null,
+        basePrice: 200,
+        now,
+        memberUsedCountByPromoId: {},
+        walletsByPromoId: {},
+      }
+    );
+    assert.equal(result.totalPrice, 150);
   });
 
   it('rejects when per-member cap is already reached', (): void => {
