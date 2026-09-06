@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Loader2, Tag, X } from 'lucide-react';
 import axios from 'axios';
 import api, { getApiErrorMessage } from '@/lib/api';
@@ -202,10 +203,15 @@ export default function PromoCodeFields({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-charcoal-500 flex items-center gap-1">
-        <Tag size={12} aria-hidden="true" />
-        โค้ดส่วนลด
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-charcoal-500 flex items-center gap-1">
+          <Tag size={12} aria-hidden="true" />
+          โค้ดส่วนลด
+        </p>
+        <Link href="/promotions" className="text-[11px] font-medium text-forest-800 hover:underline">
+          ดูคูปองทั้งหมด
+        </Link>
+      </div>
       {preview && preview.lines.length > 0 ? (
         <div className="space-y-2">
           {preview.lines.map((line) => (

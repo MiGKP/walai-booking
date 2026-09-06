@@ -168,6 +168,7 @@ Typical room flow:
 - `is_collectible` and `stackable` default **false**. Type-code checkout stays valid. Stack requires every code `stackable`.
 - Restore global `usage_count` only when header was `pending` or `paid` and becomes `cancelled` or `rejected`.
 - Room header `promotion_id` is set only when exactly one code is applied. Kayak uses ledger rows only.
+- Customer collect UI: `/promotions` (catalog + เก็บคูปอง) and `/dashboard/coupons` (wallet, shown even when empty). `GET /api/promotions/active` may include `wallet_status` when a customer JWT is present.
 
 ### Mail
 
@@ -299,6 +300,7 @@ Adding a `checked_in` status also requires a DB CHECK migration and UI updates �
 | Auth / password reset | `backend/src/controllers/auth.controller.ts` |
 | Mail | `backend/src/services/mail.service.ts` |
 | Promotions / wallet / ledger | `backend/src/services/promotion-apply.ts`, `promotion.controller.ts` |
+| Customer coupon catalog / wallet | `frontend/src/app/promotions/`, `frontend/src/app/dashboard/coupons/` |
 | Customer room UI | `frontend/src/app/rooms/` |
 | Customer kayak UI | `frontend/src/app/kayaks/` |
 | Payment UI | `frontend/src/app/payment/` |

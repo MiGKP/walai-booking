@@ -1,18 +1,16 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { User, Mail, Phone, Save, Lock, Upload } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import toast from "react-hot-toast";
-import Link from "next/link";
+import DashboardTabs from "@/components/dashboard/DashboardTabs";
 
 // หน้าโปรไฟล์ของผู้ใช้ ใช้สำหรับแก้ไขข้อมูลส่วนตัว และจัดการรหัสผ่านตามประเภทการสมัครของ member
 export default function DashboardPage() {
-  const router = useRouter();
   const { ready, user } = useAuthGuard();
   const { updateUser } = useAuth();
   const [profile, setProfile] = useState({
@@ -162,21 +160,7 @@ export default function DashboardPage() {
           <p className="text-gray-500 mt-1">จัดการข้อมูลส่วนตัวของคุณ</p>
         </div>
 
-        {/* Nav Tabs */}
-        <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
-          <Link
-            href="/dashboard"
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-white text-gray-900 shadow-sm"
-          >
-            โปรไฟล์
-          </Link>
-          <Link
-            href="/dashboard/bookings"
-            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900"
-          >
-            การจองของฉัน
-          </Link>
-        </div>
+        <DashboardTabs />
 
         {/* Avatar + Info */}
         <div className="card p-6 mb-5">

@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import axios from "axios";
 import {
   ArrowLeft,
@@ -71,7 +71,6 @@ function GoogleAuthErrorToast(): React.ReactElement | null {
 }
 
 export default function LoginPage(): React.ReactElement | null {
-  const router = useRouter();
   const { login } = useAuth();
   const { ready } = useAuthGuard({ guestOnly: true });
   const [form, setForm] = useState({ email: "", password: "" });
@@ -87,14 +86,13 @@ export default function LoginPage(): React.ReactElement | null {
     setLoading(true);
     try {
       const response = await api.post<LoginResponse>("/auth/login", form);
-      const { user, token, redirectUrl } = response.data.data;
+      const { user, token } = response.data.data;
       await login(token);
       const displayName =
         user.name ||
         `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
         user.email;
       toast.success(`ยินดีต้อนรับ, ${displayName}!`);
-      router.push(redirectUrl || "/");
     } catch (error: unknown) {
       toast.error(getLoginErrorMessage(error));
     } finally {

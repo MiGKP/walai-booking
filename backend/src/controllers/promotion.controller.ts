@@ -26,18 +26,23 @@ function catalogDay(now: Date): string {
 export const getActivePromotions = async (req: Request, res: Response): Promise<void> => {
   try {
     const now = catalogDay(new Date());
+    const user = (req as AuthRequest).user;
+    const memberId = user?.role === 'customer' ? user.id : 0;
     const result = await pool.query(
-      `SELECT id, code, name, description, discount_type, discount_value,
-              min_nights, min_price, max_discount, start_date, end_date,
-              usage_limit, usage_count, is_active,
-              usage_limit_per_member, is_collectible, stackable
-       FROM promotions
-       WHERE is_active = true
-         AND (start_date IS NULL OR start_date <= $1)
-         AND (end_date IS NULL OR end_date >= $1)
-         AND (usage_limit IS NULL OR usage_count < usage_limit)
-       ORDER BY created_at DESC`,
-      [now]
+      `SELECT p.id, p.code, p.name, p.description, p.discount_type, p.discount_value,
+              p.min_nights, p.min_price, p.max_discount, p.start_date, p.end_date,
+              p.usage_limit, p.usage_count, p.is_active,
+              p.usage_limit_per_member, p.is_collectible, p.stackable,
+              mp.status AS wallet_status
+       FROM promotions p
+       LEFT JOIN member_promotions mp
+         ON mp.promotion_id = p.id AND mp.member_id = $2
+       WHERE p.is_active = true
+         AND (p.start_date IS NULL OR p.start_date <= $1)
+         AND (p.end_date IS NULL OR p.end_date >= $1)
+         AND (p.usage_limit IS NULL OR p.usage_count < p.usage_limit)
+       ORDER BY p.is_collectible DESC, p.created_at DESC`,
+      [now, memberId]
     );
     res.json({ success: true, data: result.rows });
   } catch (error) {
