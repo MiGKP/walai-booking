@@ -147,7 +147,7 @@ export default function RoomsPage(): React.ReactElement {
   };
 
   const handleCheckout = async (options?: {
-    promotion_id?: number;
+    promotion_ids?: number[];
   }): Promise<void> => {
     if (!cart || cart.items.length === 0) return;
     setCheckoutLoading(true);
@@ -161,8 +161,8 @@ export default function RoomsPage(): React.ReactElement {
           room_type_id: item.room_type_id,
           quantity: item.quantity,
         })),
-        ...(options?.promotion_id
-          ? { promotion_id: options.promotion_id }
+        ...(options?.promotion_ids?.length
+          ? { promotion_ids: options.promotion_ids }
           : {}),
       });
       clearRoomCart();

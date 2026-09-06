@@ -7,20 +7,55 @@ import {
   updatePromotion,
   deletePromotion,
   togglePromotion,
+  collectPromotion,
+  uncollectPromotion,
+  getMyPromotions,
+  getPromotionRedemptions,
 } from '../controllers/promotion.controller';
-import { authenticate, authorize } from '../middleware/auth.middleware';
+import { authenticate, authorize, optionalAuthenticate } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
-import { createPromotionValidator, updatePromotionValidator, validatePromoCodeValidator } from '../middleware/validators';
+import {
+  createPromotionValidator,
+  updatePromotionValidator,
+  validatePromoCodeValidator,
+  promotionIdParamValidator,
+} from '../middleware/validators';
 
 const router = Router();
 
-// Public — ดูโปรโมชั่นที่ active
 router.get('/active', getActivePromotions);
+router.post(
+  '/validate',
+  optionalAuthenticate,
+  validatePromoCodeValidator,
+  validate,
+  validatePromoCode
+);
 
-// Public — ตรวจสอบโค้ดโปรโมชั่น
-router.post('/validate', validatePromoCodeValidator, validate, validatePromoCode);
+router.get('/mine', authenticate, getMyPromotions);
+router.get(
+  '/:id/redemptions',
+  authenticate,
+  authorize('admin', 'room_staff'),
+  promotionIdParamValidator,
+  validate,
+  getPromotionRedemptions
+);
+router.post(
+  '/:id/collect',
+  authenticate,
+  promotionIdParamValidator,
+  validate,
+  collectPromotion
+);
+router.delete(
+  '/:id/collect',
+  authenticate,
+  promotionIdParamValidator,
+  validate,
+  uncollectPromotion
+);
 
-// Admin & Room Staff — จัดการโปรโมชั่น
 router.get('/', authenticate, authorize('admin', 'room_staff'), getAllPromotions);
 router.post('/', authenticate, authorize('admin', 'room_staff'), createPromotionValidator, validate, createPromotion);
 router.put('/:id', authenticate, authorize('admin', 'room_staff'), updatePromotionValidator, validate, updatePromotion);

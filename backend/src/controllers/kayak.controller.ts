@@ -25,6 +25,18 @@ import {
   typeCapacity,
   type RoundBoatInput,
 } from "../services/round-boats";
+import {
+  ApplyResult,
+  PromoApplyError,
+  applyPromotionList,
+  parsePromotionIds,
+} from "../services/promotion-apply";
+import {
+  loadApplyContext,
+  loadPromosForApply,
+  persistBookingPromotions,
+  restoreBookingPromotions,
+} from "../services/promotion-ledger";
 
 interface KayakItemInput {
   boat_type_id: number;
@@ -836,7 +848,37 @@ export const createKayakBooking = async (
     }
 
     const totalPassengersHeader = sumPassengerCounts(prepared);
-    const totalPrice = sumSubtotals(prepared.map((line) => line.subtotal));
+    let totalPrice = sumSubtotals(prepared.map((line) => line.subtotal));
+    const promoIds = parsePromotionIds(body);
+    let applyResult: ApplyResult = {
+      totalPrice,
+      lines: [],
+      headerPromotionId: null,
+    };
+    if (promoIds.length > 0) {
+      try {
+        const catalog = await loadPromosForApply(client, promoIds);
+        const ctxExtra = await loadApplyContext(client, user.id, promoIds);
+        applyResult = applyPromotionList(catalog, {
+          memberId: user.id,
+          nights: null,
+          basePrice: totalPrice,
+          now: new Date(),
+          ...ctxExtra,
+        });
+        totalPrice = applyResult.totalPrice;
+      } catch (err) {
+        await client.query("ROLLBACK");
+        res.status(400).json({
+          success: false,
+          message:
+            err instanceof PromoApplyError || err instanceof Error
+              ? err.message
+              : "โปรโมชั่นไม่ถูกต้อง",
+        });
+        return;
+      }
+    }
 
     const headerRes = await client.query(
       `INSERT INTO boat_bookings (
@@ -882,6 +924,14 @@ export const createKayakBooking = async (
        ORDER BY bnb.booking_boat_id`,
       [header.boat_booking_id],
     );
+
+    if (applyResult.lines.length > 0) {
+      await persistBookingPromotions(client, {
+        memberId: user.id,
+        boatBookingId: Number(header.boat_booking_id),
+        result: applyResult,
+      });
+    }
 
     await client.query("COMMIT");
 
@@ -1000,6 +1050,11 @@ export const cancelKayakBooking = async (
       });
       return;
     }
+
+    await restoreBookingPromotions(client, {
+      previousStatus: String(booking.rows[0].status),
+      boatBookingId: Number(id),
+    });
 
     await client.query(
       `UPDATE boat_bookings SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`,
@@ -1313,6 +1368,23 @@ export const updateKayakBookingStatus = async (
     }
 
     await client.query("BEGIN");
+
+    const current = await client.query(
+      `SELECT status FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE`,
+      [id],
+    );
+    if (current.rows.length === 0) {
+      await client.query("ROLLBACK");
+      res.status(404).json({ success: false, message: "Booking not found" });
+      return;
+    }
+    const previousStatus = String(current.rows[0].status);
+    if (status === "rejected" || status === "cancelled") {
+      await restoreBookingPromotions(client, {
+        previousStatus,
+        boatBookingId: Number(id),
+      });
+    }
 
     let query = `UPDATE boat_bookings SET status = $1, updated_at = NOW()`;
     const params: Array<string | number> = [status];

@@ -13,7 +13,8 @@
     "test:booking-room-math": "node --test -r ts-node/register src/services/booking-room.math.test.ts",
     "test:booking-boat-math": "node --test -r ts-node/register src/services/booking-boat.math.test.ts",
     "test:google-oauth-profile": "node --test -r ts-node/register src/services/google-oauth.profile.test.ts",
-    "test:round-boats": "node --test -r ts-node/register src/services/round-boats.test.ts"
+    "test:round-boats": "node --test -r ts-node/register src/services/round-boats.test.ts",
+    "test:promotion-apply": "node --test -r ts-node/register src/services/promotion-apply.test.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",

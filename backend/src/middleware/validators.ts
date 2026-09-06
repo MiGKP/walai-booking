@@ -110,6 +110,8 @@ export const createRoomBookingValidator = [
   body('children').optional().isInt({ min: 0, max: 50 }).withMessage('children must be between 0 and 50'),
   body('special_requests').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 500 }).withMessage('Special requests cannot exceed 500 characters'),
   body('promotion_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Invalid promotion_id'),
+  body('promotion_ids').optional().isArray(),
+  body('promotion_ids.*').optional().isInt({ min: 1 }),
   body().custom((_, { req }) => {
     const hasItems = Array.isArray(req.body.items) && req.body.items.length > 0;
     const hasType = req.body.room_type_id != null;
@@ -151,6 +153,9 @@ export const createKayakBookingValidator = [
     .optional()
     .matches(/^\d{2}:\d{2}(:\d{2})?$/)
     .withMessage('end_time must be in HH:MM or HH:MM:SS format'),
+  body('promotion_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Invalid promotion_id'),
+  body('promotion_ids').optional().isArray(),
+  body('promotion_ids.*').optional().isInt({ min: 1 }),
   body().custom((_, { req }) => {
     const hasItems = Array.isArray(req.body.items) && req.body.items.length > 0;
     const hasLegacy = req.body.kayak_id != null && req.body.boat_round_id != null;
@@ -230,6 +235,9 @@ export const createPromotionValidator = [
   body('start_date').optional({ nullable: true }).isISO8601().withMessage('start_date must be a valid date'),
   body('end_date').optional({ nullable: true }).isISO8601().withMessage('end_date must be a valid date'),
   body('usage_limit').optional({ nullable: true }).isInt({ min: 1 }).withMessage('usage_limit must be a positive integer'),
+  body('usage_limit_per_member').optional({ nullable: true }).isInt({ min: 1 }).withMessage('usage_limit_per_member must be a positive integer'),
+  body('is_collectible').optional().isBoolean().withMessage('is_collectible must be a boolean'),
+  body('stackable').optional().isBoolean().withMessage('stackable must be a boolean'),
   body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
 ];
 
@@ -245,11 +253,29 @@ export const updatePromotionValidator = [
   body('start_date').optional({ nullable: true }).isISO8601().withMessage('start_date must be a valid date'),
   body('end_date').optional({ nullable: true }).isISO8601().withMessage('end_date must be a valid date'),
   body('usage_limit').optional({ nullable: true }).isInt({ min: 1 }).withMessage('usage_limit must be a positive integer'),
+  body('usage_limit_per_member').optional({ nullable: true }).isInt({ min: 1 }).withMessage('usage_limit_per_member must be a positive integer'),
+  body('is_collectible').optional().isBoolean().withMessage('is_collectible must be a boolean'),
+  body('stackable').optional().isBoolean().withMessage('stackable must be a boolean'),
   body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
 ];
 
+export const promotionIdParamValidator = [
+  param('id').isInt({ min: 1 }).withMessage('Valid promotion id is required'),
+];
+
 export const validatePromoCodeValidator = [
-  body('code').trim().notEmpty().withMessage('Promotion code is required'),
+  body('code').optional({ checkFalsy: true }).trim(),
+  body('promotion_ids').optional().isArray(),
+  body('promotion_ids.*').optional().isInt({ min: 1 }),
   body('price').optional().isFloat({ min: 0 }).withMessage('price must be a positive number'),
   body('nights').optional().isInt({ min: 1 }).withMessage('nights must be a positive integer'),
+  body().custom((_, { req }) => {
+    const code = req.body.code;
+    const hasCode = typeof code === 'string' && code.trim().length > 0;
+    const hasIds = Array.isArray(req.body.promotion_ids) && req.body.promotion_ids.length > 0;
+    if (!hasCode && !hasIds) {
+      throw new Error('Promotion code is required');
+    }
+    return true;
+  }),
 ];

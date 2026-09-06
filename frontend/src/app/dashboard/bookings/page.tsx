@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarDays, Anchor, XCircle, CreditCard, Timer, Star } from 'lucide-react';
-import api from '@/lib/api';
+import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -23,12 +23,21 @@ function DeadlineCell({ createdAt, dueDays }: { createdAt: string; dueDays: numb
 const statusLabel: Record<string, string> = { pending: 'รอดำเนินการ', paid: 'รอตรวจสอบชำระเงิน', approved: 'ยืนยันแล้ว', cancelled: 'ยกเลิก', rejected: 'ถูกปฏิเสธ', checked_out: 'เช็คเอาต์แล้ว' };
 const statusClass: Record<string, string> = { pending: 'bg-orange-100 text-orange-700', paid: 'bg-blue-100 text-blue-700', approved: 'bg-green-100 text-green-700', cancelled: 'bg-gray-100 text-gray-700', rejected: 'bg-red-100 text-red-700', checked_out: 'bg-teal-100 text-teal-700' };
 
+interface WalletPromo {
+  promotion_id: number;
+  code: string;
+  name: string;
+  status: string;
+  remaining: number | null;
+}
+
 export default function BookingsPage() {
   const router = useRouter();
   const { ready, user } = useAuthGuard();
   const [tab, setTab] = useState<'room' | 'kayak'>('room');
   const [roomBookings, setRoomBookings] = useState<any[]>([]);
   const [kayakBookings, setKayakBookings] = useState<any[]>([]);
+  const [wallet, setWallet] = useState<WalletPromo[]>([]);
   const [paymentDueDays, setPaymentDueDays] = useState<number>(3);
   const [loading, setLoading] = useState(true);
 
@@ -40,12 +49,14 @@ export default function BookingsPage() {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const [roomRes, kayakRes] = await Promise.all([
+      const [roomRes, kayakRes, walletRes] = await Promise.all([
         api.get('/bookings/room/my'),
         api.get('/kayaks/bookings/my').catch(() => ({ data: { data: [] } })),
+        api.get('/promotions/mine').catch(() => ({ data: { data: [] } })),
       ]);
       setRoomBookings(roomRes.data?.data || []);
       setKayakBookings(kayakRes.data?.data || []);
+      setWallet(Array.isArray(walletRes.data?.data) ? walletRes.data.data : []);
       const dueDays = Number(roomRes.data?.payment_due_days);
       if (dueDays > 0) setPaymentDueDays(dueDays);
     } catch {
@@ -62,8 +73,8 @@ export default function BookingsPage() {
       else await api.put(`/kayaks/bookings/${id}/cancel`);
       toast.success('ยกเลิกการจองสำเร็จ');
       fetchBookings();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'ยกเลิกไม่สำเร็จ');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'ยกเลิกไม่สำเร็จ'));
     }
   };
 
@@ -82,6 +93,33 @@ export default function BookingsPage() {
             </p>
           )}
         </div>
+
+        {wallet.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-stone-200 bg-white p-4">
+            <h2 className="text-sm font-semibold text-forest-900">โค้ดของฉัน</h2>
+            <ul className="mt-3 space-y-2">
+              {wallet.map((item) => (
+                <li
+                  key={item.promotion_id}
+                  className="flex items-center justify-between gap-3 text-sm"
+                >
+                  <span>
+                    <span className="font-mono font-semibold">{item.code}</span>
+                    <span className="ml-2 text-charcoal-500">{item.name}</span>
+                  </span>
+                  <span className="text-xs text-charcoal-400">
+                    {item.status === 'used'
+                      ? 'ใช้แล้ว'
+                      : item.status === 'expired'
+                        ? 'หมดอายุ'
+                        : 'เก็บแล้ว'}
+                    {item.remaining != null ? ` · เหลือ ${item.remaining}` : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Nav Tabs */}
         <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">

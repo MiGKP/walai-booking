@@ -161,6 +161,14 @@ Typical room flow:
 - Slip upload goes to Cloudinary; booking status becomes `paid`.
 - Mail notify staff is fire-and-forget (do not block the HTTP response on mail).
 
+### Promotions
+
+- Catalog: `promotions`. Wallet: `member_promotions` (UNIQUE member + promo). Ledger: `booking_promotions` (exactly one of `room_booking_id` / `boat_booking_id`).
+- Apply math: `backend/src/services/promotion-apply.ts`. Persist/restore: `promotion-ledger.ts`.
+- `is_collectible` and `stackable` default **false**. Type-code checkout stays valid. Stack requires every code `stackable`.
+- Restore global `usage_count` only when header was `pending` or `paid` and becomes `cancelled` or `rejected`.
+- Room header `promotion_id` is set only when exactly one code is applied. Kayak uses ledger rows only.
+
 ### Mail
 
 - Central module: `backend/src/services/mail.service.ts`.
@@ -186,7 +194,7 @@ Mounted under `/api` from `backend/src/index.ts`:
 | `/api/uploads` | Media helpers |
 | `/api/reviews` | Reviews |
 | `/api/settings` | Resort info, stats, site settings |
-| `/api/promotions` | Promo codes |
+| `/api/promotions` | Promo codes, wallet collect/mine, redemptions |
 | `/api/members` | Member admin |
 
 When adding endpoints: route → controller → validator → keep response `{ success, message?, data? }`.
@@ -290,6 +298,7 @@ Adding a `checked_in` status also requires a DB CHECK migration and UI updates �
 | Payment + slip | `backend/src/controllers/payment.controller.ts` |
 | Auth / password reset | `backend/src/controllers/auth.controller.ts` |
 | Mail | `backend/src/services/mail.service.ts` |
+| Promotions / wallet / ledger | `backend/src/services/promotion-apply.ts`, `promotion.controller.ts` |
 | Customer room UI | `frontend/src/app/rooms/` |
 | Customer kayak UI | `frontend/src/app/kayaks/` |
 | Payment UI | `frontend/src/app/payment/` |

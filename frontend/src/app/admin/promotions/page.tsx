@@ -21,8 +21,9 @@ import {
   AlertCircle,
   Ship,
   Bed,
+  Users,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import toast from "react-hot-toast";
 
@@ -46,6 +47,9 @@ interface Promotion {
   start_date?: string;
   end_date?: string;
   usage_limit?: number;
+  usage_limit_per_member?: number | null;
+  is_collectible?: boolean;
+  stackable?: boolean;
   usage_count: number;
   is_active: boolean;
   created_at: string;
@@ -67,6 +71,9 @@ const defaultForm = {
   start_date: "",
   end_date: "",
   usage_limit: "",
+  usage_limit_per_member: "",
+  is_collectible: false,
+  stackable: false,
   is_active: true,
   room_type_id: "",
   room_count: "1",
@@ -189,6 +196,23 @@ export default function PromotionsPage() {
   // 🌟 State สำหรับ ป๊อบอัพยืนยันการลบ
   const [deletingPromotion, setDeletingPromotion] = useState<Promotion | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [redemptionPromo, setRedemptionPromo] = useState<Promotion | null>(null);
+  const [redemptions, setRedemptions] = useState<{
+    wallet: { saved: number; used: number; expired: number };
+    redemptions: Array<{
+      booking_promotion_id: number;
+      email: string;
+      first_name?: string;
+      last_name?: string;
+      booking_type: string;
+      room_booking_id: number | null;
+      boat_booking_id: number | null;
+      booking_status: string;
+      discount_amount: number;
+      created_at: string;
+    }>;
+  } | null>(null);
+  const [redemptionsLoading, setRedemptionsLoading] = useState(false);
 
   const DISCOUNT_TYPE_OPTIONS = [
     { value: "percent", label: "เปอร์เซ็นต์ (%)" },
@@ -254,6 +278,11 @@ export default function PromotionsPage() {
       start_date: formatDateForInput(p.start_date),
       end_date: formatDateForInput(p.end_date),
       usage_limit: p.usage_limit ? String(p.usage_limit) : "",
+      usage_limit_per_member: p.usage_limit_per_member
+        ? String(p.usage_limit_per_member)
+        : "",
+      is_collectible: Boolean(p.is_collectible),
+      stackable: Boolean(p.stackable),
       is_active: p.is_active,
       room_type_id: p.room_type_id ? String(p.room_type_id) : "",
       room_count: p.room_count ? String(p.room_count) : "1",
@@ -275,6 +304,11 @@ export default function PromotionsPage() {
         min_price: form.min_price ? Number(form.min_price) : null,
         max_discount: form.max_discount ? Number(form.max_discount) : null,
         usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
+        usage_limit_per_member: form.usage_limit_per_member
+          ? Number(form.usage_limit_per_member)
+          : null,
+        is_collectible: form.is_collectible,
+        stackable: form.stackable,
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         room_type_id: form.room_type_id ? Number(form.room_type_id) : null,
@@ -294,8 +328,7 @@ export default function PromotionsPage() {
       setShowModal(false);
       fetchPromotions();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      toast.error(error.response?.data?.message || "บันทึกไม่สำเร็จ");
+      toast.error(getApiErrorMessage(err, "บันทึกไม่สำเร็จ"));
     } finally {
       setSaving(false);
     }
@@ -308,6 +341,21 @@ export default function PromotionsPage() {
       fetchPromotions();
     } catch {
       toast.error("เปลี่ยนสถานะไม่สำเร็จ");
+    }
+  };
+
+  const openRedemptions = async (p: Promotion): Promise<void> => {
+    setRedemptionPromo(p);
+    setRedemptionsLoading(true);
+    try {
+      const res = await api.get(`/promotions/${p.id}/redemptions`);
+      setRedemptions(res.data.data);
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "โหลดประวัติไม่สำเร็จ"));
+      setRedemptionPromo(null);
+      setRedemptions(null);
+    } finally {
+      setRedemptionsLoading(false);
     }
   };
 
@@ -665,6 +713,13 @@ export default function PromotionsPage() {
                       <td className="px-5 py-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
                           <button
+                            onClick={() => void openRedemptions(p)}
+                            className="p-1.5 text-stone-400 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer"
+                            title="ดูผู้ใช้"
+                          >
+                            <Users size={16} />
+                          </button>
+                          <button
                             onClick={() => openEdit(p)}
                             className="p-1.5 text-stone-400 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all cursor-pointer"
                             title="แก้ไข"
@@ -688,6 +743,72 @@ export default function PromotionsPage() {
           </table>
         </div>
       </div>
+
+      {redemptionPromo && (
+        <div className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-bold text-[#0b3b2c]">
+              ผู้ใช้ / ประวัติ — {redemptionPromo.code}
+            </h3>
+            <button
+              type="button"
+              className="text-xs text-stone-400 hover:text-stone-700"
+              onClick={() => {
+                setRedemptionPromo(null);
+                setRedemptions(null);
+              }}
+            >
+              ปิด
+            </button>
+          </div>
+          {redemptionsLoading ? (
+            <p className="text-sm text-stone-500">กำลังโหลด...</p>
+          ) : redemptions == null || redemptions.redemptions.length === 0 ? (
+            <p className="text-sm text-stone-500">ยังไม่มีคนใช้โค้ดนี้</p>
+          ) : (
+            <>
+              <p className="mb-3 text-xs text-stone-500">
+                เก็บแล้ว {redemptions.wallet.saved} · ใช้ครบ {redemptions.wallet.used} · หมดอายุ{" "}
+                {redemptions.wallet.expired}
+              </p>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-stone-400">
+                      <th className="py-2 pr-4">สมาชิก</th>
+                      <th className="py-2 pr-4">ประเภท</th>
+                      <th className="py-2 pr-4">รหัสจอง</th>
+                      <th className="py-2 pr-4">สถานะ</th>
+                      <th className="py-2 pr-4">ส่วนลด</th>
+                      <th className="py-2">วันที่</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {redemptions.redemptions.map((row) => (
+                      <tr key={row.booking_promotion_id} className="border-t border-stone-100">
+                        <td className="py-2 pr-4">
+                          {row.first_name || ""} {row.last_name || ""} {row.email}
+                        </td>
+                        <td className="py-2 pr-4">{row.booking_type === "room" ? "ห้อง" : "เรือ"}</td>
+                        <td className="py-2 pr-4 tabular-nums">
+                          {row.room_booking_id ?? row.boat_booking_id}
+                        </td>
+                        <td className="py-2 pr-4">{row.booking_status}</td>
+                        <td className="py-2 pr-4 tabular-nums">
+                          ฿{Number(row.discount_amount).toLocaleString()}
+                        </td>
+                        <td className="py-2">
+                          {new Date(row.created_at).toLocaleString("th-TH")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Modal Form */}
       {showModal && (
@@ -946,6 +1067,47 @@ export default function PromotionsPage() {
                     placeholder="ไม่จำกัด"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-stone-600 mb-1">
+                    จำกัดต่อสมาชิก (ครั้ง)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
+                    value={form.usage_limit_per_member}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        usage_limit_per_member: e.target.value,
+                      }))
+                    }
+                    placeholder="ไม่จำกัด"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-xs font-semibold text-stone-700 pt-6">
+                  <input
+                    type="checkbox"
+                    checked={form.is_collectible}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, is_collectible: e.target.checked }))
+                    }
+                  />
+                  ต้องเก็บโค้ดก่อนใช้
+                </label>
+                <label className="flex items-center gap-2 text-xs font-semibold text-stone-700 pt-6">
+                  <input
+                    type="checkbox"
+                    checked={form.stackable}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, stackable: e.target.checked }))
+                    }
+                  />
+                  ใช้ร่วมโค้ดอื่นได้
+                </label>
               </div>
 
               {/* Toggle เปิด/ปิดการใช้งาน */}

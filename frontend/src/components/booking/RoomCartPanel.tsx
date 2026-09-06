@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ShoppingBag, Trash2, Minus, Plus, Tag, CheckCircle2, X, Loader2 } from 'lucide-react';
+import { ShoppingBag, Trash2, Minus, Plus } from 'lucide-react';
 import {
   RoomCartState,
   cartCapacitySum,
@@ -11,23 +11,16 @@ import {
   setCartItemQuantity,
 } from '@/lib/room-cart';
 import { formatThaiDate, nightsBetween } from '@/lib/date';
-import api, { getApiErrorMessage } from '@/lib/api';
-import toast from 'react-hot-toast';
 import PromoPriceBreakdown from '@/components/booking/PromoPriceBreakdown';
-
-interface AppliedPromo {
-  id: number;
-  name: string;
-  code: string;
-  discount_amount: number;
-  final_price: number;
-}
+import PromoCodeFields, {
+  type PromoPreview,
+} from '@/components/booking/PromoCodeFields';
 
 interface RoomCartPanelProps {
   cart: RoomCartState;
   onChange: (next: RoomCartState) => void;
   onClear: () => void;
-  onCheckout: (options?: { promotion_id?: number }) => void;
+  onCheckout: (options?: { promotion_ids?: number[] }) => void;
   checkoutLoading?: boolean;
 }
 
@@ -46,45 +39,13 @@ export default function RoomCartPanel({
   const overCapacity = guests > capacity;
   const empty = cart.items.length === 0;
 
-  const [promoCode, setPromoCode] = useState('');
-  const [promoLoading, setPromoLoading] = useState(false);
-  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
+  const [promoIds, setPromoIds] = useState<number[]>([]);
+  const [promoPreview, setPromoPreview] = useState<PromoPreview | null>(null);
 
   useEffect(() => {
-    setAppliedPromo(null);
-    setPromoCode('');
+    setPromoIds([]);
+    setPromoPreview(null);
   }, [cart.check_in, cart.check_out, baseTotal]);
-
-  const handleApplyPromo = async (): Promise<void> => {
-    if (!promoCode.trim() || baseTotal <= 0 || nights <= 0) return;
-    setPromoLoading(true);
-    try {
-      const res = await api.post('/promotions/validate', {
-        code: promoCode.trim(),
-        price: baseTotal,
-        nights,
-      });
-      const data = res.data.data as {
-        id: number;
-        name: string;
-        code: string;
-        discount_amount: number;
-        final_price: number;
-      };
-      setAppliedPromo({
-        id: data.id,
-        name: data.name,
-        code: data.code,
-        discount_amount: data.discount_amount,
-        final_price: data.final_price,
-      });
-      toast.success(`ใช้โค้ด "${data.code}" สำเร็จ`);
-    } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'โค้ดส่วนลดไม่ถูกต้องหรือหมดอายุ'));
-    } finally {
-      setPromoLoading(false);
-    }
-  };
 
   return (
     <aside className="rounded-2xl border border-stone-200 bg-cream-100 p-5 shadow-sm">
@@ -205,56 +166,29 @@ export default function RoomCartPanel({
 
       {!empty && nights > 0 && (
         <div className="mb-4 space-y-3 border-t border-stone-200 pt-3">
-          <label className="flex items-center gap-1 text-xs font-semibold text-charcoal-600">
-            <Tag size={13} className="text-forest-700" /> โค้ดส่วนลด
-          </label>
-          {appliedPromo ? (
-            <div className="flex items-center justify-between rounded-xl bg-emerald-50/80 p-3 border border-emerald-200/80">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-emerald-600" />
-                <div>
-                  <p className="text-xs font-bold text-emerald-900">{appliedPromo.name}</p>
-                  <p className="font-mono text-[11px] text-emerald-700">{appliedPromo.code}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setAppliedPromo(null);
-                  setPromoCode('');
-                }}
-                className="rounded-full p-1 text-emerald-700 hover:bg-emerald-100"
-                aria-label="ลบโค้ดส่วนลด"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <input
-                className="input-field font-mono text-sm uppercase"
-                placeholder="กรอกโค้ด"
-                value={promoCode}
-                onChange={(event) => setPromoCode(event.target.value.toUpperCase())}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter') return;
-                  event.preventDefault();
-                  void handleApplyPromo();
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => void handleApplyPromo()}
-                disabled={promoLoading || !promoCode.trim()}
-                className="shrink-0 rounded-xl bg-forest-900 px-3 text-xs font-semibold text-white disabled:opacity-40"
-              >
-                {promoLoading ? <Loader2 size={14} className="animate-spin" /> : 'ใช้โค้ด'}
-              </button>
-            </div>
-          )}
-
+          <PromoCodeFields
+            basePrice={baseTotal}
+            nights={nights}
+            onChange={(ids, next) => {
+              setPromoIds(ids);
+              setPromoPreview(next);
+            }}
+          />
           <p className="text-[11px] text-charcoal-400">{roomCount} ห้อง</p>
-          <PromoPriceBreakdown basePrice={baseTotal} promo={appliedPromo} />
+          <PromoPriceBreakdown
+            basePrice={baseTotal}
+            promo={
+              promoPreview
+                ? {
+                    name: promoPreview.lines[0]?.name ?? '',
+                    code: promoPreview.lines[0]?.code,
+                    discount_amount: promoPreview.discount_amount,
+                    final_price: promoPreview.final_price,
+                  }
+                : null
+            }
+            lines={promoPreview?.lines}
+          />
         </div>
       )}
 
@@ -271,7 +205,7 @@ export default function RoomCartPanel({
         disabled={empty || overCapacity || checkoutLoading}
         onClick={() =>
           onCheckout(
-            appliedPromo ? { promotion_id: appliedPromo.id } : undefined
+            promoIds.length > 0 ? { promotion_ids: promoIds } : undefined
           )
         }
       >
