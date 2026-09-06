@@ -217,6 +217,7 @@ export const createRoomBooking = async (
           nights,
           basePrice: totalPrice,
           now: new Date(),
+          scope: 'room',
           ...ctxExtra,
         });
         totalPrice = applyResult.totalPrice;

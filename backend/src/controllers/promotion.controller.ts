@@ -6,6 +6,8 @@ import {
   PromoApplyError,
   applyPromotionList,
   isPromoInWindow,
+  parseAppliesTo,
+  parseBookingScope,
   parsePromotionIds,
 } from '../services/promotion-apply';
 import { loadApplyContext, loadPromosForApply } from '../services/promotion-ledger';
@@ -32,7 +34,7 @@ export const getActivePromotions = async (req: Request, res: Response): Promise<
       `SELECT p.id, p.code, p.name, p.description, p.discount_type, p.discount_value,
               p.min_nights, p.min_price, p.max_discount, p.start_date, p.end_date,
               p.usage_limit, p.usage_count, p.is_active,
-              p.usage_limit_per_member, p.is_collectible, p.stackable,
+              p.usage_limit_per_member, p.is_collectible, p.stackable, p.applies_to,
               mp.status AS wallet_status
        FROM promotions p
        LEFT JOIN member_promotions mp
@@ -58,7 +60,7 @@ export const getAllPromotions = async (req: Request, res: Response): Promise<voi
               min_nights, min_price, max_discount, start_date, end_date,
               usage_limit, usage_count, is_active, created_at,
               room_type_id, room_count, boat_ticket_count,
-              usage_limit_per_member, is_collectible, stackable
+              usage_limit_per_member, is_collectible, stackable, applies_to
        FROM promotions
        ORDER BY created_at DESC`
     );
@@ -118,6 +120,7 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
       basePrice: hasPrice ? basePrice : 0,
       now,
       skipMinPrice: !hasPrice,
+      scope: parseBookingScope(body.scope),
       ...ctxExtra,
     });
 
@@ -276,7 +279,7 @@ export const getMyPromotions = async (req: Request, res: Response): Promise<void
       `SELECT mp.member_promotion_id, mp.promotion_id, mp.status, mp.saved_at, mp.used_at,
               p.code, p.name, p.description, p.discount_type, p.discount_value,
               p.is_active, p.start_date, p.end_date, p.usage_limit_per_member,
-              p.is_collectible, p.stackable,
+              p.is_collectible, p.stackable, p.applies_to,
               (SELECT COUNT(*)::int FROM booking_promotions bp
                WHERE bp.member_id = mp.member_id AND bp.promotion_id = mp.promotion_id) AS used_count
        FROM member_promotions mp
@@ -362,7 +365,7 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
       code, name, description, discount_type, discount_value,
       min_nights, min_price, max_discount, start_date, end_date,
       usage_limit, is_active, room_type_id, room_count, boat_ticket_count,
-      usage_limit_per_member, is_collectible, stackable,
+      usage_limit_per_member, is_collectible, stackable, applies_to,
     } = req.body;
 
     const existing = await pool.query('SELECT id FROM promotions WHERE UPPER(code) = UPPER($1)', [code]);
@@ -375,8 +378,8 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
       `INSERT INTO promotions (code, name, description, discount_type, discount_value,
                                min_nights, min_price, max_discount, start_date, end_date,
                                usage_limit, is_active, room_type_id, room_count, boat_ticket_count,
-                               usage_limit_per_member, is_collectible, stackable)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                               usage_limit_per_member, is_collectible, stackable, applies_to)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
        RETURNING *`,
       [
         code.toUpperCase().trim(), name, description || null,
@@ -388,6 +391,7 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
         usage_limit_per_member || null,
         is_collectible === true,
         stackable === true,
+        parseAppliesTo(applies_to),
       ]
     );
 
@@ -405,7 +409,7 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
       code, name, description, discount_type, discount_value,
       min_nights, min_price, max_discount, start_date, end_date,
       usage_limit, is_active, room_type_id, room_count, boat_ticket_count,
-      usage_limit_per_member, is_collectible, stackable,
+      usage_limit_per_member, is_collectible, stackable, applies_to,
     } = req.body;
 
     if (code) {
@@ -439,8 +443,9 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
            usage_limit_per_member = $16,
            is_collectible = COALESCE($17, is_collectible),
            stackable = COALESCE($18, stackable),
+           applies_to = COALESCE($19, applies_to),
            updated_at = NOW()
-       WHERE id = $19
+       WHERE id = $20
        RETURNING *`,
       [
         code?.toUpperCase().trim() || null,
@@ -461,6 +466,9 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
         usage_limit_per_member ?? null,
         is_collectible === undefined ? null : is_collectible === true,
         stackable === undefined ? null : stackable === true,
+        applies_to === undefined || applies_to === null || applies_to === ''
+          ? null
+          : parseAppliesTo(applies_to),
         id,
       ]
     );

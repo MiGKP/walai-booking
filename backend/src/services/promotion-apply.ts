@@ -5,6 +5,9 @@ export class PromoApplyError extends Error {
   }
 }
 
+export type PromoAppliesTo = 'room' | 'kayak' | 'both';
+export type BookingPromoScope = 'room' | 'kayak';
+
 export interface CatalogPromo {
   id: number;
   code: string;
@@ -23,6 +26,7 @@ export interface CatalogPromo {
   usage_limit_per_member: number | null;
   is_collectible: boolean;
   stackable: boolean;
+  applies_to: PromoAppliesTo;
 }
 
 export interface WalletState {
@@ -38,6 +42,7 @@ export interface ApplyContext {
   memberUsedCountByPromoId: Record<number, number>;
   walletsByPromoId: Record<number, WalletState | undefined>;
   skipMinPrice?: boolean;
+  scope?: BookingPromoScope;
 }
 
 export interface ApplyLine {
@@ -56,6 +61,30 @@ function toPositiveInt(value: unknown): number | null {
   const n = Number(value);
   if (!Number.isInteger(n) || n < 1) return null;
   return n;
+}
+
+export function parseAppliesTo(value: unknown): PromoAppliesTo {
+  if (value === 'room' || value === 'kayak' || value === 'both') return value;
+  return 'both';
+}
+
+export function parseBookingScope(value: unknown): BookingPromoScope | undefined {
+  if (value === 'room' || value === 'kayak') return value;
+  return undefined;
+}
+
+export function promoAllowsScope(
+  appliesTo: PromoAppliesTo,
+  scope: BookingPromoScope | undefined
+): boolean {
+  if (scope == null) return true;
+  return appliesTo === 'both' || appliesTo === scope;
+}
+
+export function promoScopeError(appliesTo: PromoAppliesTo): string {
+  if (appliesTo === 'room') return 'โค้ดนี้ใช้กับห้องพักเท่านั้น';
+  if (appliesTo === 'kayak') return 'โค้ดนี้ใช้กับเรือคายัคเท่านั้น';
+  return 'โค้ดนี้ใช้กับรายการนี้ไม่ได้';
 }
 
 export function parsePromotionIds(body: Record<string, unknown>): number[] {
@@ -149,6 +178,9 @@ export function applyPromotionList(
   for (const row of promosInOrder) {
     if (!isPromoInWindow(row, ctx.now)) {
       throw new PromoApplyError('โปรโมชั่นหมดอายุแล้ว');
+    }
+    if (!promoAllowsScope(row.applies_to, ctx.scope)) {
+      throw new PromoApplyError(promoScopeError(row.applies_to));
     }
     if (row.is_collectible) {
       const wallet = ctx.walletsByPromoId[row.id];

@@ -26,6 +26,11 @@ import {
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import toast from "react-hot-toast";
+import {
+  appliesToLabel,
+  parseAppliesTo,
+  type PromoAppliesTo,
+} from "@/lib/promotions";
 
 interface RoomType {
   id: number;
@@ -50,6 +55,7 @@ interface Promotion {
   usage_limit_per_member?: number | null;
   is_collectible?: boolean;
   stackable?: boolean;
+  applies_to?: PromoAppliesTo | string | null;
   usage_count: number;
   is_active: boolean;
   created_at: string;
@@ -74,6 +80,7 @@ const defaultForm = {
   usage_limit_per_member: "",
   is_collectible: false,
   stackable: false,
+  applies_to: "both" as PromoAppliesTo,
   is_active: true,
   room_type_id: "",
   room_count: "1",
@@ -283,6 +290,7 @@ export default function PromotionsPage() {
         : "",
       is_collectible: Boolean(p.is_collectible),
       stackable: Boolean(p.stackable),
+      applies_to: parseAppliesTo(p.applies_to),
       is_active: p.is_active,
       room_type_id: p.room_type_id ? String(p.room_type_id) : "",
       room_count: p.room_count ? String(p.room_count) : "1",
@@ -309,6 +317,7 @@ export default function PromotionsPage() {
           : null,
         is_collectible: form.is_collectible,
         stackable: form.stackable,
+        applies_to: parseAppliesTo(form.applies_to),
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         room_type_id: form.room_type_id ? Number(form.room_type_id) : null,
@@ -577,6 +586,9 @@ export default function PromotionsPage() {
                             <Copy size={13} />
                           </button>
                         </div>
+                        <p className="mt-1 text-[10px] font-medium text-stone-400">
+                          {appliesToLabel(parseAppliesTo(p.applies_to))}
+                        </p>
                       </td>
                       <td className="px-5 py-4">
                         <p className="font-bold text-stone-900">{p.name}</p>
@@ -1108,6 +1120,26 @@ export default function PromotionsPage() {
                   />
                   ใช้ร่วมโค้ดอื่นได้
                 </label>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-600 mb-1">
+                  ใช้ได้กับ
+                </label>
+                <CustomSelect
+                  options={[
+                    { value: "both", label: "ได้ทั้งสอง" },
+                    { value: "room", label: "ห้องพักเท่านั้น" },
+                    { value: "kayak", label: "เรือคายัคเท่านั้น" },
+                  ]}
+                  value={form.applies_to}
+                  onChange={(val) =>
+                    setForm((f) => ({
+                      ...f,
+                      applies_to: parseAppliesTo(val),
+                    }))
+                  }
+                />
               </div>
 
               {/* Toggle เปิด/ปิดการใช้งาน */}

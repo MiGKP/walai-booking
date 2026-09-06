@@ -238,6 +238,7 @@ export const createPromotionValidator = [
   body('usage_limit_per_member').optional({ nullable: true }).isInt({ min: 1 }).withMessage('usage_limit_per_member must be a positive integer'),
   body('is_collectible').optional().isBoolean().withMessage('is_collectible must be a boolean'),
   body('stackable').optional().isBoolean().withMessage('stackable must be a boolean'),
+  body('applies_to').optional().isIn(['room', 'kayak', 'both']).withMessage('applies_to must be room, kayak, or both'),
   body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
 ];
 
@@ -256,6 +257,7 @@ export const updatePromotionValidator = [
   body('usage_limit_per_member').optional({ nullable: true }).isInt({ min: 1 }).withMessage('usage_limit_per_member must be a positive integer'),
   body('is_collectible').optional().isBoolean().withMessage('is_collectible must be a boolean'),
   body('stackable').optional().isBoolean().withMessage('stackable must be a boolean'),
+  body('applies_to').optional().isIn(['room', 'kayak', 'both']).withMessage('applies_to must be room, kayak, or both'),
   body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
 ];
 
@@ -269,6 +271,7 @@ export const validatePromoCodeValidator = [
   body('promotion_ids.*').optional().isInt({ min: 1 }),
   body('price').optional().isFloat({ min: 0 }).withMessage('price must be a positive number'),
   body('nights').optional().isInt({ min: 1 }).withMessage('nights must be a positive integer'),
+  body('scope').optional().isIn(['room', 'kayak']).withMessage('scope must be room or kayak'),
   body().custom((_, { req }) => {
     const code = req.body.code;
     const hasCode = typeof code === 'string' && code.trim().length > 0;

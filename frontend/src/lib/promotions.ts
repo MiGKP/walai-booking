@@ -2,6 +2,8 @@ import { formatThaiDate, toISODate } from '@/lib/date';
 
 export type PromoDiscountType = 'percent' | 'fixed';
 export type WalletStatus = 'saved' | 'used' | 'expired';
+export type PromoAppliesTo = 'room' | 'kayak' | 'both';
+export type BookingPromoScope = 'room' | 'kayak';
 
 export interface CatalogPromo {
   id: number;
@@ -17,6 +19,7 @@ export interface CatalogPromo {
   end_date: string | null;
   is_collectible: boolean;
   stackable: boolean;
+  applies_to?: PromoAppliesTo | string | null;
   wallet_status: WalletStatus | null;
 }
 
@@ -30,6 +33,7 @@ export interface WalletPromo {
   status: WalletStatus;
   remaining: number | null;
   stackable: boolean;
+  applies_to?: PromoAppliesTo | string | null;
   start_date: string | null;
   end_date: string | null;
 }
@@ -70,4 +74,29 @@ export function walletStatusLabel(status: WalletStatus): string {
   if (status === 'used') return 'ใช้แล้ว';
   if (status === 'expired') return 'หมดอายุ';
   return 'พร้อมใช้';
+}
+
+export function bookingPromoHref(kind: 'room' | 'kayak', code: string): string {
+  const path = kind === 'room' ? '/rooms' : '/kayaks';
+  const trimmed = code.trim().toUpperCase();
+  if (!trimmed) return path;
+  return `${path}?promo=${encodeURIComponent(trimmed)}`;
+}
+
+export function parseAppliesTo(value: unknown): PromoAppliesTo {
+  if (value === 'room' || value === 'kayak' || value === 'both') return value;
+  return 'both';
+}
+
+export function promoAllowsScope(
+  appliesTo: PromoAppliesTo,
+  scope: BookingPromoScope
+): boolean {
+  return appliesTo === 'both' || appliesTo === scope;
+}
+
+export function appliesToLabel(appliesTo: PromoAppliesTo): string {
+  if (appliesTo === 'room') return 'ห้องพักเท่านั้น';
+  if (appliesTo === 'kayak') return 'เรือคายัคเท่านั้น';
+  return 'ห้องและเรือ';
 }

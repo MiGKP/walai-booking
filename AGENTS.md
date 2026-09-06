@@ -166,6 +166,7 @@ Typical room flow:
 - Catalog: `promotions`. Wallet: `member_promotions` (UNIQUE member + promo). Ledger: `booking_promotions` (exactly one of `room_booking_id` / `boat_booking_id`).
 - Apply math: `backend/src/services/promotion-apply.ts`. Persist/restore: `promotion-ledger.ts`.
 - `is_collectible` and `stackable` default **false**. Type-code checkout stays valid. Stack requires every code `stackable`.
+- `applies_to` is `room` | `kayak` | `both` (existing rows default `both`). Validate and booking create must send `scope: 'room' | 'kayak'`. Wrong type returns 400 Thai.
 - Restore global `usage_count` only when header was `pending` or `paid` and becomes `cancelled` or `rejected`.
 - Room header `promotion_id` is set only when exactly one code is applied. Kayak uses ledger rows only.
 - Customer collect UI: `/promotions` (catalog + เก็บคูปอง) and `/dashboard/coupons` (wallet, shown even when empty). `GET /api/promotions/active` may include `wallet_status` when a customer JWT is present.
