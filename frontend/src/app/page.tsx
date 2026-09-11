@@ -425,13 +425,9 @@ export default function HomePage() {
         ]);
 
       if (resortRes.status === "fulfilled")
-        setResortInfo(pickResortInfo(resortRes.value.data?.data, 'main'));
+        setResortInfo(resortRes.value.data?.data || {});
       if (roomsRes.status === "fulfilled")
-        setRoomTypes(
-          Array.isArray(roomsRes.value.data?.data)
-            ? roomsRes.value.data.data
-            : []
-        );
+        setRoomTypes(roomsRes.value.data?.data || []);
       setLoadingRooms(false);
 
       if (reviewsRes.status === "fulfilled")
@@ -619,7 +615,7 @@ export default function HomePage() {
             </div>
             <Link
               href="/rooms"
-              className="inline-flex items-center gap-2 text-forest-800 font-semibold hover:text-bamboo-400 transition-colors mt-4 md:mt-0"
+              className="inline-flex items-center gap-2 text-forest-800 font-semibold hover:text-bamboo-600 transition-colors mt-4 md:mt-0"
             >
               ดูห้องพักทั้งหมด
               <ArrowRight size={18} />
