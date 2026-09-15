@@ -1,24 +1,37 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
+  AlertCircle,
   ArrowLeft,
-  Calendar as CalendarIcon,
+  BedDouble,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Info,
+  Coffee,
+  Compass,
+  ImageIcon,
+  Maximize2,
   Sparkles,
   Star,
+  Tag,
+  Tv,
   Users,
+  Utensils,
+  Waves,
+  Wifi,
+  Wind,
   X,
+  CheckCircle2,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import BookingCalendar, { DateRange, DayStatus } from '@/components/booking/BookingCalendar';
+import BookingSummaryCard from '@/components/booking/BookingSummaryCard';
 import { fetchRoomCalendar, toRoomDayStatus } from '@/lib/booking-calendar';
 import {
   MonthCursor,
@@ -27,11 +40,32 @@ import {
   monthCursorFromISO,
   multiMonthRangeISO,
   nightsBetween,
-  nightsInRange,
   todayISO,
 } from '@/lib/date';
 
+import { RoomCartItem } from '@/lib/room-cart';
+import { useRoomCart } from '@/lib/room-cart-store';
+import { useCartSync } from '@/hooks/useCartSync';
+
 type RoomAmenity = string | { id: number; name: string };
+
+interface PhysicalRoom {
+  room_id: number;
+  room_number: string;
+  status: string;
+  is_available: boolean;
+}
+
+interface Promotion {
+  id: number;
+  name: string;
+  code: string;
+  description?: string | null;
+  discount_value: number;
+  discount_type?: 'percent' | 'fixed';
+  min_nights?: number;
+  max_discount?: number;
+}
 
 interface RoomDetail {
   id: number;
@@ -43,6 +77,8 @@ interface RoomDetail {
   main_image: string | null;
   images: string[] | null;
   amenities: RoomAmenity[] | null;
+  rooms: PhysicalRoom[] | null;
+  available_promotions?: Promotion[] | null;
 }
 
 interface Review {
@@ -54,426 +90,473 @@ interface Review {
   review_date: string;
 }
 
+const CARD = 'rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)] transition-shadow duration-300 hover:shadow-[0_1px_2px_rgba(18,60,48,0.02),0_12px_28px_-8px_rgba(18,60,48,0.14)]';
+const SECTION_TITLE = 'font-sans text-[18px] font-semibold leading-tight text-forest-900';
+
+function SectionHeading({ icon, title, action }: { icon: React.ReactNode; title: string; action?: React.ReactNode }): React.ReactElement {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-2.5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">{icon}</span>
+        <h2 className={SECTION_TITLE}>{title}</h2>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function getAmenityIcon(name: string): React.ReactElement {
+  const n = name.toLowerCase();
+  const cls = 'text-forest-500';
+  if (n.includes('wifi') || n.includes('อินเทอร์เน็ต') || n.includes('internet')) return <Wifi size={15} className={cls} />;
+  if (n.includes('แอร์') || n.includes('เครื่องปรับอากาศ') || n.includes('air')) return <Wind size={15} className={cls} />;
+  if (n.includes('ทีวี') || n.includes('tv') || n.includes('โทรทัศน์') || n.includes('television')) return <Tv size={15} className={cls} />;
+  if (n.includes('ตู้เย็น') || n.includes('fridge') || n.includes('refrigerator')) return <Coffee size={15} className={cls} />;
+  if (n.includes('อาหาร') || n.includes('เช้า') || n.includes('breakfast') || n.includes('lunch') || n.includes('dinner')) return <Utensils size={15} className={cls} />;
+  if (n.includes('วิว') || n.includes('ระเบียง') || n.includes('view') || n.includes('balcony') || n.includes('terrace')) return <Compass size={15} className={cls} />;
+  if (n.includes('น้ำ') || n.includes('สระ') || n.includes('pool') || n.includes('lake') || n.includes('river')) return <Waves size={15} className={cls} />;
+  return <Check size={15} className={cls} />;
+}
+
+function ratingLabel(score: number): string {
+  if (score >= 4.5) return 'ยอดเยี่ยม';
+  if (score >= 4) return 'ดีมาก';
+  if (score >= 3.5) return 'ดี';
+  if (score >= 3) return 'พอใช้';
+  return 'ปานกลาง';
+}
+
+function Stars({ value, size = 12 }: { value: number; size?: number }): React.ReactElement {
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star key={star} size={size} className={star <= Math.round(value) ? 'fill-amber-400 text-amber-400' : 'text-stone-200'} />
+      ))}
+    </div>
+  );
+}
+
 export default function RoomDetailPage(): React.ReactElement {
-  const { id } = useParams<{ id: string }>();
+  const routeParams = useParams<{ id: string }>();
+  const id = routeParams.id;
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const today = todayISO();
 
   const [room, setRoom] = useState<RoomDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const initialRange: DateRange = {
-    start: searchParams.get('check_in') || today,
-    end: searchParams.get('check_out') || addDaysISO(today, 1),
-  };
+  const checkIn = searchParams.get('check_in') || today;
+  const checkOut = searchParams.get('check_out') || addDaysISO(checkIn, 1);
+  const range = useMemo(() => ({ start: checkIn, end: checkOut }), [checkIn, checkOut]);
 
-  const [range, setRange] = useState<DateRange | null>(initialRange);
-  const [cursor, setCursor] = useState<MonthCursor>(() => monthCursorFromISO(initialRange.start));
+  const [cursor, setCursor] = useState<MonthCursor>(() => monthCursorFromISO(checkIn));
   const [dayStatus, setDayStatus] = useState<Record<string, DayStatus>>({});
   const [calendarLoading, setCalendarLoading] = useState(true);
 
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const galleryScrollRef = useRef<HTMLDivElement>(null);
+  const [activeImage, setActiveImage] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [expandedPromoId, setExpandedPromoId] = useState<number | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [avgRating, setAvgRating] = useState<number | null>(null);
 
-  const nights = range ? nightsBetween(range.start, range.end) : 0;
+  const nights = nightsBetween(range.start, range.end);
+
+  const cart = useRoomCart();
+
+  // รีเซ็ตสถานะ "ดูเพิ่มเติม" ของโปรโมชั่นเวลาสลับไปดูห้องอื่น (Next.js reuse component instance ตัวเดิม)
+  useEffect(() => {
+    setExpandedPromoId(null);
+  }, [id]);
+
+  const selectedRoomIds = useMemo(() => {
+    if (!room) return [];
+    return (cart?.items ?? [])
+      .filter((item) => item.room_type_id === room.id && item.room_id)
+      .map((item) => item.room_id as number);
+  }, [cart, room]);
+
+  const { commit: commitCart } = useCartSync({
+    checkIn: range.start,
+    checkOut: range.end,
+    adults: parseInt(searchParams.get('adults') || '1', 10),
+    children: parseInt(searchParams.get('children') || '0', 10),
+  });
 
   useEffect(() => {
-    api
-      .get(`/rooms/${id}`)
-      .then((res) => setRoom(res.data?.data ?? null))
-      .catch(() => toast.error('ไม่พบห้องพัก'))
-      .finally(() => setLoading(false));
-
-    api
-      .get(`/reviews/room-type/${id}`)
-      .then((res) => {
-        setReviews(Array.isArray(res.data?.data) ? res.data.data : []);
-        setAvgRating(res.data?.avg_rating ?? null);
-      })
-      .catch(() => undefined);
-  }, [id]);
+    if (!id) return;
+    setLoading(true);
+    api.get(`/rooms/${id}`, { params: { check_in: range.start, check_out: range.end } }).then((res) => setRoom(res.data?.data ?? null)).catch(() => toast.error('ไม่พบห้องพัก')).finally(() => setLoading(false));
+    api.get(`/reviews/room-type/${id}`).then((res) => {
+      setReviews(Array.isArray(res.data?.data) ? res.data.data : []);
+      setAvgRating(res.data?.avg_rating ?? null);
+    }).catch(() => undefined);
+  }, [id, range.start, range.end]);
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
     const { start, end } = multiMonthRangeISO(cursor, 2);
     setCalendarLoading(true);
-
-    fetchRoomCalendar({ start, end, roomTypeId: Number(id) })
-      .then((days) => {
-        if (cancelled) return;
-        setDayStatus((prev) => ({ ...prev, ...toRoomDayStatus(days) }));
-      })
-      .catch(() => {
-        if (!cancelled) toast.error('ไม่สามารถโหลดปฏิทินห้องว่างได้');
-      })
-      .finally(() => {
-        if (!cancelled) setCalendarLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    fetchRoomCalendar({ start, end, roomTypeId: Number(id) }).then((days) => {
+      if (cancelled) return;
+      setDayStatus((prev) => ({ ...prev, ...toRoomDayStatus(days) }));
+    }).catch(() => {
+      if (!cancelled) toast.error('ไม่สามารถโหลดปฏิทินห้องว่างได้');
+    }).finally(() => {
+      if (!cancelled) setCalendarLoading(false);
+    });
+    return () => { cancelled = true; };
   }, [cursor, id]);
 
-  const blockedNights = useMemo<string[]>(() => {
-    if (!range || nights <= 0) return [];
-    return nightsInRange(range.start, range.end).filter(
-      (night) => dayStatus[night]?.tone === 'full'
+  const sortedPhysicalRooms = useMemo(() => {
+    return [...(room?.rooms || [])].sort((a, b) =>
+      a.room_number.localeCompare(b.room_number, undefined, { numeric: true, sensitivity: 'base' })
     );
-  }, [range, nights, dayStatus]);
+  }, [room]);
 
-  const basePrice = room ? Number(room.price_per_night) * nights : 0;
+  const galleryImages = useMemo<string[]>(() => {
+    if (!room) return [];
+    return [room.main_image, ...(Array.isArray(room.images) ? room.images.filter((img) => img !== room.main_image) : [])].filter((img): img is string => Boolean(img));
+  }, [room]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-cream-100/50 pt-20">
-        <div className="container mx-auto px-4 py-8">
-          <div className="h-6 w-32 animate-pulse rounded-lg bg-stone-200" />
-          <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_minmax(420px,560px)]">
-            <div className="space-y-6">
-              <div className="h-10 w-2/3 animate-pulse rounded-xl bg-stone-200" />
-              <div className="h-96 animate-pulse rounded-3xl bg-stone-200" />
-            </div>
-            <div className="h-[500px] animate-pulse rounded-3xl bg-stone-200" />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const selectedPromoCodes = (searchParams.get('promo_code') || '').split(',').map((c) => c.trim().toUpperCase()).filter(Boolean);
+  const handleSelectPromo = (code: string): void => {
+    const params = new URLSearchParams(searchParams.toString());
+    let nextCodes: string[];
+    if (selectedPromoCodes.includes(code)) {
+      nextCodes = selectedPromoCodes.filter((c) => c !== code);
+    } else {
+      nextCodes = [...selectedPromoCodes, code];
+      toast.success(`ใช้โค้ดส่วนลด ${code} แล้ว`);
+    }
+    if (nextCodes.length > 0) params.set('promo_code', nextCodes.join(','));
+    else params.delete('promo_code');
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
-  if (!room) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-cream-100/50 pt-16 text-center">
-        <div className="max-w-md rounded-3xl bg-white p-8 shadow-xl shadow-stone-200/50 border border-stone-100">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-500 mb-4">
-            <Info size={24} />
-          </div>
-          <h2 className="font-display text-2xl font-semibold text-forest-900">ไม่พบห้องพัก</h2>
-          <p className="mt-2 text-sm text-charcoal-400">ห้องพักที่คุณกำลังมองหาอาจถูกลบหรือไม่มีอยู่ในระบบ</p>
-          <Link href="/rooms" className="btn-primary mt-6 inline-flex items-center gap-2">
-            <ArrowLeft size={16} /> กลับไปหน้าห้องพักทั้งหมด
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const scrollToImage = (index: number): void => {
+    const el = galleryScrollRef.current;
+    if (!el) return;
+    const clamped = Math.max(0, Math.min(galleryImages.length - 1, index));
+    el.scrollTo({ left: clamped * el.clientWidth, behavior: 'smooth' });
+  };
 
-  const galleryImages: string[] = [
-    room.main_image,
-    ...(Array.isArray(room.images) ? room.images.filter((img) => img !== room.main_image) : []),
-  ].filter((img): img is string => Boolean(img));
-  const lightboxTotal = galleryImages.length;
-  const lightboxCurrent = lightboxIndex ?? 0;
+  // sync ตัวเลขรูป/จุดบอกตำแหน่งตามการเลื่อน (ลาก/สไวป์) ของผู้ใช้ ไม่ใช่แค่ตอนกดปุ่ม
+  useEffect(() => {
+    const el = galleryScrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      if (el.clientWidth === 0) return;
+      setActiveImage(Math.round(el.scrollLeft / el.clientWidth));
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [galleryImages.length]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxOpen(false);
+      if (e.key === 'ArrowLeft') scrollToImage(activeImage - 1);
+      if (e.key === 'ArrowRight') scrollToImage(activeImage + 1);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [lightboxOpen, activeImage, galleryImages.length]);
+
+  const handleToggleRoom = (roomId: number) => {
+    if (!room?.rooms) return;
+    const physicalRooms = room.rooms;
+    const physicalRoom = physicalRooms.find(r => r.room_id === roomId);
+    if (!physicalRoom) return;
+
+    const items = cart?.items ?? [];
+    const isSelecting = !selectedRoomIds.includes(roomId);
+
+    const nextItems: RoomCartItem[] = isSelecting
+      ? [
+          ...items,
+          {
+            room_type_id: room.id,
+            room_id: physicalRoom.room_id,
+            room_number: physicalRoom.room_number,
+            room_name: room.room_name,
+            type_name: room.type_name,
+            capacity: room.capacity,
+            price_per_night: room.price_per_night,
+            available_count: physicalRooms.filter(r => r.is_available).length,
+            quantity: 1,
+          },
+        ]
+      : items.filter((item) => item.room_id !== roomId);
+
+    commitCart(nextItems);
+  };
+
+  if (loading) return <div className="min-h-screen bg-cream-100 pb-20 pt-24"><div className="container mx-auto max-w-6xl px-4"><div className="mb-6 h-9 w-40 animate-pulse rounded-full bg-white" /><div className="mb-6 space-y-3"><div className="h-5 w-48 animate-pulse rounded-full bg-white" /><div className="h-9 w-2/3 animate-pulse rounded-xl bg-white" /></div><div className="grid gap-8 lg:grid-cols-[1fr_360px]"><div className="space-y-6"><div className="h-[300px] animate-pulse rounded-2xl bg-white sm:h-[420px]" /><div className="h-56 animate-pulse rounded-2xl bg-white" /><div className="h-72 animate-pulse rounded-2xl bg-white" /></div><div className="h-[540px] animate-pulse rounded-2xl bg-white" /></div></div></div>;
+  if (!room) return <div className="grid min-h-screen place-items-center bg-cream-100 px-4 pt-20 text-center"><div className={`${CARD} max-w-sm px-6 py-10`}><AlertCircle className="mx-auto mb-4 h-8 w-8 text-stone-300" /><h2 className="font-sans text-[20px] font-semibold text-forest-900">ไม่พบห้องพักนี้</h2><p className="mt-1.5 text-[13px] leading-relaxed text-charcoal-400">ห้องพักอาจถูกปิดปรับปรุง หรือถูกนำออกจากระบบแล้ว ลองกลับไปเลือกจากรายการห้องพักทั้งหมด</p><Link href={`/rooms?${searchParams.toString()}`} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-forest-900 py-3 text-[13px] font-bold text-white shadow-md transition-all hover:bg-forest-800 active:scale-[0.98]"><ArrowLeft size={15} />ดูห้องพักทั้งหมด</Link></div></div>;
+
+  const availableCount = sortedPhysicalRooms.length > 0 ? sortedPhysicalRooms.filter((r) => r.is_available).length : 1;
 
   return (
-    <div className="min-h-screen bg-cream-100/40 pb-16 pt-20">
-      <div className="container mx-auto px-4 max-w-7xl">
-        {/* Navigation Back */}
-        <Link
-          href="/rooms"
-          className="group mb-6 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-medium text-charcoal-600 shadow-sm backdrop-blur-md transition-all hover:bg-white hover:text-forest-900 hover:shadow"
-        >
-          <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
-          กลับไปหน้าห้องพักทั้งหมด
-        </Link>
-
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(420px,560px)] lg:gap-10">
-          {/* Main Info Side */}
-          <div className="space-y-8">
-            {/* Title Header */}
-            <div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-lagoon-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-lagoon-700">
-                <Sparkles size={12} />
-                {room.type_name || 'ห้องพักแนะนำ'}
-              </span>
-              <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-forest-900 sm:text-4xl lg:text-4xl">
-                {room.room_name}
-              </h1>
-              <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-charcoal-600">
-                <span className="flex items-center gap-1.5 rounded-md bg-stone-100/80 px-2.5 py-1 text-xs font-medium">
-                  <Users size={14} className="text-forest-700" /> รองรับสูงสุด {room.capacity} ท่าน
-                </span>
-                {avgRating !== null && (
-                  <span className="flex items-center gap-1.5 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
-                    <Star size={14} className="fill-amber-400 text-amber-400" />
-                    {avgRating.toFixed(1)} <span className="text-amber-600 font-normal">({reviews.length} รีวิว)</span>
-                  </span>
-                )}
-              </div>
+    <div className="min-h-screen bg-cream-100 pb-28 pt-20 lg:pb-20">
+      {/* ===== Gallery Section ===== */}
+      <div className="mx-auto max-w-7xl px-4 pt-4">
+        <div className="relative">
+          <Link
+            href={`/rooms?${searchParams.toString()}`}
+            className="group absolute left-3 top-3 z-10 inline-flex items-center gap-2.5 rounded-full bg-white/90 py-1.5 pl-1.5 pr-4 text-[13px] font-bold text-forest-800 shadow-md backdrop-blur-sm transition-all duration-200 hover:-translate-x-0.5 hover:bg-white"
+          >
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700 transition-colors group-hover:bg-forest-100">
+              <ArrowLeft size={14} />
+            </span>
+            ห้องพักทั้งหมด
+          </Link>
+        </div>
+        {galleryImages.length > 0 ? (
+          <div className="space-y-2">
+          <div className="relative overflow-hidden rounded-xl border border-stone-200/80 bg-stone-50">
+            <div
+              ref={galleryScrollRef}
+              className="flex h-[220px] snap-x snap-mandatory overflow-x-auto scroll-smooth sm:h-[300px] md:h-[360px] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {galleryImages.map((img, index) => (
+                <div key={img} className="h-full w-full flex-none snap-center">
+                  <img src={resolveMediaUrl(img)} alt={`${room.room_name} รูปที่ ${index + 1}`} className="h-full w-full object-cover" />
+                </div>
+              ))}
             </div>
-
-            {/* Photo Gallery Grid */}
-            {galleryImages.length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-4 sm:grid-rows-2 h-[380px] sm:h-[440px] rounded-3xl overflow-hidden shadow-md">
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-bold text-forest-800 shadow-md backdrop-blur-sm transition-colors hover:bg-white"
+            >
+              <Maximize2 size={13} />
+              ดูภาพขยาย
+            </button>
+            {galleryImages.length > 1 && (
+              <>
                 <button
                   type="button"
-                  onClick={() => setLightboxIndex(0)}
-                  className="group relative h-full w-full overflow-hidden bg-stone-200 sm:col-span-3 sm:row-span-2 cursor-pointer"
+                  onClick={() => scrollToImage(activeImage - 1)}
+                  disabled={activeImage === 0}
+                  className="absolute left-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-forest-800 shadow-md backdrop-blur-sm transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
                 >
-                  <img
-                    src={resolveMediaUrl(galleryImages[0])}
-                    alt={room.room_name}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                  <ChevronLeft size={18} />
                 </button>
-                {galleryImages.slice(1, 3).map((img, index) => (
-                  <button
-                    key={img}
-                    type="button"
-                    onClick={() => setLightboxIndex(index + 1)}
-                    className="group relative hidden h-full w-full overflow-hidden bg-stone-200 sm:block cursor-pointer"
-                  >
-                    <img
-                      src={resolveMediaUrl(img)}
-                      alt={`${room.room_name} รูปที่ ${index + 2}`}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    {index === 1 && galleryImages.length > 3 && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-forest-900/60 backdrop-blur-[2px] text-white transition-all group-hover:bg-forest-900/70">
-                        <span className="font-display text-xl font-bold">+{galleryImages.length - 3}</span>
-                        <span className="text-xs font-medium">ดูรูปทั้งหมด</span>
+                <button
+                  type="button"
+                  onClick={() => scrollToImage(activeImage + 1)}
+                  disabled={activeImage === galleryImages.length - 1}
+                  className="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-forest-800 shadow-md backdrop-blur-sm transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
+                >
+                  <ChevronRight size={18} />
+                </button>
+                <span className="absolute bottom-3 right-3 rounded-full bg-forest-950/60 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">{activeImage + 1} / {galleryImages.length}</span>
+              </>
+            )}
+          </div>
+          {galleryImages.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {galleryImages.map((img, index) => (
+                <button
+                  key={img}
+                  type="button"
+                  onClick={() => scrollToImage(index)}
+                  className={`h-14 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition-all sm:h-16 sm:w-24 ${index === activeImage ? 'border-forest-700' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                >
+                  <img src={resolveMediaUrl(img)} alt={`${room.room_name} ภาพย่อ ${index + 1}`} className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+          </div>
+        ) : (
+          <div className="flex h-56 flex-col items-center justify-center rounded-xl border border-dashed border-stone-300 bg-white/40 text-center backdrop-blur-sm"><ImageIcon className="mb-3 h-7 w-7 text-stone-300" /><h3 className={SECTION_TITLE}>ยังไม่มีรูปห้องพักนี้</h3></div>
+        )}
+      </div>
+
+      {/* ===== Main Content Area ===== */}
+      <div className="mx-auto mt-8 max-w-7xl px-4">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+          {/* ---- ฝั่งซ้าย: รายละเอียดห้อง ---- */}
+          <div className="space-y-6 lg:col-span-8">
+            {/* Header Details */}
+            <section className={`${CARD} p-5 sm:p-6`}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="mb-2.5 flex flex-wrap items-center gap-2">
+                    {room.type_name && <span className="rounded bg-bamboo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-bamboo-600">{room.type_name}</span>}
+                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${availableCount > 0 ? 'bg-forest-50 text-forest-700' : 'bg-stone-200 text-stone-600'}`}>{availableCount > 0 ? `ว่าง ${availableCount} ห้อง` : 'เต็ม'}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h1 className="font-sans text-[26px] font-semibold leading-tight text-forest-900 sm:text-[32px]">{room.room_name}</h1>
+                    {avgRating !== null && (
+                      <div className="flex items-center gap-2">
+                        <span className="grid h-9 min-w-9 place-items-center rounded-lg bg-forest-900 px-1.5 text-[15px] font-extrabold text-white">{avgRating.toFixed(1)}</span>
+                        <div className="leading-tight">
+                          <p className="text-[12px] font-bold text-forest-900">{ratingLabel(avgRating)}</p>
+                          <p className="text-[11px] text-stone-500">{reviews.length} รีวิว</p>
+                        </div>
                       </div>
                     )}
-                  </button>
-                ))}
+                  </div>
+                  <p className="mt-2 text-[13.5px] leading-[1.85] text-charcoal-500">{room.description}</p>
+                </div>
+                <div className="flex shrink-0 items-baseline gap-1 sm:flex-col sm:items-end sm:gap-0.5">
+                  <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{Number(room.price_per_night).toLocaleString()}</span>
+                  <span className="text-[12px] font-medium text-charcoal-400">/ คืน</span>
+                </div>
               </div>
-            ) : (
-              <div className="flex h-64 w-full flex-col items-center justify-center rounded-3xl bg-stone-100 border-2 border-dashed border-stone-200 text-stone-400">
-                <p className="font-display text-base">ยังไม่มีรูปภาพสำหรับห้องพักนี้</p>
+              <div className="mt-4 flex flex-wrap gap-2.5 border-t border-stone-100 pt-4">
+                <span className="flex items-center gap-1.5 rounded-full bg-stone-50 px-3 py-1.5 text-[12px] font-semibold text-charcoal-600"><Users size={13} className="text-forest-500" />ความจุ {room.capacity} ท่าน</span>
               </div>
+            </section>
+
+            {/* Amenities */}
+            {room.amenities && room.amenities.length > 0 && (
+              <section className={`${CARD} p-5 sm:p-6`}>
+                <SectionHeading icon={<Sparkles size={16} />} title="สิ่งอำนวยความสะดวก" />
+                <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3">
+                  {room.amenities.map((amenity, index) => (
+                    <div key={index} className="flex items-center gap-2.5 rounded-xl border border-stone-100 bg-stone-50/50 px-3 py-2.5 text-[13px] text-charcoal-600">
+                      {getAmenityIcon(typeof amenity === 'string' ? amenity : amenity.name)}
+                      <span className="truncate">{typeof amenity === 'string' ? amenity : amenity.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
             )}
 
-            {/* About Section */}
-            <div className="rounded-3xl bg-white p-6 sm:p-8 shadow-sm border border-stone-100">
-              <h2 className="font-display text-xl font-bold text-forest-900">เกี่ยวกับห้องพักนี้</h2>
-              <p className="mt-3 leading-relaxed text-charcoal-600 whitespace-pre-line">{room.description}</p>
-            </div>
-
-            {/* Amenities Section */}
-            {room.amenities && room.amenities.length > 0 && (
-              <div className="rounded-3xl bg-white p-6 sm:p-8 shadow-sm border border-stone-100">
-                <h2 className="font-display text-xl font-bold text-forest-900">สิ่งอำนวยความสะดวก</h2>
-                <ul className="mt-5 grid gap-4 sm:grid-cols-2">
-                  {room.amenities.map((amenity, index) => {
-                    const amenityName = typeof amenity === 'string' ? amenity : amenity?.name;
-                    if (!amenityName) return null;
+            {/* Special Offers */}
+            {room.available_promotions && room.available_promotions.length > 0 && (
+              <section className={`${CARD} p-5 sm:p-6`}>
+                <SectionHeading icon={<Tag size={16} />} title="โปรโมชั่นพิเศษ" />
+                <div className="mt-4 grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+                  {room.available_promotions.map((promo) => {
+                    const isSelected = selectedPromoCodes.includes(promo.code);
+                    const isExpanded = expandedPromoId === promo.id;
+                    const discountText = promo.discount_type === 'percent' ? `ลด ${promo.discount_value}%` : `ลด ฿${Number(promo.discount_value).toLocaleString()}`;
                     return (
-                      <li
-                        key={typeof amenity === 'string' ? `${amenity}-${index}` : amenity.id}
-                        className="flex items-center gap-3 rounded-xl bg-cream-50 p-3 text-sm text-charcoal-700 font-medium"
+                      <div
+                        key={promo.id}
+                        className={`overflow-hidden rounded-xl border transition-colors ${isSelected ? 'border-amber-500 bg-amber-400' : 'border-amber-200 bg-white hover:border-amber-400'}`}
                       >
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-lagoon-100 text-lagoon-700">
-                          <Check size={16} />
-                        </div>
-                        {amenityName}
-                      </li>
+                        <button type="button" onClick={() => handleSelectPromo(promo.code)} className="flex w-full items-center gap-3 p-4 text-left">
+                          <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${isSelected ? 'bg-white/25 text-white' : 'bg-amber-50 text-amber-600'}`}>
+                            <Tag size={18} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className={`truncate text-[14px] font-bold ${isSelected ? 'text-white' : 'text-amber-800'}`}>{promo.name}</p>
+                            <p className={`text-[11px] ${isSelected ? 'text-white/90' : 'text-amber-600'}`}>
+                              โค้ด {promo.code} · {discountText}
+                              {promo.min_nights ? ` (ขั้นต่ำ ${promo.min_nights} คืน)` : ''}
+                            </p>
+                          </div>
+                          {isSelected && <CheckCircle2 size={18} className="shrink-0 text-white" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedPromoId(isExpanded ? null : promo.id)}
+                          className={`flex w-full items-center justify-center gap-1 border-t py-2 text-[11px] font-bold transition-colors ${isSelected ? 'border-white/25 text-white/90 hover:text-white' : 'border-amber-100 text-amber-700 hover:text-amber-900'}`}
+                        >
+                          {isExpanded ? 'ซ่อนรายละเอียด' : 'ดูเพิ่มเติม'}
+                          <ChevronDown size={13} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isExpanded && (
+                          <div className={`px-4 pb-4 text-[12px] leading-relaxed ${isSelected ? 'text-white/95' : 'text-amber-800'}`}>
+                            <p>{promo.description || 'ไม่มีรายละเอียดเพิ่มเติมสำหรับโปรโมชั่นนี้'}</p>
+                            <ul className="mt-2 space-y-1 font-medium">
+                              <li>• {discountText}{promo.discount_type === 'percent' && promo.max_discount != null ? ` (สูงสุด ฿${Number(promo.max_discount).toLocaleString()})` : ''}</li>
+                              {promo.min_nights ? <li>• พักขั้นต่ำ {promo.min_nights} คืน</li> : null}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
-                </ul>
-              </div>
+                </div>
+              </section>
             )}
 
-            {/* Reviews Section */}
-            <div className="rounded-3xl bg-white p-6 sm:p-8 shadow-sm border border-stone-100">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-xl font-bold text-forest-900">รีวิวจากผู้เข้าพัก</h2>
-                {avgRating !== null && (
-                  <span className="flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-sm font-bold text-amber-900">
-                    <Star size={15} className="fill-amber-400 text-amber-400" />
-                    {avgRating.toFixed(1)} / 5.0
-                  </span>
-                )}
-              </div>
-
-              {reviews.length === 0 ? (
-                <div className="mt-6 rounded-2xl bg-stone-50 p-6 text-center text-sm text-charcoal-400">
-                  ยังไม่มีรีวิวสำหรับห้องนี้ — มาร่วมเป็นคนแรกที่เข้าพักและแบ่งปันประสบการณ์!
-                </div>
-              ) : (
-                <ul className="mt-6 space-y-4 divide-y divide-stone-100">
-                  {reviews.map((review) => (
-                    <li key={review.review_id} className="pt-4 first:pt-0">
+            {/* Room Selection Grid */}
+            <section className={`${CARD} p-5 sm:p-6`}>
+              <SectionHeading
+                icon={<BedDouble size={16} />}
+                title="เลือกหมายเลขห้องพักที่ต้องการ"
+                action={<span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-[11px] font-bold text-forest-700">ว่าง {availableCount} จาก {sortedPhysicalRooms.length} ห้อง</span>}
+              />
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {sortedPhysicalRooms.map((physical) => {
+                  const isSelected = selectedRoomIds.includes(physical.room_id);
+                  return (
+                    <button key={physical.room_id} disabled={!physical.is_available} onClick={() => handleToggleRoom(physical.room_id)} className={`group relative flex flex-col gap-1 rounded-2xl border p-4 text-left transition-all duration-300 ${isSelected ? 'border-forest-900 bg-forest-900 shadow-md' : physical.is_available ? 'border-stone-200 bg-white hover:border-forest-300 hover:shadow-md' : 'cursor-not-allowed border-stone-100 bg-stone-50/50 opacity-60'}`}>
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-forest-800 font-semibold text-white shadow-sm text-sm">
-                            {review.first_name?.[0] || 'U'}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-charcoal-800">
-                              {review.first_name} {review.last_name}
-                            </p>
-                            <p className="text-[11px] text-charcoal-400">
-                              {new Date(review.review_date).toLocaleDateString('th-TH', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-0.5 rounded-full bg-stone-50 px-2 py-1">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              size={13}
-                              className={
-                                star <= review.rating
-                                  ? 'fill-amber-400 text-amber-400'
-                                  : 'text-stone-200'
-                              }
-                            />
-                          ))}
+                        <span className={`text-[15px] font-bold ${isSelected ? 'text-white' : 'text-forest-800'}`}>ห้อง {physical.room_number}</span>
+                        {isSelected ? (
+                          <div className="grid h-5 w-5 place-items-center rounded-full bg-white text-forest-900"><CheckCircle2 size={12} /></div>
+                        ) : (
+                          <div className={`h-4 w-4 rounded-full border-2 ${physical.is_available ? 'border-stone-300 group-hover:border-forest-400' : 'border-stone-200'}`} />
+                        )}
+                      </div>
+                      <span className={`text-[12px] ${isSelected ? 'text-forest-100' : 'text-charcoal-400'}`}>{physical.is_available ? `ความจุ ${room.capacity} ท่าน` : 'ถูกจองแล้ว'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Reviews */}
+            <section className={`${CARD} p-5 sm:p-6`}>
+              <SectionHeading icon={<Star size={16} />} title="รีวิวจากผู้เข้าพัก" />
+              <div className="mt-4 flex flex-col gap-6 sm:flex-row">
+                <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 sm:w-32 sm:border-r sm:border-stone-100">
+                  <span className="font-sans text-[44px] font-extrabold leading-none text-forest-900">{avgRating !== null ? avgRating.toFixed(1) : '-'}</span>
+                  <Stars value={avgRating ?? 0} size={13} />
+                  <span className="text-[11px] text-stone-500">จาก {reviews.length} รีวิว</span>
+                </div>
+                <ul className="flex-1 space-y-3">
+                  {reviews.map((review) => (
+                    <li key={review.review_id} className="rounded-xl bg-stone-50/60 p-4">
+                      <div className="flex items-center gap-3">
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-900 text-[13px] font-bold text-cream-50">{review.first_name?.[0]?.toUpperCase() || 'U'}</span>
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-bold text-forest-900">{review.first_name} {review.last_name}</p>
+                          <div className="mt-1 flex items-center gap-2"><Stars value={review.rating} size={11} /><span className="text-[11px] text-charcoal-400">{new Date(review.review_date).toLocaleDateString('th-TH')}</span></div>
                         </div>
                       </div>
-                      {review.comment && (
-                        <p className="ml-12 mt-2 text-sm leading-relaxed text-charcoal-600 bg-stone-50/60 p-3 rounded-2xl">
-                          {review.comment}
-                        </p>
-                      )}
+                      {review.comment && <p className="mt-2.5 pl-12 text-[13px] leading-relaxed text-charcoal-500">{review.comment}</p>}
                     </li>
                   ))}
                 </ul>
-              )}
-            </div>
+              </div>
+            </section>
           </div>
 
-          {/* Detail sidebar — book only from /rooms list */}
-          <aside className="lg:sticky lg:top-24 lg:self-start">
-            <div className="rounded-3xl bg-white p-6 shadow-xl shadow-stone-200/50 border border-stone-100/80 backdrop-blur-md">
-              <div className="flex items-baseline justify-between border-b border-stone-100 pb-4">
-                <div>
-                  <span className="text-xs text-charcoal-400 font-medium">ราคาเริ่มต้น</span>
-                  <p className="flex items-baseline gap-1">
-                    <span className="font-display text-3xl font-bold text-forest-900 tabular-nums">
-                      ฿{Number(room.price_per_night).toLocaleString()}
-                    </span>
-                    <span className="text-xs text-charcoal-400">/ คืน</span>
-                  </p>
-                </div>
-                <span className="flex items-center gap-1 text-xs text-charcoal-400">
-                  <Users size={14} /> สูงสุด {room.capacity} คน
-                </span>
-              </div>
-
-              <div className="mt-5">
-                <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-charcoal-500">
-                  <CalendarIcon size={14} className="text-forest-800" /> ดูวันว่างของห้องนี้
-                </label>
-                <div className="rounded-2xl border border-stone-200 bg-stone-50/50 p-2">
-                  <BookingCalendar
-                    mode="range"
-                    value={range}
-                    onSelect={setRange}
-                    cursor={cursor}
-                    onCursorChange={setCursor}
-                    dayStatus={dayStatus}
-                    loading={calendarLoading}
-                    minISO={today}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-cream-50/80 p-3 text-xs border border-cream-200/60">
-                <div>
-                  <span className="text-charcoal-400 block font-medium">เช็คอิน</span>
-                  <span className="font-semibold text-forest-900 mt-0.5 block text-xs">
-                    {range ? formatThaiDate(range.start) : '—'}
-                  </span>
-                </div>
-                <div className="border-l border-cream-200/80 pl-3">
-                  <span className="text-charcoal-400 block font-medium">เช็คเอาต์</span>
-                  <span className="font-semibold text-forest-900 mt-0.5 block text-xs">
-                    {range && nights > 0 ? formatThaiDate(range.end) : '—'}
-                  </span>
-                </div>
-              </div>
-
-              {blockedNights.length > 0 && (
-                <div className="mt-4 flex gap-2 rounded-2xl bg-red-50 p-3.5 text-xs text-red-700 border border-red-100">
-                  <Info size={16} className="shrink-0 text-red-500" />
-                  <p className="leading-relaxed">
-                    มีคืนที่ห้องเต็มแล้ว ({blockedNights.map(formatThaiDate).join(', ')})
-                  </p>
-                </div>
-              )}
-
-              {nights > 0 && blockedNights.length === 0 && (
-                <p className="mt-4 text-sm text-charcoal-500">
-                  ประมาณ ฿{basePrice.toLocaleString()} สำหรับ {nights} คืน
-                </p>
-              )}
-
-              <Link
-                href={
-                  range && nights > 0
-                    ? `/rooms?check_in=${range.start}&check_out=${range.end}`
-                    : '/rooms'
-                }
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-forest-900 py-3.5 font-semibold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800"
-              >
-                ไปจองที่หน้ารายการห้อง
-              </Link>
-              <p className="mt-3 text-center text-[11px] text-charcoal-400">
-                เลือกประเภทและจำนวนห้องได้ที่หน้ารายการ — หน้านี้สำหรับดูรายละเอียดเท่านั้น
-              </p>
+          {/* ---- ฝั่งขวา: การ์ดสรุปการจอง ---- */}
+          <aside className="lg:col-span-4">
+            <div className="mb-8 lg:sticky lg:top-8">
+              <BookingSummaryCard currentRoomType={room} />
             </div>
           </aside>
         </div>
       </div>
-
-      {/* Lightbox Modal */}
-      {lightboxIndex !== null && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md transition-all"
-          onClick={() => setLightboxIndex(null)}
-        >
-          <button
-            type="button"
-            className="absolute right-5 top-5 z-10 rounded-full bg-white/10 p-2.5 text-white backdrop-blur-md transition-all hover:bg-white/20"
-            onClick={() => setLightboxIndex(null)}
-          >
-            <X size={22} />
-          </button>
-          {lightboxTotal > 1 && (
+      {lightboxOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/95 backdrop-blur-sm" onClick={() => setLightboxOpen(false)}>
+          <div className="absolute inset-x-4 top-4 flex items-center justify-between">
+            <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-[12px] font-semibold text-cream-100">{activeImage + 1} / {galleryImages.length}</span>
+            <button type="button" onClick={() => setLightboxOpen(false)} className="grid h-9 w-9 place-items-center rounded-full bg-white/10 text-cream-100"><X size={18} /></button>
+          </div>
+          {galleryImages.length > 1 && (
             <>
-              <button
-                type="button"
-                className="absolute left-5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white backdrop-blur-md transition-all hover:bg-white/20"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setLightboxIndex((lightboxCurrent - 1 + lightboxTotal) % lightboxTotal);
-                }}
-              >
-                <ChevronLeft size={24} />
-              </button>
-              <button
-                type="button"
-                className="absolute right-5 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white backdrop-blur-md transition-all hover:bg-white/20"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setLightboxIndex((lightboxCurrent + 1) % lightboxTotal);
-                }}
-              >
-                <ChevronRight size={24} />
-              </button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); scrollToImage(activeImage - 1); }} disabled={activeImage === 0} className="absolute left-4 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-cream-100 disabled:opacity-30"><ChevronLeft size={20} /></button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); scrollToImage(activeImage + 1); }} disabled={activeImage === galleryImages.length - 1} className="absolute right-4 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-cream-100 disabled:opacity-30"><ChevronRight size={20} /></button>
             </>
           )}
-          <div className="relative max-h-[85vh] max-w-[90vw]">
-            <img
-              src={resolveMediaUrl(galleryImages[lightboxCurrent])}
-              alt={`${room.room_name} รูปที่ ${lightboxCurrent + 1}`}
-              className="max-h-[85vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
-            />
-            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-xs text-white backdrop-blur-md">
-              {lightboxCurrent + 1} / {lightboxTotal}
-            </div>
-          </div>
+          <img src={resolveMediaUrl(galleryImages[activeImage])} alt="" className="max-h-[85vh] max-w-[92vw] rounded-2xl object-contain" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </div>

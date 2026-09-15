@@ -17,6 +17,7 @@ export interface AuthUser {
   address?: string;
   auth_provider?: string;
   has_password?: boolean;
+  created_at?: string;
 }
 
 const getStoredToken = (): string | null => {

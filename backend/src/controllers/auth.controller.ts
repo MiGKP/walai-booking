@@ -426,15 +426,15 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
     const authUser = req.user as AuthPayload;
     if (authUser.role === 'customer') {
       const result = await pool.query(
-        'SELECT member_id as id, first_name, last_name, email, phone, line_id, facebook, image_profile, avatar_url, auth_provider, CASE WHEN password IS NOT NULL THEN true ELSE false END as has_password FROM members WHERE member_id = $1',
+        'SELECT member_id as id, first_name, last_name, email, phone, line_id, facebook, image_profile, avatar_url, auth_provider, created_at, CASE WHEN password IS NOT NULL THEN true ELSE false END as has_password FROM members WHERE member_id = $1',
         [authUser.id]
       );
-      
+
       const data = result.rows[0];
       const name = buildDisplayName(data.first_name, data.last_name);
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         data: {
           id: data.id,
           first_name: data.first_name || '',
@@ -447,8 +447,9 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
           avatar: data.image_profile || data.avatar_url,
           role: 'customer',
           auth_provider: data.auth_provider,
-          has_password: data.has_password
-        } 
+          has_password: data.has_password,
+          created_at: data.created_at
+        }
       });
     } else {
       const result = await pool.query(

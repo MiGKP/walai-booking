@@ -12,6 +12,8 @@ type GuardOptions = {
   guestOnly?: boolean;
   /** where to redirect unauthenticated users (default: /auth/login) */
   redirectTo?: string;
+  /** ข้ามการ redirect อัตโนมัติของ guard ชั่วคราว ใช้ตอนหน้านั้นกำลังคุมปลายทางเองอยู่ (เช่น หลัง login/register สำเร็จ) */
+  skipRedirect?: boolean;
 };
 
 /**
@@ -20,13 +22,18 @@ type GuardOptions = {
  */
 // hook กลางสำหรับป้องกันการเข้าถึงหน้าโดยอิงจากสถานะ login และ role ของผู้ใช้ พร้อมแก้ปัญหา hydration ของ Zustand
 export function useAuthGuard(options: GuardOptions = {}) {
-  const { allowedRoles = [], guestOnly = false, redirectTo = '/auth/login' } = options;
+  const { allowedRoles = [], guestOnly = false, redirectTo = '/auth/login', skipRedirect = false } = options;
   const router = useRouter();
   const { isAuthenticated, user, loading } = useAuth();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (loading) {
+      return;
+    }
+
+    if (skipRedirect) {
+      setReady(true);
       return;
     }
 
@@ -58,7 +65,7 @@ export function useAuthGuard(options: GuardOptions = {}) {
     }
 
     setReady(true);
-  }, [allowedRoles, guestOnly, isAuthenticated, loading, redirectTo, router, user]);
+  }, [allowedRoles, guestOnly, isAuthenticated, loading, redirectTo, router, user, skipRedirect]);
 
   return { ready, user, isAuthenticated };
 }

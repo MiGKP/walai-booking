@@ -2,13 +2,70 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Phone, Save, Lock, Upload } from "lucide-react";
+import { User, Mail, Phone, Save, Lock, MessageCircle, Facebook, CalendarDays, Camera, Eye, EyeOff } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import toast from "react-hot-toast";
-import Link from "next/link";
+import MyBookingsPanel from "@/components/dashboard/MyBookingsPanel";
+
+const CARD = "rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)] p-5 sm:p-6";
+
+function SectionHeading({ icon, title }: { icon: React.ReactNode; title: string }): React.ReactElement {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">{icon}</span>
+      <h2 className="font-sans text-[16px] font-semibold text-forest-900">{title}</h2>
+    </div>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }): React.ReactElement {
+  return <label className="mb-1.5 block text-[12.5px] font-semibold text-charcoal-600">{children}</label>;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "ผู้ดูแลระบบ",
+  customer: "ลูกค้า",
+  room_staff: "เจ้าหน้าที่ห้องพัก",
+  boat_staff: "เจ้าหน้าที่เรือ",
+};
+
+// input รหัสผ่านพร้อมปุ่มแสดง/ซ่อน (ไอคอนตา)
+function PasswordField({
+  value,
+  onChange,
+  required,
+  minLength,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+  minLength?: number;
+}): React.ReactElement {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        type={visible ? "text" : "password"}
+        required={required}
+        minLength={minLength}
+        className="input-field pr-11"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-charcoal-600"
+      >
+        {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
+}
 
 // หน้าโปรไฟล์ของผู้ใช้ ใช้สำหรับแก้ไขข้อมูลส่วนตัว และจัดการรหัสผ่านตามประเภทการสมัครของ member
 export default function DashboardPage() {
@@ -22,7 +79,6 @@ export default function DashboardPage() {
     line_id: "",
     facebook: "",
   });
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState("");
   const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [passwords, setPasswords] = useState({
@@ -33,10 +89,18 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const displayAvatarSrc = useMemo(
     () => (avatarLoadError ? "" : avatarPreview),
     [avatarLoadError, avatarPreview],
   );
+
+  // เคลียร์ blob URL ทิ้งตอน unmount กันหน่วยความจำรั่ว
+  useEffect(() => {
+    return () => {
+      if (avatarPreview.startsWith("blob:")) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [avatarPreview]);
 
   useEffect(() => {
     if (!ready || !user) return;
@@ -66,36 +130,42 @@ export default function DashboardPage() {
     }
   };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // กดที่รูปแล้วเลือกไฟล์ปุ๊บอัปโหลดทันที ไม่ต้องมีขั้นตอน/ปุ่มแยกต่างหาก
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setAvatarFile(file);
-    setAvatarLoadError(false);
-    setAvatarPreview(URL.createObjectURL(file));
-  };
 
-  const handleUploadAvatar = async () => {
-    if (!avatarFile) {
-      toast.error("กรุณาเลือกรูปโปรไฟล์ก่อน");
+    if (!file.type.startsWith("image/")) {
+      toast.error("กรุณาเลือกไฟล์รูปภาพเท่านั้น");
+      e.target.value = "";
       return;
     }
+    const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_AVATAR_SIZE) {
+      toast.error("ขนาดไฟล์ต้องไม่เกิน 5MB");
+      e.target.value = "";
+      return;
+    }
+
+    setAvatarLoadError(false);
+    setAvatarPreview(URL.createObjectURL(file));
 
     setUploadingAvatar(true);
     try {
       const formData = new FormData();
-      formData.append("avatar", avatarFile);
+      formData.append("avatar", file);
       const res = await api.post("/auth/profile/avatar", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       updateUser({ avatar: res.data.data.avatar });
       setAvatarLoadError(false);
       setAvatarPreview(resolveAvatarUrl(res.data.data.avatar));
-      setAvatarFile(null);
       toast.success("อัปเดตรูปโปรไฟล์สำเร็จ");
     } catch (err: any) {
       toast.error(err.response?.data?.message || "อัปโหลดรูปโปรไฟล์ไม่สำเร็จ");
     } finally {
       setUploadingAvatar(false);
+      e.target.value = "";
     }
   };
 
@@ -118,6 +188,7 @@ export default function DashboardPage() {
       });
       toast.success("เปลี่ยนรหัสผ่านสำเร็จ");
       setPasswords({ current_password: "", new_password: "", confirm: "" });
+      setShowPasswordModal(false);
     } catch (err: any) {
       toast.error(err.response?.data?.message || "เปลี่ยนรหัสผ่านไม่สำเร็จ");
     } finally {
@@ -143,6 +214,7 @@ export default function DashboardPage() {
       });
       toast.success("ตั้งรหัสผ่านสำเร็จ");
       setPasswords({ current_password: "", new_password: "", confirm: "" });
+      setShowPasswordModal(false);
       // Update local user state to reflect they now have a password
       updateUser({ has_password: true });
     } catch (err: any) {
@@ -152,320 +224,315 @@ export default function DashboardPage() {
     }
   };
 
+  // ปิด popup รหัสผ่าน โดยเตือนก่อนถ้ามีข้อมูลที่พิมพ์ไว้ยังไม่ได้บันทึก
+  const closePasswordModal = () => {
+    const hasUnsavedInput = Object.values(passwords).some((v) => v !== "");
+    if (hasUnsavedInput && !confirm("คุณกรอกข้อมูลไว้ยังไม่ได้บันทึก ต้องการปิดหน้าต่างนี้หรือไม่?")) {
+      return;
+    }
+    setPasswords({ current_password: "", new_password: "", confirm: "" });
+    setShowPasswordModal(false);
+  };
+
   if (!user) return null;
 
   return (
-    <div className="min-h-screen pt-16 bg-gray-50">
-      <div className="container mx-auto px-4 py-8 max-w-3xl">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">โปรไฟล์ของฉัน</h1>
-          <p className="text-gray-500 mt-1">จัดการข้อมูลส่วนตัวของคุณ</p>
-        </div>
+    <div className="min-h-screen bg-cream-100 pt-16">
+      <div className="w-full px-4 py-4 sm:px-6 lg:px-10">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,480px)_1fr] lg:items-start">
+          {/* ---- ฝั่งซ้าย: โปรไฟล์ ---- */}
+          <div className="space-y-5">
+            {/* Avatar + Info */}
+            <section className={CARD}>
+              <h1 className="mb-4 font-sans text-[18px] font-semibold text-forest-900">โปรไฟล์ของฉัน</h1>
+              <div className="flex items-center gap-4 border-b border-stone-100 pb-5">
+                <label
+                  htmlFor="avatar-upload"
+                  className={`group relative grid h-[72px] w-[72px] shrink-0 place-items-center ${user.role === "customer" ? "cursor-pointer" : ""}`}
+                >
+                  <div className="grid h-full w-full place-items-center overflow-hidden rounded-2xl bg-forest-50">
+                    {displayAvatarSrc ? (
+                      <img
+                        src={displayAvatarSrc}
+                        alt={`${user.first_name} ${user.last_name}`}
+                        className="h-full w-full object-cover"
+                        onError={() => setAvatarLoadError(true)}
+                      />
+                    ) : (
+                      <User size={32} className="text-forest-600" />
+                    )}
+                    {user.role === "customer" && (
+                      <div className="absolute inset-0 grid place-items-center rounded-2xl bg-forest-950/0 text-cream-100 opacity-0 transition-all group-hover:bg-forest-950/50 group-hover:opacity-100">
+                        <Camera size={20} />
+                      </div>
+                    )}
+                  </div>
+                  {user.role === "customer" && (
+                    <>
+                      {/* ป้ายกล้องมุมล่างขวา แสดงตลอดเวลาให้รู้ว่ากดตรงนี้เปลี่ยนรูปได้ */}
+                      <span
+                        role="img"
+                        aria-label="เปลี่ยนรูปโปรไฟล์"
+                        className="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full bg-forest-800 text-white ring-2 ring-white"
+                      >
+                        <Camera size={12} />
+                      </span>
+                      <input
+                        id="avatar-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarChange}
+                        disabled={uploadingAvatar}
+                        className="hidden"
+                      />
+                    </>
+                  )}
+                </label>
+                <div className="min-w-0">
+                  <h2 className="truncate font-sans text-[18px] font-semibold text-forest-900">
+                    {user.first_name} {user.last_name}
+                  </h2>
+                  <p className="truncate text-[12.5px] text-charcoal-400">{user.email}</p>
+                  {user.created_at && (
+                    <p className="truncate text-[11px] text-charcoal-400">
+                      สมัครสมาชิกเมื่อ{" "}
+                      {new Date(user.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}
+                    </p>
+                  )}
+                  <span
+                    className={`mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wider ${user.role === "admin" ? "bg-bamboo-50 text-bamboo-600" : user.role === "customer" ? "bg-forest-50 text-forest-700" : "bg-lagoon-50 text-lagoon-700"}`}
+                  >
+                    {ROLE_LABELS[user.role] || user.role}
+                  </span>
+                  {uploadingAvatar && <p className="mt-1 text-[11px] font-semibold text-forest-600">กำลังอัปโหลดรูป...</p>}
+                </div>
+                {user.role === "customer" && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordModal(true)}
+                    className="ml-auto inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-stone-200 px-3 py-1.5 text-[12px] font-bold text-forest-800 transition-colors hover:bg-stone-50"
+                  >
+                    <Lock size={13} />
+                    {user.auth_provider === "google" && !user.has_password ? "ตั้งรหัสผ่าน" : "เปลี่ยนรหัสผ่าน"}
+                  </button>
+                )}
+              </div>
 
-        {/* Nav Tabs */}
-        <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
-          <Link
-            href="/dashboard"
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-white text-gray-900 shadow-sm"
-          >
-            โปรไฟล์
-          </Link>
-          <Link
-            href="/dashboard/bookings"
-            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900"
-          >
-            การจองของฉัน
-          </Link>
-        </div>
-
-        {/* Avatar + Info */}
-        <div className="card p-6 mb-5">
-          <div className="flex items-center gap-5 mb-6">
-            <div className="w-20 h-20 rounded-2xl bg-teal-100 flex items-center justify-center overflow-hidden">
-              {displayAvatarSrc ? (
-                <img
-                  src={displayAvatarSrc}
-                  alt={`${user.first_name} ${user.last_name}`}
-                  className="w-full h-full object-cover"
-                  onError={() => setAvatarLoadError(true)}
-                />
-              ) : (
-                <User size={36} className="text-teal-600" />
-              )}
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                {user.first_name} {user.last_name}
-              </h2>
-              <p className="text-gray-500 text-sm">{user.email}</p>
-              <span
-                className={`inline-block mt-1 text-xs font-medium px-2.5 py-1 rounded-full ${user.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-teal-100 text-teal-700"}`}
-              >
-                {user.role === "admin" ? "ผู้ดูแลระบบ" : "ลูกค้า"}
-              </span>
-            </div>
+              <form onSubmit={handleSaveProfile} className="mt-5 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>ชื่อ</FieldLabel>
+                    <input
+                      type="text"
+                      required
+                      className="input-field"
+                      value={profile.first_name || ""}
+                      onChange={(e) =>
+                        setProfile({ ...profile, first_name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>นามสกุล</FieldLabel>
+                    <input
+                      type="text"
+                      required
+                      className="input-field"
+                      value={profile.last_name || ""}
+                      onChange={(e) =>
+                        setProfile({ ...profile, last_name: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>อีเมล</FieldLabel>
+                  <div className="relative">
+                    <Mail
+                      size={16}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+                    />
+                    <input
+                      type="email"
+                      disabled
+                      className="input-field cursor-not-allowed bg-stone-50 pl-10 text-charcoal-400"
+                      value={user.email}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>เบอร์โทรศัพท์</FieldLabel>
+                  <div className="relative">
+                    <Phone
+                      size={16}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+                    />
+                    <input
+                      type="tel"
+                      className="input-field pl-10"
+                      placeholder="08X-XXX-XXXX"
+                      value={profile.phone}
+                      onChange={(e) =>
+                        setProfile({ ...profile, phone: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>LINE ID</FieldLabel>
+                  <div className="relative">
+                    <MessageCircle size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                    <input
+                      type="text"
+                      className="input-field pl-10"
+                      placeholder="เช่น walai_user"
+                      value={profile.line_id}
+                      onChange={(e) =>
+                        setProfile({ ...profile, line_id: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>Facebook</FieldLabel>
+                  <div className="relative">
+                    <Facebook size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                    <input
+                      type="text"
+                      className="input-field pl-10"
+                      placeholder="ลิงก์หรือชื่อบัญชี Facebook"
+                      value={profile.facebook}
+                      onChange={(e) =>
+                        setProfile({ ...profile, facebook: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn-primary flex w-full items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  <Save size={16} />
+                  {saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
+                </button>
+              </form>
+            </section>
           </div>
 
-          {user.role === "customer" && (
-            <div className="mb-6 rounded-xl border border-gray-200 p-4 bg-gray-50">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                รูปโปรไฟล์
-              </label>
-              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                  className="block w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-teal-100 file:px-4 file:py-2 file:text-teal-700"
-                />
-                <button
-                  type="button"
-                  onClick={handleUploadAvatar}
-                  disabled={uploadingAvatar || !avatarFile}
-                  className="btn-outline flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <Upload size={16} />{" "}
-                  {uploadingAvatar ? "กำลังอัปโหลด..." : "อัปโหลดรูป"}
-                </button>
-              </div>
+          {/* ---- ฝั่งขวา: การจองของฉัน (จำกัดความสูง + เลื่อนในกรอบตัวเอง ไม่ดันให้ทั้งหน้ายาวเกินจอ) ---- */}
+          <section className={`${CARD} flex flex-col lg:h-[calc(100vh-5rem)]`}>
+            <SectionHeading icon={<CalendarDays size={16} />} title="การจองของฉัน" />
+            <div className="scrollbar-forest mt-5 min-h-0 flex-1 overflow-y-auto pr-1">
+              <MyBookingsPanel ready={ready} stickyTabs />
             </div>
-          )}
-
-          <form onSubmit={handleSaveProfile} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  ชื่อ
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="input-field"
-                  value={profile.first_name || ""}
-                  onChange={(e) =>
-                    setProfile({ ...profile, first_name: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  นามสกุล
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="input-field"
-                  value={profile.last_name || ""}
-                  onChange={(e) =>
-                    setProfile({ ...profile, last_name: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                อีเมล
-              </label>
-              <div className="relative">
-                <Mail
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="email"
-                  disabled
-                  className="input-field pl-10 bg-gray-50 text-gray-500 cursor-not-allowed"
-                  value={user.email}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                เบอร์โทรศัพท์
-              </label>
-              <div className="relative">
-                <Phone
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  type="tel"
-                  className="input-field pl-10"
-                  placeholder="08X-XXX-XXXX"
-                  value={profile.phone}
-                  onChange={(e) =>
-                    setProfile({ ...profile, phone: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                LINE ID
-              </label>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="เช่น walai_user"
-                value={profile.line_id}
-                onChange={(e) =>
-                  setProfile({ ...profile, line_id: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Facebook
-              </label>
-              <input
-                type="text"
-                className="input-field"
-                placeholder="ลิงก์หรือชื่อบัญชี Facebook"
-                value={profile.facebook}
-                onChange={(e) =>
-                  setProfile({ ...profile, facebook: e.target.value })
-                }
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={saving}
-              className="btn-primary flex items-center gap-2 disabled:opacity-60"
-            >
-              <Save size={16} />{" "}
-              {saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
-            </button>
-          </form>
+          </section>
         </div>
+      </div>
 
-        {/* Password Section: only show for customers */}
-        {user.role === "customer" && (
-          <div className="card p-6">
+      {/* Popup เปลี่ยน/ตั้งรหัสผ่าน */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-sm" onClick={closePasswordModal}>
+          <div className={`${CARD} w-full max-w-sm`} onClick={(e) => e.stopPropagation()}>
             {user.auth_provider === "google" && !user.has_password ? (
               /* Google user — offer to set a password */
               <>
-                <h2 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
-                  <Lock size={20} className="text-teal-600" /> ตั้งรหัสผ่าน
-                </h2>
-                <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-lg text-sm">
-                  คุณล็อกอินด้วย Google อยู่
-                  คุณสามารถตั้งรหัสผ่านเพื่อใช้ล็อกอินด้วยอีเมลในครั้งต่อไปได้
+                <SectionHeading icon={<Lock size={16} />} title="ตั้งรหัสผ่าน" />
+                <div className="mt-4 rounded-xl bg-forest-50/60 p-3 text-[12.5px] leading-relaxed text-forest-800">
+                  คุณล็อกอินด้วย Google อยู่ คุณสามารถตั้งรหัสผ่านเพื่อใช้ล็อกอินด้วยอีเมลในครั้งต่อไปได้
                 </div>
-                <form onSubmit={handleSetPassword} className="space-y-4">
+                <form onSubmit={handleSetPassword} className="mt-4 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      รหัสผ่านใหม่
-                    </label>
-                    <input
-                      type="password"
+                    <FieldLabel>รหัสผ่านใหม่</FieldLabel>
+                    <PasswordField
                       required
                       minLength={6}
-                      className="input-field"
                       value={passwords.new_password}
-                      onChange={(e) =>
-                        setPasswords({
-                          ...passwords,
-                          new_password: e.target.value,
-                        })
-                      }
+                      onChange={(v) => setPasswords({ ...passwords, new_password: v })}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      ยืนยันรหัสผ่านใหม่
-                    </label>
-                    <input
-                      type="password"
+                    <FieldLabel>ยืนยันรหัสผ่านใหม่</FieldLabel>
+                    <PasswordField
                       required
                       minLength={6}
-                      className="input-field"
                       value={passwords.confirm}
-                      onChange={(e) =>
-                        setPasswords({ ...passwords, confirm: e.target.value })
-                      }
+                      onChange={(v) => setPasswords({ ...passwords, confirm: v })}
                     />
                   </div>
-                  <button
-                    type="submit"
-                    disabled={changingPw}
-                    className="btn-outline flex items-center gap-2 disabled:opacity-60"
-                  >
-                    <Lock size={16} />{" "}
-                    {changingPw ? "กำลังบันทึก..." : "ตั้งรหัสผ่าน"}
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={closePasswordModal}
+                      className="flex-1 rounded-xl border border-stone-200 py-3 text-[13px] font-bold text-stone-600 transition-colors hover:bg-stone-50"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={changingPw}
+                      className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
+                    >
+                      <Lock size={16} />
+                      {changingPw ? "กำลังบันทึก..." : "ตั้งรหัสผ่าน"}
+                    </button>
+                  </div>
                 </form>
               </>
             ) : (
               /* Email user (or Google user that already set password) — change password */
               <>
-                <h2 className="text-lg font-bold text-gray-900 mb-5 flex items-center gap-2">
-                  <Lock size={20} className="text-teal-600" /> เปลี่ยนรหัสผ่าน
-                </h2>
-                <form onSubmit={handleChangePassword} className="space-y-4">
+                <SectionHeading icon={<Lock size={16} />} title="เปลี่ยนรหัสผ่าน" />
+                <form onSubmit={handleChangePassword} className="mt-4 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      รหัสผ่านปัจจุบัน
-                    </label>
-                    <input
-                      type="password"
+                    <FieldLabel>รหัสผ่านปัจจุบัน</FieldLabel>
+                    <PasswordField
                       required
-                      className="input-field"
                       value={passwords.current_password}
-                      onChange={(e) =>
-                        setPasswords({
-                          ...passwords,
-                          current_password: e.target.value,
-                        })
-                      }
+                      onChange={(v) => setPasswords({ ...passwords, current_password: v })}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      รหัสผ่านใหม่
-                    </label>
-                    <input
-                      type="password"
+                    <FieldLabel>รหัสผ่านใหม่</FieldLabel>
+                    <PasswordField
                       required
                       minLength={6}
-                      className="input-field"
                       value={passwords.new_password}
-                      onChange={(e) =>
-                        setPasswords({
-                          ...passwords,
-                          new_password: e.target.value,
-                        })
-                      }
+                      onChange={(v) => setPasswords({ ...passwords, new_password: v })}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      ยืนยันรหัสผ่านใหม่
-                    </label>
-                    <input
-                      type="password"
+                    <FieldLabel>ยืนยันรหัสผ่านใหม่</FieldLabel>
+                    <PasswordField
                       required
                       minLength={6}
-                      className="input-field"
                       value={passwords.confirm}
-                      onChange={(e) =>
-                        setPasswords({ ...passwords, confirm: e.target.value })
-                      }
+                      onChange={(v) => setPasswords({ ...passwords, confirm: v })}
                     />
                   </div>
-                  <button
-                    type="submit"
-                    disabled={changingPw}
-                    className="btn-outline flex items-center gap-2 disabled:opacity-60"
-                  >
-                    <Lock size={16} />{" "}
-                    {changingPw ? "กำลังบันทึก..." : "เปลี่ยนรหัสผ่าน"}
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={closePasswordModal}
+                      className="flex-1 rounded-xl border border-stone-200 py-3 text-[13px] font-bold text-stone-600 transition-colors hover:bg-stone-50"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={changingPw}
+                      className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
+                    >
+                      <Lock size={16} />
+                      {changingPw ? "กำลังบันทึก..." : "เปลี่ยนรหัสผ่าน"}
+                    </button>
+                  </div>
                 </form>
               </>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -104,6 +104,30 @@ h1, h2, h3, h4, h5, h6 {
     @apply bg-forest-50 text-forest-700 text-xs font-medium px-2.5 py-1 rounded-full;
   }
 
+  /* — Scrollbar มินิมอล (โทนเทาเป็นกลาง ไม่มีปุ่มลูกศรบน-ล่าง) — ใช้กับกล่องที่ overflow-y-auto ภายในตัวเอง */
+  .scrollbar-forest {
+    scrollbar-width: thin;
+    scrollbar-color: #D4CEC3 transparent;
+  }
+  .scrollbar-forest::-webkit-scrollbar {
+    width: 4px;
+  }
+  .scrollbar-forest::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-forest::-webkit-scrollbar-thumb {
+    background-color: #D4CEC3;
+    border-radius: 9999px;
+  }
+  .scrollbar-forest::-webkit-scrollbar-thumb:hover {
+    background-color: #ADA89D;
+  }
+  .scrollbar-forest::-webkit-scrollbar-button {
+    display: none;
+    height: 0;
+    width: 0;
+  }
+
   /* ——————————————————————————————
      Animations
      —————————————————————————————— */

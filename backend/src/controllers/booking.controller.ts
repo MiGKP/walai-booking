@@ -16,6 +16,7 @@ import {
 interface BookingItemInput {
   room_type_id: number;
   quantity: number;
+  promotion_id: number | null;
 }
 
 interface RoomTypeRow {
@@ -52,10 +53,11 @@ function normalizeItems(body: Record<string, unknown>): BookingItemInput[] {
       return {
         room_type_id: Number(item.room_type_id),
         quantity: Number(item.quantity),
+        promotion_id: item.promotion_id != null ? Number(item.promotion_id) : null,
       };
     });
   }
-  return [{ room_type_id: Number(body.room_type_id), quantity: 1 }];
+  return [{ room_type_id: Number(body.room_type_id), quantity: 1, promotion_id: null }];
 }
 
 function normalizeGuests(body: Record<string, unknown>): {
@@ -120,7 +122,8 @@ export const createRoomBooking = async (
     const checkOutDate = String(body.check_out_date);
     const specialRequests =
       typeof body.special_requests === 'string' ? body.special_requests : null;
-    const promotionId =
+    // legacy: โปรโมชั่นเดียวสำหรับทั้งออเดอร์ (ยังรองรับไว้เผื่อผู้เรียกเก่าที่ไม่ได้ส่ง promotion_id แยกตาม item)
+    const legacyPromotionId =
       body.promotion_id != null ? Number(body.promotion_id) : null;
 
     const items = normalizeItems(body);
@@ -227,16 +230,52 @@ export const createRoomBooking = async (
     const subtotals = lockedRooms.map((room) =>
       lineSubtotal(room.price_per_night, nights)
     );
-    let totalPrice = sumSubtotals(subtotals);
+    const faceValueTotal = sumSubtotals(subtotals);
 
-    if (promotionId) {
+    // แต่ละประเภทห้องใช้โปรโมชั่นของตัวเองได้ (1 ประเภทห้อง : 1 โปรโมชั่น) — คิดส่วนลดแยกตามยอดรวมของประเภทนั้นๆ
+    const promotionByType = new Map<number, number>();
+    for (const item of items) {
+      if (item.promotion_id) promotionByType.set(item.room_type_id, item.promotion_id);
+    }
+    const usesPerItemPromotions = promotionByType.size > 0;
+
+    let totalPrice = faceValueTotal;
+    const appliedPromotions: Array<{ room_type_id: number; promotion_id: number; discount_amount: number }> = [];
+
+    if (usesPerItemPromotions) {
+      totalPrice = 0;
+      // รวมยอดหน้าตั๋วของแต่ละประเภทห้อง (อาจมีหลายห้องต่อประเภท)
+      const typeSubtotals = new Map<number, number>();
+      lockedRooms.forEach((room, idx) => {
+        typeSubtotals.set(room.room_type_id, (typeSubtotals.get(room.room_type_id) ?? 0) + subtotals[idx]);
+      });
+
+      for (const [roomTypeId, typeSubtotal] of typeSubtotals) {
+        const promoId = promotionByType.get(roomTypeId);
+        if (!promoId) {
+          totalPrice += typeSubtotal;
+          continue;
+        }
+        try {
+          const discountedTypeTotal = await applyPromotionDiscount(client, promoId, typeSubtotal, nights);
+          appliedPromotions.push({
+            room_type_id: roomTypeId,
+            promotion_id: promoId,
+            discount_amount: typeSubtotal - discountedTypeTotal,
+          });
+          totalPrice += discountedTypeTotal;
+        } catch (err) {
+          await client.query('ROLLBACK');
+          res.status(400).json({
+            success: false,
+            message: err instanceof Error ? err.message : 'โปรโมชั่นไม่ถูกต้อง',
+          });
+          return;
+        }
+      }
+    } else if (legacyPromotionId) {
       try {
-        totalPrice = await applyPromotionDiscount(
-          client,
-          promotionId,
-          totalPrice,
-          nights
-        );
+        totalPrice = await applyPromotionDiscount(client, legacyPromotionId, faceValueTotal, nights);
       } catch (err) {
         await client.query('ROLLBACK');
         res.status(400).json({
@@ -246,6 +285,9 @@ export const createRoomBooking = async (
         return;
       }
     }
+
+    // เก็บโปรโมชั่นตัวแรกไว้ในคอลัมน์เดิม (room_bookings.promotion_id) เพื่อ backward-compat กับโค้ด/รายงานเดิม
+    const primaryPromotionId = appliedPromotions[0]?.promotion_id ?? legacyPromotionId ?? null;
 
     const guestTotal = adults + children;
     const headerRes = await client.query(
@@ -262,7 +304,7 @@ export const createRoomBooking = async (
         adults,
         children,
         specialRequests,
-        promotionId,
+        primaryPromotionId,
         totalPrice,
       ]
     );
@@ -292,10 +334,21 @@ export const createRoomBooking = async (
       });
     }
 
-    if (promotionId) {
+    for (const applied of appliedPromotions) {
+      await client.query(
+        `INSERT INTO booking_room_promotions (room_booking_id, room_type_id, promotion_id, discount_amount)
+         VALUES ($1, $2, $3, $4)`,
+        [roomBookingId, applied.room_type_id, applied.promotion_id, applied.discount_amount]
+      );
       await client.query(
         'UPDATE promotions SET usage_count = usage_count + 1 WHERE id = $1',
-        [promotionId]
+        [applied.promotion_id]
+      );
+    }
+    if (!usesPerItemPromotions && legacyPromotionId) {
+      await client.query(
+        'UPDATE promotions SET usage_count = usage_count + 1 WHERE id = $1',
+        [legacyPromotionId]
       );
     }
 
@@ -333,7 +386,7 @@ export const createRoomBooking = async (
     res.status(201).json({
       success: true,
       message: 'Booking created',
-      data: { ...header, rooms: lineRows },
+      data: { ...header, rooms: lineRows, applied_promotions: appliedPromotions },
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -360,7 +413,19 @@ export const getUserRoomBookings = async (
                 rb.check_in as check_in_date, rb.check_out as check_out_date,
                 rb.guest_count as guests, rb.adults, rb.children,
                 rb.total_price, rb.status, rb.special_request, rb.created_at,
+                rb.reject_reason, rb.payment_status, rb.payment_date,
+                rb.checkin_at, rb.checkout_at,
                 ${ROOMS_JSON_SQL} AS rooms,
+                (
+                  SELECT json_agg(json_build_object(
+                    'name', p.name,
+                    'code', p.code,
+                    'discount_amount', brp.discount_amount
+                  ))
+                  FROM booking_room_promotions brp
+                  JOIN promotions p ON p.id = brp.promotion_id
+                  WHERE brp.room_booking_id = rb.room_booking_id
+                ) AS promotions,
                 (
                   SELECT rt.room_name
                   FROM booking_room br
@@ -448,15 +513,32 @@ export const getRoomBookingById = async (
        LIMIT 1`,
       [id]
     );
-    const amResult = await pool.query(
-      `SELECT ra.name FROM room_amenities ra
-       JOIN room_type_amenities rta ON ra.amenity_id = rta.amenity_id
-       WHERE rta.room_type_id = $1 AND ra.status = true`,
+    // ห้องพักผูก amenity ผ่าน room_types.amenity_ids (array) ไม่ใช่ตาราง junction (touch)
+    const roomTypeRes = await pool.query(
+      `SELECT amenity_ids FROM room_types WHERE id = $1`,
       [roomTypeId.rows[0]?.room_type_id]
+    );
+    const amResult = await pool.query(
+      `SELECT name FROM room_amenities WHERE id = ANY($1::integer[]) AND status = true`,
+      [roomTypeRes.rows[0]?.amenity_ids || []]
     );
     const amenities = amResult.rows.map((r: { name: string }) => r.name);
 
-    res.json({ success: true, data: { ...booking, amenities } });
+    // โปรโมชั่นที่ใช้จริงในการจองนี้ (อาจมีมากกว่า 1 อัน ถ้าจองหลายประเภทห้อง)
+    const promoResult = await pool.query(
+      `SELECT p.name, p.code, brp.discount_amount
+       FROM booking_room_promotions brp
+       JOIN promotions p ON p.id = brp.promotion_id
+       WHERE brp.room_booking_id = $1`,
+      [id]
+    );
+    const promotions = promoResult.rows.map((r) => ({
+      name: r.name,
+      code: r.code,
+      discount_amount: Number(r.discount_amount),
+    }));
+
+    res.json({ success: true, data: { ...booking, amenities, promotions } });
   } catch (error) {
     console.error('Get booking error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });

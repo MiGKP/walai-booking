@@ -421,7 +421,7 @@ export default function BookingCalendar(
         ))}
       </div>
 
-      <div className="mt-4 border-t border-stone-100 pt-3">
+      {/* <div className="mt-4 border-t border-stone-100 pt-3">
         <div className="flex flex-wrap items-center justify-start gap-4 text-[12px] text-charcoal-500">
           <div className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-forest-800" />
@@ -436,7 +436,7 @@ export default function BookingCalendar(
             <span className="line-through decoration-stone-400">เต็ม</span>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

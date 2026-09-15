@@ -73,7 +73,9 @@ function GoogleAuthErrorToast(): React.ReactElement | null {
 export default function LoginPage(): React.ReactElement | null {
   const router = useRouter();
   const { login } = useAuth();
-  const { ready } = useAuthGuard({ guestOnly: true });
+  // skipRedirect กันไม่ให้ guard แย่ง redirect ไป /dashboard (ตาม role) ตอน isAuthenticated เพิ่งเปลี่ยนเป็น true จาก login สำเร็จ
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const { ready } = useAuthGuard({ guestOnly: true, skipRedirect: isRedirecting });
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -85,18 +87,16 @@ export default function LoginPage(): React.ReactElement | null {
   ): Promise<void> => {
     event.preventDefault();
     setLoading(true);
+    setIsRedirecting(true);
     try {
       const response = await api.post<LoginResponse>("/auth/login", form);
-      const { user, token, redirectUrl } = response.data.data;
+      const { token } = response.data.data;
       await login(token);
-      const displayName =
-        user.name ||
-        `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
-        user.email;
-      toast.success(`ยินดีต้อนรับ, ${displayName}!`);
-      router.push(redirectUrl || "/");
+      const explicitRedirect = new URLSearchParams(window.location.search).get("redirect");
+      router.push(explicitRedirect || "/");
     } catch (error: unknown) {
       toast.error(getLoginErrorMessage(error));
+      setIsRedirecting(false);
     } finally {
       setLoading(false);
     }

@@ -6,7 +6,6 @@ import { useRouter, usePathname } from "next/navigation";
 import { Menu, X, User, LogOut, ChevronDown, Star } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveAvatarUrl } from "@/lib/avatar";
-import toast from "react-hot-toast";
 import Image from "next/image";
 
 const NAV_LINKS = [
@@ -67,7 +66,6 @@ export default function Navbar() {
 
   const handleLogout = () => {
     logout();
-    toast.success("ออกจากระบบเรียบร้อย");
     router.push("/");
     setDropdownOpen(false);
   };
