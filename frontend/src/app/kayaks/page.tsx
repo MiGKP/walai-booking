@@ -24,6 +24,7 @@ import {
 } from '@/lib/kayak-cart';
 import {
   MonthCursor,
+  addDaysISO,
   formatThaiDateLong,
   formatTimeRange,
   monthCursorFromISO,
@@ -224,7 +225,10 @@ export default function KayaksPage(): React.ReactElement {
   const [dayStatus, setDayStatus] = useState<Record<string, DayStatus>>({});
   const [calendarLoading, setCalendarLoading] = useState(false);
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // ยังไม่กดอะไรก็โชว์รอบเรือ+เรือทั้งหมดของวันแรกที่จองได้ไปเลย ไม่ต้องรอผู้ใช้เลือกวันเอง
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    pastCutoffToday ? addDaysISO(today, 1) : today
+  );
   const [slots, setSlots] = useState<SharedSlot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [selectedSlotKey, setSelectedSlotKey] = useState<string | null>(null);

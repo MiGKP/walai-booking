@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { Calendar, Tag, Plus, Minus, X, CheckCircle2, Sailboat, Trash2, AlertTriangle } from 'lucide-react';
+import { Calendar, Tag, Plus, Minus, X, CheckCircle2, CreditCard, Trash2, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatThaiDate, nightsBetween, todayISO, addDaysISO, monthCursorFromISO, MonthCursor } from '@/lib/date';
 import { RoomCartItem } from '@/lib/room-cart';
@@ -421,10 +421,10 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
     <div ref={cardRef} className="rounded-2xl border border-stone-200 bg-white shadow-[0_4px_20px_-4px_rgba(18,60,48,0.08)]">
       {/* HEADER */}
       <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4 bg-white rounded-t-2xl">
-        <h3 className="flex items-center gap-2 text-[15px] font-bold text-[#0A2E1F]">
-          <Sailboat size={16} className="text-[#0A2E1F]" />
-          สรุปการจอง
-        </h3>
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700"><CreditCard size={16} /></span>
+          <h3 className="font-sans text-[16px] font-semibold text-forest-900">สรุปการจอง</h3>
+        </div>
         {cartItems.length > 0 && (
           <button type="button" onClick={handleClearAll} className="text-[11px] font-semibold text-stone-400 transition-colors hover:text-red-600">
             ล้างทั้งหมด
@@ -654,7 +654,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
           <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-500">
             <Trash2 size={22} />
           </div>
-          <h3 className="text-center text-[16px] font-bold text-[#0A2E1F]">ล้างรายการห้องพักทั้งหมด?</h3>
+          <h3 className="font-sans text-center text-[16px] font-bold text-forest-900">ล้างรายการห้องพักทั้งหมด?</h3>
           <p className="mt-1.5 text-center text-[13px] leading-relaxed text-stone-500">
             ห้องพักและโค้ดส่วนลดที่เลือกไว้ทั้งหมดจะถูกลบออก และไม่สามารถกู้คืนได้
           </p>
