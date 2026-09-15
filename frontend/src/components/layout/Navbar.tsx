@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Menu, X, User, LogOut, ChevronDown, Star } from "lucide-react";
+import { Menu, X, User, LogOut, ChevronDown, Star, Ticket } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import Image from "next/image";
@@ -206,6 +206,13 @@ export default function Navbar() {
                       การจองของฉัน
                     </Link>
                     <Link
+                      href="/dashboard/coupons"
+                      className="flex items-center gap-2 px-4 py-3 text-sm text-charcoal hover:bg-forest-50 transition-colors"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      <Ticket size={16} /> คูปองของฉัน
+                    </Link>
+                    <Link
                       href="/reviews"
                       className="flex items-center gap-2 px-4 py-3 text-sm text-charcoal hover:bg-forest-50 transition-colors"
                       onClick={() => setDropdownOpen(false)}
@@ -368,6 +375,13 @@ export default function Navbar() {
                 onClick={() => setIsOpen(false)}
               >
                 การจองของฉัน
+              </Link>
+              <Link
+                href="/dashboard/coupons"
+                className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
+                onClick={() => setIsOpen(false)}
+              >
+                คูปองของฉัน
               </Link>
               <Link
                 href="/reviews"

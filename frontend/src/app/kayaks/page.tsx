@@ -22,6 +22,10 @@ import {
   slotKey,
   type KayakCartLine,
 } from '@/lib/kayak-cart';
+import PromoPriceBreakdown from '@/components/booking/PromoPriceBreakdown';
+import PromoCodeFields, {
+  type PromoPreview,
+} from '@/components/booking/PromoCodeFields';
 import {
   MonthCursor,
   formatThaiDateLong,
@@ -101,7 +105,10 @@ function mergeSharedSlots(
         remainingByType: {},
         anyAvailable: false,
       };
-      prev.remainingByType[boatId] = round.remaining;
+      prev.remainingByType[boatId] =
+        prev.remainingByType[boatId] == null
+          ? round.remaining
+          : Math.min(prev.remainingByType[boatId], round.remaining);
       prev.anyAvailable = prev.anyAvailable || round.available;
       byKey.set(key, prev);
     });
@@ -148,6 +155,8 @@ export default function KayaksPage(): React.ReactElement {
 
   const [passengersByType, setPassengersByType] = useState<Record<number, number>>({});
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [promoIds, setPromoIds] = useState<number[]>([]);
+  const [promoPreview, setPromoPreview] = useState<PromoPreview | null>(null);
 
   useEffect(() => {
     api
@@ -304,6 +313,7 @@ export default function KayaksPage(): React.ReactElement {
           boat_type_id: line.boat_type_id,
           num_passengers: line.num_passengers,
         })),
+        ...(promoIds.length > 0 ? { promotion_ids: promoIds } : {}),
       });
       toast.success('จองเรือสำเร็จ!');
       router.push(
@@ -615,6 +625,34 @@ export default function KayaksPage(): React.ReactElement {
                   </div>
                 </dl>
               )}
+
+              <div className="mt-5 space-y-3 border-t border-stone-200 pt-5">
+                <PromoCodeFields
+                  basePrice={totalPrice}
+                  nights={null}
+                  scope="kayak"
+                  onChange={(ids, next) => {
+                    setPromoIds(ids);
+                    setPromoPreview(next);
+                  }}
+                />
+                {cartLines.length > 0 ? (
+                  <PromoPriceBreakdown
+                    basePrice={totalPrice}
+                    promo={
+                      promoPreview
+                        ? {
+                            name: promoPreview.lines[0]?.name ?? '',
+                            code: promoPreview.lines[0]?.code,
+                            discount_amount: promoPreview.discount_amount,
+                            final_price: promoPreview.final_price,
+                          }
+                        : null
+                    }
+                    lines={promoPreview?.lines}
+                  />
+                ) : null}
+              </div>
 
               <div className="mt-5 flex items-baseline justify-between border-t border-stone-200 pt-5">
                 <span className="text-sm font-semibold text-forest-900">ราคารวม</span>

@@ -69,7 +69,6 @@ function PasswordField({
 
 // หน้าโปรไฟล์ของผู้ใช้ ใช้สำหรับแก้ไขข้อมูลส่วนตัว และจัดการรหัสผ่านตามประเภทการสมัครของ member
 export default function DashboardPage() {
-  const router = useRouter();
   const { ready, user } = useAuthGuard();
   const { updateUser } = useAuth();
   const [profile, setProfile] = useState({

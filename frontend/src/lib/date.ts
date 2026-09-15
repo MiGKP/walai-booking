@@ -132,5 +132,8 @@ export const formatThaiDateLong = (iso: string): string => {
   return `${date.getDate()} ${THAI_MONTHS[date.getMonth()]} ${date.getFullYear() + 543}`;
 };
 
-export const formatTimeRange = (startTime: string, endTime: string): string =>
-  `${startTime.slice(0, 5)} – ${endTime.slice(0, 5)}`;
+export const formatTimeRange = (startTime: string, endTime: string): string => {
+  const start = (startTime ?? '').slice(0, 5);
+  const end = (endTime ?? '').slice(0, 5);
+  return `${start} – ${end}`;
+};

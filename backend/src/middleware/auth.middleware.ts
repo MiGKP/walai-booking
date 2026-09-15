@@ -32,6 +32,20 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
   }
 };
 
+/** Same as authenticate, but missing header continues as anonymous. Invalid token still 401. */
+export const optionalAuthenticate = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    next();
+    return;
+  }
+  authenticate(req, res, next);
+};
+
 // สร้าง middleware สำหรับตรวจสอบสิทธิ์ตาม role
 export const authorize = (...roles: (string | string[])[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {

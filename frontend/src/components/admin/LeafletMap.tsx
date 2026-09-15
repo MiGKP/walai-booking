@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Search, Loader2, Navigation, MapPin } from 'lucide-react';
@@ -28,9 +28,22 @@ const PRESET_LOCATIONS = [
   },
 ];
 
-function ChangeView({ center }: { center: [number, number] }) {
+function ChangeView({ center }: { center: [number, number] }): null {
   const map = useMap();
-  map.setView(center, 16);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      map.invalidateSize();
+      map.setView(center, 16, { animate: false });
+    });
+    const timeout = window.setTimeout(() => {
+      map.invalidateSize();
+      map.setView(center, 16, { animate: false });
+    }, 200);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [map, center]);
   return null;
 }
 

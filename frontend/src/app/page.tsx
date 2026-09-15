@@ -17,6 +17,7 @@ const WaterHouseScene3D = dynamic(
 interface ResortInfo {
   name?: string;
   address?: string;
+  coordinates?: string;
   phone?: string;
   email?: string;
   facebook?: string;
@@ -413,6 +414,12 @@ export default function HomePage() {
   const locationRef = useRevealOnScroll();
   const ctaRef = useRevealOnScroll();
   const facebookLink = resolveFacebookLink(resortInfo.facebook);
+  const mapCoords = parseLatLng(resortInfo.coordinates);
+  const mapSrc = mapCoords
+    ? googleMapsEmbedUrl(mapCoords)
+    : googleMapsSearchUrl(
+        resortInfo.name || 'สวนวลัยรุกขเวช มหาสารคาม'
+      );
 
   useEffect(() => {
     const fetchLandingData = async () => {
@@ -752,7 +759,7 @@ export default function HomePage() {
               <iframe
                 title={`แผนที่ ${resortInfo.name || "สวนวลัยรุกขเวช"}`}
                 aria-labelledby={mapTitleId}
-                src="https://maps.google.com/maps?q=Walai+Rukhavej+Botanical+Research+Institute&t=&z=14&ie=UTF8&iwloc=&output=embed"
+                src={mapSrc}
                 className="w-full h-full border-0"
                 loading="lazy"
               />
