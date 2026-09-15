@@ -292,12 +292,6 @@ export default function DashboardPage() {
                     {user.first_name} {user.last_name}
                   </h2>
                   <p className="truncate text-[12.5px] text-charcoal-400">{user.email}</p>
-                  {user.created_at && (
-                    <p className="truncate text-[11px] text-charcoal-400">
-                      สมัครสมาชิกเมื่อ{" "}
-                      {new Date(user.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}
-                    </p>
-                  )}
                   <span
                     className={`mt-1.5 inline-block rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wider ${user.role === "admin" ? "bg-bamboo-50 text-bamboo-600" : user.role === "customer" ? "bg-forest-50 text-forest-700" : "bg-lagoon-50 text-lagoon-700"}`}
                   >

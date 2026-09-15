@@ -153,6 +153,11 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
 
   const hasUnavailableItems = cartItems.some((item) => item.unavailable);
 
+  // ความจุรวมของห้องที่เลือกไว้ (แต่ละห้องรับได้ตาม capacity ของประเภทห้องนั้น ไม่ว่าจะเป็นผู้ใหญ่หรือเด็ก)
+  const totalCapacity = cartItems.reduce((sum, item) => sum + item.capacity * item.qty, 0);
+  const totalGuests = adults + children;
+  const overCapacity = cartItems.length > 0 && totalGuests > totalCapacity;
+
   // แจ้งเตือนทันทีเมื่อ re-validate แล้วพบว่ามีห้องไม่ว่างแล้ว (เช่น หลังเปลี่ยนวันที่) ไม่ใช่แค่ทำสีแดงรอให้สังเกตเอง
   const wasUnavailableRef = useRef(false);
   useEffect(() => {
@@ -198,6 +203,10 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
   const handleGuestChange = (type: 'adults' | 'children', delta: number) => {
     const val = type === 'adults' ? adults : children;
     const next = Math.max(type === 'adults' ? 1 : 0, val + delta);
+    if (delta > 0 && totalCapacity > 0 && next + (type === 'adults' ? children : adults) > totalCapacity) {
+      toast.error(`ผู้เข้าพักรวมได้ไม่เกิน ${totalCapacity} คน ตามความจุห้องที่เลือกไว้`);
+      return;
+    }
     updateUrl({ [type]: next });
   };
 
@@ -268,6 +277,11 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
 
     if (hasUnavailableItems) {
       toast.error('มีห้องบางรายการไม่ว่างแล้วสำหรับวันที่เลือก กรุณาลบออกหรือเปลี่ยนวันที่');
+      return;
+    }
+
+    if (overCapacity) {
+      toast.error(`ผู้เข้าพักรวม ${totalGuests} คน เกินความจุห้องที่เลือก (${totalCapacity} คน) กรุณาเพิ่มห้องหรือลดจำนวนผู้เข้าพัก`);
       return;
     }
 
@@ -474,7 +488,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
               <div className="flex items-center gap-3">
                 <button onClick={() => handleGuestChange('adults', -1)} disabled={adults <= 1} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
                 <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{adults}</span>
-                <button onClick={() => handleGuestChange('adults', 1)} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
+                <button onClick={() => handleGuestChange('adults', 1)} disabled={totalCapacity > 0 && totalGuests >= totalCapacity} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
               </div>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
@@ -485,10 +499,15 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
               <div className="flex items-center gap-3">
                 <button onClick={() => handleGuestChange('children', -1)} disabled={children <= 0} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
                 <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{children}</span>
-                <button onClick={() => handleGuestChange('children', 1)} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
+                <button onClick={() => handleGuestChange('children', 1)} disabled={totalCapacity > 0 && totalGuests >= totalCapacity} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
               </div>
             </div>
           </div>
+          {overCapacity && (
+            <p className="mt-2 flex items-center gap-1.5 text-[11.5px] font-semibold text-red-500">
+              <AlertTriangle size={13} /> ผู้เข้าพักรวม {totalGuests} คน เกินความจุห้องที่เลือก ({totalCapacity} คน) — เพิ่มห้องหรือลดจำนวนผู้เข้าพัก
+            </p>
+          )}
         </div>
 
         {/* ROOM LIST */}
@@ -590,7 +609,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
             </button>
           </div>
         )}
-        <button onClick={handleConfirmBooking} disabled={cartItems.length === 0 || isBooking || hasUnavailableItems} className="mt-3 w-full rounded-xl bg-[#0A2E1F] py-4 text-[15px] font-bold text-white shadow-lg transition-all hover:bg-emerald-900 active:scale-[0.98] disabled:bg-stone-300">
+        <button onClick={handleConfirmBooking} disabled={cartItems.length === 0 || isBooking || hasUnavailableItems || overCapacity} className="mt-3 w-full rounded-xl bg-[#0A2E1F] py-4 text-[15px] font-bold text-white shadow-lg transition-all hover:bg-emerald-900 active:scale-[0.98] disabled:bg-stone-300">
           {isBooking ? 'กำลังสร้างการจอง...' : 'ยืนยันการจอง'}
         </button>
         {showLoginNotice && !isAuthenticated && cartItems.length > 0 && (
