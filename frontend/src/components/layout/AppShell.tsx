@@ -20,7 +20,7 @@ const AUTH_PATHS_WITHOUT_CHROME = new Set([
 ]);
 
 // หน้าที่เป็น task-flow เฉพาะทาง (เช่น ขั้นตอนชำระเงิน, หน้าโปรไฟล์/การจอง) ไม่ต้องมี Footer มารบกวน แต่ยังเก็บ Navbar ไว้เพื่อให้เมนูหลักใช้งานได้
-const PATHS_WITHOUT_FOOTER = new Set(['/payment', '/dashboard', '/dashboard/bookings']);
+const PATHS_WITHOUT_FOOTER = new Set(['/payment', '/dashboard']);
 
 export default function AppShell({ children }: AppShellProps): ReactNode {
   const pathname = usePathname();

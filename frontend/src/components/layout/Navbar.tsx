@@ -199,13 +199,6 @@ export default function Navbar() {
                       <User size={16} /> โปรไฟล์ของฉัน
                     </Link>
                     <Link
-                      href="/dashboard/bookings"
-                      className="flex items-center gap-2 px-4 py-3 text-sm text-charcoal hover:bg-forest-50 transition-colors"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      การจองของฉัน
-                    </Link>
-                    <Link
                       href="/dashboard/coupons"
                       className="flex items-center gap-2 px-4 py-3 text-sm text-charcoal hover:bg-forest-50 transition-colors"
                       onClick={() => setDropdownOpen(false)}
@@ -368,13 +361,6 @@ export default function Navbar() {
                 onClick={() => setIsOpen(false)}
               >
                 โปรไฟล์ของฉัน
-              </Link>
-              <Link
-                href="/dashboard/bookings"
-                className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                การจองของฉัน
               </Link>
               <Link
                 href="/dashboard/coupons"

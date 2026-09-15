@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { CreditCard, Upload, CheckCircle, ArrowLeft, XCircle, Receipt, Landmark, QrCode, Info } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { formatThaiDate, nightsBetween } from '@/lib/date';
+import { formatThaiDate, formatTimeRange, nightsBetween } from '@/lib/date';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
@@ -58,14 +58,13 @@ function PaymentContent() {
       setLoading(false);
     }
 
-    // ดึงรายละเอียดการจองแบบเต็ม (วันที่ ผู้เข้าพัก รายการห้อง) มาแสดงฝั่งซ้าย — รองรับเฉพาะการจองห้องพักตอนนี้
-    if (booking_type === 'room') {
-      try {
-        const detailRes = await api.get(`/bookings/${booking_id}`);
-        setBookingDetail(detailRes.data.data);
-      } catch {
-        // ไม่ critical ต่อการชำระเงิน แค่แสดงรายละเอียดเพิ่มไม่ได้ ไม่ต้อง toast รบกวนผู้ใช้
-      }
+    // ดึงรายละเอียดการจองแบบเต็ม (วันที่ ผู้เข้าพัก/ผู้โดยสาร รายการห้อง/เรือ) มาแสดงฝั่งซ้าย
+    try {
+      const detailUrl = booking_type === 'room' ? `/bookings/${booking_id}` : `/kayaks/bookings/${booking_id}`;
+      const detailRes = await api.get(detailUrl);
+      setBookingDetail(detailRes.data.data);
+    } catch {
+      // ไม่ critical ต่อการชำระเงิน แค่แสดงรายละเอียดเพิ่มไม่ได้ ไม่ต้อง toast รบกวนผู้ใช้
     }
   };
 
@@ -104,7 +103,7 @@ function PaymentContent() {
       const cancelUrl = booking_type === 'room' ? `/bookings/${booking_id}/cancel` : `/kayaks/bookings/${booking_id}/cancel`;
       await api.put(cancelUrl);
       toast.success('ยกเลิกการจองแล้ว');
-      router.push('/dashboard/bookings');
+      router.push('/dashboard');
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'ไม่สามารถยกเลิกการจองได้'));
     } finally {
@@ -168,7 +167,7 @@ function PaymentContent() {
         <p className="mt-3 text-[11.5px] text-charcoal-400">ใช้เวลาตรวจสอบประมาณ 15-30 นาที</p>
 
         <div className="mt-7 flex flex-col gap-3">
-          <Link href="/dashboard/bookings" className="btn-primary text-center">ดูการจองของฉัน</Link>
+          <Link href="/dashboard" className="btn-primary text-center">ดูการจองของฉัน</Link>
           <Link href="/" className="inline-flex w-full items-center justify-center rounded-xl border border-stone-200 py-3 text-[13px] font-bold text-forest-800 transition-colors hover:bg-stone-50">กลับหน้าแรก</Link>
         </div>
       </div>
@@ -181,7 +180,7 @@ function PaymentContent() {
         {/* Header Section */}
         <div>
           <Link
-            href="/dashboard/bookings"
+            href="/dashboard"
             className="group inline-flex items-center gap-2.5 rounded-full bg-white py-1.5 pl-1.5 pr-4 text-[13px] font-bold text-forest-800 shadow-[0_1px_2px_rgba(18,60,48,0.04),0_6px_16px_-6px_rgba(18,60,48,0.2)] ring-1 ring-stone-200/70 transition-all duration-200 hover:-translate-x-0.5 hover:ring-forest-300"
           >
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700 transition-colors group-hover:bg-forest-100">
@@ -226,9 +225,21 @@ function PaymentContent() {
                       <span className="font-semibold text-forest-900">{formatThaiDate(String(bookingDetail.created_at).slice(0, 10))}</span>
                     </div>
                   )}
+                  {payment.booking_type === 'kayak' && bookingDetail?.boats?.length > 0 && (
+                    <div className="flex justify-between text-charcoal-500">
+                      <span>รายการเรือ</span>
+                      <span className="font-semibold text-forest-900">
+                        {bookingDetail.boats.map((b: any) => b.type_name).join(', ')}
+                        {' · '}
+                        {bookingDetail.boats.reduce((sum: number, b: any) => sum + Number(b.boat_count), 0)} ลำ
+                        {' · '}
+                        {bookingDetail.num_passengers} คน
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {bookingDetail && (
+                {bookingDetail && payment.booking_type === 'room' && (
                   <>
                     <div className="mt-4 flex flex-wrap gap-4 border-t border-stone-100 pt-4 text-[13.5px]">
                       <div>
@@ -266,12 +277,52 @@ function PaymentContent() {
                   </>
                 )}
 
+                {bookingDetail && payment.booking_type === 'kayak' && (
+                  <>
+                    <div className="mt-4 flex flex-wrap gap-4 border-t border-stone-100 pt-4 text-[13.5px]">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">วันที่ · รอบเวลา</p>
+                        <p className="mt-0.5 font-semibold text-forest-900">
+                          {formatThaiDate(String(bookingDetail.booking_date).slice(0, 10))}
+                          <span className="ml-1.5 rounded-full bg-forest-50 px-2 py-0.5 text-[11px] font-bold text-forest-700">
+                            {formatTimeRange(bookingDetail.start_time, bookingDetail.end_time)}
+                          </span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">ผู้โดยสาร</p>
+                        <p className="mt-0.5 font-semibold text-forest-900">{bookingDetail.num_passengers} คน</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-2 border-t border-stone-100 pt-4">
+                      {(bookingDetail.boats || []).map((boat: any) => (
+                        <div key={boat.booking_boat_id} className="flex items-center justify-between gap-3 rounded-xl bg-stone-50/60 p-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-bold text-forest-900">{boat.type_name}</p>
+                            <p className="text-[11.5px] text-charcoal-400">
+                              ผู้โดยสาร {boat.num_passengers} คน · {boat.boat_count} ลำ · ฿{Number(boat.unit_price).toLocaleString()}/ลำ
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-[13px] font-bold text-forest-900">฿{Number(boat.subtotal).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
                 {/* Price Breakdown */}
                 <div className="mt-4 space-y-2 border-t border-stone-100 pt-4 text-[13.5px]">
                   <div className="flex justify-between text-charcoal-500">
-                    <span>ยอดรวมห้องพัก</span>
+                    <span>{payment.booking_type === 'room' ? 'ยอดรวมห้องพัก' : 'ยอดรวมเรือ'}</span>
                     <span className="font-semibold text-forest-900">
-                      ฿{(bookingDetail?.rooms?.length ? bookingDetail.rooms.reduce((sum: number, r: any) => sum + Number(r.subtotal), 0) : Number(payment.amount)).toLocaleString()}
+                      ฿{(
+                        bookingDetail?.rooms?.length
+                          ? bookingDetail.rooms.reduce((sum: number, r: any) => sum + Number(r.subtotal), 0)
+                          : bookingDetail?.boats?.length
+                            ? bookingDetail.boats.reduce((sum: number, b: any) => sum + Number(b.subtotal), 0)
+                            : Number(payment.amount)
+                      ).toLocaleString()}
                     </span>
                   </div>
                   {(bookingDetail?.promotions || []).map((promo: any, idx: number) => (

@@ -103,7 +103,7 @@ export default function Footer() {
             <ul className="space-y-2.5 text-sm">
               <li><FooterLink href="/rooms">ห้องพักลอยน้ำ</FooterLink></li>
               <li><FooterLink href="/kayaks">เรือคายัค</FooterLink></li>
-              <li><FooterLink href="/dashboard/bookings">การจองของฉัน</FooterLink></li>
+              <li><FooterLink href="/dashboard">การจองของฉัน</FooterLink></li>
             </ul>
           </div>
 

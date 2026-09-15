@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users } from 'lucide-react';
+import { Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Users } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
@@ -22,10 +22,6 @@ import {
   slotKey,
   type KayakCartLine,
 } from '@/lib/kayak-cart';
-import PromoPriceBreakdown from '@/components/booking/PromoPriceBreakdown';
-import PromoCodeFields, {
-  type PromoPreview,
-} from '@/components/booking/PromoCodeFields';
 import {
   MonthCursor,
   formatThaiDateLong,
@@ -34,6 +30,72 @@ import {
   multiMonthRangeISO,
   todayISO,
 } from '@/lib/date';
+
+const CARD = 'rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)] p-5 sm:p-6';
+
+// รอบเรือทั้งหมดจบก่อน 18:00 น. — หลังเวลานี้ปิดรับจองสำหรับ "วันนี้" เพราะไม่มีรอบเหลือให้บริการแล้วจริงๆ
+const BOOKING_CUTOFF_HOUR = 18;
+const CLOSED_TODAY_HINT = `ปิดรับจองแล้ว (หมดรอบหลัง ${BOOKING_CUTOFF_HOUR}:00 น.)`;
+
+function SectionHeading({ icon, title, hint }: { icon: React.ReactNode; title: string; hint?: string }): React.ReactElement {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">{icon}</span>
+      <div className="min-w-0">
+        <h2 className="font-sans text-[16px] font-semibold text-forest-900">{title}</h2>
+        {hint && <p className="text-[12px] text-charcoal-400">{hint}</p>}
+      </div>
+    </div>
+  );
+}
+
+function Stepper({
+  value,
+  min = 0,
+  max = 99,
+  onChange,
+  ariaLabel,
+}: {
+  value: number;
+  min?: number;
+  max?: number;
+  onChange: (next: number) => void;
+  ariaLabel: string;
+}): React.ReactElement {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const commit = (raw: string): void => {
+    const parsed = parseInt(raw, 10);
+    const safe = isNaN(parsed) ? min : Math.min(max, Math.max(min, parsed));
+    setDraft(String(safe));
+    onChange(safe);
+  };
+
+  const btn = 'grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-forest-800 transition-colors hover:border-forest-300 hover:bg-forest-50 disabled:border-stone-100 disabled:text-stone-300 disabled:hover:bg-white';
+  return (
+    <div className="flex items-center gap-1.5">
+      <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} aria-label={`ลด${ariaLabel}`} className={btn}><Minus size={13} /></button>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ''))}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+        }}
+        onFocus={(e) => e.currentTarget.select()}
+        aria-label={ariaLabel}
+        className="h-7 w-9 rounded-md border border-stone-200 bg-white text-center text-[13px] font-bold tabular-nums text-forest-900 transition-colors focus:border-forest-400 focus:outline-none"
+      />
+      <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`เพิ่ม${ariaLabel}`} className={btn}><Plus size={13} /></button>
+    </div>
+  );
+}
 
 interface BoatType {
   id: number;
@@ -130,6 +192,17 @@ function mergeSharedSlots(
     .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
 }
 
+function slotFitsCart(slot: SharedSlot, lines: KayakCartLine[]): boolean {
+  if (!slot.available) return false;
+  return lines.every((line) => {
+    const remaining = slot.remainingByType[line.boat_type_id];
+    if (remaining == null) return false;
+    // เช็คกับจำนวนเรือจริงที่จะใช้ (line.boat_count) ไม่ใช่แค่ค่าขั้นต่ำที่คำนวณอัตโนมัติ
+    // เผื่อผู้ใช้ปรับเพิ่มจำนวนเรือเองเกินขั้นต่ำ
+    return remaining >= line.boat_count;
+  });
+}
+
 function normalizeSlotTime(value: string): string {
   const raw = String(value || '').trim();
   if (/^\d{2}:\d{2}$/.test(raw)) return `${raw}:00`;
@@ -140,9 +213,12 @@ function normalizeSlotTime(value: string): string {
 export default function KayaksPage(): React.ReactElement {
   const router = useRouter();
   const today = todayISO();
+  // เลยเวลาปิดรับจองของ "วันนี้" แล้วหรือยัง (รอบเรือหมดวันหลัง 18:00 น. เป็นกฎธุรกิจคงที่)
+  const pastCutoffToday = new Date().getHours() >= BOOKING_CUTOFF_HOUR;
 
   const [boats, setBoats] = useState<BoatType[]>([]);
   const [boatsLoading, setBoatsLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState<string>('all');
 
   const [cursor, setCursor] = useState<MonthCursor>(() => monthCursorFromISO(today));
   const [dayStatus, setDayStatus] = useState<Record<string, DayStatus>>({});
@@ -154,9 +230,9 @@ export default function KayaksPage(): React.ReactElement {
   const [selectedSlotKey, setSelectedSlotKey] = useState<string | null>(null);
 
   const [passengersByType, setPassengersByType] = useState<Record<number, number>>({});
+  // จำนวนเรือจริงที่จะใช้ต่อประเภท — ค่าเริ่มต้นคำนวณอัตโนมัติจากผู้โดยสาร แต่ผู้ใช้ปรับเพิ่มเองได้
+  const [boatCountByType, setBoatCountByType] = useState<Record<number, number>>({});
   const [bookingLoading, setBookingLoading] = useState(false);
-  const [promoIds, setPromoIds] = useState<number[]>([]);
-  const [promoPreview, setPromoPreview] = useState<PromoPreview | null>(null);
 
   useEffect(() => {
     api
@@ -181,7 +257,12 @@ export default function KayaksPage(): React.ReactElement {
     )
       .then((lists) => {
         if (cancelled) return;
-        setDayStatus(mergeDayStatus(lists.map((days) => toKayakDayStatus(days))));
+        const merged = mergeDayStatus(lists.map((days) => toKayakDayStatus(days)));
+        // วันนี้หลัง 18:00 น. ถือว่าหมดรอบเสมอ ไม่ว่า backend จะรายงานว่ายังมีที่ว่างหรือไม่
+        if (pastCutoffToday) {
+          merged[today] = { tone: 'full', hint: CLOSED_TODAY_HINT };
+        }
+        setDayStatus(merged);
       })
       .catch(() => {
         if (!cancelled) toast.error('ไม่สามารถโหลดปฏิทินรอบเรือได้');
@@ -193,7 +274,7 @@ export default function KayaksPage(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [boats, cursor]);
+  }, [boats, cursor, pastCutoffToday, today]);
 
   useEffect(() => {
     if (!selectedDate || boats.length === 0) {
@@ -205,6 +286,7 @@ export default function KayaksPage(): React.ReactElement {
     setSlotsLoading(true);
     setSelectedSlotKey(null);
     setPassengersByType({});
+    setBoatCountByType({});
 
     Promise.all(
       boats.map((boat) =>
@@ -234,38 +316,83 @@ export default function KayaksPage(): React.ReactElement {
     [slots, selectedSlotKey]
   );
 
+  // เรือแต่ละประเภทเหลือมากสุดกี่ลำในวันนั้น (ดูจากทุกรอบรวมกัน) — ใช้ตัดสินใจได้โดยยังไม่ต้องเลือกรอบเวลาก่อน
+  const maxRemainingByType = useMemo(() => {
+    const map: Record<number, number> = {};
+    boats.forEach((boat) => {
+      const values = slots
+        .map((slot) => slot.remainingByType[boat.id])
+        .filter((v): v is number => v != null);
+      map[boat.id] = values.length ? Math.max(...values) : 0;
+    });
+    return map;
+  }, [boats, slots]);
+
+  const hasAnyRoundByType = useMemo(() => {
+    const map: Record<number, boolean> = {};
+    boats.forEach((boat) => {
+      map[boat.id] = slots.some((slot) => slot.remainingByType[boat.id] != null);
+    });
+    return map;
+  }, [boats, slots]);
+
+  // ตัวเลือกกรองประเภทเรือ — โชว์เฉพาะประเภทที่มีเรือจริงในระบบ
+  const typeOptions = useMemo(() => Array.from(new Set(boats.map((boat) => boat.type))), [boats]);
+  const filteredBoats = useMemo(
+    () => (typeFilter === 'all' ? boats : boats.filter((boat) => boat.type === typeFilter)),
+    [boats, typeFilter]
+  );
+
   const cartLines: KayakCartLine[] = useMemo(() => {
     return boats
       .map((boat) => {
         const numPassengers = Number(passengersByType[boat.id] || 0);
         if (numPassengers < 1) return null;
+        const minBoatCount = boatsNeeded(numPassengers, boat.capacity);
+        const boatCount = Math.max(minBoatCount, Number(boatCountByType[boat.id] || 0));
         return {
           boat_type_id: boat.id,
           name: boat.name,
           capacity: boat.capacity,
           price_per_hour: Number(boat.price_per_hour),
           num_passengers: numPassengers,
+          boat_count: boatCount,
         };
       })
       .filter((line): line is KayakCartLine => line != null);
-  }, [boats, passengersByType]);
+  }, [boats, passengersByType, boatCountByType]);
 
   const totalPrice = cartTotal(cartLines);
   const totalPassengers = cartPassengerTotal(cartLines);
   const totalBoats = cartBoatTotal(cartLines);
 
+  // ถ้าปรับจำนวนผู้โดยสารแล้วรอบเวลาที่เลือกไว้เดิมไม่พอที่จะรองรับ ให้เคลียร์การเลือกรอบทิ้ง กันจองพลาด
+  useEffect(() => {
+    if (!selectedSlotKey) return;
+    const slot = slots.find((s) => s.key === selectedSlotKey);
+    if (!slot || !slotFitsCart(slot, cartLines)) {
+      setSelectedSlotKey(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartLines, slots]);
+
   const handleSelectDate = (date: string | null): void => {
+    // กันไว้อีกชั้นเผื่อกดก่อนปฏิทินโหลดสถานะ "หมดรอบ" เสร็จ
+    if (date === today && pastCutoffToday) {
+      toast.error(CLOSED_TODAY_HINT);
+      return;
+    }
     setSelectedDate(date);
     setSelectedSlotKey(null);
     setPassengersByType({});
+    setBoatCountByType({});
   };
 
   const handleSelectSlot = (key: string): void => {
     setSelectedSlotKey(key);
-    setPassengersByType({});
   };
 
-  const handlePassengersChange = (boatId: number, raw: number): void => {
+  const handlePassengersChange = (boatId: number, raw: number, capacity: number): void => {
     if (!Number.isFinite(raw) || raw < 0) return;
     setPassengersByType((prev) => {
       const next = { ...prev };
@@ -276,6 +403,21 @@ export default function KayaksPage(): React.ReactElement {
       }
       return next;
     });
+    // เปลี่ยนจำนวนคนแล้ว รีเซ็ตจำนวนเรือกลับไปเป็นค่าคำนวณอัตโนมัติใหม่ (ผู้ใช้ปรับเพิ่มเองได้อีกทีหลังจากนี้)
+    setBoatCountByType((prev) => {
+      const next = { ...prev };
+      if (raw < 1) {
+        delete next[boatId];
+      } else {
+        next[boatId] = boatsNeeded(raw, capacity);
+      }
+      return next;
+    });
+  };
+
+  const handleBoatCountChange = (boatId: number, raw: number, minCount: number): void => {
+    if (!Number.isFinite(raw)) return;
+    setBoatCountByType((prev) => ({ ...prev, [boatId]: Math.max(minCount, raw) }));
   };
 
   const handleBooking = async (event: React.FormEvent): Promise<void> => {
@@ -289,17 +431,16 @@ export default function KayaksPage(): React.ReactElement {
       toast.error('กรุณาเลือกวันที่และรอบเวลา');
       return;
     }
+    if (selectedDate === today && pastCutoffToday) {
+      toast.error(CLOSED_TODAY_HINT);
+      return;
+    }
     if (cartLines.length === 0) {
       toast.error('กรุณาระบุผู้โดยสารอย่างน้อย 1 ประเภทเรือ');
       return;
     }
-    const unavailable = cartLines.filter(
-      (line) => selectedSlot.remainingByType[line.boat_type_id] == null
-    );
-    if (unavailable.length > 0) {
-      toast.error(
-        `ไม่มีรอบเวลานี้สำหรับ: ${unavailable.map((line) => line.name).join(', ')}`
-      );
+    if (!slotFitsCart(selectedSlot, cartLines)) {
+      toast.error('รอบเวลาที่เลือกมีเรือว่างไม่พอสำหรับจำนวนที่เลือกไว้ กรุณาเลือกรอบอื่น');
       return;
     }
 
@@ -312,8 +453,8 @@ export default function KayaksPage(): React.ReactElement {
         items: cartLines.map((line) => ({
           boat_type_id: line.boat_type_id,
           num_passengers: line.num_passengers,
+          boat_count: line.boat_count,
         })),
-        ...(promoIds.length > 0 ? { promotion_ids: promoIds } : {}),
       });
       toast.success('จองเรือสำเร็จ!');
       router.push(
@@ -327,35 +468,34 @@ export default function KayaksPage(): React.ReactElement {
   };
 
   return (
-    <div className="min-h-screen bg-cream-200 pt-16">
-      <header className="border-b border-stone-200 bg-cream-100">
-        <div className="container mx-auto px-4 py-14 lg:py-20">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-lagoon-600">
-            กิจกรรมทางน้ำ
-          </p>
-          <h1 className="mt-3 max-w-2xl text-balance font-display text-4xl leading-tight text-forest-900 lg:text-5xl">
-            พายชมลำน้ำ เลือกวันและรอบที่ยังว่าง
-          </h1>
-          <div className="mt-6 h-px w-24 bg-bamboo-400" />
-          <p className="mt-6 max-w-xl text-charcoal-500">
-            เลือกวันและรอบเวลาก่อน แล้วใส่จำนวนผู้โดยสารต่อประเภทเรือ — จ่ายครั้งเดียวรวมทุกประเภท
-          </p>
+    <div className="min-h-screen bg-cream-100 pb-24 pt-4">
+      <div className="container mx-auto px-4 pt-16 sm:pt-20">
+        <div className="mb-6 flex items-center gap-2.5">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">
+            <Anchor size={18} />
+          </span>
+          <h1 className="font-sans text-[24px] font-semibold leading-tight text-forest-900 sm:text-[28px]">จองเรือคายัค</h1>
         </div>
-      </header>
 
-      <div className="container mx-auto px-4 py-10 lg:py-14">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)] lg:gap-12">
-          <div className="space-y-10">
-            <section aria-labelledby="step-date">
-              <div className="mb-5 flex items-baseline gap-3 border-b border-stone-200 pb-3">
-                <span className="font-display text-sm text-bamboo-600">01</span>
-                <h2 id="step-date" className="font-display text-lg text-forest-900">
-                  เลือกวันและรอบเวลา
-                </h2>
-              </div>
+        {pastCutoffToday && (
+          <div className="mb-6 flex items-start gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-[12.5px] font-medium text-bamboo-800">
+            <Clock3 size={16} className="mt-0.5 shrink-0" />
+            <p>วันนี้{CLOSED_TODAY_HINT.replace('ปิดรับจองแล้ว ', '')} — กรุณาเลือกวันถัดไปในปฏิทิน</p>
+          </div>
+        )}
 
-              <div className="space-y-6">
-                <div className="card p-4 sm:p-5">
+        <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:items-start">
+          <div className="space-y-6">
+            {/* วันที่ + จำนวนผู้โดยสารต่อประเภทเรือ อยู่ในกรอบเดียวกัน วางคู่กัน — ปฏิทินไม่ต้องกว้างเพราะจองทีละวัน */}
+            <section className={CARD}>
+              <SectionHeading
+                icon={<Anchor size={16} />}
+                title="เลือกวันที่ รอบเวลา และจำนวนผู้โดยสาร"
+                hint={!selectedDate ? 'เลือกวันที่ต้องการพายเรือ' : formatThaiDateLong(selectedDate)}
+              />
+
+              <div className="mt-5 flex flex-col gap-5 lg:flex-row">
+                <div className="w-full shrink-0 rounded-xl border border-stone-200 p-3 lg:w-[300px] lg:p-4">
                   <BookingCalendar
                     mode="single"
                     value={selectedDate}
@@ -365,246 +505,224 @@ export default function KayaksPage(): React.ReactElement {
                     dayStatus={dayStatus}
                     loading={calendarLoading || boatsLoading}
                     minISO={today}
+                    visibleMonths={1}
                   />
                 </div>
 
-                <div className="card p-5">
-                  {!selectedDate ? (
-                    <p className="grid h-full place-items-center py-10 text-center text-sm text-charcoal-400">
-                      เลือกวันในปฏิทินเพื่อดูรอบเวลา
-                    </p>
-                  ) : (
-                    <>
-                      <p className="text-sm font-medium text-forest-900">
-                        {formatThaiDateLong(selectedDate)}
-                      </p>
-                      <p className="mt-0.5 text-xs text-charcoal-400">
-                        {slotsLoading
-                          ? 'กำลังตรวจสอบรอบว่าง...'
-                          : `${slots.filter((slot) => slot.available).length} รอบว่างจากทั้งหมด ${slots.length} รอบ`}
-                      </p>
-
-                      <div className="mt-4 space-y-2">
-                        {slotsLoading ? (
-                          [0, 1, 2].map((index) => (
-                            <div
-                              key={index}
-                              className="h-14 animate-pulse rounded-xl bg-stone-200"
-                            />
-                          ))
-                        ) : slots.length === 0 ? (
-                          <p className="py-8 text-center text-sm text-charcoal-400">
-                            วันนี้ไม่มีรอบให้บริการ
-                          </p>
-                        ) : (
-                          slots.map((slot) => {
+                <div className="min-w-0 flex-1 space-y-5">
+                  {/* รอบเวลา — เลื่อนดูซ้ายขวาได้ เพราะมีไม่กี่รอบต่อวัน แสดงจำนวนเรือที่เหลือให้จองต่อรอบด้วย */}
+                  <div>
+                    <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-wide text-charcoal-300">เลือกรอบเวลา</p>
+                    {!selectedDate ? (
+                      <p className="text-[12.5px] text-charcoal-400">เลือกวันที่ก่อน</p>
+                    ) : slotsLoading ? (
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {[0, 1, 2].map((i) => <div key={i} className="h-14 w-28 shrink-0 animate-pulse rounded-xl bg-stone-100" />)}
+                      </div>
+                    ) : slots.length === 0 ? (
+                      <p className="text-[12.5px] text-charcoal-400">วันนี้ไม่มีรอบให้บริการ</p>
+                    ) : (
+                      <>
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                          {slots.map((slot) => {
                             const isSelected = slot.key === selectedSlotKey;
+                            const fits = cartLines.length === 0 ? slot.available : slotFitsCart(slot, cartLines);
                             return (
                               <button
                                 key={slot.key}
                                 type="button"
-                                disabled={!slot.available}
+                                disabled={!fits}
                                 aria-pressed={isSelected}
                                 onClick={() => handleSelectSlot(slot.key)}
-                                className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                                className={`shrink-0 rounded-xl border px-4 py-2.5 text-left transition-colors ${
                                   isSelected
-                                    ? 'border-forest-800 bg-forest-50'
-                                    : slot.available
-                                      ? 'border-stone-200 hover:border-lagoon-300'
-                                      : 'cursor-not-allowed border-stone-200 opacity-50'
+                                    ? 'border-forest-800 bg-forest-800 text-cream-100'
+                                    : fits
+                                      ? 'border-stone-200 hover:border-forest-300 hover:bg-forest-50'
+                                      : 'cursor-not-allowed border-stone-100 opacity-50'
                                 }`}
                               >
-                                <span className="text-sm font-medium tabular-nums text-forest-900">
+                                <span className={`block text-[12.5px] font-semibold tabular-nums ${isSelected ? 'text-cream-100' : 'text-forest-900'}`}>
                                   {formatTimeRange(slot.start_time, slot.end_time)}
                                 </span>
-                                <span
-                                  className={`text-xs ${
-                                    !slot.available
-                                      ? 'text-charcoal-400'
-                                      : slot.remaining <= 2
-                                        ? 'text-bamboo-600'
-                                        : 'text-lagoon-700'
-                                  }`}
-                                >
-                                  {slot.available ? `เหลืออย่างน้อย ${slot.remaining} ลำ` : 'เต็ม'}
+                                <span className={`block text-[10.5px] ${isSelected ? 'text-cream-200' : fits ? 'text-charcoal-400' : 'text-stone-400 line-through'}`}>
+                                  {fits ? `เหลือ ${slot.remaining} ลำ` : !slot.available ? 'เต็ม' : 'เรือไม่พอ'}
                                 </span>
                               </button>
                             );
-                          })
+                          })}
+                        </div>
+                        {cartLines.length === 0 && (
+                          <p className="mt-1.5 text-[11px] text-charcoal-400">ใส่จำนวนผู้โดยสารด้านล่างก่อน เพื่อกรองเฉพาะรอบที่มีเรือว่างพอ</p>
                         )}
+                      </>
+                    )}
+                  </div>
+
+                  <div>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[10.5px] font-semibold uppercase tracking-wide text-charcoal-300">จำนวนผู้โดยสารต่อประเภทเรือ</p>
+                    {typeOptions.length > 1 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setTypeFilter('all')}
+                          className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors ${
+                            typeFilter === 'all'
+                              ? 'border-forest-800 bg-forest-800 text-cream-100'
+                              : 'border-stone-200 text-charcoal-500 hover:border-forest-300 hover:bg-forest-50'
+                          }`}
+                        >
+                          ทุกประเภท
+                        </button>
+                        {typeOptions.map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setTypeFilter(type)}
+                            className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors ${
+                              typeFilter === type
+                                ? 'border-forest-800 bg-forest-800 text-cream-100'
+                                : 'border-stone-200 text-charcoal-500 hover:border-forest-300 hover:bg-forest-50'
+                            }`}
+                          >
+                            {TYPE_LABELS[type] || type}
+                          </button>
+                        ))}
                       </div>
-                    </>
+                    )}
+                  </div>
+                  {!selectedDate ? (
+                    <p className="rounded-xl border border-dashed border-stone-200 px-4 py-8 text-center text-[12.5px] text-charcoal-400">
+                      เลือกวันในปฏิทินก่อน แล้วใส่จำนวนคนต่อประเภทเรือ
+                    </p>
+                  ) : boatsLoading || slotsLoading ? (
+                    <div className="space-y-2">
+                      {[0, 1].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-stone-100" />)}
+                    </div>
+                  ) : boats.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-stone-200 px-4 py-8 text-center text-[12.5px] text-charcoal-400">
+                      ยังไม่มีเรือเปิดให้จอง
+                    </p>
+                  ) : filteredBoats.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-stone-200 px-4 py-8 text-center text-[12.5px] text-charcoal-400">
+                      ไม่มีเรือประเภทนี้
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredBoats.map((boat) => {
+                        const hasRound = hasAnyRoundByType[boat.id];
+                        const remaining = maxRemainingByType[boat.id] ?? 0;
+                        const passengers = passengersByType[boat.id] ?? 0;
+                        const minBoatCount = passengers > 0 ? boatsNeeded(passengers, boat.capacity) : 0;
+                        const boatCount = passengers > 0 ? Math.max(minBoatCount, boatCountByType[boat.id] ?? minBoatCount) : 0;
+                        const disabled = !hasRound || remaining < 1;
+                        return (
+                          <div
+                            key={boat.id}
+                            className={`overflow-hidden rounded-xl border transition-colors ${
+                              disabled ? 'border-stone-100 bg-stone-50/50 opacity-60' : 'border-stone-200/80 bg-white'
+                            }`}
+                          >
+                            <div className="flex flex-wrap gap-3 p-3">
+                              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-lagoon-50">
+                                {boat.image ? (
+                                  <img src={resolveMediaUrl(boat.image)} alt={boat.name} className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="grid h-full w-full place-items-center text-lagoon-600">
+                                    <Sailboat size={22} />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <span className="mb-1 inline-block rounded-full bg-lagoon-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lagoon-700">
+                                  {TYPE_LABELS[boat.type] || 'เรือ'}
+                                </span>
+                                <p className="truncate text-[13.5px] font-semibold text-forest-900">{boat.name}</p>
+                                {boat.description && (
+                                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-charcoal-400">{boat.description}</p>
+                                )}
+                                <p className="mt-1 flex items-center gap-1 text-[11.5px] text-charcoal-500">
+                                  <Users size={12} className="text-forest-400" />
+                                  {boat.capacity} ที่นั่ง/ลำ · ฿{Number(boat.price_per_hour).toLocaleString()}/ลำ
+                                  {disabled && ` · ${!hasRound ? 'ไม่มีรอบให้บริการวันนี้' : 'เต็มทุกรอบวันนี้'}`}
+                                  {!disabled && ` · ว่างสูงสุด ${remaining} ลำ`}
+                                </p>
+                              </div>
+
+                              {!disabled && (
+                                <div className="ml-auto flex shrink-0 flex-col items-end gap-2 text-right">
+                                  <div>
+                                    <p className="mb-1 text-[9.5px] font-semibold uppercase tracking-wide text-charcoal-300">ผู้โดยสาร</p>
+                                    <Stepper
+                                      value={passengers}
+                                      min={0}
+                                      max={50}
+                                      ariaLabel={`ผู้โดยสาร ${boat.name}`}
+                                      onChange={(v) => handlePassengersChange(boat.id, v, boat.capacity)}
+                                    />
+                                  </div>
+                                  {passengers > 0 && (
+                                    <div>
+                                      <p className="mb-1 text-[9.5px] font-semibold uppercase tracking-wide text-charcoal-300">จำนวนเรือ</p>
+                                      <Stepper
+                                        value={boatCount}
+                                        min={minBoatCount}
+                                        max={Math.max(minBoatCount, remaining)}
+                                        ariaLabel={`จำนวนเรือ ${boat.name}`}
+                                        onChange={(v) => handleBoatCountChange(boat.id, v, minBoatCount)}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               </div>
-            </section>
-
-            <section>
-              <div className="mb-5 flex items-baseline gap-3 border-b border-stone-200 pb-3">
-                <span className="font-display text-sm text-bamboo-600">02</span>
-                <h2 className="font-display text-lg text-forest-900">จำนวนผู้โดยสารต่อประเภทเรือ</h2>
               </div>
-
-              {!selectedSlot ? (
-                <p className="card px-6 py-16 text-center text-sm text-charcoal-400">
-                  เลือกรอบเวลาก่อน แล้วใส่จำนวนคนต่อประเภทเรือ
-                </p>
-              ) : boatsLoading ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {[0, 1].map((index) => (
-                    <div key={index} className="card animate-pulse p-4">
-                      <div className="h-28 rounded-xl bg-stone-200" />
-                      <div className="mt-4 h-4 w-2/5 rounded bg-stone-200" />
-                    </div>
-                  ))}
-                </div>
-              ) : boats.length === 0 ? (
-                <p className="card px-6 py-16 text-center text-sm text-charcoal-400">
-                  ยังไม่มีเรือเปิดให้จอง
-                </p>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {boats.map((boat) => {
-                    const slotRemaining = selectedSlot.remainingByType[boat.id];
-                    const hasRound = slotRemaining != null;
-                    const remaining = hasRound ? Number(slotRemaining) : 0;
-                    const passengers = passengersByType[boat.id] ?? 0;
-                    const needed =
-                      passengers > 0 ? boatsNeeded(passengers, boat.capacity) : 0;
-                    const subtotal =
-                      needed > 0
-                        ? lineSubtotal(Number(boat.price_per_hour), needed)
-                        : 0;
-                    const disabled = !hasRound || remaining < 1;
-                    return (
-                      <div
-                        key={boat.id}
-                        className={`card overflow-hidden p-0 ${disabled ? 'opacity-60' : ''}`}
-                      >
-                        <div className="h-32 bg-stone-200">
-                          {boat.image ? (
-                            <img
-                              src={resolveMediaUrl(boat.image)}
-                              alt={boat.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="grid h-full w-full place-items-center bg-lagoon-50 font-display text-sm text-lagoon-600">
-                              {TYPE_LABELS[boat.type] || 'เรือ'}
-                            </div>
-                          )}
-                        </div>
-                        <div className="space-y-3 p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <h3 className="truncate font-display text-base text-forest-900">
-                                {boat.name}
-                              </h3>
-                              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-charcoal-400">
-                                <Users size={12} /> {boat.capacity} ที่นั่ง/ลำ · ฿
-                                {Number(boat.price_per_hour).toLocaleString()}/ลำ
-                              </p>
-                            </div>
-                          </div>
-                          {disabled ? (
-                            <p className="text-sm text-charcoal-400">
-                              {!hasRound
-                                ? 'ไม่มีรอบเวลานี้สำหรับเรือประเภทนี้'
-                                : 'เต็มในรอบนี้'}
-                            </p>
-                          ) : (
-                            <>
-                              <div>
-                                <label
-                                  htmlFor={`pax-${boat.id}`}
-                                  className="mb-1.5 block text-sm font-medium text-charcoal-600"
-                                >
-                                  ผู้โดยสาร
-                                  <span className="ml-2 font-normal text-charcoal-400">
-                                    เหลือ {remaining} ลำ
-                                  </span>
-                                </label>
-                                <input
-                                  id={`pax-${boat.id}`}
-                                  type="number"
-                                  min={0}
-                                  max={50}
-                                  className="input-field"
-                                  value={passengers}
-                                  onChange={(event) =>
-                                    handlePassengersChange(
-                                      boat.id,
-                                      Number(event.target.value)
-                                    )
-                                  }
-                                />
-                              </div>
-                              {needed > 0 && (
-                                <p className="text-sm text-forest-800">
-                                  ต้องใช้ {needed} ลำ · ฿{subtotal.toLocaleString()}
-                                </p>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {cartLines.length > 0 && (
-                <div className="mt-5 rounded-2xl border border-forest-800/15 bg-forest-50/60 px-4 py-3 text-sm text-forest-900">
-                  <p className="font-medium">รวมทุกประเภท</p>
-                  <p className="mt-1 text-charcoal-600">
-                    ผู้โดยสาร {totalPassengers} คน · เรือ {totalBoats} ลำ · ฿
-                    {totalPrice.toLocaleString()}
-                  </p>
-                </div>
-              )}
             </section>
           </div>
 
-          <aside className="lg:sticky lg:top-24 lg:self-start">
-            <form onSubmit={handleBooking} className="card p-5 sm:p-6">
-              <h2 className="font-display text-lg text-forest-900">สรุปการจอง</h2>
+          {/* Booking summary sidebar */}
+          <aside className="lg:sticky lg:top-24">
+            <form onSubmit={handleBooking} className={CARD}>
+              <SectionHeading icon={<CreditCard size={16} />} title="สรุปการจอง" />
 
-              <dl className="mt-5 space-y-3 border-t border-stone-200 pt-5 text-sm">
-                <div className="flex justify-between gap-3">
-                  <dt className="text-charcoal-400">วันที่</dt>
-                  <dd className="text-right font-medium text-forest-900">
+              <div className="mt-5 grid grid-cols-2 gap-3 border-t border-stone-100 pt-5">
+                <div>
+                  <p className="text-[10.5px] font-semibold uppercase tracking-wide text-charcoal-300">วันที่</p>
+                  <p className="mt-0.5 text-[13px] font-semibold text-forest-900">
                     {selectedDate ? formatThaiDateLong(selectedDate) : '—'}
-                  </dd>
+                  </p>
                 </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-charcoal-400">รอบเวลา</dt>
-                  <dd className="text-right font-medium tabular-nums text-forest-900">
-                    {selectedSlot
-                      ? formatTimeRange(selectedSlot.start_time, selectedSlot.end_time)
-                      : '—'}
-                  </dd>
+                <div>
+                  <p className="text-[10.5px] font-semibold uppercase tracking-wide text-charcoal-300">รอบเวลา</p>
+                  <p className="mt-0.5 text-[13px] font-semibold tabular-nums text-forest-900">
+                    {selectedSlot ? formatTimeRange(selectedSlot.start_time, selectedSlot.end_time) : '—'}
+                  </p>
                 </div>
-              </dl>
+              </div>
 
-              <div className="mt-5 space-y-2 border-t border-stone-200 pt-5">
+              <div className="mt-5 space-y-2.5 border-t border-stone-100 pt-5">
                 {cartLines.length === 0 ? (
-                  <p className="text-sm text-charcoal-400">ยังไม่ได้ใส่จำนวนผู้โดยสาร</p>
+                  <p className="text-[12.5px] text-charcoal-400">ยังไม่ได้ใส่จำนวนผู้โดยสาร</p>
                 ) : (
                   cartLines.map((line) => {
-                    const count = boatsNeeded(line.num_passengers, line.capacity);
-                    const sub = lineSubtotal(line.price_per_hour, count);
+                    const sub = lineSubtotal(line.price_per_hour, line.boat_count);
                     return (
-                      <div
-                        key={line.boat_type_id}
-                        className="flex items-start justify-between gap-3 text-sm"
-                      >
-                        <div>
-                          <p className="font-medium text-forest-900">{line.name}</p>
-                          <p className="text-xs text-charcoal-400">
-                            {line.num_passengers} คน · {count} ลำ
+                      <div key={line.boat_type_id} className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold text-forest-900">{line.name}</p>
+                          <p className="text-[11.5px] text-charcoal-400">
+                            {line.num_passengers} คน · {line.boat_count} ลำ
                           </p>
                         </div>
-                        <p className="tabular-nums text-forest-900">
+                        <p className="shrink-0 text-[13px] font-bold tabular-nums text-forest-900">
                           ฿{sub.toLocaleString()}
                         </p>
                       </div>
@@ -614,49 +732,21 @@ export default function KayaksPage(): React.ReactElement {
               </div>
 
               {cartLines.length > 0 && (
-                <dl className="mt-4 space-y-2 rounded-xl bg-forest-50/70 px-3 py-3 text-sm text-forest-900">
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-charcoal-500">ผู้โดยสารทั้งหมด</dt>
-                    <dd className="font-medium tabular-nums">{totalPassengers} คน</dd>
+                <div className="mt-4 space-y-1.5 rounded-xl bg-forest-50/70 px-3.5 py-3 text-[12.5px] text-forest-900">
+                  <div className="flex justify-between">
+                    <span className="text-charcoal-500">ผู้โดยสารทั้งหมด</span>
+                    <span className="font-bold tabular-nums">{totalPassengers} คน</span>
                   </div>
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-charcoal-500">เรือทั้งหมด</dt>
-                    <dd className="font-medium tabular-nums">{totalBoats} ลำ</dd>
+                  <div className="flex justify-between">
+                    <span className="text-charcoal-500">เรือทั้งหมด</span>
+                    <span className="font-bold tabular-nums">{totalBoats} ลำ</span>
                   </div>
-                </dl>
+                </div>
               )}
 
-              <div className="mt-5 space-y-3 border-t border-stone-200 pt-5">
-                <PromoCodeFields
-                  basePrice={totalPrice}
-                  nights={null}
-                  scope="kayak"
-                  onChange={(ids, next) => {
-                    setPromoIds(ids);
-                    setPromoPreview(next);
-                  }}
-                />
-                {cartLines.length > 0 ? (
-                  <PromoPriceBreakdown
-                    basePrice={totalPrice}
-                    promo={
-                      promoPreview
-                        ? {
-                            name: promoPreview.lines[0]?.name ?? '',
-                            code: promoPreview.lines[0]?.code,
-                            discount_amount: promoPreview.discount_amount,
-                            final_price: promoPreview.final_price,
-                          }
-                        : null
-                    }
-                    lines={promoPreview?.lines}
-                  />
-                ) : null}
-              </div>
-
-              <div className="mt-5 flex items-baseline justify-between border-t border-stone-200 pt-5">
-                <span className="text-sm font-semibold text-forest-900">ราคารวม</span>
-                <span className="font-display text-xl tabular-nums text-forest-900">
+              <div className="mt-5 flex items-center justify-between rounded-xl bg-forest-900 px-4 py-3.5">
+                <span className="text-[13px] font-bold text-cream-100">ราคารวม</span>
+                <span className="font-sans text-[26px] font-extrabold leading-none text-cream-100">
                   ฿{totalPrice.toLocaleString()}
                 </span>
               </div>
@@ -667,13 +757,14 @@ export default function KayaksPage(): React.ReactElement {
                   bookingLoading ||
                   !selectedDate ||
                   !selectedSlot ||
-                  cartLines.length === 0
+                  cartLines.length === 0 ||
+                  (selectedDate === today && pastCutoffToday)
                 }
                 className="btn-primary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {bookingLoading ? 'กำลังจอง...' : 'ยืนยันการจองเรือ'}
               </button>
-              <p className="mt-3 text-center text-xs text-charcoal-400">
+              <p className="mt-3 text-center text-[11px] text-charcoal-400">
                 ยังไม่ตัดเงิน — ชำระเงินในขั้นตอนถัดไป (ครั้งเดียวทั้งกลุ่ม)
               </p>
             </form>

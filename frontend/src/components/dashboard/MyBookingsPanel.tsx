@@ -42,7 +42,7 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
   );
 }
 
-// รายการ "การจองของฉัน" (ห้องพัก/เรือ) แบบ self-contained — ใช้ร่วมกันทั้งหน้า /dashboard (แสดงคู่กับโปรไฟล์) และ /dashboard/bookings (หน้าเต็ม)
+// รายการ "การจองของฉัน" (ห้องพัก/เรือ) แบบ self-contained — แสดงคู่กับโปรไฟล์ในหน้า /dashboard
 // stickyTabs: ใช้เมื่อ panel นี้อยู่ในกล่องที่ overflow-y-auto ของตัวเอง (เช่นหน้า /dashboard) เพื่อให้แถบ filter ทั้งหมด/ห้องพัก/เรือ ค้างอยู่ด้านบนเวลาเลื่อนรายการ
 export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: boolean; stickyTabs?: boolean }) {
   const [tab, setTab] = useState<TabKey>('all');

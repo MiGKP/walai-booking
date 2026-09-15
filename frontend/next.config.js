@@ -74,6 +74,12 @@ const securityHeaders = [
 
 const nextConfig = {
   poweredByHeader: false,
+  async redirects() {
+    return [
+      // /dashboard/bookings ถูกรวมเข้าไปในหน้า /dashboard แล้ว เก็บ redirect ไว้กันลิงก์เก่า/บุ๊กมาร์กพัง
+      { source: '/dashboard/bookings', destination: '/dashboard', permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

@@ -41,6 +41,8 @@ import {
 interface KayakItemInput {
   boat_type_id: number;
   num_passengers: number;
+  /** ผู้ใช้เลือกจำนวนเรือเองได้ (ค่าเริ่มต้นคำนวณจากจำนวนผู้โดยสาร) — ต้องไม่น้อยกว่าที่คำนวณได้ */
+  boat_count?: number;
 }
 
 const BOATS_JSON_SQL = `COALESCE((
@@ -70,6 +72,7 @@ function normalizeKayakItems(body: Record<string, unknown>): KayakItemInput[] {
       return {
         boat_type_id: Number(item.boat_type_id),
         num_passengers: Number(item.num_passengers),
+        boat_count: item.boat_count != null ? Number(item.boat_count) : undefined,
       };
     });
   }
@@ -77,6 +80,7 @@ function normalizeKayakItems(body: Record<string, unknown>): KayakItemInput[] {
     {
       boat_type_id: Number(body.kayak_id),
       num_passengers: Number(body.num_passengers ?? 1),
+      boat_count: body.boat_count != null ? Number(body.boat_count) : undefined,
     },
   ];
 }
@@ -731,7 +735,17 @@ export const createKayakBooking = async (
       const seatCount = Number(boatType.seat_count || 1);
       let boatCount: number;
       try {
-        boatCount = boatsNeeded(item.num_passengers, seatCount);
+        const minBoatCount = boatsNeeded(item.num_passengers, seatCount);
+        if (item.boat_count != null) {
+          if (!Number.isInteger(item.boat_count) || item.boat_count < minBoatCount) {
+            throw new Error(
+              `จำนวนเรือของ ${boatType.type_name} ต้องมีอย่างน้อย ${minBoatCount} ลำสำหรับผู้โดยสาร ${item.num_passengers} คน`
+            );
+          }
+          boatCount = item.boat_count;
+        } else {
+          boatCount = minBoatCount;
+        }
       } catch (err) {
         await client.query("ROLLBACK");
         res.status(400).json({
@@ -984,6 +998,34 @@ export const createKayakBooking = async (
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
     client.release();
+  }
+};
+
+// ดึงรายละเอียดการจองเรือรายการเดียว (ใช้ในหน้าชำระเงิน) — เจ้าของการจองหรือ admin/boat_staff เท่านั้น
+export const getKayakBookingById = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const user = req.user as AuthPayload;
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `SELECT bb.*, ${BOATS_JSON_SQL} AS boats
+       FROM boat_bookings bb
+       WHERE bb.boat_booking_id = $1 AND (bb.member_id = $2 OR $3 IN ('admin', 'boat_staff'))`,
+      [id, user.id, user.role],
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ success: false, message: "Booking not found" });
+      return;
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error("Get kayak booking error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 

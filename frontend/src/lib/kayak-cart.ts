@@ -4,6 +4,8 @@ export interface KayakCartLine {
   capacity: number;
   price_per_hour: number;
   num_passengers: number;
+  /** จำนวนเรือที่จะใช้จริง — ปกติคำนวณอัตโนมัติจากผู้โดยสาร แต่ผู้ใช้ปรับเพิ่มเองได้ */
+  boat_count: number;
 }
 
 export function boatsNeeded(passengers: number, seatCount: number): number {
@@ -17,10 +19,7 @@ export function lineSubtotal(unitPrice: number, boatCount: number): number {
 }
 
 export function cartTotal(lines: KayakCartLine[]): number {
-  return lines.reduce((sum, line) => {
-    const count = boatsNeeded(line.num_passengers, line.capacity);
-    return sum + lineSubtotal(line.price_per_hour, count);
-  }, 0);
+  return lines.reduce((sum, line) => sum + lineSubtotal(line.price_per_hour, line.boat_count), 0);
 }
 
 export function cartPassengerTotal(lines: KayakCartLine[]): number {
@@ -28,10 +27,7 @@ export function cartPassengerTotal(lines: KayakCartLine[]): number {
 }
 
 export function cartBoatTotal(lines: KayakCartLine[]): number {
-  return lines.reduce(
-    (sum, line) => sum + boatsNeeded(line.num_passengers, line.capacity),
-    0
-  );
+  return lines.reduce((sum, line) => sum + line.boat_count, 0);
 }
 
 export function slotKey(startTime: string, endTime: string): string {
