@@ -7,6 +7,11 @@ import { ArrowRight, Anchor, Calendar, CreditCard, Star, MapPin, Phone, Waves, F
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import { resolveFacebookLink } from '@/lib/social';
+import {
+  googleMapsEmbedUrl,
+  googleMapsSearchUrl,
+  parseLatLng,
+} from '@/lib/coordinates';
 import Navbar from '@/components/layout/Navbar';
 // โหลดแยก bundle เพราะ three.js หนัก และฉากต้องรันบนเบราว์เซอร์เท่านั้น
 const WaterHouseScene3D = dynamic(

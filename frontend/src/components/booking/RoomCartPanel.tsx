@@ -11,6 +11,8 @@ import {
   setCartItemQuantity,
 } from '@/lib/room-cart';
 import { formatThaiDate, nightsBetween } from '@/lib/date';
+import api, { getApiErrorMessage } from '@/lib/api';
+import toast from 'react-hot-toast';
 import PromoPriceBreakdown from '@/components/booking/PromoPriceBreakdown';
 import BookingCalendar, { DateRange, DayStatus } from '@/components/booking/BookingCalendar';
 import { MonthCursor } from '@/lib/date';
@@ -27,7 +29,7 @@ interface RoomCartPanelProps {
   cart: RoomCartState;
   onChange: (next: RoomCartState) => void;
   onClear: () => void;
-  onCheckout: (options?: { promotion_ids?: number[] }) => void;
+  onCheckout: (options?: { promotion_id?: number }) => void;
   checkoutLoading?: boolean;
   autoAppliedPromoCode?: string | null;
   // Calendar props for inline editing
@@ -297,19 +299,7 @@ export default function RoomCartPanel({
             </div>
           ))}
         </div>
-      ) : nights > 0 ? (
-        <div className="mb-4 space-y-3 border-t border-stone-200 pt-3">
-          <PromoCodeFields
-            basePrice={0}
-            nights={nights}
-            scope="room"
-            onChange={(ids, next) => {
-              setPromoIds(ids);
-              setPromoPreview(next);
-            }}
-          />
-        </div>
-      ) : null}
+      )}
 
       {!empty && nights > 0 && (
         <div className="mb-6 space-y-4 border-t border-stone-100 pt-6">

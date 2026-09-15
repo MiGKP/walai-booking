@@ -12,18 +12,6 @@ import {
   sumCapacity,
   sumSubtotals,
 } from '../services/booking-room.math';
-import {
-  ApplyResult,
-  PromoApplyError,
-  applyPromotionList,
-  parsePromotionIds,
-} from '../services/promotion-apply';
-import {
-  loadApplyContext,
-  loadPromosForApply,
-  persistBookingPromotions,
-  restoreBookingPromotions,
-} from '../services/promotion-ledger';
 
 interface BookingItemInput {
   room_type_id: number;
@@ -83,6 +71,43 @@ function normalizeGuests(body: Record<string, unknown>): {
     };
   }
   return { adults: Number(body.guests), children: 0 };
+}
+
+async function applyPromotionDiscount(
+  client: { query: typeof pool.query },
+  promotionId: number,
+  basePrice: number,
+  nights: number
+): Promise<number> {
+  const promoRes = await client.query(
+    `SELECT discount_type, discount_value, max_discount, min_nights, min_price, is_active
+     FROM promotions WHERE id = $1`,
+    [promotionId]
+  );
+  if (promoRes.rows.length === 0 || !promoRes.rows[0].is_active) {
+    throw new Error('โปรโมชั่นไม่ถูกต้องหรือหมดอายุแล้ว');
+  }
+  const promo = promoRes.rows[0];
+  if (promo.min_nights != null && nights < Number(promo.min_nights)) {
+    throw new Error(`โปรโมชั่นนี้ต้องจองขั้นต่ำ ${promo.min_nights} คืน`);
+  }
+  if (promo.min_price != null && basePrice < Number(promo.min_price)) {
+    throw new Error(
+      `โปรโมชั่นนี้ต้องมียอดขั้นต่ำ ฿${Number(promo.min_price).toLocaleString()}`
+    );
+  }
+
+  let discountAmount = 0;
+  if (promo.discount_type === 'percent') {
+    discountAmount = (basePrice * Number(promo.discount_value)) / 100;
+    if (promo.max_discount != null) {
+      discountAmount = Math.min(discountAmount, Number(promo.max_discount));
+    }
+  } else {
+    discountAmount = Math.min(Number(promo.discount_value), basePrice);
+  }
+  discountAmount = Math.round(discountAmount);
+  return Math.max(0, basePrice - discountAmount);
 }
 
 export const createRoomBooking = async (
@@ -255,10 +280,7 @@ export const createRoomBooking = async (
         await client.query('ROLLBACK');
         res.status(400).json({
           success: false,
-          message:
-            err instanceof PromoApplyError || err instanceof Error
-              ? err.message
-              : 'โปรโมชั่นไม่ถูกต้อง',
+          message: err instanceof Error ? err.message : 'โปรโมชั่นไม่ถูกต้อง',
         });
         return;
       }
@@ -551,11 +573,6 @@ export const cancelRoomBooking = async (
       return;
     }
 
-    await restoreBookingPromotions(client, {
-      previousStatus: String(booking.rows[0].status),
-      roomBookingId: Number(id),
-    });
-
     await client.query(
       `UPDATE room_bookings SET status = 'cancelled', updated_at = NOW() WHERE room_booking_id = $1`,
       [id]
@@ -637,23 +654,6 @@ export const updateRoomBookingStatus = async (
     }
 
     await client.query('BEGIN');
-
-    const current = await client.query(
-      `SELECT status FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE`,
-      [id]
-    );
-    if (current.rows.length === 0) {
-      await client.query('ROLLBACK');
-      res.status(404).json({ success: false, message: 'Booking not found' });
-      return;
-    }
-    const previousStatus = String(current.rows[0].status);
-    if (status === 'rejected' || status === 'cancelled') {
-      await restoreBookingPromotions(client, {
-        previousStatus,
-        roomBookingId: Number(id),
-      });
-    }
 
     let query = `UPDATE room_bookings SET status = $1, updated_at = NOW()`;
     const params: Array<string | number> = [status];

@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import {
   ArrowLeft,
@@ -71,6 +71,7 @@ function GoogleAuthErrorToast(): React.ReactElement | null {
 }
 
 export default function LoginPage(): React.ReactElement | null {
+  const router = useRouter();
   const { login } = useAuth();
   // skipRedirect กันไม่ให้ guard แย่ง redirect ไป /dashboard (ตาม role) ตอน isAuthenticated เพิ่งเปลี่ยนเป็น true จาก login สำเร็จ
   const [isRedirecting, setIsRedirecting] = useState(false);
