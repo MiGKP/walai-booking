@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
@@ -136,7 +136,7 @@ function Stars({ value, size = 12 }: { value: number; size?: number }): React.Re
   );
 }
 
-export default function RoomDetailPage(): React.ReactElement {
+function RoomDetailPageContent(): React.ReactElement {
   const routeParams = useParams<{ id: string }>();
   const id = routeParams.id;
   const searchParams = useSearchParams();
@@ -560,5 +560,19 @@ export default function RoomDetailPage(): React.ReactElement {
         </div>
       )}
     </div>
+  );
+}
+
+export default function RoomDetailPage(): React.ReactElement {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[100dvh] bg-cream-50 px-4 py-24">
+          <div className="mx-auto h-56 max-w-7xl animate-pulse rounded-2xl bg-white" />
+        </div>
+      }
+    >
+      <RoomDetailPageContent />
+    </Suspense>
   );
 }

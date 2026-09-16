@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -133,7 +133,7 @@ function GuestRow({ label, hint, value, min, max = 20, onChange }: { label: stri
   );
 }
 
-export default function RoomsPage(): React.ReactElement {
+function RoomsPageContent(): React.ReactElement {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -463,5 +463,19 @@ export default function RoomsPage(): React.ReactElement {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RoomsPage(): React.ReactElement {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[100dvh] bg-cream-50 px-4 py-24">
+          <div className="mx-auto h-56 max-w-7xl animate-pulse rounded-2xl bg-white" />
+        </div>
+      }
+    >
+      <RoomsPageContent />
+    </Suspense>
   );
 }
