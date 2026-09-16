@@ -1895,3 +1895,22 @@ function RoomStaffDashboardContent() {
     </div>
   );
 }
+
+export default function RoomStaffDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center p-8">
+          <div className="flex flex-col items-center gap-3">
+            <RefreshCw size={28} className="animate-spin text-[#0b3b2c]" />
+            <span className="text-xs font-semibold text-stone-500">
+              กำลังโหลดข้อมูล...
+            </span>
+          </div>
+        </div>
+      }
+    >
+      <RoomStaffDashboardContent />
+    </Suspense>
+  );
+}
