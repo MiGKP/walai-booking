@@ -1783,3 +1783,11 @@ function BoatStaffDashboardContent() {
     </div>
   );
 }
+
+export default function BoatStaffDashboardPage() {
+  return (
+    <Suspense>
+      <BoatStaffDashboardContent />
+    </Suspense>
+  );
+}
