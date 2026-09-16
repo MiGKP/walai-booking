@@ -2,6 +2,8 @@ import { nightsBetween } from './date';
 
 export interface RoomCartItem {
   room_type_id: number;
+  room_id?: number | null; // For physical room snapshot
+  room_number?: string | null; // For physical room snapshot
   room_name: string;
   type_name: string | null;
   capacity: number;

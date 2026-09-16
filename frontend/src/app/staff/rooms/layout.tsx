@@ -2,7 +2,7 @@
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 
-export default function StaffLayout({
+export default function RoomStaffLayout({
   children,
 }: {
   children: React.ReactNode;

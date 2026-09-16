@@ -43,7 +43,9 @@ const MIN_PASSWORD_LENGTH = 8;
 export default function RegisterPage(): React.ReactElement | null {
   const router = useRouter();
   const { login } = useAuth();
-  const { ready } = useAuthGuard({ guestOnly: true });
+  // skipRedirect กันไม่ให้ guard แย่ง redirect ตอน isAuthenticated เพิ่งเปลี่ยนเป็น true จากสมัครสมาชิกสำเร็จ
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const { ready } = useAuthGuard({ guestOnly: true, skipRedirect: isRedirecting });
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
@@ -79,6 +81,7 @@ export default function RegisterPage(): React.ReactElement | null {
     }
 
     setLoading(true);
+    setIsRedirecting(true);
     try {
       const response = await api.post<RegisterResponse>('/auth/register', {
         first_name: form.first_name,
@@ -91,9 +94,10 @@ export default function RegisterPage(): React.ReactElement | null {
       });
       await login(response.data.data.token);
       toast.success('สมัครสมาชิกสำเร็จ!');
-      router.push('/');
+      router.push('/dashboard');
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, 'สมัครสมาชิกไม่สำเร็จ'));
+      setIsRedirecting(false);
     } finally {
       setLoading(false);
     }

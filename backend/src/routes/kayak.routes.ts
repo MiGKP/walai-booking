@@ -8,6 +8,7 @@ import {
   getKayakSchedule,
   createKayakBooking,
   getUserKayakBookings,
+  getKayakBookingById,
   cancelKayakBooking,
   getAllKayakBookings,
   updateKayakBookingStatus,
@@ -51,6 +52,7 @@ router.get('/schedule', getKayakSchedule);
 router.post('/bookings', authenticate, createKayakBookingValidator, validate, createKayakBooking);
 router.get('/bookings/my', authenticate, getUserKayakBookings);
 router.get('/bookings/all', authenticate, authorize('admin', 'boat_staff'), getAllKayakBookings);
+router.get('/bookings/:id', authenticate, getKayakBookingById);
 router.put('/bookings/:id/cancel', authenticate, cancelKayakBooking);
 router.put('/bookings/:id/status', authenticate, authorize('admin', 'boat_staff'), updateKayakBookingStatusValidator, validate, updateKayakBookingStatus);
 router.put('/bookings/:id/checkout', authenticate, authorize('admin', 'boat_staff'), checkoutKayakBooking);

@@ -70,14 +70,70 @@ export const getAllRooms = async (
   SELECT rt.id, rt.room_name, rt.type_name, rt.description, 
          rt.price as price_per_night, rt.capacity, rt.room_image as main_image, rt.status,
          (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as images,
-         (SELECT COUNT(*) FROM rooms r WHERE r.room_type_id = rt.id) as room_count, -- 👈 เพิ่มบรรทัดนี้
+         (SELECT COUNT(*) FROM rooms r WHERE r.room_type_id = rt.id) as room_count,
          ${availableCountSubquery} as available_count,
          (
            SELECT json_agg(json_build_object('id', a.id, 'name', a.name) ORDER BY a.id)
            FROM room_amenities a
            WHERE a.id = ANY(COALESCE(rt.amenity_ids, ARRAY[]::integer[]))
-         ) as amenities
-  FROM room_types rt 
+         ) as amenities,
+         (
+           SELECT COUNT(*)::int
+           FROM booking_room br 
+           JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id 
+           JOIN rooms r ON r.room_id = br.room_id
+           WHERE r.room_type_id = rt.id 
+             AND rb.check_in <= CURRENT_DATE 
+             AND rb.check_out > CURRENT_DATE 
+             AND br.status NOT IN ('cancelled', 'rejected')
+         ) as today_bookings,
+         (
+           SELECT COALESCE(AVG(rating), 0)::numeric(3,1) 
+           FROM reviews rev 
+           WHERE rev.room_booking_id IN (
+             SELECT rb2.room_booking_id 
+             FROM room_bookings rb2
+             JOIN booking_room br2 ON br2.room_booking_id = rb2.room_booking_id
+             JOIN rooms r2 ON r2.room_id = br2.room_id
+             WHERE r2.room_type_id = rt.id
+           )
+         ) as avg_rating,
+         (
+           SELECT COUNT(*)::int 
+           FROM reviews rev 
+           WHERE rev.room_booking_id IN (
+             SELECT rb2.room_booking_id 
+             FROM room_bookings rb2
+             JOIN booking_room br2 ON br2.room_booking_id = rb2.room_booking_id
+             JOIN rooms r2 ON r2.room_id = br2.room_id
+             WHERE r2.room_type_id = rt.id
+           )
+         ) as review_count,
+         (
+           SELECT json_agg(json_build_object('id', p.id, 'name', p.name, 'code', p.code, 'description', p.description, 'discount_value', p.discount_value, 'discount_type', p.discount_type, 'min_nights', p.min_nights, 'max_discount', p.max_discount))
+           FROM promotions p
+           WHERE p.is_active = true
+             AND p.start_date <= CURRENT_DATE
+             AND p.end_date >= CURRENT_DATE
+             AND (p.room_type_id = rt.id OR p.room_type_id IS NULL)
+         ) as available_promotions,
+         (
+           SELECT json_agg(json_build_object('room_id', r.room_id, 'room_number', r.room_number))
+           FROM rooms r
+           WHERE r.room_type_id = rt.id AND r.status != 'maintenance'
+           ${
+             check_in && check_out
+               ? `AND r.room_id NOT IN (
+                    SELECT br.room_id
+                    FROM booking_room br
+                    JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+                    WHERE br.status NOT IN ('cancelled', 'rejected')
+                    AND rb.check_in < $2 AND rb.check_out > $3
+                  )`
+               : ""
+           }
+         ) as rooms
+  FROM room_types rt
   WHERE ($1::boolean IS TRUE OR rt.status = true)
 `;
 
@@ -111,11 +167,41 @@ export const getRoomById = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
+    const { check_in, check_out } = req.query;
     const isAdmin = req.query.is_admin === "true";
+
+    let roomsSubquery: string;
+    const params: any[] = [id, isAdmin];
+
+    if (check_in && check_out) {
+      roomsSubquery = `
+        SELECT json_agg(json_build_object(
+          'room_id', r.room_id, 
+          'room_number', r.room_number, 
+          'status', r.status,
+          'is_available', (
+            r.status != 'maintenance' AND r.room_id NOT IN (
+              SELECT br.room_id
+              FROM booking_room br
+              JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+              WHERE br.status NOT IN ('cancelled', 'rejected')
+              AND (rb.check_in < $4 AND rb.check_out > $3)
+            )
+          )
+        )) 
+        FROM rooms r WHERE r.room_type_id = rt.id
+      `;
+      params.push(check_in, check_out);
+    } else {
+      roomsSubquery = `
+        SELECT json_agg(json_build_object('room_id', r.room_id, 'room_number', r.room_number, 'status', r.status, 'is_available', true)) 
+        FROM rooms r WHERE r.room_type_id = rt.id
+      `;
+    }
 
     const rtResult = await pool.query(
       `
-      SELECT rt.id, rt.room_name, rt.type_name, rt.description, 
+      SELECT rt.id, rt.room_name, rt.type_name, rt.description,
              rt.price as price_per_night, rt.capacity, rt.room_image as main_image, rt.status,
              (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as images,
              (
@@ -123,12 +209,19 @@ export const getRoomById = async (
                FROM room_amenities a
                WHERE a.id = ANY(COALESCE(rt.amenity_ids, ARRAY[]::integer[]))
              ) as amenities,
-             (SELECT json_agg(json_build_object('room_id', r.room_id, 'room_number', r.room_number, 'status', r.status)) 
-              FROM rooms r WHERE r.room_type_id = rt.id) as rooms
-      FROM room_types rt 
+             (${roomsSubquery}) as rooms,
+             (
+               SELECT json_agg(json_build_object('id', p.id, 'name', p.name, 'code', p.code, 'description', p.description, 'discount_value', p.discount_value, 'discount_type', p.discount_type, 'min_nights', p.min_nights, 'max_discount', p.max_discount))
+               FROM promotions p
+               WHERE p.is_active = true
+                 AND p.start_date <= CURRENT_DATE
+                 AND p.end_date >= CURRENT_DATE
+                 AND (p.room_type_id = rt.id OR p.room_type_id IS NULL)
+             ) as available_promotions
+      FROM room_types rt
       WHERE rt.id = $1 AND ($2::boolean IS TRUE OR rt.status = true)
     `,
-      [id, isAdmin],
+      params,
     );
 
     if (rtResult.rows.length === 0) {

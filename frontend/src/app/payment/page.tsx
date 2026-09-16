@@ -2,11 +2,23 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { CreditCard, Upload, CheckCircle, ArrowLeft } from 'lucide-react';
-import api from '@/lib/api';
+import { CreditCard, Upload, CheckCircle, ArrowLeft, XCircle, Receipt, Landmark, QrCode, Info } from 'lucide-react';
+import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { formatThaiDate, formatTimeRange, nightsBetween } from '@/lib/date';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+
+const CARD = 'rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)] p-5 sm:p-6';
+
+function SectionHeading({ icon, title }: { icon: React.ReactNode; title: string }): React.ReactElement {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">{icon}</span>
+      <h2 className="font-sans text-[16px] font-semibold text-forest-900">{title}</h2>
+    </div>
+  );
+}
 
 // component หลักของหน้าชำระเงิน ทำหน้าที่โหลดข้อมูล payment, แสดง QR, รับสลิป และส่งสลิปไป backend
 function PaymentContent() {
@@ -17,11 +29,14 @@ function PaymentContent() {
   const booking_id = searchParams.get('booking_id');
 
   const [payment, setPayment] = useState<any>(null);
+  const [bookingDetail, setBookingDetail] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [slip, setSlip] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState('');
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -41,6 +56,15 @@ function PaymentContent() {
       toast.error(err.response?.data?.message || 'ไม่สามารถสร้างรายการชำระเงินได้');
     } finally {
       setLoading(false);
+    }
+
+    // ดึงรายละเอียดการจองแบบเต็ม (วันที่ ผู้เข้าพัก/ผู้โดยสาร รายการห้อง/เรือ) มาแสดงฝั่งซ้าย
+    try {
+      const detailUrl = booking_type === 'room' ? `/bookings/${booking_id}` : `/kayaks/bookings/${booking_id}`;
+      const detailRes = await api.get(detailUrl);
+      setBookingDetail(detailRes.data.data);
+    } catch {
+      // ไม่ critical ต่อการชำระเงิน แค่แสดงรายละเอียดเพิ่มไม่ได้ ไม่ต้อง toast รบกวนผู้ใช้
     }
   };
 
@@ -64,7 +88,6 @@ function PaymentContent() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setDone(true);
-      toast.success('อัปโหลดสลิปสำเร็จ! รอการตรวจสอบจากเจ้าหน้าที่');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'อัปโหลดสลิปไม่สำเร็จ');
     } finally {
@@ -72,126 +95,358 @@ function PaymentContent() {
     }
   };
 
+  // ยกเลิกการจอง (เฉพาะสถานะ pending ที่ยังไม่ได้ส่งสลิป) แล้วพากลับไปหน้าการจองของฉัน
+  const handleCancelBooking = async () => {
+    if (!booking_type || !booking_id) return;
+    setCancelling(true);
+    try {
+      const cancelUrl = booking_type === 'room' ? `/bookings/${booking_id}/cancel` : `/kayaks/bookings/${booking_id}/cancel`;
+      await api.put(cancelUrl);
+      toast.success('ยกเลิกการจองแล้ว');
+      router.push('/dashboard');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'ไม่สามารถยกเลิกการจองได้'));
+    } finally {
+      setCancelling(false);
+      setShowCancelConfirm(false);
+    }
+  };
+
   if (loading) return (
-    <div className="min-h-screen pt-16 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-600 border-t-transparent" />
+    <div className="min-h-screen bg-cream-100 pt-20 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-4 border-forest-800 border-t-transparent" />
     </div>
   );
 
   if (done) return (
-    <div className="min-h-screen pt-16 bg-gray-50 flex items-center justify-center px-4">
-      <div className="card p-10 max-w-md w-full text-center">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 mb-5">
-          <CheckCircle size={48} className="text-green-500" />
+    <div className="min-h-screen bg-cream-100 pt-20 flex items-center justify-center px-4 pb-10">
+      <div className={`${CARD} max-w-md w-full text-center px-6 py-10 sm:px-10`}>
+        <div className="relative mx-auto mb-6 grid h-24 w-24 place-items-center">
+          <span className="absolute inset-0 rounded-full bg-forest-50" />
+          <span className="absolute inset-0 animate-ping rounded-full bg-forest-100 opacity-60" style={{ animationDuration: '2s' }} />
+          <div className="relative grid h-20 w-20 place-items-center rounded-full bg-forest-800 shadow-lg shadow-forest-900/20">
+            <CheckCircle size={40} className="text-cream-100" />
+          </div>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-3">ส่งสลิปสำเร็จแล้ว!</h1>
-        <p className="text-gray-500 mb-8">รอเจ้าหน้าที่ตรวจสอบและยืนยันการชำระเงิน ประมาณ 15-30 นาที</p>
-        <div className="flex flex-col gap-3">
-          <Link href="/dashboard/bookings" className="btn-primary">ดูการจองของฉัน</Link>
-          <Link href="/" className="btn-secondary text-center block w-full py-2 border border-gray-300 rounded-xl hover:bg-gray-50 font-medium transition-all">กลับหน้าแรก</Link>
+
+        <h1 className="font-sans text-[22px] font-semibold text-forest-900 sm:text-[24px]">ส่งสลิปสำเร็จแล้ว!</h1>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-charcoal-400">
+          ขอบคุณสำหรับการชำระเงิน เจ้าหน้าที่กำลังตรวจสอบสลิปของคุณ
+        </p>
+
+        {payment && (
+          <div className="mt-5 flex items-center justify-between rounded-xl bg-forest-50/60 px-4 py-3 text-left text-[13px]">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">หมายเลขการจอง</p>
+              <p className="font-semibold text-forest-900">#{payment.booking_id}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">ยอดที่ชำระ</p>
+              <p className="font-sans text-[16px] font-extrabold text-forest-900">฿{Number(payment.amount).toLocaleString()}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Progress Steps */}
+        <div className="mt-6 flex items-center justify-center gap-2 px-2">
+          <div className="flex flex-1 flex-col items-center gap-1.5">
+            <div className="grid h-7 w-7 place-items-center rounded-full bg-forest-800 text-cream-100"><CheckCircle size={14} /></div>
+            <span className="text-[10.5px] font-semibold text-forest-900">ส่งสลิปแล้ว</span>
+          </div>
+          <div className="h-0.5 flex-1 rounded-full bg-forest-200 -mt-5" />
+          <div className="flex flex-1 flex-col items-center gap-1.5">
+            <div className="grid h-7 w-7 place-items-center rounded-full border-2 border-forest-300 bg-white text-forest-500 text-[11px] font-bold">2</div>
+            <span className="text-[10.5px] font-semibold text-forest-700">รอตรวจสอบ</span>
+          </div>
+          <div className="h-0.5 flex-1 rounded-full bg-stone-200 -mt-5" />
+          <div className="flex flex-1 flex-col items-center gap-1.5">
+            <div className="grid h-7 w-7 place-items-center rounded-full border-2 border-stone-200 bg-white text-stone-400 text-[11px] font-bold">3</div>
+            <span className="text-[10.5px] font-semibold text-stone-400">ยืนยันการจอง</span>
+          </div>
+        </div>
+        <p className="mt-3 text-[11.5px] text-charcoal-400">ใช้เวลาตรวจสอบประมาณ 15-30 นาที</p>
+
+        <div className="mt-7 flex flex-col gap-3">
+          <Link href="/dashboard" className="btn-primary text-center">ดูการจองของฉัน</Link>
+          <Link href="/" className="inline-flex w-full items-center justify-center rounded-xl border border-stone-200 py-3 text-[13px] font-bold text-forest-800 transition-colors hover:bg-stone-50">กลับหน้าแรก</Link>
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen pt-16 bg-gray-50">
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <Link href="/dashboard/bookings" className="inline-flex items-center gap-2 text-gray-500 hover:text-teal-600 mb-6 transition-colors">
-          <ArrowLeft size={18} /> กลับไปการจอง
-        </Link>
+    <div className="min-h-screen bg-cream-100 pt-20">
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        {/* Header Section */}
+        <div>
+          <Link
+            href="/dashboard"
+            className="group inline-flex items-center gap-2.5 rounded-full bg-white py-1.5 pl-1.5 pr-4 text-[13px] font-bold text-forest-800 shadow-[0_1px_2px_rgba(18,60,48,0.04),0_6px_16px_-6px_rgba(18,60,48,0.2)] ring-1 ring-stone-200/70 transition-all duration-200 hover:-translate-x-0.5 hover:ring-forest-300"
+          >
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700 transition-colors group-hover:bg-forest-100">
+              <ArrowLeft size={14} />
+            </span>
+            กลับไปการจอง
+          </Link>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-          <CreditCard className="text-teal-600" /> ชำระเงิน
-        </h1>
+          <div className="mt-4 flex items-center gap-2.5">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700"><CreditCard size={18} /></span>
+            <div>
+              <h1 className="font-sans text-[24px] font-semibold leading-tight text-forest-900 sm:text-[28px]">ชำระเงิน</h1>
+              <p className="text-[12.5px] text-charcoal-400">ทำตามขั้นตอนด้านล่างเพื่อยืนยันการจองของคุณ</p>
+            </div>
+          </div>
+        </div>
 
         {payment && (
-          <div className="space-y-5">
-            {/* Payment Summary */}
-            <div className="card p-6">
-              <h2 className="font-bold text-gray-900 mb-4">สรุปรายการ</h2>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-gray-600">
-                  <span>ประเภทการจอง</span>
-                  <span className="font-medium">{payment.booking_type === 'room' ? 'ห้องพัก' : 'เรือ'}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>หมายเลขการจอง</span>
-                  <span className="font-medium">#{payment.booking_id}</span>
-                </div>
-                <div className="flex justify-between font-bold text-lg text-gray-900 pt-2 border-t">
-                  <span>ยอดรวม</span>
-                  <span className="text-teal-600">฿{Number(payment.amount).toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bank Info */}
-            <div className="card p-6">
-              <h2 className="font-bold text-gray-900 mb-4">ข้อมูลบัญชี</h2>
-              <div className="bg-teal-50 rounded-xl p-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">ธนาคาร</span>
-                  <span className="font-semibold text-gray-900">{payment.bank_info?.bank_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">เลขบัญชี</span>
-                  <span className="font-semibold text-gray-900">{payment.bank_info?.account_number}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">ชื่อบัญชี</span>
-                  <span className="font-semibold text-gray-900">{payment.bank_info?.account_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">PromptPay</span>
-                  <span className="font-semibold text-gray-900">{payment.bank_info?.promptpay}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* QR Code */}
-            {payment.qr_code_url && (
-              <div className="card p-6 text-center">
-                <h2 className="font-bold text-gray-900 mb-4">สแกน QR Code ชำระเงิน</h2>
-                <div className="inline-block p-4 bg-white border-2 border-gray-100 rounded-2xl shadow-sm mb-3">
-                  <img src={payment.qr_code_url} alt="QR Code" className="w-52 h-52 mx-auto" />
-                </div>
-                <p className="text-sm text-gray-500">สแกนด้วยแอปธนาคารหรือ PromptPay</p>
-                <p className="text-lg font-bold text-teal-600 mt-2">฿{Number(payment.amount).toLocaleString()}</p>
-              </div>
-            )}
-
-            {/* Upload Slip */}
-            <div className="card p-6">
-              <h2 className="font-bold text-gray-900 mb-4">อัปโหลดสลิปการโอนเงิน</h2>
-              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-teal-400 transition-colors">
-                {slipPreview ? (
-                  <div className="space-y-3">
-                    <img src={slipPreview} alt="Slip" className="max-h-60 mx-auto rounded-xl object-contain" />
-                    <button onClick={() => { setSlip(null); setSlipPreview(''); }} className="text-sm text-red-500 hover:text-red-600">
-                      ลบรูปภาพ
-                    </button>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-start">
+            {/* ---- คอลัมน์ 1: สรุปรายการจอง + รายละเอียดการเข้าพัก (การ์ดเดียว) ---- */}
+            <div className="space-y-5">
+              <section className={CARD}>
+                <SectionHeading icon={<Receipt size={16} />} title="สรุปรายการ" />
+                <div className="mt-4 space-y-2 text-[13.5px]">
+                  <div className="flex justify-between text-charcoal-500">
+                    <span>ประเภทการจอง</span>
+                    <span className="font-semibold text-forest-900">{payment.booking_type === 'room' ? 'ห้องพัก' : 'เรือ'}</span>
                   </div>
-                ) : (
-                  <label className="cursor-pointer block">
-                    <Upload size={36} className="mx-auto mb-3 text-gray-300" />
-                    <p className="text-gray-500 text-sm mb-1">คลิกเพื่ออัปโหลดสลิป</p>
-                    <p className="text-gray-400 text-xs">PNG, JPG ขนาดไม่เกิน 5MB</p>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleSlipChange} />
-                  </label>
+                  <div className="flex justify-between text-charcoal-500">
+                    <span>หมายเลขการจอง</span>
+                    <span className="font-semibold text-forest-900">#{payment.booking_id}</span>
+                  </div>
+                  {payment.status && (
+                    <div className="flex justify-between text-charcoal-500">
+                      <span>สถานะ</span>
+                      <span className="font-semibold text-forest-900">{payment.status === 'pending' ? 'รอชำระเงิน' : payment.status}</span>
+                    </div>
+                  )}
+                  {bookingDetail?.created_at && (
+                    <div className="flex justify-between text-charcoal-500">
+                      <span>วันที่จอง</span>
+                      <span className="font-semibold text-forest-900">{formatThaiDate(String(bookingDetail.created_at).slice(0, 10))}</span>
+                    </div>
+                  )}
+                  {payment.booking_type === 'kayak' && bookingDetail?.boats?.length > 0 && (
+                    <div className="flex justify-between text-charcoal-500">
+                      <span>รายการเรือ</span>
+                      <span className="font-semibold text-forest-900">
+                        {bookingDetail.boats.map((b: any) => b.type_name).join(', ')}
+                        {' · '}
+                        {bookingDetail.boats.reduce((sum: number, b: any) => sum + Number(b.boat_count), 0)} ลำ
+                        {' · '}
+                        {bookingDetail.num_passengers} คน
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {bookingDetail && payment.booking_type === 'room' && (
+                  <>
+                    <div className="mt-4 flex flex-wrap gap-4 border-t border-stone-100 pt-4 text-[13.5px]">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">วันเข้าพัก – วันออก</p>
+                        <p className="mt-0.5 font-semibold text-forest-900">
+                          {formatThaiDate(String(bookingDetail.check_in_date).slice(0, 10))} – {formatThaiDate(String(bookingDetail.check_out_date).slice(0, 10))}
+                          <span className="ml-1.5 rounded-full bg-forest-50 px-2 py-0.5 text-[11px] font-bold text-forest-700">
+                            {nightsBetween(String(bookingDetail.check_in_date).slice(0, 10), String(bookingDetail.check_out_date).slice(0, 10))} คืน
+                          </span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">ผู้เข้าพัก</p>
+                        <p className="mt-0.5 font-semibold text-forest-900">ผู้ใหญ่ {bookingDetail.adults} · เด็ก {bookingDetail.children}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-2 border-t border-stone-100 pt-4">
+                      {(bookingDetail.rooms || []).map((room: any) => (
+                        <div key={room.booking_room_id} className="flex items-center justify-between gap-3 rounded-xl bg-stone-50/60 p-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-bold text-forest-900">{room.room_name} (ห้อง {room.room_number})</p>
+                            <p className="text-[11.5px] text-charcoal-400">฿{Number(room.price_per_night).toLocaleString()} / คืน × {room.nights} คืน</p>
+                          </div>
+                          <span className="shrink-0 text-[13px] font-bold text-forest-900">฿{Number(room.subtotal).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {bookingDetail.special_request && (
+                      <div className="mt-4 rounded-xl bg-bamboo-50/40 p-3 text-[12.5px] text-charcoal-500">
+                        <span className="font-bold text-bamboo-600">คำขอพิเศษ:</span> {bookingDetail.special_request}
+                      </div>
+                    )}
+                  </>
                 )}
-              </div>
-              <button
-                onClick={handleUploadSlip}
-                disabled={!slip || uploading}
-                className="btn-primary w-full mt-4 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {uploading ? 'กำลังอัปโหลด...' : 'ยืนยันการชำระเงิน'}
-              </button>
+
+                {bookingDetail && payment.booking_type === 'kayak' && (
+                  <>
+                    <div className="mt-4 flex flex-wrap gap-4 border-t border-stone-100 pt-4 text-[13.5px]">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">วันที่ · รอบเวลา</p>
+                        <p className="mt-0.5 font-semibold text-forest-900">
+                          {formatThaiDate(String(bookingDetail.booking_date).slice(0, 10))}
+                          <span className="ml-1.5 rounded-full bg-forest-50 px-2 py-0.5 text-[11px] font-bold text-forest-700">
+                            {formatTimeRange(bookingDetail.start_time, bookingDetail.end_time)}
+                          </span>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">ผู้โดยสาร</p>
+                        <p className="mt-0.5 font-semibold text-forest-900">{bookingDetail.num_passengers} คน</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-2 border-t border-stone-100 pt-4">
+                      {(bookingDetail.boats || []).map((boat: any) => (
+                        <div key={boat.booking_boat_id} className="flex items-center justify-between gap-3 rounded-xl bg-stone-50/60 p-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-bold text-forest-900">{boat.type_name}</p>
+                            <p className="text-[11.5px] text-charcoal-400">
+                              ผู้โดยสาร {boat.num_passengers} คน · {boat.boat_count} ลำ · ฿{Number(boat.unit_price).toLocaleString()}/ลำ
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-[13px] font-bold text-forest-900">฿{Number(boat.subtotal).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Price Breakdown */}
+                <div className="mt-4 space-y-2 border-t border-stone-100 pt-4 text-[13.5px]">
+                  <div className="flex justify-between text-charcoal-500">
+                    <span>{payment.booking_type === 'room' ? 'ยอดรวมห้องพัก' : 'ยอดรวมเรือ'}</span>
+                    <span className="font-semibold text-forest-900">
+                      ฿{(
+                        bookingDetail?.rooms?.length
+                          ? bookingDetail.rooms.reduce((sum: number, r: any) => sum + Number(r.subtotal), 0)
+                          : bookingDetail?.boats?.length
+                            ? bookingDetail.boats.reduce((sum: number, b: any) => sum + Number(b.subtotal), 0)
+                            : Number(payment.amount)
+                      ).toLocaleString()}
+                    </span>
+                  </div>
+                  {(bookingDetail?.promotions || []).map((promo: any, idx: number) => (
+                    <div key={idx} className="flex justify-between text-emerald-600">
+                      <span>ส่วนลด{promo.name || promo.code ? ` (${promo.name || promo.code})` : ''}</span>
+                      <span className="font-semibold">-฿{Number(promo.discount_amount).toLocaleString()}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between border-t border-stone-100 pt-3 mt-1">
+                    <span className="text-[14px] font-bold text-forest-900">ยอดชำระสุทธิ</span>
+                    <span className="font-sans text-[20px] font-extrabold text-bamboo-600">฿{Number(payment.amount).toLocaleString()}</span>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            {/* ---- คอลัมน์ 2: ช่องทางการชำระเงิน (QR ข้างบน + บัญชีข้างล่าง ในการ์ดเดียวกัน) ---- */}
+            <div className="space-y-5">
+              <section className={CARD}>
+                {payment.qr_code_url && (
+                  <div className="text-center">
+                    <SectionHeading icon={<QrCode size={16} />} title="สแกน QR Code ชำระเงิน" />
+                    <div className="mt-4 inline-block rounded-2xl border border-stone-200/80 bg-white p-4 shadow-sm">
+                      <img src={payment.qr_code_url} alt="QR Code" className="w-52 h-52 mx-auto" />
+                    </div>
+                    <p className="mt-3 text-[12.5px] text-charcoal-400">สแกนด้วยแอปธนาคารหรือ PromptPay</p>
+                    <p className="mt-1 font-sans text-[18px] font-extrabold text-forest-900">฿{Number(payment.amount).toLocaleString()}</p>
+                  </div>
+                )}
+
+                <div className={payment.qr_code_url ? 'mt-6 border-t border-stone-100 pt-6' : ''}>
+                  <SectionHeading icon={<Landmark size={16} />} title="ช่องทางการชำระเงิน" />
+                  <div className="mt-4 space-y-2 rounded-xl bg-forest-50/50 p-4 text-[13.5px]">
+                    <div className="flex justify-between">
+                      <span className="text-charcoal-500">ธนาคาร</span>
+                      <span className="font-semibold text-forest-900">{payment.bank_info?.bank_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-charcoal-500">เลขบัญชี</span>
+                      <span className="font-semibold text-forest-900">{payment.bank_info?.account_number}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-charcoal-500">ชื่อบัญชี</span>
+                      <span className="font-semibold text-forest-900">{payment.bank_info?.account_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-charcoal-500">PromptPay</span>
+                      <span className="font-semibold text-forest-900">{payment.bank_info?.promptpay}</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            {/* ---- คอลัมน์ 3: ยืนยันการโอนเงิน (อัปโหลดสลิป) ---- */}
+            <div className="space-y-5">
+              <section className={CARD}>
+                <SectionHeading icon={<Upload size={16} />} title="ยืนยันการโอนเงิน" />
+                <div className="mt-4 rounded-xl border-2 border-dashed border-stone-200 p-6 text-center transition-colors hover:border-forest-300">
+                  {slipPreview ? (
+                    <div className="space-y-3">
+                      <img src={slipPreview} alt="Slip" className="max-h-60 mx-auto rounded-xl object-contain" />
+                      <button onClick={() => { setSlip(null); setSlipPreview(''); }} className="text-[12.5px] font-semibold text-red-500 hover:text-red-600">
+                        ลบรูปภาพ
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer block">
+                      <Upload size={32} className="mx-auto mb-3 text-stone-300" />
+                      <p className="text-[13px] text-charcoal-500 mb-1">คลิกเพื่ออัปโหลดสลิป</p>
+                      <p className="text-[11.5px] text-stone-400">PNG, JPG ขนาดไม่เกิน 5MB</p>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleSlipChange} />
+                    </label>
+                  )}
+                </div>
+                <button
+                  onClick={handleUploadSlip}
+                  disabled={!slip || uploading}
+                  className="btn-primary w-full mt-4 text-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploading ? 'กำลังอัปโหลด...' : 'ยืนยันการชำระเงิน'}
+                </button>
+              </section>
+
+              <section className={CARD}>
+                <SectionHeading icon={<Info size={16} />} title="คำแนะนำและยกเลิกการจอง" />
+                <p className="mt-3 text-[12.5px] leading-relaxed text-charcoal-400">
+                  หลังโอนเงินแล้ว กรุณาอัปโหลดสลิปการโอนด้านบนเพื่อให้เจ้าหน้าที่ตรวจสอบและยืนยันการจองของคุณ
+                  หากยังไม่สะดวกชำระเงินตอนนี้ สามารถยกเลิกการจองนี้ได้
+                </p>
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  disabled={cancelling}
+                  className="w-full mt-4 py-2.5 rounded-xl border border-red-200 text-red-600 font-semibold text-[13px] hover:bg-red-50 transition-colors disabled:opacity-60"
+                >
+                  ยกเลิกการจอง
+                </button>
+              </section>
             </div>
           </div>
         )}
       </div>
+
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 backdrop-blur-sm p-4" onClick={() => setShowCancelConfirm(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-500">
+              <XCircle size={22} />
+            </div>
+            <h3 className="text-center text-[16px] font-bold text-forest-900">ยกเลิกการจองนี้?</h3>
+            <p className="mt-1.5 text-center text-[13px] leading-relaxed text-stone-500">
+              ห้อง/เรือที่จองไว้จะถูกปล่อยว่าง และไม่สามารถกู้คืนรายการนี้ได้
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setShowCancelConfirm(false)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-[13px] font-bold text-stone-600 hover:bg-stone-50 transition-colors">
+                ไม่ยกเลิก
+              </button>
+              <button onClick={handleCancelBooking} disabled={cancelling} className="flex-1 rounded-xl bg-red-600 py-2.5 text-[13px] font-bold text-white hover:bg-red-700 transition-colors disabled:opacity-60">
+                {cancelling ? 'กำลังยกเลิก...' : 'ยกเลิกการจอง'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -199,7 +454,7 @@ function PaymentContent() {
 // ครอบ PaymentContent ด้วย Suspense เพื่อรองรับ useSearchParams ใน Next.js App Router อย่างปลอดภัย
 export default function PaymentPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen pt-16 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-600 border-t-transparent" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-cream-100 pt-20 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-forest-800 border-t-transparent" /></div>}>
       <PaymentContent />
     </Suspense>
   );

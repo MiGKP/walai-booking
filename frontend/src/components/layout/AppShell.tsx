@@ -19,6 +19,9 @@ const AUTH_PATHS_WITHOUT_CHROME = new Set([
   '/auth/callback',
 ]);
 
+// หน้าที่เป็น task-flow เฉพาะทาง (เช่น ขั้นตอนชำระเงิน, หน้าโปรไฟล์/การจอง) ไม่ต้องมี Footer มารบกวน แต่ยังเก็บ Navbar ไว้เพื่อให้เมนูหลักใช้งานได้
+const PATHS_WITHOUT_FOOTER = new Set(['/payment', '/dashboard']);
+
 export default function AppShell({ children }: AppShellProps): ReactNode {
   const pathname = usePathname();
 
@@ -26,12 +29,13 @@ export default function AppShell({ children }: AppShellProps): ReactNode {
   const isAdminPage = pathname?.startsWith('/admin');
 
   const hideChrome = isAuthPage || isAdminPage;
+  const hideFooter = hideChrome || PATHS_WITHOUT_FOOTER.has(pathname);
 
   return (
     <AuthProvider>
       {!hideChrome && <Navbar />}
       <main className="min-h-screen">{children}</main>
-      {!hideChrome && <Footer />}
+      {!hideFooter && <Footer />}
       
       {/* 🌟 ปรับเป็น top-center และแต่งสไตล์ตรงนี้ที่เดียว */}
       <Toaster

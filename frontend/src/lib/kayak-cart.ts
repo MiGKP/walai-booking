@@ -4,6 +4,10 @@ export interface KayakCartLine {
   capacity: number;
   price_per_hour: number;
   num_passengers: number;
+  /** จำนวนเรือที่จะใช้จริง — ปกติคำนวณอัตโนมัติจากผู้โดยสาร แต่ผู้ใช้ปรับเพิ่มเองได้ */
+  boat_count: number;
+  /** จำนวนบัตรพายเรือฟรีที่จะใช้กับบรรทัดนี้ (หักราคาลำละ 1 ใบ) */
+  free_tickets_used: number;
 }
 
 export function boatsNeeded(passengers: number, seatCount: number): number {
@@ -18,8 +22,9 @@ export function lineSubtotal(unitPrice: number, boatCount: number): number {
 
 export function cartTotal(lines: KayakCartLine[]): number {
   return lines.reduce((sum, line) => {
-    const count = boatsNeeded(line.num_passengers, line.capacity);
-    return sum + lineSubtotal(line.price_per_hour, count);
+    const gross = lineSubtotal(line.price_per_hour, line.boat_count);
+    const discount = (line.free_tickets_used || 0) * line.price_per_hour;
+    return sum + Math.max(0, gross - discount);
   }, 0);
 }
 
@@ -28,10 +33,7 @@ export function cartPassengerTotal(lines: KayakCartLine[]): number {
 }
 
 export function cartBoatTotal(lines: KayakCartLine[]): number {
-  return lines.reduce(
-    (sum, line) => sum + boatsNeeded(line.num_passengers, line.capacity),
-    0
-  );
+  return lines.reduce((sum, line) => sum + line.boat_count, 0);
 }
 
 export function slotKey(startTime: string, endTime: string): string {

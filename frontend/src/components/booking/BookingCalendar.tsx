@@ -95,15 +95,15 @@ function MonthPanel({
 
   return (
     <div className="min-w-0 flex-1">
-      <p className="mb-2 text-center font-display text-base text-forest-900">
+      <p className="mb-3 text-center font-display text-base font-medium text-forest-900">
         {formatMonthLabel(cursor)}
       </p>
 
-      <div className="grid grid-cols-7 mb-1">
+      <div className="grid grid-cols-7 mb-1 border-b border-stone-100 pb-1.5">
         {THAI_WEEKDAYS_SHORT.map((label) => (
           <div
             key={`${cursor.year}-${cursor.month}-${label}`}
-            className="text-center text-[11px] font-medium tracking-wide text-charcoal-400 py-1.5"
+            className="text-center text-[11px] font-semibold tracking-wide text-charcoal-400/80 py-1"
           >
             {label}
           </div>
@@ -115,7 +115,7 @@ function MonthPanel({
         aria-label={`ปฏิทิน ${formatMonthLabel(cursor)}`}
         aria-busy={loading}
         onMouseLeave={() => onHoverDay(null)}
-        className={`grid grid-cols-7 gap-y-0.5 transition-opacity ${loading ? "opacity-45" : "opacity-100"}`}
+        className={`grid grid-cols-7 gap-y-1 pt-1 transition-opacity ${loading ? "opacity-45" : "opacity-100"}`}
       >
         {cells.map((iso, index) => {
           if (!iso) {
@@ -144,19 +144,19 @@ function MonthPanel({
               {inRange && !isEnd && (
                 <span
                   aria-hidden="true"
-                  className="absolute inset-y-1 left-0 right-0 bg-lagoon-50"
+                  className="absolute inset-y-1 left-0 right-0 bg-forest-50"
                 />
               )}
               {isStart && mode === "range" && selectedEnd && selectedEnd > iso && (
                 <span
                   aria-hidden="true"
-                  className="absolute inset-y-1 left-1/2 right-0 bg-lagoon-50"
+                  className="absolute inset-y-1 left-1/2 right-0 rounded-r-full bg-forest-50"
                 />
               )}
               {isEnd && (
                 <span
                   aria-hidden="true"
-                  className="absolute inset-y-1 left-0 right-1/2 bg-lagoon-50"
+                  className="absolute inset-y-1 left-0 right-1/2 rounded-l-full bg-forest-50"
                 />
               )}
               <button
@@ -172,18 +172,18 @@ function MonthPanel({
                 onMouseEnter={() => onHoverDay(iso)}
                 onClick={() => onSelectDay(iso)}
                 className={[
-                  "relative z-10 mx-auto flex h-9 w-9 sm:h-10 sm:w-10 flex-col items-center justify-center rounded-full text-sm tabular-nums transition-colors",
-                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-lagoon-500 focus-visible:ring-offset-1",
+                  "relative z-10 mx-auto flex h-9 w-9 sm:h-10 sm:w-10 flex-col items-center justify-center rounded-full text-sm tabular-nums transition-all duration-150",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-bamboo-400 focus-visible:ring-offset-1",
                   isSelected
-                    ? "bg-forest-800 text-cream-100 font-semibold"
+                    ? "bg-forest-800 text-cream-100 font-semibold shadow-sm shadow-forest-800/30"
                     : disabled
                       ? "text-charcoal-300 cursor-not-allowed"
-                      : "text-charcoal-700 hover:bg-forest-50",
+                      : "text-charcoal-700 hover:bg-forest-100/70",
                   isFull && !isSelected
                     ? "line-through decoration-charcoal-300"
                     : "",
                   isToday && !isSelected
-                    ? "ring-1 ring-inset ring-lagoon-300"
+                    ? "ring-1 ring-inset ring-bamboo-400"
                     : "",
                 ].join(" ")}
               >
@@ -238,7 +238,7 @@ export default function BookingCalendar(
   const currentCursor = monthCursorFromISO(today);
   const canGoPrev = monthIndex(cursor) > monthIndex(monthCursorFromISO(minISO));
   const canGoNext =
-    monthIndex(cursor) + (monthCount - 1) <
+    monthIndex(cursor) + (monthCount - 1) 
     monthIndex(currentCursor) + maxMonthsAhead;
 
   const rangeValue: DateRange | null =
@@ -353,19 +353,25 @@ export default function BookingCalendar(
       className={`select-none ${className}`}
       onKeyDown={handleKeyDown}
     >
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-4 flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => onCursorChange(shiftMonth(cursor, -1))}
           disabled={!canGoPrev}
           aria-label="เดือนก่อนหน้า"
-          className="w-9 h-9 grid place-items-center rounded-lg text-forest-800 hover:bg-forest-50 disabled:opacity-25 disabled:hover:bg-transparent transition-colors"
+          className="w-9 h-9 grid place-items-center rounded-full text-forest-800 hover:bg-forest-50 disabled:opacity-25 disabled:hover:bg-transparent transition-colors"
         >
           <ChevronLeft size={18} />
         </button>
-        <p aria-live="polite" className="text-xs sm:text-sm text-charcoal-400 text-center">
+        <p aria-live="polite" className="text-xs sm:text-sm font-medium text-charcoal-500 text-center">
           {monthCount === 2
-            ? `${formatMonthLabel(months[0])} · ${formatMonthLabel(months[1])}`
+            ? (
+              <span className="inline-flex items-center gap-2">
+                {formatMonthLabel(months[0])}
+                <span aria-hidden="true" className="h-1 w-1 rounded-full bg-bamboo-400" />
+                {formatMonthLabel(months[1])}
+              </span>
+            )
             : formatMonthLabel(cursor)}
         </p>
         <button
@@ -373,7 +379,7 @@ export default function BookingCalendar(
           onClick={() => onCursorChange(shiftMonth(cursor, 1))}
           disabled={!canGoNext}
           aria-label="เดือนถัดไป"
-          className="w-9 h-9 grid place-items-center rounded-lg text-forest-800 hover:bg-forest-50 disabled:opacity-25 disabled:hover:bg-transparent transition-colors"
+          className="w-9 h-9 grid place-items-center rounded-full text-forest-800 hover:bg-forest-50 disabled:opacity-25 disabled:hover:bg-transparent transition-colors"
         >
           <ChevronRight size={18} />
         </button>
@@ -382,47 +388,55 @@ export default function BookingCalendar(
       <div
         className={
           monthCount === 2
-            ? "flex flex-col gap-5 sm:flex-row sm:gap-4"
+            ? "flex flex-col gap-5 divide-y divide-stone-100 sm:flex-row sm:gap-5 sm:divide-y-0 sm:divide-x"
             : undefined
         }
       >
         {months.map((monthCursor, index) => (
-          <MonthPanel
+          <div
             key={`${monthCursor.year}-${monthCursor.month}`}
-            cursor={monthCursor}
-            dayStatus={dayStatus}
-            loading={loading}
-            today={today}
-            focusedISO={focusedISO}
-            selectedStart={selectedStart}
-            selectedEnd={selectedEnd}
-            rangeNights={rangeNights}
-            mode={props.mode}
-            singleValue={props.mode === "single" ? props.value : null}
-            isDisabled={isDisabled}
-            onFocusDay={setFocusedISO}
-            onHoverDay={setHoveredISO}
-            onSelectDay={handleSelect}
-          />
+            className={
+              monthCount === 2 && index === 1
+                ? "pt-5 sm:pt-0 sm:pl-5"
+                : undefined
+            }
+          >
+            <MonthPanel
+              cursor={monthCursor}
+              dayStatus={dayStatus}
+              loading={loading}
+              today={today}
+              focusedISO={focusedISO}
+              selectedStart={selectedStart}
+              selectedEnd={selectedEnd}
+              rangeNights={rangeNights}
+              mode={props.mode}
+              singleValue={props.mode === "single" ? props.value : null}
+              isDisabled={isDisabled}
+              onFocusDay={setFocusedISO}
+              onHoverDay={setHoveredISO}
+              onSelectDay={handleSelect}
+            />
+          </div>
         ))}
       </div>
 
-      <div className="mt-4 border-t border-stone-100 pt-2.5">
+      {/* <div className="mt-4 border-t border-stone-100 pt-3">
         <div className="flex flex-wrap items-center justify-start gap-4 text-[12px] text-charcoal-500">
           <div className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-forest-900" />
+            <span className="h-2.5 w-2.5 rounded-full bg-forest-800" />
             <span>วันที่เลือก</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+            <span className="h-2.5 w-2.5 rounded-full bg-bamboo-400" />
             <span>เหลือน้อย</span>
           </div>
-          <div className="flex items-center gap-1.5 text-stone-400">
+          <div className="flex items-center gap-1.5 text-charcoal-300">
             <span className="h-2.5 w-2.5 rounded-full bg-stone-300" />
             <span className="line-through decoration-stone-400">เต็ม</span>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

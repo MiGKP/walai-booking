@@ -1,0 +1,305 @@
+///*ไม่ได้สำคัญมั้งแต่ไม่มีฝั่งนี้แล้วมันรันไม่ได้*
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model boat_bookings {
+  boat_booking_id      Int            @id @default(autoincrement())
+  member_id            Int?
+  booking_date         DateTime?      @db.Date
+  num_passengers       Int?
+  total_price          Decimal?       @db.Decimal(10, 2)
+  payment_status       String?        @default("pending") @db.VarChar(20)
+  payment_slip         String?        @db.VarChar(255)
+  status               String?        @default("pending") @db.VarChar(20)
+  created_at           DateTime?      @default(now()) @db.Timestamp(6)
+  payment_date         DateTime?      @db.Timestamp(6)
+  updated_at           DateTime?      @default(now()) @db.Timestamp(6)
+  approved_by_staff_id Int?
+  start_time           DateTime?      @db.Time(6)
+  end_time             DateTime?      @db.Time(6)
+  staff                staff?         @relation(fields: [approved_by_staff_id], references: [staff_id], onUpdate: NoAction)
+  members              members?       @relation(fields: [member_id], references: [member_id], onDelete: NoAction, onUpdate: NoAction)
+  booking_boat         booking_boat[]
+}
+
+model boat_images {
+  boat_image_id Int         @id @default(autoincrement())
+  boat_type_id  Int?
+  image_path    String?     @db.VarChar(255)
+  boat_types    boat_types? @relation(fields: [boat_type_id], references: [boat_type_id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model boat_operating_hours {
+  id          Int      @id @default(autoincrement())
+  day_of_week Int      @unique @db.SmallInt
+  open_time   DateTime @default(dbgenerated("'08:00:00'::time without time zone")) @db.Time(6)
+  close_time  DateTime @default(dbgenerated("'18:00:00'::time without time zone")) @db.Time(6)
+  is_open     Boolean  @default(true)
+}
+
+model boat_rounds {
+  boat_round_id Int            @id @default(autoincrement())
+  boat_type_id  Int?
+  start_time    DateTime?      @db.Time(6)
+  end_time      DateTime?      @db.Time(6)
+  max_booking   Int?
+  is_active     Boolean?       @default(true)
+  total_slots   Int?
+  boat_types    boat_types?    @relation(fields: [boat_type_id], references: [boat_type_id], onDelete: Cascade, onUpdate: NoAction)
+  booking_boat  booking_boat[]
+  round_boats   round_boats[]
+}
+
+model boat_types {
+  boat_type_id Int            @id @default(autoincrement())
+  type_name    String?        @db.VarChar(100)
+  description  String?
+  seat_count   Int?
+  price        Decimal?       @db.Decimal(10, 2)
+  quantity     Int?           @default(1)
+  is_active    Boolean?       @default(true)
+  boat_images  boat_images[]
+  boat_rounds  boat_rounds[]
+  booking_boat booking_boat[]
+  round_boats  round_boats[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model booking_boat {
+  booking_boat_id Int           @id @default(autoincrement())
+  boat_booking_id Int
+  boat_type_id    Int
+  boat_round_id   Int
+  num_passengers  Int
+  boat_count      Int
+  unit_price      Decimal       @db.Decimal(10, 2)
+  subtotal        Decimal       @db.Decimal(10, 2)
+  status          String        @default("pending") @db.VarChar(20)
+  created_at      DateTime      @default(now()) @db.Timestamp(6)
+  updated_at      DateTime      @default(now()) @db.Timestamp(6)
+  boat_bookings   boat_bookings @relation(fields: [boat_booking_id], references: [boat_booking_id], onDelete: Cascade, onUpdate: NoAction)
+  boat_rounds     boat_rounds   @relation(fields: [boat_round_id], references: [boat_round_id], onDelete: NoAction, onUpdate: NoAction)
+  boat_types      boat_types    @relation(fields: [boat_type_id], references: [boat_type_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([boat_booking_id], map: "idx_booking_boat_booking")
+  @@index([boat_round_id, status], map: "idx_booking_boat_round_status")
+  @@index([boat_type_id, status], map: "idx_booking_boat_type_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model booking_room {
+  booking_room_id Int           @id @default(autoincrement())
+  room_booking_id Int
+  room_id         Int
+  price_per_night Decimal       @db.Decimal(10, 2)
+  nights          Int
+  subtotal        Decimal       @db.Decimal(10, 2)
+  status          String        @default("pending") @db.VarChar(20)
+  checkout_at     DateTime?     @db.Timestamp(6)
+  created_at      DateTime      @default(now()) @db.Timestamp(6)
+  updated_at      DateTime      @default(now()) @db.Timestamp(6)
+  room_bookings   room_bookings @relation(fields: [room_booking_id], references: [room_booking_id], onDelete: Cascade, onUpdate: NoAction)
+  rooms           rooms         @relation(fields: [room_id], references: [room_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([room_booking_id], map: "idx_booking_room_booking")
+  @@index([room_id, status], map: "idx_booking_room_room_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model members {
+  member_id              Int             @id @default(autoincrement())
+  first_name             String?         @db.VarChar(100)
+  last_name              String?         @db.VarChar(100)
+  email                  String          @unique @db.VarChar(100)
+  password               String?         @db.VarChar(255)
+  phone                  String?         @db.VarChar(20)
+  image_profile          String?         @db.VarChar(255)
+  google_id              String?         @unique @db.VarChar(255)
+  avatar_url             String?
+  auth_provider          String?         @default("email") @db.VarChar(20)
+  created_at             DateTime?       @default(now()) @db.Timestamp(6)
+  updated_at             DateTime?       @default(now()) @db.Timestamp(6)
+  reset_token            String?         @db.VarChar(255)
+  reset_token_expires_at DateTime?       @db.Timestamp(6)
+  line_id                String?         @db.VarChar(100)
+  facebook               String?         @db.VarChar(255)
+  is_active              Boolean         @default(true)
+  boat_bookings          boat_bookings[]
+  reviews                reviews[]
+  room_bookings          room_bookings[]
+}
+
+model promotions {
+  id                Int             @id @default(autoincrement())
+  description       String?
+  start_date        DateTime?       @db.Date
+  end_date          DateTime?       @db.Date
+  code              String          @unique @db.VarChar(50)
+  name              String          @db.VarChar(255)
+  discount_type     String          @default("percent") @db.VarChar(20)
+  discount_value    Decimal         @default(0) @db.Decimal(10, 2)
+  min_nights        Int?            @default(0)
+  min_price         Decimal?        @default(0) @db.Decimal(10, 2)
+  max_discount      Decimal?        @db.Decimal(10, 2)
+  usage_limit       Int?
+  usage_count       Int             @default(0)
+  is_active         Boolean         @default(true)
+  created_at        DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?       @default(now()) @db.Timestamptz(6)
+  room_type_id      Int?
+  room_count        Int?            @default(1)
+  boat_ticket_count Int?            @default(1)
+  room_types        room_types?     @relation(fields: [room_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  room_bookings     room_bookings[]
+}
+
+model resort_facilities {
+  id            Int      @id @default(autoincrement())
+  facility_name String   @db.VarChar(150)
+  status        Boolean? @default(true)
+}
+
+model resort_info {
+  id                Int     @id @default(autoincrement())
+  name              String  @db.VarChar(150)
+  address           String?
+  coordinates       String?
+  phone             String? @db.VarChar(20)
+  email             String? @db.VarChar(100)
+  facebook          String? @db.VarChar(255)
+  line_id           String? @db.VarChar(100)
+  operating_days    String? @db.VarChar(100)
+  operating_hours   String? @db.VarChar(100)
+  additional_terms  String?
+  payment_due_days  Int?
+  bank_account_no   String? @db.VarChar(50)
+  bank_account_name String? @db.VarChar(150)
+  promptpay_id      String? @db.VarChar(20)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model reviews {
+  review_id       Int            @id @default(autoincrement())
+  member_id       Int?
+  room_booking_id Int?
+  rating          Int?
+  comment         String?
+  review_date     DateTime?      @default(now()) @db.Timestamp(6)
+  members         members?       @relation(fields: [member_id], references: [member_id], onDelete: NoAction, onUpdate: NoAction)
+  room_bookings   room_bookings? @relation(fields: [room_booking_id], references: [room_booking_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model room_amenities {
+  id     Int      @id @default(autoincrement())
+  name   String   @db.VarChar(150)
+  status Boolean? @default(true)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model room_bookings {
+  room_booking_id      Int            @id @default(autoincrement())
+  member_id            Int?
+  check_in             DateTime?      @db.Date
+  check_out            DateTime?      @db.Date
+  guest_count          Int?
+  total_price          Decimal?       @db.Decimal(10, 2)
+  special_request      String?
+  promotion_id         Int?
+  payment_status       String?        @default("pending") @db.VarChar(20)
+  payment_slip         String?        @db.VarChar(255)
+  payment_date         DateTime?      @db.Timestamp(6)
+  status               String?        @default("pending") @db.VarChar(20)
+  created_at           DateTime?      @default(now()) @db.Timestamp(6)
+  updated_at           DateTime?      @default(now()) @db.Timestamp(6)
+  review_reminder_sent Boolean        @default(false)
+  approved_by_staff_id Int?
+  checkout_at          DateTime?      @db.Timestamp(6)
+  checkin_at           DateTime?      @db.Timestamp(6)
+  adults               Int            @default(1)
+  children             Int            @default(0)
+  room_id              Int?
+  reject_reason        String?
+  booking_room         booking_room[]
+  reviews              reviews[]
+  staff                staff?         @relation(fields: [approved_by_staff_id], references: [staff_id], onUpdate: NoAction)
+  members              members?       @relation(fields: [member_id], references: [member_id], onDelete: NoAction, onUpdate: NoAction)
+  promotions           promotions?    @relation(fields: [promotion_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rooms                rooms?         @relation(fields: [room_id], references: [room_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model room_images {
+  room_image_id Int         @id @default(autoincrement())
+  room_type_id  Int?
+  image_path    String?     @db.VarChar(255)
+  room_types    room_types? @relation(fields: [room_type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model room_types {
+  id          Int           @id @default(autoincrement())
+  room_image  String?       @db.VarChar(255)
+  room_name   String        @db.VarChar(150)
+  type_name   String?       @db.VarChar(100)
+  price       Decimal?      @db.Decimal(10, 2)
+  capacity    Int?
+  description String?
+  status      Boolean?      @default(true)
+  amenity_ids Int[]         @default([])
+  promotions  promotions[]
+  room_images room_images[]
+  rooms       rooms[]
+}
+
+model rooms {
+  room_id       Int             @id @default(autoincrement())
+  room_type_id  Int?
+  room_number   String?         @db.VarChar(20)
+  status        String?         @default("available") @db.VarChar(20)
+  booking_room  booking_room[]
+  room_bookings room_bookings[]
+  room_types    room_types?     @relation(fields: [room_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([room_type_id, room_number], map: "unique_room_type_and_number")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model round_boats {
+  round_boat_id Int         @id @default(autoincrement())
+  boat_round_id Int
+  boat_type_id  Int
+  quantity      Int         @default(1)
+  boat_rounds   boat_rounds @relation(fields: [boat_round_id], references: [boat_round_id], onDelete: Cascade, onUpdate: NoAction)
+  boat_types    boat_types  @relation(fields: [boat_type_id], references: [boat_type_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([boat_round_id, boat_type_id], map: "round_boats_round_type_unique")
+  @@index([boat_round_id], map: "idx_round_boats_round")
+  @@index([boat_type_id], map: "idx_round_boats_type")
+}
+
+model staff {
+  staff_id      Int             @id @default(autoincrement())
+  first_name    String?         @db.VarChar(100)
+  last_name     String?         @db.VarChar(100)
+  email         String          @unique @db.VarChar(100)
+  password      String          @db.VarChar(255)
+  phone         String?         @db.VarChar(20)
+  status        Boolean?        @default(true)
+  role          String?         @default("staff") @db.VarChar(50)
+  address       String?
+  subdistrict   String?         @db.VarChar(100)
+  district      String?         @db.VarChar(100)
+  province      String?         @db.VarChar(100)
+  postal_code   String?         @db.VarChar(10)
+  created_at    DateTime?       @default(now()) @db.Timestamp(6)
+  line_id       String?         @db.VarChar(100)
+  facebook      String?         @db.VarChar(255)
+  boat_bookings boat_bookings[]
+  room_bookings room_bookings[]
+}
