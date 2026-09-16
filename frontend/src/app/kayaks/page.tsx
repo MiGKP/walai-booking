@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Users } from 'lucide-react';
+import { Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
@@ -236,7 +236,17 @@ export default function KayaksPage(): React.ReactElement {
   const [passengersByType, setPassengersByType] = useState<Record<number, number>>({});
   // จำนวนเรือจริงที่จะใช้ต่อประเภท — ค่าเริ่มต้นคำนวณอัตโนมัติจากผู้โดยสาร แต่ผู้ใช้ปรับเพิ่มเองได้
   const [boatCountByType, setBoatCountByType] = useState<Record<number, number>>({});
+  // บัตรพายเรือฟรีที่ได้จากโปรโมชั่นห้องพัก — ใช้ลดราคาเรือแต่ละประเภทได้
+  const [boatTicketBalance, setBoatTicketBalance] = useState(0);
+  const [freeTicketsByType, setFreeTicketsByType] = useState<Record<number, number>>({});
   const [bookingLoading, setBookingLoading] = useState(false);
+
+  useEffect(() => {
+    api
+      .get('/promotions/boat-tickets/mine')
+      .then((res) => setBoatTicketBalance(Number(res.data?.data?.total_remaining || 0)))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     api
@@ -291,6 +301,7 @@ export default function KayaksPage(): React.ReactElement {
     setSelectedSlotKey(null);
     setPassengersByType({});
     setBoatCountByType({});
+    setFreeTicketsByType({});
 
     Promise.all(
       boats.map((boat) =>
@@ -354,6 +365,7 @@ export default function KayaksPage(): React.ReactElement {
         if (numPassengers < 1) return null;
         const minBoatCount = boatsNeeded(numPassengers, boat.capacity);
         const boatCount = Math.max(minBoatCount, Number(boatCountByType[boat.id] || 0));
+        const freeTicketsUsed = Math.min(Number(freeTicketsByType[boat.id] || 0), boatCount);
         return {
           boat_type_id: boat.id,
           name: boat.name,
@@ -361,10 +373,11 @@ export default function KayaksPage(): React.ReactElement {
           price_per_hour: Number(boat.price_per_hour),
           num_passengers: numPassengers,
           boat_count: boatCount,
+          free_tickets_used: freeTicketsUsed,
         };
       })
       .filter((line): line is KayakCartLine => line != null);
-  }, [boats, passengersByType, boatCountByType]);
+  }, [boats, passengersByType, boatCountByType, freeTicketsByType]);
 
   const totalPrice = cartTotal(cartLines);
   const totalPassengers = cartPassengerTotal(cartLines);
@@ -390,6 +403,7 @@ export default function KayaksPage(): React.ReactElement {
     setSelectedSlotKey(null);
     setPassengersByType({});
     setBoatCountByType({});
+    setFreeTicketsByType({});
   };
 
   const handleSelectSlot = (key: string): void => {
@@ -417,11 +431,34 @@ export default function KayaksPage(): React.ReactElement {
       }
       return next;
     });
+    // จำนวนเรือเปลี่ยน บัตรฟรีที่เคยจัดไว้อาจเกินจำนวนเรือใหม่ ต้องเคลียร์ทิ้งให้ผู้ใช้เลือกใหม่
+    setFreeTicketsByType((prev) => {
+      const next = { ...prev };
+      delete next[boatId];
+      return next;
+    });
   };
 
   const handleBoatCountChange = (boatId: number, raw: number, minCount: number): void => {
     if (!Number.isFinite(raw)) return;
-    setBoatCountByType((prev) => ({ ...prev, [boatId]: Math.max(minCount, raw) }));
+    const nextCount = Math.max(minCount, raw);
+    setBoatCountByType((prev) => ({ ...prev, [boatId]: nextCount }));
+    // ลดจำนวนเรือแล้วบัตรฟรีที่ใช้อยู่อาจเกินจำนวนเรือใหม่ ต้อง clamp ไม่ให้เกิน
+    setFreeTicketsByType((prev) => {
+      const current = prev[boatId] ?? 0;
+      if (current <= nextCount) return prev;
+      return { ...prev, [boatId]: nextCount };
+    });
+  };
+
+  const handleFreeTicketChange = (boatId: number, raw: number, maxForLine: number): void => {
+    if (!Number.isFinite(raw)) return;
+    setFreeTicketsByType((prev) => {
+      const others = Object.entries(prev).reduce((sum, [id, v]) => (Number(id) === boatId ? sum : sum + v), 0);
+      const budgetLeft = Math.max(0, boatTicketBalance - others);
+      const clamped = Math.max(0, Math.min(raw, maxForLine, budgetLeft));
+      return { ...prev, [boatId]: clamped };
+    });
   };
 
   const handleBooking = async (event: React.FormEvent): Promise<void> => {
@@ -458,6 +495,7 @@ export default function KayaksPage(): React.ReactElement {
           boat_type_id: line.boat_type_id,
           num_passengers: line.num_passengers,
           boat_count: line.boat_count,
+          free_tickets_used: line.free_tickets_used,
         })),
       });
       toast.success('จองเรือสำเร็จ!');
@@ -485,6 +523,17 @@ export default function KayaksPage(): React.ReactElement {
           <div className="mb-6 flex items-start gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-[12.5px] font-medium text-bamboo-800">
             <Clock3 size={16} className="mt-0.5 shrink-0" />
             <p>วันนี้{CLOSED_TODAY_HINT.replace('ปิดรับจองแล้ว ', '')} — กรุณาเลือกวันถัดไปในปฏิทิน</p>
+          </div>
+        )}
+
+        {boatTicketBalance > 0 && (
+          <div className="mb-6 flex items-start gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-[12.5px] font-medium text-bamboo-800">
+            <Ticket size={16} className="mt-0.5 shrink-0" />
+            <p>
+              คุณมีบัตรพายเรือฟรี {boatTicketBalance} ใบ
+              {' — '}
+              {Math.max(0, boatTicketBalance - Object.values(freeTicketsByType).reduce((a, b) => a + b, 0))} ใบยังไม่ได้ใช้ ใช้ได้ที่ตัวนับ &quot;ใช้บัตรฟรี&quot; ในแต่ละประเภทเรือด้านล่าง
+            </p>
           </div>
         )}
 
@@ -620,6 +669,12 @@ export default function KayaksPage(): React.ReactElement {
                         const passengers = passengersByType[boat.id] ?? 0;
                         const minBoatCount = passengers > 0 ? boatsNeeded(passengers, boat.capacity) : 0;
                         const boatCount = passengers > 0 ? Math.max(minBoatCount, boatCountByType[boat.id] ?? minBoatCount) : 0;
+                        const freeTicketsUsed = freeTicketsByType[boat.id] ?? 0;
+                        const othersFreeTicketsUsed = Object.entries(freeTicketsByType).reduce(
+                          (sum, [id, v]) => (Number(id) === boat.id ? sum : sum + v),
+                          0
+                        );
+                        const maxFreeTickets = Math.min(boatCount, Math.max(0, boatTicketBalance - othersFreeTicketsUsed) + freeTicketsUsed);
                         const disabled = !hasRound || remaining < 1;
                         return (
                           <div
@@ -678,6 +733,20 @@ export default function KayaksPage(): React.ReactElement {
                                       />
                                     </div>
                                   )}
+                                  {passengers > 0 && boatTicketBalance > 0 && (
+                                    <div>
+                                      <p className="mb-1 flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wide text-bamboo-600">
+                                        <Ticket size={11} /> ใช้บัตรฟรี
+                                      </p>
+                                      <Stepper
+                                        value={freeTicketsUsed}
+                                        min={0}
+                                        max={maxFreeTickets}
+                                        ariaLabel={`ใช้บัตรพายเรือฟรี ${boat.name}`}
+                                        onChange={(v) => handleFreeTicketChange(boat.id, v, boatCount)}
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -717,18 +786,26 @@ export default function KayaksPage(): React.ReactElement {
                   <p className="text-[12.5px] text-charcoal-400">ยังไม่ได้ใส่จำนวนผู้โดยสาร</p>
                 ) : (
                   cartLines.map((line) => {
-                    const sub = lineSubtotal(line.price_per_hour, line.boat_count);
+                    const gross = lineSubtotal(line.price_per_hour, line.boat_count);
+                    const discount = line.free_tickets_used * line.price_per_hour;
+                    const sub = Math.max(0, gross - discount);
                     return (
                       <div key={line.boat_type_id} className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-[13px] font-semibold text-forest-900">{line.name}</p>
                           <p className="text-[11.5px] text-charcoal-400">
                             {line.num_passengers} คน · {line.boat_count} ลำ
+                            {line.free_tickets_used > 0 && ` · ใช้บัตรฟรี ${line.free_tickets_used} ใบ`}
                           </p>
                         </div>
-                        <p className="shrink-0 text-[13px] font-bold tabular-nums text-forest-900">
-                          ฿{sub.toLocaleString()}
-                        </p>
+                        <div className="shrink-0 text-right">
+                          {discount > 0 && (
+                            <p className="text-[11px] text-stone-400 line-through">฿{gross.toLocaleString()}</p>
+                          )}
+                          <p className="text-[13px] font-bold tabular-nums text-forest-900">
+                            ฿{sub.toLocaleString()}
+                          </p>
+                        </div>
                       </div>
                     );
                   })

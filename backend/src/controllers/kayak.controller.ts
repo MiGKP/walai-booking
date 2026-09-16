@@ -43,6 +43,8 @@ interface KayakItemInput {
   num_passengers: number;
   /** ผู้ใช้เลือกจำนวนเรือเองได้ (ค่าเริ่มต้นคำนวณจากจำนวนผู้โดยสาร) — ต้องไม่น้อยกว่าที่คำนวณได้ */
   boat_count?: number;
+  /** จำนวนบัตรพายเรือฟรีที่จะใช้กับบรรทัดนี้ (จากกระเป๋า member_boat_tickets) */
+  free_tickets_used?: number;
 }
 
 const BOATS_JSON_SQL = `COALESCE((
@@ -73,6 +75,7 @@ function normalizeKayakItems(body: Record<string, unknown>): KayakItemInput[] {
         boat_type_id: Number(item.boat_type_id),
         num_passengers: Number(item.num_passengers),
         boat_count: item.boat_count != null ? Number(item.boat_count) : undefined,
+        free_tickets_used: item.free_tickets_used != null ? Number(item.free_tickets_used) : undefined,
       };
     });
   }
@@ -93,6 +96,72 @@ function normalizeTimePart(value: unknown): string {
     return `${hhmm[1]}:${hhmm[2] ?? "00"}`;
   }
   return raw;
+}
+
+// ยอดคงเหลือบัตรพายเรือฟรีทั้งหมดของสมาชิก (จากโปรโมชั่นห้องพักที่มี boat_ticket_count)
+async function getBoatTicketBalance(
+  client: { query: typeof pool.query },
+  memberId: number,
+): Promise<number> {
+  const r = await client.query(
+    `SELECT COALESCE(SUM(total_tickets - used_tickets), 0) AS balance
+     FROM member_boat_tickets WHERE member_id = $1`,
+    [memberId],
+  );
+  return Number(r.rows[0].balance);
+}
+
+// หักบัตรพายเรือฟรีแบบ FIFO (ใบเก่าสุดก่อน) แล้วบันทึกการใช้ผูกกับการจองเรือนี้
+async function redeemBoatTickets(
+  client: { query: typeof pool.query },
+  memberId: number,
+  boatBookingId: number,
+  quantity: number,
+): Promise<void> {
+  if (quantity <= 0) return;
+  const grants = await client.query(
+    `SELECT id, total_tickets, used_tickets FROM member_boat_tickets
+     WHERE member_id = $1 AND total_tickets > used_tickets
+     ORDER BY created_at ASC
+     FOR UPDATE`,
+    [memberId],
+  );
+  let remaining = quantity;
+  for (const grant of grants.rows) {
+    if (remaining <= 0) break;
+    const available = Number(grant.total_tickets) - Number(grant.used_tickets);
+    const take = Math.min(available, remaining);
+    if (take <= 0) continue;
+    await client.query(
+      `UPDATE member_boat_tickets SET used_tickets = used_tickets + $1 WHERE id = $2`,
+      [take, grant.id],
+    );
+    await client.query(
+      `INSERT INTO boat_ticket_redemptions (member_boat_ticket_id, boat_booking_id, quantity) VALUES ($1, $2, $3)`,
+      [grant.id, boatBookingId, take],
+    );
+    remaining -= take;
+  }
+  if (remaining > 0) {
+    throw new Error("บัตรพายเรือไม่พอ");
+  }
+}
+
+// คืนบัตรพายเรือฟรีที่เคยใช้กับการจองนี้ (เรียกตอนยกเลิก/ปฏิเสธการจอง)
+async function restoreBoatTicketRedemptions(
+  client: { query: typeof pool.query },
+  boatBookingId: number,
+): Promise<void> {
+  const redemptions = await client.query(
+    `DELETE FROM boat_ticket_redemptions WHERE boat_booking_id = $1 RETURNING member_boat_ticket_id, quantity`,
+    [boatBookingId],
+  );
+  for (const row of redemptions.rows) {
+    await client.query(
+      `UPDATE member_boat_tickets SET used_tickets = used_tickets - $1 WHERE id = $2`,
+      [row.quantity, row.member_boat_ticket_id],
+    );
+  }
 }
 
 async function replaceRoundBoats(
@@ -644,6 +713,13 @@ export const createKayakBooking = async (
         });
         return;
       }
+      if (
+        item.free_tickets_used != null &&
+        (!Number.isInteger(item.free_tickets_used) || item.free_tickets_used < 0)
+      ) {
+        res.status(400).json({ success: false, message: "free_tickets_used ไม่ถูกต้อง" });
+        return;
+      }
     }
 
     await client.query("BEGIN");
@@ -861,6 +937,32 @@ export const createKayakBooking = async (
       }
     }
 
+    // ใช้บัตรพายเรือฟรี (ถ้ามี) — หักราคาบรรทัดนั้นตามจำนวนบัตรที่ใช้ ไม่เกินจำนวนเรือของบรรทัดนั้นและยอดคงเหลือของสมาชิก
+    const freeTicketsByType = new Map<number, number>();
+    for (const item of items) {
+      if (item.free_tickets_used) freeTicketsByType.set(item.boat_type_id, item.free_tickets_used);
+    }
+    let totalFreeTicketsApplied = 0;
+    const totalFreeTicketsRequested = [...freeTicketsByType.values()].reduce((a, b) => a + b, 0);
+    if (totalFreeTicketsRequested > 0) {
+      let budget = await getBoatTicketBalance(client, user.id);
+      for (const line of prepared) {
+        const requested = freeTicketsByType.get(line.boat_type_id) ?? 0;
+        if (requested <= 0) continue;
+        const applied = Math.min(requested, line.boat_count, budget);
+        if (applied <= 0) continue;
+        line.subtotal = Math.max(0, line.subtotal - applied * line.unit_price);
+        budget -= applied;
+        totalFreeTicketsApplied += applied;
+      }
+      if (totalFreeTicketsApplied < totalFreeTicketsRequested) {
+        // ขอใช้มากกว่าที่มีจริง (หรือมากกว่าจำนวนเรือของบรรทัดนั้น) — แจ้งเตือนแทนที่จะเงียบๆ ใช้แค่บางส่วน
+        await client.query("ROLLBACK");
+        res.status(400).json({ success: false, message: "บัตรพายเรือไม่พอ หรือจำนวนที่ขอใช้เกินจำนวนเรือของบรรทัดนั้น" });
+        return;
+      }
+    }
+
     const totalPassengersHeader = sumPassengerCounts(prepared);
     let totalPrice = sumSubtotals(prepared.map((line) => line.subtotal));
     const promoIds = parsePromotionIds(body);
@@ -948,6 +1050,19 @@ export const createKayakBooking = async (
       });
     }
 
+    if (totalFreeTicketsApplied > 0) {
+      try {
+        await redeemBoatTickets(client, user.id, Number(header.boat_booking_id), totalFreeTicketsApplied);
+      } catch (err) {
+        await client.query("ROLLBACK");
+        res.status(400).json({
+          success: false,
+          message: err instanceof Error ? err.message : "ใช้บัตรพายเรือไม่สำเร็จ",
+        });
+        return;
+      }
+    }
+
     await client.query("COMMIT");
 
     const typeNames = prepared.map((line) => line.type_name).join(", ");
@@ -990,6 +1105,7 @@ export const createKayakBooking = async (
         start_time: startTime,
         end_time: endTime,
         boats: boatsRes.rows,
+        boat_tickets_used: totalFreeTicketsApplied,
       },
     });
   } catch (error) {
@@ -1098,6 +1214,7 @@ export const cancelKayakBooking = async (
       previousStatus: String(booking.rows[0].status),
       boatBookingId: Number(id),
     });
+    await restoreBoatTicketRedemptions(client, Number(id));
 
     await client.query(
       `UPDATE boat_bookings SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`,
@@ -1427,6 +1544,7 @@ export const updateKayakBookingStatus = async (
         previousStatus,
         boatBookingId: Number(id),
       });
+      await restoreBoatTicketRedemptions(client, Number(id));
     }
 
     let query = `UPDATE boat_bookings SET status = $1, updated_at = NOW()`;

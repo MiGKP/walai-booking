@@ -313,6 +313,11 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
       const bookingId = res.data?.data?.room_booking_id;
       if (!bookingId) throw new Error('ไม่ได้รับหมายเลขการจองจากระบบ');
 
+      const boatTicketsGranted = Number(res.data?.data?.boat_tickets_granted || 0);
+      if (boatTicketsGranted > 0) {
+        toast.success(`ได้รับบัตรพายเรือฟรี ${boatTicketsGranted} ใบ! ไปใช้ได้ที่หน้าจองเรือ`, { duration: 5000 });
+      }
+
       clearCartEverywhere();
       router.push(`/payment?booking_type=room&booking_id=${bookingId}`);
     } catch (err) {

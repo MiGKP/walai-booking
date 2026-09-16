@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Phone, Save, Lock, MessageCircle, Facebook, CalendarDays, Camera, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Phone, Save, Lock, MessageCircle, Facebook, CalendarDays, Camera, Eye, EyeOff, Star, Ticket } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import toast from "react-hot-toast";
 import MyBookingsPanel from "@/components/dashboard/MyBookingsPanel";
+import MyReviewsSection from "@/components/dashboard/MyReviewsSection";
+import MyCouponsSection from "@/components/dashboard/MyCouponsSection";
 
 const CARD = "rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)] p-5 sm:p-6";
 
@@ -89,6 +91,7 @@ export default function DashboardPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [rightTab, setRightTab] = useState<"bookings" | "reviews" | "coupons">("bookings");
   const displayAvatarSrc = useMemo(
     () => (avatarLoadError ? "" : avatarPreview),
     [avatarLoadError, avatarPreview],
@@ -415,9 +418,37 @@ export default function DashboardPage() {
 
           {/* ---- ฝั่งขวา: การจองของฉัน (จำกัดความสูง + เลื่อนในกรอบตัวเอง ไม่ดันให้ทั้งหน้ายาวเกินจอ) ---- */}
           <section className={`${CARD} flex flex-col lg:h-[calc(100vh-5rem)]`}>
-            <SectionHeading icon={<CalendarDays size={16} />} title="การจองของฉัน" />
+            <div className="flex items-center gap-5 overflow-x-auto border-b border-stone-100">
+              <button
+                type="button"
+                onClick={() => setRightTab("bookings")}
+                className={`flex shrink-0 items-center gap-2 border-b-2 pb-3 text-[15px] font-semibold transition-colors ${rightTab === "bookings" ? "border-forest-800 text-forest-900" : "border-transparent text-charcoal-400 hover:text-charcoal-600"}`}
+              >
+                <CalendarDays size={16} /> การจองของฉัน
+              </button>
+              <button
+                type="button"
+                onClick={() => setRightTab("reviews")}
+                className={`flex shrink-0 items-center gap-2 border-b-2 pb-3 text-[15px] font-semibold transition-colors ${rightTab === "reviews" ? "border-forest-800 text-forest-900" : "border-transparent text-charcoal-400 hover:text-charcoal-600"}`}
+              >
+                <Star size={16} /> รีวิวของฉัน
+              </button>
+              <button
+                type="button"
+                onClick={() => setRightTab("coupons")}
+                className={`flex shrink-0 items-center gap-2 border-b-2 pb-3 text-[15px] font-semibold transition-colors ${rightTab === "coupons" ? "border-forest-800 text-forest-900" : "border-transparent text-charcoal-400 hover:text-charcoal-600"}`}
+              >
+                <Ticket size={16} /> คูปองของฉัน
+              </button>
+            </div>
             <div className="scrollbar-forest mt-5 min-h-0 flex-1 overflow-y-auto pr-1">
-              <MyBookingsPanel ready={ready} stickyTabs />
+              {rightTab === "bookings" ? (
+                <MyBookingsPanel ready={ready} stickyTabs />
+              ) : rightTab === "reviews" ? (
+                <MyReviewsSection />
+              ) : (
+                <MyCouponsSection />
+              )}
             </div>
           </section>
         </div>

@@ -313,6 +313,34 @@ export const getMyPromotions = async (req: Request, res: Response): Promise<void
   }
 };
 
+// บัตรพายเรือฟรีที่ได้จากโปรโมชั่นห้องพัก (promotions.boat_ticket_count) — ใช้ตอนจองเรือ
+export const getMyBoatTickets = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = requireCustomer(req, res);
+    if (!user) return;
+    const result = await pool.query(
+      `SELECT mbt.id, mbt.total_tickets, mbt.used_tickets, mbt.created_at,
+              p.code AS promotion_code, p.name AS promotion_name,
+              rb.room_booking_id
+       FROM member_boat_tickets mbt
+       LEFT JOIN promotions p ON p.id = mbt.promotion_id
+       LEFT JOIN room_bookings rb ON rb.room_booking_id = mbt.room_booking_id
+       WHERE mbt.member_id = $1 AND mbt.total_tickets > mbt.used_tickets
+       ORDER BY mbt.created_at ASC`,
+      [user.id]
+    );
+    const grants = result.rows.map((row) => ({
+      ...row,
+      remaining: Number(row.total_tickets) - Number(row.used_tickets),
+    }));
+    const totalRemaining = grants.reduce((sum, g) => sum + g.remaining, 0);
+    res.json({ success: true, data: { total_remaining: totalRemaining, grants } });
+  } catch (error) {
+    console.error('Get my boat tickets error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 export const getPromotionRedemptions = async (
   req: Request,
   res: Response

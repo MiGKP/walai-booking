@@ -78,9 +78,9 @@ async function applyPromotionDiscount(
   promotionId: number,
   basePrice: number,
   nights: number
-): Promise<number> {
+): Promise<{ finalPrice: number; boatTicketCount: number }> {
   const promoRes = await client.query(
-    `SELECT discount_type, discount_value, max_discount, min_nights, min_price, is_active
+    `SELECT discount_type, discount_value, max_discount, min_nights, min_price, is_active, boat_ticket_count
      FROM promotions WHERE id = $1`,
     [promotionId]
   );
@@ -107,7 +107,10 @@ async function applyPromotionDiscount(
     discountAmount = Math.min(Number(promo.discount_value), basePrice);
   }
   discountAmount = Math.round(discountAmount);
-  return Math.max(0, basePrice - discountAmount);
+  return {
+    finalPrice: Math.max(0, basePrice - discountAmount),
+    boatTicketCount: Number(promo.boat_ticket_count) || 0,
+  };
 }
 
 export const createRoomBooking = async (
@@ -241,6 +244,8 @@ export const createRoomBooking = async (
 
     let totalPrice = faceValueTotal;
     const appliedPromotions: Array<{ room_type_id: number; promotion_id: number; discount_amount: number }> = [];
+    // จำนวนบัตรพายเรือฟรีที่จะแจกให้สมาชิกเมื่อจองสำเร็จ (จากโปรโมชั่นที่มี boat_ticket_count > 0)
+    let totalBoatTickets = 0;
 
     if (usesPerItemPromotions) {
       totalPrice = 0;
@@ -257,13 +262,14 @@ export const createRoomBooking = async (
           continue;
         }
         try {
-          const discountedTypeTotal = await applyPromotionDiscount(client, promoId, typeSubtotal, nights);
+          const { finalPrice, boatTicketCount } = await applyPromotionDiscount(client, promoId, typeSubtotal, nights);
           appliedPromotions.push({
             room_type_id: roomTypeId,
             promotion_id: promoId,
-            discount_amount: typeSubtotal - discountedTypeTotal,
+            discount_amount: typeSubtotal - finalPrice,
           });
-          totalPrice += discountedTypeTotal;
+          totalPrice += finalPrice;
+          totalBoatTickets += boatTicketCount;
         } catch (err) {
           await client.query('ROLLBACK');
           res.status(400).json({
@@ -275,7 +281,9 @@ export const createRoomBooking = async (
       }
     } else if (legacyPromotionId) {
       try {
-        totalPrice = await applyPromotionDiscount(client, legacyPromotionId, faceValueTotal, nights);
+        const { finalPrice, boatTicketCount } = await applyPromotionDiscount(client, legacyPromotionId, faceValueTotal, nights);
+        totalPrice = finalPrice;
+        totalBoatTickets += boatTicketCount;
       } catch (err) {
         await client.query('ROLLBACK');
         res.status(400).json({
@@ -352,6 +360,16 @@ export const createRoomBooking = async (
       );
     }
 
+    // แจกบัตรพายเรือฟรีเข้ากระเป๋าสมาชิก ถ้าโปรโมชั่นที่ใช้มี boat_ticket_count > 0
+    if (totalBoatTickets > 0) {
+      const grantPromotionId = appliedPromotions[0]?.promotion_id ?? legacyPromotionId ?? null;
+      await client.query(
+        `INSERT INTO member_boat_tickets (member_id, promotion_id, room_booking_id, total_tickets)
+         VALUES ($1, $2, $3, $4)`,
+        [user.id, grantPromotionId, roomBookingId, totalBoatTickets]
+      );
+    }
+
     await client.query('COMMIT');
 
     (async () => {
@@ -386,7 +404,7 @@ export const createRoomBooking = async (
     res.status(201).json({
       success: true,
       message: 'Booking created',
-      data: { ...header, rooms: lineRows, applied_promotions: appliedPromotions },
+      data: { ...header, rooms: lineRows, applied_promotions: appliedPromotions, boat_tickets_granted: totalBoatTickets },
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -582,6 +600,11 @@ export const cancelRoomBooking = async (
        WHERE room_booking_id = $1 AND status <> 'checked_out'`,
       [id]
     );
+    // เพิกถอนบัตรพายเรือฟรีที่แจกไว้จากการจองนี้ (เฉพาะที่ยังไม่ถูกใช้เลย)
+    await client.query(
+      `DELETE FROM member_boat_tickets WHERE room_booking_id = $1 AND used_tickets = 0`,
+      [id]
+    );
     await client.query('COMMIT');
     res.json({ success: true, message: 'Booking cancelled' });
   } catch (error) {
@@ -678,6 +701,14 @@ export const updateRoomBookingStatus = async (
        WHERE room_booking_id = $2 AND status <> 'checked_out'`,
       [status, id]
     );
+
+    if (status === 'rejected' || status === 'cancelled') {
+      // เพิกถอนบัตรพายเรือฟรีที่แจกไว้จากการจองนี้ (เฉพาะที่ยังไม่ถูกใช้เลย)
+      await client.query(
+        `DELETE FROM member_boat_tickets WHERE room_booking_id = $1 AND used_tickets = 0`,
+        [id]
+      );
+    }
 
     await client.query('COMMIT');
 

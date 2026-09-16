@@ -10,6 +10,7 @@ import {
   collectPromotion,
   uncollectPromotion,
   getMyPromotions,
+  getMyBoatTickets,
   getPromotionRedemptions,
 } from '../controllers/promotion.controller';
 import { authenticate, authorize, optionalAuthenticate } from '../middleware/auth.middleware';
@@ -33,6 +34,7 @@ router.post(
 );
 
 router.get('/mine', authenticate, getMyPromotions);
+router.get('/boat-tickets/mine', authenticate, getMyBoatTickets);
 router.get(
   '/:id/redemptions',
   authenticate,
