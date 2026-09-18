@@ -28,7 +28,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
     let booking: any;
     if (booking_type === 'room') {
       const result = await pool.query(
-        'SELECT total_price, payment_status, payment_slip FROM room_bookings WHERE room_booking_id = $1 AND member_id = $2',
+        'SELECT total_price, payment_status, payment_slip, status, reject_reason FROM room_bookings WHERE room_booking_id = $1 AND member_id = $2',
         [booking_id, user.id]
       );
       if (result.rows.length === 0) {
@@ -38,7 +38,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       booking = result.rows[0];
     } else if (booking_type === 'kayak') {
       const result = await pool.query(
-        'SELECT total_price, payment_status, payment_slip FROM boat_bookings WHERE boat_booking_id = $1 AND member_id = $2',
+        'SELECT total_price, payment_status, payment_slip, status FROM boat_bookings WHERE boat_booking_id = $1 AND member_id = $2',
         [booking_id, user.id]
       );
       if (result.rows.length === 0) {
@@ -63,6 +63,10 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
         booking_id,
         amount: booking.total_price,
         status: booking.payment_status,
+        // สถานะจริงของการจอง (pending/paid/approved/rejected/cancelled/checked_out) — ต้องใช้ตัวนี้แยกกรณีถูกปฏิเสธ/ยกเลิก
+        // เพราะ payment_status จะค้างเป็น 'paid' ตลอดหลังอัปโหลดสลิป ไม่ว่าเจ้าหน้าที่จะอนุมัติหรือปฏิเสธในภายหลัง
+        booking_status: booking.status,
+        reject_reason: booking.reject_reason ?? null,
         slip_image: booking.payment_slip,
         qr_code_url: qrCodeDataUrl,
         bank_info: bankInfo,

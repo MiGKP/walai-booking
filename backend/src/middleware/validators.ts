@@ -105,6 +105,7 @@ export const createRoomBookingValidator = [
   body('items.*.room_type_id').optional().isInt({ min: 1 }).withMessage('Valid room_type_id is required'),
   body('items.*.quantity').optional().isInt({ min: 1, max: 20 }).withMessage('quantity must be 1-20'),
   body('items.*.promotion_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Invalid promotion_id'),
+  body('items.*.room_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Invalid room_id'),
   body('room_type_id').optional().isInt({ min: 1 }).withMessage('Valid room_type_id is required'),
   body('guests').optional().isInt({ min: 1, max: 50 }).withMessage('Guests must be between 1 and 50'),
   body('adults').optional().isInt({ min: 1, max: 50 }).withMessage('adults must be between 1 and 50'),

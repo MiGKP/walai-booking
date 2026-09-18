@@ -35,6 +35,9 @@ function PaymentContent() {
   const [slipPreview, setSlipPreview] = useState('');
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
+  // สถานะจริงของการจอง (ไม่ใช่ payment_status ที่ค้างเป็น 'paid' ตลอดหลังส่งสลิป) ใช้แยกว่าเจ้าหน้าที่อนุมัติ/ปฏิเสธไปแล้วหรือยังรอตรวจสอบ
+  const [bookingStatus, setBookingStatus] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
@@ -49,8 +52,10 @@ function PaymentContent() {
     try {
       const res = await api.post('/payments', { booking_type, booking_id: Number(booking_id) });
       setPayment(res.data.data);
+      setBookingStatus(res.data.data.booking_status ?? null);
+      setRejectReason(res.data.data.reject_reason ?? null);
       if (res.data.data.slip_image) {
-        setDone(true); // already paid
+        setDone(true); // ส่งสลิปแล้ว — สถานะจริงหลังจากนี้ (รอตรวจสอบ/อนุมัติ/ปฏิเสธ) ดูจาก bookingStatus
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'ไม่สามารถสร้างรายการชำระเงินได้');
@@ -118,21 +123,45 @@ function PaymentContent() {
     </div>
   );
 
-  if (done) return (
+  if (done) {
+    const isRejected = bookingStatus === 'rejected';
+    const isApproved = bookingStatus === 'approved' || bookingStatus === 'checked_out';
+
+    return (
     <div className="min-h-screen bg-cream-100 pt-20 flex items-center justify-center px-4 pb-10">
       <div className={`${CARD} max-w-md w-full text-center px-6 py-10 sm:px-10`}>
         <div className="relative mx-auto mb-6 grid h-24 w-24 place-items-center">
-          <span className="absolute inset-0 rounded-full bg-forest-50" />
-          <span className="absolute inset-0 animate-ping rounded-full bg-forest-100 opacity-60" style={{ animationDuration: '2s' }} />
-          <div className="relative grid h-20 w-20 place-items-center rounded-full bg-forest-800 shadow-lg shadow-forest-900/20">
-            <CheckCircle size={40} className="text-cream-100" />
+          <span className={`absolute inset-0 rounded-full ${isRejected ? 'bg-red-50' : 'bg-forest-50'}`} />
+          {!isRejected && (
+            <span className="absolute inset-0 animate-ping rounded-full bg-forest-100 opacity-60" style={{ animationDuration: '2s' }} />
+          )}
+          <div className={`relative grid h-20 w-20 place-items-center rounded-full shadow-lg ${isRejected ? 'bg-red-500 shadow-red-900/20' : 'bg-forest-800 shadow-forest-900/20'}`}>
+            {isRejected ? <XCircle size={40} className="text-white" /> : <CheckCircle size={40} className="text-cream-100" />}
           </div>
         </div>
 
-        <h1 className="font-sans text-[22px] font-semibold text-forest-900 sm:text-[24px]">ส่งสลิปสำเร็จแล้ว!</h1>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-charcoal-400">
-          ขอบคุณสำหรับการชำระเงิน เจ้าหน้าที่กำลังตรวจสอบสลิปของคุณ
-        </p>
+        {isRejected ? (
+          <>
+            <h1 className="font-sans text-[22px] font-semibold text-red-700 sm:text-[24px]">การจองถูกปฏิเสธ</h1>
+            <p className="mt-2 text-[13.5px] leading-relaxed text-charcoal-400">
+              {rejectReason ? `เหตุผล: ${rejectReason}` : 'เจ้าหน้าที่ตรวจสอบแล้วไม่สามารถยืนยันการจองนี้ได้ กรุณาติดต่อเจ้าหน้าที่หากต้องการสอบถามเพิ่มเติม'}
+            </p>
+          </>
+        ) : isApproved ? (
+          <>
+            <h1 className="font-sans text-[22px] font-semibold text-forest-900 sm:text-[24px]">การจองได้รับการยืนยันแล้ว!</h1>
+            <p className="mt-2 text-[13.5px] leading-relaxed text-charcoal-400">
+              เจ้าหน้าที่ตรวจสอบและยืนยันการชำระเงินของคุณเรียบร้อยแล้ว ขอบคุณที่ใช้บริการ
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="font-sans text-[22px] font-semibold text-forest-900 sm:text-[24px]">ส่งสลิปสำเร็จแล้ว!</h1>
+            <p className="mt-2 text-[13.5px] leading-relaxed text-charcoal-400">
+              ขอบคุณสำหรับการชำระเงิน เจ้าหน้าที่กำลังตรวจสอบสลิปของคุณ
+            </p>
+          </>
+        )}
 
         {payment && (
           <div className="mt-5 flex items-center justify-between rounded-xl bg-forest-50/60 px-4 py-3 text-left text-[13px]">
@@ -147,24 +176,32 @@ function PaymentContent() {
           </div>
         )}
 
-        {/* Progress Steps */}
-        <div className="mt-6 flex items-center justify-center gap-2 px-2">
-          <div className="flex flex-1 flex-col items-center gap-1.5">
-            <div className="grid h-7 w-7 place-items-center rounded-full bg-forest-800 text-cream-100"><CheckCircle size={14} /></div>
-            <span className="text-[10.5px] font-semibold text-forest-900">ส่งสลิปแล้ว</span>
-          </div>
-          <div className="h-0.5 flex-1 rounded-full bg-forest-200 -mt-5" />
-          <div className="flex flex-1 flex-col items-center gap-1.5">
-            <div className="grid h-7 w-7 place-items-center rounded-full border-2 border-forest-300 bg-white text-forest-500 text-[11px] font-bold">2</div>
-            <span className="text-[10.5px] font-semibold text-forest-700">รอตรวจสอบ</span>
-          </div>
-          <div className="h-0.5 flex-1 rounded-full bg-stone-200 -mt-5" />
-          <div className="flex flex-1 flex-col items-center gap-1.5">
-            <div className="grid h-7 w-7 place-items-center rounded-full border-2 border-stone-200 bg-white text-stone-400 text-[11px] font-bold">3</div>
-            <span className="text-[10.5px] font-semibold text-stone-400">ยืนยันการจอง</span>
-          </div>
-        </div>
-        <p className="mt-3 text-[11.5px] text-charcoal-400">ใช้เวลาตรวจสอบประมาณ 15-30 นาที</p>
+        {!isRejected && (
+          <>
+            {/* Progress Steps */}
+            <div className="mt-6 flex items-center justify-center gap-2 px-2">
+              <div className="flex flex-1 flex-col items-center gap-1.5">
+                <div className="grid h-7 w-7 place-items-center rounded-full bg-forest-800 text-cream-100"><CheckCircle size={14} /></div>
+                <span className="text-[10.5px] font-semibold text-forest-900">ส่งสลิปแล้ว</span>
+              </div>
+              <div className="h-0.5 flex-1 rounded-full bg-forest-200 -mt-5" />
+              <div className="flex flex-1 flex-col items-center gap-1.5">
+                <div className="grid h-7 w-7 place-items-center rounded-full bg-forest-800 text-cream-100"><CheckCircle size={14} /></div>
+                <span className="text-[10.5px] font-semibold text-forest-900">รอตรวจสอบ</span>
+              </div>
+              <div className={`h-0.5 flex-1 rounded-full -mt-5 ${isApproved ? 'bg-forest-200' : 'bg-stone-200'}`} />
+              <div className="flex flex-1 flex-col items-center gap-1.5">
+                {isApproved ? (
+                  <div className="grid h-7 w-7 place-items-center rounded-full bg-forest-800 text-cream-100"><CheckCircle size={14} /></div>
+                ) : (
+                  <div className="grid h-7 w-7 place-items-center rounded-full border-2 border-stone-200 bg-white text-stone-400 text-[11px] font-bold">3</div>
+                )}
+                <span className={`text-[10.5px] font-semibold ${isApproved ? 'text-forest-900' : 'text-stone-400'}`}>ยืนยันการจอง</span>
+              </div>
+            </div>
+            {!isApproved && <p className="mt-3 text-[11.5px] text-charcoal-400">ใช้เวลาตรวจสอบประมาณ 15-30 นาที</p>}
+          </>
+        )}
 
         <div className="mt-7 flex flex-col gap-3">
           <Link href="/dashboard" className="btn-primary text-center">ดูการจองของฉัน</Link>
@@ -172,7 +209,8 @@ function PaymentContent() {
         </div>
       </div>
     </div>
-  );
+    );
+  }
 
   return (
     <div className="min-h-screen bg-cream-100 pt-20">

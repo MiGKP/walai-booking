@@ -285,16 +285,33 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
       return;
     }
 
-    // backend เลือกห้องจริงให้อัตโนมัติตามประเภท ไม่รองรับการระบุเลขห้องเจาะจง จึงรวมจำนวนตามประเภทห้องก่อนส่ง
+    // ห้องที่ลูกค้าเลือกเลขห้องเจาะจงไว้ (roomId ไม่ใช่ 0) ส่งเป็นรายการแยกพร้อม room_id เพื่อให้ backend
+    // จองห้องนั้นจริง — ส่วนที่ไม่ได้เลือกเลขห้องเจาะจงค่อยรวมจำนวนตามประเภทห้องแล้วให้ backend เลือกห้องว่างให้เอง
     // แต่ละประเภทห้องแนบโปรโมชั่นของตัวเองไปด้วย (ถ้ามีโค้ดที่ใช้ได้กับประเภทนั้น)
-    const quantityByType = new Map<number, number>();
-    cartItems.forEach((item) => {
-      quantityByType.set(item.typeId, (quantityByType.get(item.typeId) || 0) + item.qty);
-    });
     const promotionByType = new Map<number, number>();
     promoAssignments.forEach((a) => {
       if (a.valid && a.typeId != null && a.promotion) promotionByType.set(a.typeId, a.promotion.id);
     });
+
+    const genericQuantityByType = new Map<number, number>();
+    const specificItems: Array<{ room_type_id: number; quantity: number; room_id: number; promotion_id?: number }> = [];
+    cartItems.forEach((item) => {
+      if (item.roomId) {
+        specificItems.push({
+          room_type_id: item.typeId,
+          quantity: item.qty,
+          room_id: item.roomId,
+          promotion_id: promotionByType.get(item.typeId) ?? undefined,
+        });
+      } else {
+        genericQuantityByType.set(item.typeId, (genericQuantityByType.get(item.typeId) || 0) + item.qty);
+      }
+    });
+    const genericItems = Array.from(genericQuantityByType.entries()).map(([room_type_id, quantity]) => ({
+      room_type_id,
+      quantity,
+      promotion_id: promotionByType.get(room_type_id) ?? undefined,
+    }));
 
     setIsBooking(true);
     try {
@@ -303,11 +320,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
         check_out_date: checkOut,
         adults,
         children,
-        items: Array.from(quantityByType.entries()).map(([room_type_id, quantity]) => ({
-          room_type_id,
-          quantity,
-          promotion_id: promotionByType.get(room_type_id) ?? undefined,
-        })),
+        items: [...specificItems, ...genericItems],
       });
 
       const bookingId = res.data?.data?.room_booking_id;
@@ -536,11 +549,18 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
                     <p className={`truncate text-[13px] font-bold ${item.unavailable ? 'text-red-700' : 'text-[#0A2E1F]'}`}>{item.name}</p>
                     <p className={`text-[11px] ${item.unavailable ? 'text-red-500' : 'text-stone-500'}`}>฿{item.price.toLocaleString()} / คืน · จุ {item.capacity} ท่าน</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, -1)} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
-                    <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{item.qty}</span>
-                    <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, 1)} disabled={item.unavailable} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
-                  </div>
+                  {item.roomId ? (
+                    // เลือกห้องเจาะจงไว้แล้ว (มีเลขห้องเดียว) เพิ่ม/ลดจำนวนไม่ได้ เพราะมีห้องนั้นห้องเดียว มีแค่ปุ่มลบออก
+                    <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, -1)} className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-red-500 transition-colors hover:border-red-300 hover:bg-red-50">
+                      <Trash2 size={13} />
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, -1)} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
+                      <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{item.qty}</span>
+                      <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, 1)} disabled={item.unavailable} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
+                    </div>
+                  )}
                 </div>
                 {item.unavailable && (
                   <p className="mt-1.5 text-[11px] font-semibold text-red-600">ไม่ว่างแล้วสำหรับวันที่นี้ กรุณาลบออกหรือเปลี่ยนวันที่</p>

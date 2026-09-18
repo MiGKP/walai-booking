@@ -25,6 +25,10 @@ const statusLabel: Record<string, string> = { pending: 'รอดำเนิน
 const statusClass: Record<string, string> = { pending: 'bg-orange-50 text-orange-700', paid: 'bg-blue-50 text-blue-700', approved: 'bg-forest-50 text-forest-700', cancelled: 'bg-stone-100 text-stone-500', rejected: 'bg-red-50 text-red-600', checked_out: 'bg-bamboo-50 text-bamboo-600' };
 const paymentStatusLabel: Record<string, string> = { pending: 'ยังไม่ชำระ', paid: 'ชำระแล้ว' };
 
+// payment_status ค้างเป็น 'paid' ตลอดหลังส่งสลิป ไม่ถูกอัปเดตเมื่อเจ้าหน้าที่ปฏิเสธ/ยกเลิกภายหลัง
+// ถ้าโชว์คู่กับป้ายสถานะ "ถูกปฏิเสธ"/"ยกเลิก" จะดูขัดแย้งกันเอง จึงซ่อนไว้เมื่อ booking จบสถานะแล้วแบบนี้
+const isPaymentStatusStale = (status: string): boolean => status === 'rejected' || status === 'cancelled';
+
 function bookingId(b: any): number {
   return b.id || b.room_booking_id || b.boat_booking_id;
 }
@@ -174,7 +178,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
                     label="ผู้เข้าพัก"
                     value={`${b.guests || b.guest_count} คน${b.adults != null ? ` (ผู้ใหญ่ ${b.adults}, เด็ก ${b.children ?? 0})` : ''}`}
                   />
-                  {b.payment_status && (
+                  {b.payment_status && !isPaymentStatusStale(b.status) && (
                     <DetailRow icon={<Wallet size={13} />} label="สถานะชำระเงิน" value={paymentStatusLabel[b.payment_status] || b.payment_status} />
                   )}
                   {b.payment_date && (
@@ -208,7 +212,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
                   />
                   <DetailRow icon={<Clock3 size={13} />} label="เวลา" value={`${b.start_time?.slice(0, 5)} - ${b.end_time?.slice(0, 5)} น.`} />
                   <DetailRow icon={<Users size={13} />} label="ผู้โดยสาร" value={`${b.num_passengers} คน`} />
-                  {b.payment_status && (
+                  {b.payment_status && !isPaymentStatusStale(b.status) && (
                     <DetailRow icon={<Wallet size={13} />} label="สถานะชำระเงิน" value={paymentStatusLabel[b.payment_status] || b.payment_status} />
                   )}
                   {b.payment_date && (

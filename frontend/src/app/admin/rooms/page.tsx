@@ -1895,3 +1895,17 @@ function RoomStaffDashboardContent() {
     </div>
   );
 }
+
+export default function AdminRoomsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <RefreshCw size={28} className="animate-spin text-[#0b3b2c]" />
+        </div>
+      }
+    >
+      <RoomStaffDashboardContent />
+    </Suspense>
+  );
+}

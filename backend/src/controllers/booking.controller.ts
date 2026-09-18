@@ -17,6 +17,8 @@ interface BookingItemInput {
   room_type_id: number;
   quantity: number;
   promotion_id: number | null;
+  // ห้องเฉพาะเจาะจงที่ลูกค้าเลือกจากหน้ารายละเอียดห้อง (ไม่บังคับ) — ถ้าไม่ระบุ backend เลือกห้องว่างให้อัตโนมัติ
+  room_id: number | null;
 }
 
 interface RoomTypeRow {
@@ -54,10 +56,11 @@ function normalizeItems(body: Record<string, unknown>): BookingItemInput[] {
         room_type_id: Number(item.room_type_id),
         quantity: Number(item.quantity),
         promotion_id: item.promotion_id != null ? Number(item.promotion_id) : null,
+        room_id: item.room_id != null ? Number(item.room_id) : null,
       };
     });
   }
-  return [{ room_type_id: Number(body.room_type_id), quantity: 1, promotion_id: null }];
+  return [{ room_type_id: Number(body.room_type_id), quantity: 1, promotion_id: null, room_id: null }];
 }
 
 function normalizeGuests(body: Record<string, unknown>): {
@@ -138,7 +141,8 @@ export const createRoomBooking = async (
         !Number.isInteger(item.room_type_id) ||
         item.room_type_id < 1 ||
         !Number.isInteger(item.quantity) ||
-        item.quantity < 1
+        item.quantity < 1 ||
+        (item.room_id != null && (!Number.isInteger(item.room_id) || item.room_id < 1))
       ) {
         res.status(400).json({
           success: false,
@@ -192,40 +196,68 @@ export const createRoomBooking = async (
       room_number: string;
     }> = [];
 
+    // ห้องที่ถูกจับจองไปแล้วภายใน transaction นี้ (ยังไม่ถูก insert ลง booking_room) กันไม่ให้ query
+    // รอบถัดไปหยิบห้องเดียวกันซ้ำ เพราะ lock ของธุรกรรมตัวเองไม่ถูก SKIP LOCKED กันเอง
+    const lockedRoomIds: number[] = [];
+
     for (const item of items) {
       const roomType = typeMap.get(item.room_type_id)!;
       for (let i = 0; i < item.quantity; i += 1) {
-        const availableRoom = await client.query(
-          `SELECT r.room_id, r.room_number
-           FROM rooms r
-           WHERE r.room_type_id = $1 AND r.status <> 'maintenance'
-             AND r.room_id NOT IN (
-               SELECT br.room_id
-               FROM booking_room br
-               JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
-               WHERE br.status NOT IN ('cancelled', 'rejected')
-                 AND rb.check_in < $3 AND rb.check_out > $2
-             )
-           LIMIT 1
-           FOR UPDATE SKIP LOCKED`,
-          [item.room_type_id, checkInDate, checkOutDate]
-        );
+        // หน่วยแรกของแต่ละ item เท่านั้นที่ผูกกับห้องเฉพาะเจาะจงที่ลูกค้าเลือกไว้ (ถ้ามี)
+        // ส่วนที่เกินมา (quantity > 1 บนห้องเดียวกัน) ให้ระบบเลือกห้องว่างประเภทเดียวกันให้อัตโนมัติ
+        const requestedRoomId = i === 0 ? item.room_id : null;
 
-        if (availableRoom.rows.length === 0) {
+        const roomQuery = requestedRoomId
+          ? await client.query(
+              `SELECT r.room_id, r.room_number
+               FROM rooms r
+               WHERE r.room_id = $1 AND r.room_type_id = $2 AND r.status <> 'maintenance'
+                 AND r.room_id <> ALL($3::int[])
+                 AND r.room_id NOT IN (
+                   SELECT br.room_id
+                   FROM booking_room br
+                   JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+                   WHERE br.status NOT IN ('cancelled', 'rejected')
+                     AND rb.check_in < $5 AND rb.check_out > $4
+                 )
+               FOR UPDATE`,
+              [requestedRoomId, item.room_type_id, lockedRoomIds, checkInDate, checkOutDate]
+            )
+          : await client.query(
+              `SELECT r.room_id, r.room_number
+               FROM rooms r
+               WHERE r.room_type_id = $1 AND r.status <> 'maintenance'
+                 AND r.room_id <> ALL($4::int[])
+                 AND r.room_id NOT IN (
+                   SELECT br.room_id
+                   FROM booking_room br
+                   JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+                   WHERE br.status NOT IN ('cancelled', 'rejected')
+                     AND rb.check_in < $3 AND rb.check_out > $2
+                 )
+               LIMIT 1
+               FOR UPDATE SKIP LOCKED`,
+              [item.room_type_id, checkInDate, checkOutDate, lockedRoomIds]
+            );
+
+        if (roomQuery.rows.length === 0) {
           await client.query('ROLLBACK');
           res.status(409).json({
             success: false,
-            message: `ห้องประเภท ${roomType.room_name} ว่างไม่พอสำหรับวันที่เลือก`,
+            message: requestedRoomId
+              ? `ห้อง ${roomType.room_name} ที่เลือกไว้ไม่ว่างแล้วสำหรับวันที่นี้ กรุณาเลือกห้องอื่น`
+              : `ห้องประเภท ${roomType.room_name} ว่างไม่พอสำหรับวันที่เลือก`,
           });
           return;
         }
 
+        lockedRoomIds.push(roomQuery.rows[0].room_id);
         lockedRooms.push({
-          room_id: availableRoom.rows[0].room_id,
+          room_id: roomQuery.rows[0].room_id,
           room_type_id: item.room_type_id,
           price_per_night: Number(roomType.price),
           room_name: roomType.room_name,
-          room_number: String(availableRoom.rows[0].room_number),
+          room_number: String(roomQuery.rows[0].room_number),
         });
       }
     }
@@ -667,7 +699,7 @@ export const updateRoomBookingStatus = async (
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, reject_reason } = req.body;
     const user = req.user as AuthPayload;
 
     const allowed = ['approved', 'rejected', 'pending', 'cancelled'];
@@ -684,6 +716,11 @@ export const updateRoomBookingStatus = async (
     if (status === 'approved' || status === 'rejected') {
       query += `, approved_by_staff_id = $2`;
       params.push(user.id);
+    }
+
+    if (status === 'rejected') {
+      query += `, reject_reason = $${params.length + 1}`;
+      params.push(typeof reject_reason === 'string' && reject_reason.trim() ? reject_reason.trim() : 'ไม่ระบุเหตุผล');
     }
 
     params.push(id);
