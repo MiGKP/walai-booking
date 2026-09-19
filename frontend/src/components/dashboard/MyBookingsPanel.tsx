@@ -56,7 +56,8 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [reviewedIds, setReviewedIds] = useState<Set<number>>(new Set());
+  // ต่อ booking หนึ่งบิลอาจมีหลายประเภทห้อง แต่ละประเภทรีวิวแยกกันได้ — เก็บเป็น room_booking_id -> เซตของประเภทห้องที่รีวิวแล้ว
+  const [reviewedTypesByBooking, setReviewedTypesByBooking] = useState<Map<number, Set<string>>>(new Map());
 
   const toggleExpanded = (key: string) => {
     setExpandedIds((prev) => {
@@ -83,7 +84,13 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
       ]);
       setRoomBookings(roomRes.data?.data || []);
       setKayakBookings(kayakRes.data?.data || []);
-      setReviewedIds(new Set((reviewsRes.data?.data || []).map((r: any) => r.room_booking_id)));
+      const typesByBooking = new Map<number, Set<string>>();
+      (reviewsRes.data?.data || []).forEach((r: any) => {
+        const typeKey = r.type_name || r.room_name;
+        if (!typesByBooking.has(r.room_booking_id)) typesByBooking.set(r.room_booking_id, new Set());
+        typesByBooking.get(r.room_booking_id)!.add(typeKey);
+      });
+      setReviewedTypesByBooking(typesByBooking);
       const dueDays = Number(roomRes.data?.payment_due_days);
       if (dueDays > 0) setPaymentDueDays(dueDays);
     } catch {
@@ -277,9 +284,16 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
               </div>
             )}
 
-            {type === 'room' && b.status === 'approved' && (
+            {type === 'room' && b.status === 'approved' && (() => {
+              // จองหลายประเภทห้องในบิลเดียวได้ ต้องรีวิวครบทุกประเภทถึงจะถือว่า "รีวิวแล้ว"
+              const distinctTypes = new Set(
+                (Array.isArray(b.rooms) ? b.rooms : []).map((line: { type_name?: string; room_name: string }) => line.type_name || line.room_name)
+              );
+              const reviewedTypes = reviewedTypesByBooking.get(bid) ?? new Set<string>();
+              const allTypesReviewed = distinctTypes.size > 0 && [...distinctTypes].every((t) => reviewedTypes.has(t as string));
+              return (
               <div>
-                {reviewedIds.has(bid) ? (
+                {allTypesReviewed ? (
                   <span className="inline-flex items-center gap-1.5 rounded-xl bg-forest-50 px-4 py-2 text-[12.5px] font-bold text-forest-700">
                     <CheckCircle2 size={14} /> รีวิวการพักนี้แล้ว
                   </span>
@@ -292,7 +306,8 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
                   </Link>
                 )}
               </div>
-            )}
+              );
+            })()}
           </div>
         )}
 

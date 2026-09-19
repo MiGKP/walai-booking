@@ -395,6 +395,31 @@ function CustomSelect({
   );
 }
 
+// ฟังก์ชันช่วยแปลงวันที่เป็น YYYY-MM-DD ตามเวลาท้องถิ่น (ไม่ใช้ toISOString เพราะจะเพี้ยนข้ามวันตาม timezone)
+const toLocalISODate = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+// ตัวเลือกกรองวันที่แบบด่วน: วันนี้ / สัปดาห์นี้ (จันทร์-อาทิตย์) / เดือนนี้
+const getQuickDateRange = (kind: "today" | "week" | "month"): { from: string; to: string } => {
+  const now = new Date();
+  if (kind === "today") {
+    const iso = toLocalISODate(now);
+    return { from: iso, to: iso };
+  }
+  if (kind === "week") {
+    const day = now.getDay();
+    const diffToMonday = day === 0 ? 6 : day - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMonday);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return { from: toLocalISODate(monday), to: toLocalISODate(sunday) };
+  }
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { from: toLocalISODate(first), to: toLocalISODate(last) };
+};
+
 // ฟังก์ชันช่วยคำนวณจำนวนคืนที่พัก
 const calculateNights = (checkIn?: string, checkOut?: string) => {
   if (!checkIn || !checkOut) return 0;
@@ -1060,6 +1085,33 @@ function RoomStaffDashboardContent() {
               />
             </div>
 
+            <div className="flex items-center gap-1">
+              {(
+                [
+                  ["today", "วันนี้"],
+                  ["week", "สัปดาห์นี้"],
+                  ["month", "เดือนนี้"],
+                ] as const
+              ).map(([kind, label]) => {
+                const range = getQuickDateRange(kind);
+                const active = dateFrom === range.from && dateTo === range.to;
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => handleDateChange(range.from, range.to)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                      active
+                        ? "bg-[#0b3b2c] text-white shadow-xs"
+                        : "bg-stone-100/80 text-stone-600 hover:bg-stone-200/70"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
               <CalendarDays size={15} className="text-[#0b3b2c]" />
               <span className="font-medium text-stone-500 whitespace-nowrap">
@@ -1154,8 +1206,9 @@ function RoomStaffDashboardContent() {
                   </td>
                 </tr>
               ) : (
-                paginatedBookings.map((b: any) => {
+                paginatedBookings.map((b: any, idx: number) => {
                   const bookingId = b.room_booking_id || b.id;
+                  const rowNumber = (currentPage - 1) * itemsPerPage + idx + 1;
                   const nights = calculateNights(b.check_in, b.check_out);
                   const cfg = statusConfig[b.status] || {
                     bg: "bg-stone-100 text-stone-600 border-stone-200",
@@ -1169,7 +1222,7 @@ function RoomStaffDashboardContent() {
                       className="hover:bg-stone-50/80 transition-colors group"
                     >
                       <td className="px-5 py-4 text-stone-400 font-mono text-xs font-semibold">
-                        #{bookingId}
+                        {rowNumber}
                       </td>
 
                       <td className="px-5 py-4">

@@ -10,6 +10,7 @@ import Link from 'next/link';
 
 interface ReviewableBooking {
   room_booking_id: number;
+  room_type_id: number;
   room_name: string;
   type_name: string;
   room_image: string;
@@ -20,6 +21,7 @@ interface ReviewableBooking {
 interface MyReview {
   review_id: number;
   room_booking_id: number;
+  room_type_id: number;
   rating: number;
   comment: string;
   review_date: string;
@@ -109,6 +111,7 @@ export default function ReviewsPage() {
     try {
       await api.post('/reviews', {
         room_booking_id: creating!.room_booking_id,
+        room_type_id: creating!.room_type_id,
         rating: form.rating,
         comment: form.comment,
       });
@@ -212,7 +215,7 @@ export default function ReviewsPage() {
           ) : (
             <div className="space-y-4">
               {reviewable.map((booking) => (
-                <div key={booking.room_booking_id} className="card flex flex-col sm:flex-row gap-4 p-5">
+                <div key={`${booking.room_booking_id}-${booking.room_type_id}`} className="card flex flex-col sm:flex-row gap-4 p-5">
                   <div className="w-full sm:w-24 h-40 sm:h-24 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
                     {booking.room_image ? (
                       <img src={resolveMediaUrl(booking.room_image)} alt={booking.room_name} className="w-full h-full object-cover" />

@@ -10,24 +10,18 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Coffee,
-  Compass,
   ImageIcon,
   Maximize2,
   Sparkles,
   Star,
   Tag,
-  Tv,
   Users,
-  Utensils,
-  Waves,
-  Wifi,
-  Wind,
   X,
   CheckCircle2,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
+import { maskReviewerName } from '@/lib/format';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import BookingCalendar, { DateRange, DayStatus } from '@/components/booking/BookingCalendar';
@@ -103,19 +97,6 @@ function SectionHeading({ icon, title, action }: { icon: React.ReactNode; title:
       {action}
     </div>
   );
-}
-
-function getAmenityIcon(name: string): React.ReactElement {
-  const n = name.toLowerCase();
-  const cls = 'text-forest-500';
-  if (n.includes('wifi') || n.includes('อินเทอร์เน็ต') || n.includes('internet')) return <Wifi size={15} className={cls} />;
-  if (n.includes('แอร์') || n.includes('เครื่องปรับอากาศ') || n.includes('air')) return <Wind size={15} className={cls} />;
-  if (n.includes('ทีวี') || n.includes('tv') || n.includes('โทรทัศน์') || n.includes('television')) return <Tv size={15} className={cls} />;
-  if (n.includes('ตู้เย็น') || n.includes('fridge') || n.includes('refrigerator')) return <Coffee size={15} className={cls} />;
-  if (n.includes('อาหาร') || n.includes('เช้า') || n.includes('breakfast') || n.includes('lunch') || n.includes('dinner')) return <Utensils size={15} className={cls} />;
-  if (n.includes('วิว') || n.includes('ระเบียง') || n.includes('view') || n.includes('balcony') || n.includes('terrace')) return <Compass size={15} className={cls} />;
-  if (n.includes('น้ำ') || n.includes('สระ') || n.includes('pool') || n.includes('lake') || n.includes('river')) return <Waves size={15} className={cls} />;
-  return <Check size={15} className={cls} />;
 }
 
 function ratingLabel(score: number): string {
@@ -194,6 +175,19 @@ export default function RoomDetailPage(): React.ReactElement {
       setAvgRating(res.data?.avg_rating ?? null);
     }).catch(() => undefined);
   }, [id, range.start, range.end]);
+
+  // Next.js ไม่ scroll ไปยัง #hash ให้อัตโนมัติถ้า element ยังไม่อยู่ใน DOM ตอน navigate มา (ข้อมูลห้องยังโหลดไม่เสร็จ)
+  // จึงต้อง scroll เองหลังข้อมูลห้องโหลดเสร็จ เพื่อรองรับลิงก์ "จองที่พัก" จากหน้ารายการที่พาตรงมาที่ตัวเลือกเลขห้อง
+  useEffect(() => {
+    if (!room || typeof window === 'undefined') return;
+    if (window.location.hash === '#room-picker') {
+      requestAnimationFrame(() => {
+        document.getElementById('room-picker')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      // ลบ #room-picker ออกจาก URL ทันทีหลัง scroll เพื่อไม่ให้ค้างโชว์ในแถบที่อยู่ (ไม่กระทบการ scroll ที่กำลังทำอยู่)
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, [room]);
 
   useEffect(() => {
     if (!id) return;
@@ -294,6 +288,10 @@ export default function RoomDetailPage(): React.ReactElement {
       : items.filter((item) => item.room_id !== roomId);
 
     commitCart(nextItems);
+    // เตือนว่ายังกลับไปเลือกห้องพักประเภทอื่นเพิ่มในบิลเดียวกันได้ เพราะตะกร้าคงอยู่ข้ามหน้า
+    if (isSelecting) {
+      toast.success(`เพิ่มห้อง ${physicalRoom.room_number} ลงตะกร้าแล้ว — ต้องการห้องพักประเภทอื่นเพิ่ม กด "ห้องพักทั้งหมด" ด้านบนได้เลย`, { duration: 4500 });
+    }
   };
 
   if (loading) return <div className="min-h-screen bg-cream-100 pb-20 pt-24"><div className="container mx-auto max-w-6xl px-4"><div className="mb-6 h-9 w-40 animate-pulse rounded-full bg-white" /><div className="mb-6 space-y-3"><div className="h-5 w-48 animate-pulse rounded-full bg-white" /><div className="h-9 w-2/3 animate-pulse rounded-xl bg-white" /></div><div className="grid gap-8 lg:grid-cols-[1fr_360px]"><div className="space-y-6"><div className="h-[300px] animate-pulse rounded-2xl bg-white sm:h-[420px]" /><div className="h-56 animate-pulse rounded-2xl bg-white" /><div className="h-72 animate-pulse rounded-2xl bg-white" /></div><div className="h-[540px] animate-pulse rounded-2xl bg-white" /></div></div></div>;
@@ -420,14 +418,14 @@ export default function RoomDetailPage(): React.ReactElement {
             {room.amenities && room.amenities.length > 0 && (
               <section className={`${CARD} p-5 sm:p-6`}>
                 <SectionHeading icon={<Sparkles size={16} />} title="สิ่งอำนวยความสะดวก" />
-                <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3">
+                <ul className="mt-4 columns-2 gap-x-8 text-[13.5px] text-charcoal-600">
                   {room.amenities.map((amenity, index) => (
-                    <div key={index} className="flex items-center gap-2.5 rounded-xl border border-stone-100 bg-stone-50/50 px-3 py-2.5 text-[13px] text-charcoal-600">
-                      {getAmenityIcon(typeof amenity === 'string' ? amenity : amenity.name)}
-                      <span className="truncate">{typeof amenity === 'string' ? amenity : amenity.name}</span>
-                    </div>
+                    <li key={index} className="mb-2.5 flex items-start gap-2 break-inside-avoid">
+                      <Check size={14} className="mt-0.5 shrink-0 text-forest-500" />
+                      <span>{typeof amenity === 'string' ? amenity : amenity.name}</span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </section>
             )}
 
@@ -483,7 +481,7 @@ export default function RoomDetailPage(): React.ReactElement {
             )}
 
             {/* Room Selection Grid */}
-            <section className={`${CARD} p-5 sm:p-6`}>
+            <section id="room-picker" className={`${CARD} scroll-mt-24 p-5 sm:p-6`}>
               <SectionHeading
                 icon={<BedDouble size={16} />}
                 title="เลือกหมายเลขห้องพักที่ต้องการ"
@@ -524,7 +522,7 @@ export default function RoomDetailPage(): React.ReactElement {
                       <div className="flex items-center gap-3">
                         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-900 text-[13px] font-bold text-cream-50">{review.first_name?.[0]?.toUpperCase() || 'U'}</span>
                         <div className="min-w-0">
-                          <p className="truncate text-[13px] font-bold text-forest-900">{review.first_name} {review.last_name}</p>
+                          <p className="truncate text-[13px] font-bold text-forest-900">{maskReviewerName(review.first_name, review.last_name)}</p>
                           <div className="mt-1 flex items-center gap-2"><Stars value={review.rating} size={11} /><span className="text-[11px] text-charcoal-400">{new Date(review.review_date).toLocaleDateString('th-TH')}</span></div>
                         </div>
                       </div>

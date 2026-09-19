@@ -78,36 +78,26 @@ export const getAllRooms = async (
            WHERE a.id = ANY(COALESCE(rt.amenity_ids, ARRAY[]::integer[]))
          ) as amenities,
          (
-           SELECT COUNT(*)::int
-           FROM booking_room br 
-           JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id 
+           -- "ยอดจองวันนี้" = จำนวนครั้งที่ลูกค้ากดชำระเงินสำเร็จ (ส่งสลิป) ในช่วง 24 ชม.ที่ผ่านมา
+           -- นับเป็น "ครั้ง" ตามจำนวนบิล (room_booking_id) ไม่ใช่จำนวนห้อง — จองหลายห้องในบิลเดียวกันนับ 1 ครั้ง
+           SELECT COUNT(DISTINCT rb.room_booking_id)::int
+           FROM booking_room br
+           JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
            JOIN rooms r ON r.room_id = br.room_id
-           WHERE r.room_type_id = rt.id 
-             AND rb.check_in <= CURRENT_DATE 
-             AND rb.check_out > CURRENT_DATE 
-             AND br.status NOT IN ('cancelled', 'rejected')
+           WHERE r.room_type_id = rt.id
+             AND rb.payment_submitted_at IS NOT NULL
+             AND rb.payment_submitted_at >= NOW() - INTERVAL '24 hours'
+             AND rb.status NOT IN ('rejected', 'cancelled')
          ) as today_bookings,
          (
-           SELECT COALESCE(AVG(rating), 0)::numeric(3,1) 
-           FROM reviews rev 
-           WHERE rev.room_booking_id IN (
-             SELECT rb2.room_booking_id 
-             FROM room_bookings rb2
-             JOIN booking_room br2 ON br2.room_booking_id = rb2.room_booking_id
-             JOIN rooms r2 ON r2.room_id = br2.room_id
-             WHERE r2.room_type_id = rt.id
-           )
+           SELECT COALESCE(AVG(rating), 0)::numeric(3,1)
+           FROM reviews rev
+           WHERE rev.room_type_id = rt.id
          ) as avg_rating,
          (
-           SELECT COUNT(*)::int 
-           FROM reviews rev 
-           WHERE rev.room_booking_id IN (
-             SELECT rb2.room_booking_id 
-             FROM room_bookings rb2
-             JOIN booking_room br2 ON br2.room_booking_id = rb2.room_booking_id
-             JOIN rooms r2 ON r2.room_id = br2.room_id
-             WHERE r2.room_type_id = rt.id
-           )
+           SELECT COUNT(*)::int
+           FROM reviews rev
+           WHERE rev.room_type_id = rt.id
          ) as review_count,
          (
            SELECT json_agg(json_build_object('id', p.id, 'name', p.name, 'code', p.code, 'description', p.description, 'discount_value', p.discount_value, 'discount_type', p.discount_type, 'min_nights', p.min_nights, 'max_discount', p.max_discount))

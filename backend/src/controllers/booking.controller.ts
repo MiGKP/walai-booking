@@ -7,6 +7,7 @@ import {
 } from '../services/mail.service';
 import {
   assertGuestsFitCapacity,
+  countCapacityChildren,
   lineSubtotal,
   nightsBetween,
   sumCapacity,
@@ -134,6 +135,7 @@ export const createRoomBooking = async (
 
     const items = normalizeItems(body);
     const { adults, children } = normalizeGuests(body);
+    const childAges = Array.isArray(body.child_ages) ? body.child_ages.map((a) => Number(a)) : [];
     const nights = nightsBetween(checkInDate, checkOutDate);
 
     for (const item of items) {
@@ -150,6 +152,18 @@ export const createRoomBooking = async (
         });
         return;
       }
+    }
+
+    // อายุเด็กต้องมีครบตามจำนวนเด็กที่ระบุ (ณ วันเข้าพัก) ใช้กันความจุ/แสดงผลย้อนหลัง
+    if (
+      childAges.length !== children ||
+      childAges.some((age) => !Number.isInteger(age) || age < 0 || age > 17)
+    ) {
+      res.status(400).json({
+        success: false,
+        message: 'กรุณาระบุอายุของเด็กแต่ละคนให้ครบ (0-17 ปี)',
+      });
+      return;
     }
 
     await client.query('BEGIN');
@@ -178,7 +192,7 @@ export const createRoomBooking = async (
       quantity: item.quantity,
     }));
     try {
-      assertGuestsFitCapacity(adults, children, sumCapacity(capacityItems));
+      assertGuestsFitCapacity(adults, countCapacityChildren(childAges), sumCapacity(capacityItems));
     } catch (err) {
       await client.query('ROLLBACK');
       res.status(400).json({
@@ -332,9 +346,9 @@ export const createRoomBooking = async (
     const guestTotal = adults + children;
     const headerRes = await client.query(
       `INSERT INTO room_bookings (
-         member_id, check_in, check_out, guest_count, adults, children,
+         member_id, check_in, check_out, guest_count, adults, children, child_ages,
          special_request, promotion_id, status, total_price
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9)
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10)
        RETURNING *`,
       [
         user.id,
@@ -343,6 +357,7 @@ export const createRoomBooking = async (
         guestTotal,
         adults,
         children,
+        childAges,
         specialRequests,
         primaryPromotionId,
         totalPrice,
@@ -461,7 +476,7 @@ export const getUserRoomBookings = async (
       pool.query(
         `SELECT rb.room_booking_id as id, rb.room_booking_id,
                 rb.check_in as check_in_date, rb.check_out as check_out_date,
-                rb.guest_count as guests, rb.adults, rb.children,
+                rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
                 rb.total_price, rb.status, rb.special_request, rb.created_at,
                 rb.reject_reason, rb.payment_status, rb.payment_date,
                 rb.checkin_at, rb.checkout_at,
@@ -540,7 +555,7 @@ export const getRoomBookingById = async (
     const result = await pool.query(
       `SELECT rb.room_booking_id as id, rb.room_booking_id,
               rb.check_in as check_in_date, rb.check_out as check_out_date,
-              rb.guest_count as guests, rb.adults, rb.children,
+              rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
               rb.total_price, rb.status, rb.special_request, rb.created_at,
               ${ROOMS_JSON_SQL} AS rooms
        FROM room_bookings rb
@@ -658,8 +673,8 @@ export const getAllRoomBookings = async (
               rb.check_in, rb.check_out,
               rb.check_in as check_in_date, rb.check_out as check_out_date,
               rb.checkout_at,
-              rb.guest_count as guests, rb.adults, rb.children,
-              rb.total_price, rb.status,
+              rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
+              rb.total_price, rb.status, rb.special_request,
               rb.payment_status, rb.payment_slip, rb.created_at,
               m.first_name || ' ' || m.last_name as user_name,
               m.email as user_email, m.phone as user_phone,

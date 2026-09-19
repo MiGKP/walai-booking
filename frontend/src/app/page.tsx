@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef, useId } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { ArrowRight, Anchor, Calendar, CreditCard, Star, MapPin, Phone, Waves, Facebook, Compass } from 'lucide-react';
+import { ArrowRight, Anchor, Calendar, CreditCard, Star, MapPin, Phone, Waves, Facebook, Compass, ConciergeBell, ShieldCheck, Languages, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import { resolveFacebookLink } from '@/lib/social';
+import { maskReviewerName } from '@/lib/format';
+import { FacilityGroup, ROOM_SPECIFIC_FACILITY_CATEGORIES } from '@/lib/facilities';
 import {
   googleMapsEmbedUrl,
   googleMapsSearchUrl,
@@ -242,14 +244,23 @@ function StatItem({
   );
 }
 
+const FACILITY_CATEGORY_ICONS: Record<string, React.ElementType> = {
+  ConciergeBell,
+  ShieldCheck,
+  Languages,
+};
+
+function getFacilityCategoryIcon(iconName: string): React.ReactElement {
+  const IconComponent = FACILITY_CATEGORY_ICONS[iconName] || Sparkles;
+  return <IconComponent size={20} className="text-forest-800" />;
+}
+
 function formatPrice(value: number): string {
   return Number(value).toLocaleString("th-TH");
 }
 
 function getReviewerName(review: LandingReview): string {
-  const fullName =
-    `${review.first_name || ""} ${review.last_name || ""}`.trim();
-  return fullName || "แขกผู้เข้าพัก";
+  return maskReviewerName(review.first_name, review.last_name);
 }
 
 /* ———————————————————————————————
@@ -412,6 +423,7 @@ export default function HomePage() {
   });
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(true);
+  const [facilities, setFacilities] = useState<FacilityGroup[]>([]);
 
   const experienceRef = useRevealOnScroll();
   const roomsRef = useRevealOnScroll(loadingRooms, roomTypes.length);
@@ -428,12 +440,13 @@ export default function HomePage() {
 
   useEffect(() => {
     const fetchLandingData = async () => {
-      const [resortRes, roomsRes, reviewsRes, statsRes] =
+      const [resortRes, roomsRes, reviewsRes, statsRes, facilitiesRes] =
         await Promise.allSettled([
           api.get("/settings/resort"),
           api.get("/rooms"),
           api.get("/reviews/public", { params: { limit: 6 } }),
           api.get("/settings/landing-stats"),
+          api.get("/settings/resort", { params: { id: 4 } }),
         ]);
 
       if (resortRes.status === "fulfilled")
@@ -441,6 +454,14 @@ export default function HomePage() {
       if (roomsRes.status === "fulfilled")
         setRoomTypes(roomsRes.value.data?.data || []);
       setLoadingRooms(false);
+
+      // หมวดที่ไม่ใช่ของเจาะจงห้องพัก (อินเทอร์เน็ต/สิ่งอำนวยความสะดวกในห้อง ไปโชว์ที่หน้าห้องแทน) — ที่นี่โชว์แค่หมวดรวมของรีสอร์ท
+      if (facilitiesRes.status === "fulfilled") {
+        const all: FacilityGroup[] = Array.isArray(facilitiesRes.value.data?.data?.facilities)
+          ? facilitiesRes.value.data.data.facilities
+          : [];
+        setFacilities(all.filter((g) => !ROOM_SPECIFIC_FACILITY_CATEGORIES.includes(g.category)));
+      }
 
       if (reviewsRes.status === "fulfilled")
         setReviews(reviewsRes.value.data?.data || []);
@@ -703,6 +724,45 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ═══════════════════════════════
+          5.5 FACILITIES SECTION (Resort-wide services)
+          ═══════════════════════════════ */}
+      {facilities.length > 0 && (
+        <section className="py-24 bg-stone-50/60">
+          <div className="container mx-auto px-4 md:px-6">
+            <div className="max-w-2xl mx-auto text-center mb-14">
+              <p className="text-forest-700 font-medium text-sm">มั่นใจได้ทุกการมาพัก</p>
+              <h2 className="font-display text-3xl md:text-4xl font-bold text-forest-800 leading-tight mt-2">
+                บริการและสิ่งอำนวยความสะดวก
+              </h2>
+              <p className="text-charcoal-400 text-lg leading-relaxed font-light mt-3">
+                ครอบคลุมทั้งความปลอดภัย ความสะดวกสบาย และการต้อนรับทุกสัญชาติ
+              </p>
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {facilities.map((group) => (
+                <div key={group.category} className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-11 h-11 rounded-full bg-stone-50 border border-stone-200 flex items-center justify-center shrink-0">
+                      {getFacilityCategoryIcon(group.icon)}
+                    </div>
+                    <h3 className="font-display text-lg font-semibold text-forest-800">{group.category}</h3>
+                  </div>
+                  <ul className="space-y-2">
+                    {group.items.map((item) => (
+                      <li key={item} className="flex items-start gap-2 text-[13.5px] leading-relaxed text-charcoal-500">
+                        <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-forest-500" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ═══════════════════════════════
           6. LOCATION & MAP SECTION

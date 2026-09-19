@@ -214,11 +214,13 @@ export default function AdminSidebar() {
     })
     .filter((group) => group.items.length > 0);
 
+  // เปิดเฉพาะหมวดที่ตรงกับหน้าปัจจุบันเท่านั้น — ถ้าอยู่หน้าที่ไม่ได้อยู่ในหมวดไหนเลย (เช่น "ภาพรวม")
+  // ให้ทุกหมวดยุบไว้หมด แทนที่จะกางหมวดใดหมวดหนึ่งขึ้นมาแบบเดาสุ่ม
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     const activeGroup = filteredMenuGroups.find((g) =>
       g.items.some((item) => item.path === pathname),
     );
-    return activeGroup ? [activeGroup.title] : ["ห้องพัก"];
+    return activeGroup ? [activeGroup.title] : [];
   });
 
   const toggleGroup = (title: string) => {

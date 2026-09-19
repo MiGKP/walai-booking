@@ -119,7 +119,7 @@ export default function AdminCalendarPage() {
     // 1. กรองคิวห้องพัก
     if (filterType === 'all' || filterType === 'rooms') {
       roomBookings.forEach((b) => {
-        const isApprovedStatus = ['approved', 'checked_in', 'checked_out'].includes(b.status);
+        const isApprovedStatus = b.status === 'approved';
         if (!isApprovedStatus || !b.check_in) return;
 
         const bookingId = b.room_booking_id || b.id;
@@ -174,7 +174,7 @@ export default function AdminCalendarPage() {
     // 2. กรองคิวเรือ / คายัค
     if (filterType === 'all' || filterType === 'kayaks') {
       kayakBookings.forEach((b) => {
-        const isApprovedStatus = ['approved', 'checked_out', 'completed'].includes(b.status);
+        const isApprovedStatus = b.status === 'approved';
         if (!isApprovedStatus || !b.booking_date) return;
 
         const bookingId = b.boat_booking_id || b.kayak_booking_id || b.id;

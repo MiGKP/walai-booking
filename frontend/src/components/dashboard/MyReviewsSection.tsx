@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 
 interface ReviewableBooking {
   room_booking_id: number;
+  room_type_id: number;
   room_name: string;
   type_name: string;
   room_image: string;
@@ -18,6 +19,7 @@ interface ReviewableBooking {
 interface MyReview {
   review_id: number;
   room_booking_id: number;
+  room_type_id: number;
   rating: number;
   comment: string;
   review_date: string;
@@ -103,6 +105,7 @@ export default function MyReviewsSection(): React.ReactElement {
     try {
       await api.post('/reviews', {
         room_booking_id: creating!.room_booking_id,
+        room_type_id: creating!.room_type_id,
         rating: form.rating,
         comment: form.comment,
       });
@@ -184,7 +187,7 @@ export default function MyReviewsSection(): React.ReactElement {
         ) : (
           <div className="space-y-3">
             {reviewable.map((booking) => (
-              <div key={booking.room_booking_id} className="flex flex-col gap-3 rounded-2xl border border-stone-200/80 bg-white p-4 sm:flex-row">
+              <div key={`${booking.room_booking_id}-${booking.room_type_id}`} className="flex flex-col gap-3 rounded-2xl border border-stone-200/80 bg-white p-4 sm:flex-row">
                 <div className="h-32 w-full shrink-0 overflow-hidden rounded-xl bg-stone-100 sm:h-20 sm:w-24">
                   {booking.room_image ? (
                     <img src={resolveMediaUrl(booking.room_image)} alt={booking.room_name} className="h-full w-full object-cover" />

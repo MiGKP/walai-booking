@@ -14,6 +14,14 @@ export function sumCapacity(
   return items.reduce((sum, item) => sum + item.capacity * item.quantity, 0);
 }
 
+// เด็กอายุต่ำกว่า 2 ขวบ (ทารก) ไม่นับรวมในความจุห้อง — ราคาห้องเป็นเหมาจ่ายต่อคืนอยู่แล้ว
+// จึงไม่มีส่วนลด/ค่าใช้จ่ายแยกตามหัวผู้เข้าพักให้ยกเว้นต่างหาก
+export const INFANT_MAX_AGE_EXCLUSIVE = 2;
+
+export function countCapacityChildren(childAges: number[]): number {
+  return childAges.filter((age) => age >= INFANT_MAX_AGE_EXCLUSIVE).length;
+}
+
 export function assertGuestsFitCapacity(
   adults: number,
   children: number,

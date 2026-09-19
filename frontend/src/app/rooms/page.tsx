@@ -38,9 +38,6 @@ import {
   todayISO,
 } from "@/lib/date";
 
-import { RoomCartItem } from '@/lib/room-cart';
-import { useRoomCart } from '@/lib/room-cart-store';
-import { useCartSync } from '@/hooks/useCartSync';
 
 interface Promotion {
   id: number;
@@ -159,9 +156,6 @@ export default function RoomsPage(): React.ReactElement {
   const pickerRef = useRef<HTMLDivElement>(null);
   const nights = range ? nightsBetween(range.start, range.end) : 0;
 
-  const cart = useRoomCart();
-  const { commit: commitCart } = useCartSync({ checkIn, checkOut, adults, children });
-
   useEffect(() => {
     const adults = parseInt(searchParams.get("adults") || "1", 10);
     const children = parseInt(searchParams.get("children") || "0", 10);
@@ -207,73 +201,8 @@ export default function RoomsPage(): React.ReactElement {
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
-  const handleAddToCart = (room: RoomType): void => {
-    const items = cart?.items ?? [];
-
-    // 1. ดึง ID ของห้องพักจริงของประเภทนี้ที่อยู่ในตะกร้าแล้ว
-    const existingPhysicalRoomIds = new Set<number>(
-      items.filter((i) => i.room_type_id === room.id && i.room_id).map((i) => i.room_id as number)
-    );
-    const existingTypeOnlyIndex = items.findIndex((i) => i.room_type_id === room.id && !i.room_id);
-    const existingTypeOnlyQty = existingTypeOnlyIndex >= 0 ? items[existingTypeOnlyIndex].quantity : 0;
-
-    // กันไม่ให้เพิ่มห้องเกินจำนวนที่ว่างจริง (นับรวมทั้งห้องที่ระบุเลขแล้วและแบบไม่ระบุเลข)
-    const totalInCart = existingPhysicalRoomIds.size + existingTypeOnlyQty;
-    if (totalInCart >= Number(room.available_count)) {
-      toast.error(`${room.room_name} ว่างครบจำนวนที่มีแล้ว (${room.available_count} ห้อง)`);
-      return;
-    }
-
-    // 2. เรียงลำดับห้องพักตามเลขห้อง (เช่น W1, W2, W3... หรือเลขห้องจากน้อยไปมาก)
-    const sortedPhysicalRooms = [...(room.rooms || [])].sort((a, b) =>
-      a.room_number.localeCompare(b.room_number, undefined, { numeric: true, sensitivity: 'base' })
-    );
-
-    // 3. หาห้องแรกที่ยังไม่ถูกเลือกในตะกร้า แล้วเลือกเลขห้องให้อัตโนมัติ
-    const availablePhysicalRoom = sortedPhysicalRooms.find(r => !existingPhysicalRoomIds.has(r.room_id));
-
-    let assignedName = room.room_name;
-    let nextItems: RoomCartItem[];
-
-    if (availablePhysicalRoom) {
-      assignedName = `${room.room_name} (ห้อง ${availablePhysicalRoom.room_number})`;
-      nextItems = [
-        ...items,
-        {
-          room_type_id: room.id,
-          room_id: availablePhysicalRoom.room_id,
-          room_number: availablePhysicalRoom.room_number,
-          room_name: assignedName,
-          type_name: room.type_name,
-          capacity: room.capacity,
-          price_per_night: room.price_per_night,
-          available_count: room.available_count,
-          quantity: 1,
-        },
-      ];
-    } else {
-      // กรณีไม่มีข้อมูลห้องย่อย หรือเลือกห้องครบทุกห้องย่อยแล้ว ให้เพิ่มตาม Room Type ปกติ (ไม่ระบุเลขห้อง)
-      nextItems = existingTypeOnlyIndex >= 0
-        ? items.map((i, idx) => (idx === existingTypeOnlyIndex ? { ...i, quantity: i.quantity + 1 } : i))
-        : [
-            ...items,
-            {
-              room_type_id: room.id,
-              room_id: null,
-              room_number: null,
-              room_name: room.room_name,
-              type_name: room.type_name,
-              capacity: room.capacity,
-              price_per_night: room.price_per_night,
-              available_count: room.available_count,
-              quantity: 1,
-            },
-          ];
-    }
-
-    commitCart(nextItems);
-    toast.success(`เพิ่ม ${assignedName} แล้ว`);
-  };
+  // การกดจองที่พักจากหน้ารายการจะพาไปเลือกเลขห้องที่หน้ารายละเอียดแทน (ดู Link "จองที่พัก" ด้านล่าง)
+  // เพื่อให้ลูกค้าเลือกห้องเจาะจงเองเสมอ แทนที่จะให้ระบบสุ่ม/auto-assign ห้องแรกที่ว่างให้แบบเดิม
 
   useEffect(() => {
     let cancelled = false;
@@ -346,8 +275,8 @@ export default function RoomsPage(): React.ReactElement {
                 </button>
                 {openPanel === "guests" && (
                   <div className="animate-dropdown absolute left-1/2 top-full z-40 mt-2 w-[280px] -translate-x-1/2 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl lg:left-0 lg:translate-x-0">
-                    <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={guests.adults} min={1} onChange={(v) => handleGuestsChange({ ...guests, adults: v })} />
-                    <GuestRow label="เด็ก" hint="อายุ 2–11 ปี" value={guests.children} min={0} onChange={(v) => handleGuestsChange({ ...guests, children: v })} />
+                    <GuestRow label="ผู้ใหญ่" hint="อายุ 18 ปีขึ้นไป" value={guests.adults} min={1} onChange={(v) => handleGuestsChange({ ...guests, adults: v })} />
+                    <GuestRow label="เด็ก" hint="อายุ 0–17 ปี" value={guests.children} min={0} onChange={(v) => handleGuestsChange({ ...guests, children: v })} />
                   </div>
                 )}
               </div>
@@ -450,7 +379,7 @@ export default function RoomsPage(): React.ReactElement {
                         </div>
                         <div className="flex flex-row gap-2.5 lg:w-full lg:flex-col">
                           <Link href={`/rooms/${room.id}?${searchParams.toString()}`} className="flex-1 rounded-xl border border-stone-200 bg-white py-3 text-center text-[13px] font-bold text-forest-800 shadow-sm transition-colors hover:bg-stone-50 lg:w-full">ดูรายละเอียด</Link>
-                          {isAvailable && searchedRange && <button type="button" onClick={() => handleAddToCart(room)} className="flex-1 rounded-xl bg-forest-900 py-3 text-[13px] font-bold text-white shadow-md transition-all hover:bg-forest-800 hover:shadow-lg active:scale-[0.98] lg:w-full">จองที่พัก</button>}
+                          {isAvailable && searchedRange && <Link href={`/rooms/${room.id}?${searchParams.toString()}#room-picker`} className="flex-1 rounded-xl bg-forest-900 py-3 text-center text-[13px] font-bold text-white shadow-md transition-all hover:bg-forest-800 hover:shadow-lg active:scale-[0.98] lg:w-full">จองที่พัก</Link>}
                         </div>
                       </div>
                     </article>

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { Calendar, Tag, Plus, Minus, X, CheckCircle2, CreditCard, Trash2, AlertTriangle } from 'lucide-react';
+import { Calendar, Tag, Plus, Minus, X, CheckCircle2, CreditCard, Trash2, AlertTriangle, Baby, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatThaiDate, nightsBetween, todayISO, addDaysISO, monthCursorFromISO, MonthCursor } from '@/lib/date';
 import { RoomCartItem } from '@/lib/room-cart';
@@ -52,6 +52,21 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
   const checkOut = searchParams.get('check_out') || addDaysISO(checkIn, 1);
   const adults = parseInt(searchParams.get('adults') || '1', 10);
   const children = parseInt(searchParams.get('children') || '0', 10);
+  // อายุเด็กแต่ละคน ณ วันเข้าพัก (0-17 ปี) — เก็บเป็น comma-separated ใน URL คู่กับ children เพื่อให้ state คงอยู่ตามหน้าเหมือนตัวอื่นๆ
+  // ช่องที่ยังไม่เลือกอายุแทนด้วยสตริงว่าง (เช่น "5,,10") เพื่อบังคับให้ลูกค้าเลือกครบก่อนยืนยันการจองได้
+  const childAges: Array<number | null> = useMemo(() => {
+    const raw = (searchParams.get('child_ages') || '').split(',').map((s) => {
+      const n = parseInt(s, 10);
+      return Number.isInteger(n) && n >= 0 && n <= 17 ? n : null;
+    });
+    // กันเคส URL ไม่ตรงกับจำนวนเด็กปัจจุบัน (เช่น ผู้ใช้แก้ URL เอง หรือ query ยังไม่ sync) เติม/ตัดให้ยาวเท่ากับ children เสมอ
+    const normalized = raw.length && (searchParams.get('child_ages') ?? '') !== '' ? raw : [];
+    if (normalized.length === children) return normalized;
+    if (normalized.length > children) return normalized.slice(0, children);
+    return [...normalized, ...Array(children - normalized.length).fill(null)];
+  }, [searchParams, children]);
+
+  const allChildAgesSet = childAges.every((age) => age !== null);
   // รองรับใช้หลายโค้ดพร้อมกัน (คั่นด้วย comma ใน URL) — 1 ประเภทห้องในตะกร้าใช้ได้ 1 โค้ด
   const promoCodes = useMemo(
     () => (searchParams.get('promo_code') || '').split(',').map((c) => c.trim().toUpperCase()).filter(Boolean),
@@ -59,6 +74,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
   );
 
   const [promoInput, setPromoInput] = useState('');
+  const [specialRequest, setSpecialRequest] = useState('');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [roomsData, setRoomsData] = useState<RoomType[]>([]);
   const [cursor, setCursor] = useState<MonthCursor>(() => monthCursorFromISO(checkIn));
@@ -156,7 +172,11 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
   // ความจุรวมของห้องที่เลือกไว้ (แต่ละห้องรับได้ตาม capacity ของประเภทห้องนั้น ไม่ว่าจะเป็นผู้ใหญ่หรือเด็ก)
   const totalCapacity = cartItems.reduce((sum, item) => sum + item.capacity * item.qty, 0);
   const totalGuests = adults + children;
-  const overCapacity = cartItems.length > 0 && totalGuests > totalCapacity;
+  // เด็กอายุต่ำกว่า 2 ขวบ (ทารก) ไม่นับรวมในความจุห้อง — ต้องตรงกับ backend (booking-room.math.ts)
+  // ช่องที่ยังไม่เลือกอายุ (null) ยังไม่นับความจุจนกว่าจะเลือก แต่จะถูกกันไม่ให้ยืนยันการจองอยู่แล้วจาก allChildAgesSet
+  const countableChildren = childAges.filter((age) => age !== null && age >= 2).length;
+  const totalCapacityGuests = adults + countableChildren;
+  const overCapacity = cartItems.length > 0 && totalCapacityGuests > totalCapacity;
 
   // แจ้งเตือนทันทีเมื่อ re-validate แล้วพบว่ามีห้องไม่ว่างแล้ว (เช่น หลังเปลี่ยนวันที่) ไม่ใช่แค่ทำสีแดงรอให้สังเกตเอง
   const wasUnavailableRef = useRef(false);
@@ -203,11 +223,28 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
   const handleGuestChange = (type: 'adults' | 'children', delta: number) => {
     const val = type === 'adults' ? adults : children;
     const next = Math.max(type === 'adults' ? 1 : 0, val + delta);
-    if (delta > 0 && totalCapacity > 0 && next + (type === 'adults' ? children : adults) > totalCapacity) {
-      toast.error(`ผู้เข้าพักรวมได้ไม่เกิน ${totalCapacity} คน ตามความจุห้องที่เลือกไว้`);
+    if (type === 'adults') {
+      if (delta > 0 && totalCapacity > 0 && next + countableChildren > totalCapacity) {
+        toast.error(`ผู้เข้าพักรวมได้ไม่เกิน ${totalCapacity} คน ตามความจุห้องที่เลือกไว้`);
+        return;
+      }
+      updateUrl({ adults: next });
       return;
     }
-    updateUrl({ [type]: next });
+    // เพิ่ม/ลดจำนวนเด็กแล้วปรับ array อายุให้ยาวเท่ากันเสมอ (เพิ่มใหม่ = ยังไม่เลือกอายุ ต้องเลือกก่อนจองได้, ลด = ตัดคนสุดท้ายออก)
+    const nextChildAges: Array<number | null> = delta > 0 ? [...childAges, null] : childAges.slice(0, -1);
+    const serialized = nextChildAges.map((a) => (a === null ? '' : String(a))).join(',');
+    updateUrl({ children: next, child_ages: serialized || null });
+  };
+
+  const handleChildAgeChange = (index: number, age: number) => {
+    const nextChildAges = childAges.map((a, i) => (i === index ? age : a));
+    const nextCountable = nextChildAges.filter((a): a is number => a !== null && a >= 2).length;
+    if (totalCapacity > 0 && adults + nextCountable > totalCapacity) {
+      toast.error(`ผู้เข้าพักรวมได้ไม่เกิน ${totalCapacity} คน ตามความจุห้องที่เลือกไว้ (เด็กอายุต่ำกว่า 2 ขวบไม่นับความจุ)`);
+      return;
+    }
+    updateUrl({ child_ages: nextChildAges.join(',') });
   };
 
   const handleRoomQtyChange = (typeId: number, roomId: number, delta: number) => {
@@ -281,7 +318,12 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
     }
 
     if (overCapacity) {
-      toast.error(`ผู้เข้าพักรวม ${totalGuests} คน เกินความจุห้องที่เลือก (${totalCapacity} คน) กรุณาเพิ่มห้องหรือลดจำนวนผู้เข้าพัก`);
+      toast.error(`ผู้เข้าพักรวม ${totalCapacityGuests} คน เกินความจุห้องที่เลือก (${totalCapacity} คน) กรุณาเพิ่มห้องหรือลดจำนวนผู้เข้าพัก`);
+      return;
+    }
+
+    if (!allChildAgesSet) {
+      toast.error('กรุณาเลือกอายุของเด็กแต่ละคนให้ครบก่อนยืนยันการจอง');
       return;
     }
 
@@ -320,6 +362,8 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
         check_out_date: checkOut,
         adults,
         children,
+        child_ages: childAges,
+        special_requests: specialRequest.trim() || undefined,
         items: [...specificItems, ...genericItems],
       });
 
@@ -331,6 +375,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
         toast.success(`ได้รับบัตรพายเรือฟรี ${boatTicketsGranted} ใบ! ไปใช้ได้ที่หน้าจองเรือ`, { duration: 5000 });
       }
 
+      setSpecialRequest('');
       clearCartEverywhere();
       router.push(`/payment?booking_type=room&booking_id=${bookingId}`);
     } catch (err) {
@@ -501,29 +546,72 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
             <div className="flex items-center justify-between px-4 py-3">
               <div>
                 <p className="text-[13px] font-medium text-stone-700">ผู้ใหญ่</p>
-                <p className="text-[10.5px] text-stone-400">อายุ 12 ปีขึ้นไป</p>
+                <p className="text-[10.5px] text-stone-400">อายุ 18 ปีขึ้นไป</p>
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={() => handleGuestChange('adults', -1)} disabled={adults <= 1} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
                 <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{adults}</span>
-                <button onClick={() => handleGuestChange('adults', 1)} disabled={totalCapacity > 0 && totalGuests >= totalCapacity} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
+                <button onClick={() => handleGuestChange('adults', 1)} disabled={totalCapacity > 0 && totalCapacityGuests >= totalCapacity} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
               </div>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
               <div>
                 <p className="text-[13px] font-medium text-stone-700">เด็ก</p>
-                <p className="text-[10.5px] text-stone-400">อายุ 2–11 ปี</p>
+                <p className="text-[10.5px] text-stone-400">อายุ 0–17 ปี</p>
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={() => handleGuestChange('children', -1)} disabled={children <= 0} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
                 <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{children}</span>
-                <button onClick={() => handleGuestChange('children', 1)} disabled={totalCapacity > 0 && totalGuests >= totalCapacity} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
+                <button onClick={() => handleGuestChange('children', 1)} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
               </div>
             </div>
+            {children > 0 && (
+              <div className="space-y-2.5 border-t border-dashed border-stone-200 bg-emerald-50/30 px-4 py-3.5">
+                <div className="flex items-center gap-1.5">
+                  <Baby size={14} className="text-[#0A2E1F]" />
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[#0A2E1F]">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {childAges.map((age, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-center gap-2 rounded-xl border bg-white px-3 py-2 shadow-sm transition-colors ${
+                        age === null ? 'border-amber-300 ring-1 ring-amber-100' : 'border-stone-200'
+                      }`}
+                    >
+                      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#0A2E1F]/10 text-[10.5px] font-extrabold text-[#0A2E1F]">
+                        {index + 1}
+                      </span>
+                      <div className="relative min-w-0 flex-1">
+                        <select
+                          value={age ?? ''}
+                          onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
+                          className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-[12.5px] font-bold focus:outline-none ${
+                            age === null ? 'text-amber-600' : 'text-[#0A2E1F]'
+                          }`}
+                        >
+                          <option value="" disabled>เลือกอายุ</option>
+                          {Array.from({ length: 18 }, (_, a) => a).map((a) => (
+                            <option key={a} value={a}>{a} ปี</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={12} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-stone-400" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {!allChildAgesSet && (
+                  <p className="flex items-center gap-1.5 text-[10.5px] font-semibold text-amber-600">
+                    <AlertTriangle size={12} className="shrink-0" /> กรุณาเลือกอายุเด็กให้ครบก่อนยืนยันการจอง
+                  </p>
+                )}
+                <p className="text-[10px] text-stone-400">เด็กอายุต่ำกว่า 2 ขวบไม่นับรวมความจุห้อง</p>
+              </div>
+            )}
           </div>
           {overCapacity && (
             <p className="mt-2 flex items-center gap-1.5 text-[11.5px] font-semibold text-red-500">
-              <AlertTriangle size={13} /> ผู้เข้าพักรวม {totalGuests} คน เกินความจุห้องที่เลือก ({totalCapacity} คน) — เพิ่มห้องหรือลดจำนวนผู้เข้าพัก
+              <AlertTriangle size={13} /> ผู้เข้าพักรวม {totalCapacityGuests} คน เกินความจุห้องที่เลือก ({totalCapacity} คน) — เพิ่มห้องหรือลดจำนวนผู้เข้าพัก
             </p>
           )}
         </div>
@@ -605,6 +693,20 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
             </div>
           )}
         </div>
+
+        {/* SPECIAL REQUEST */}
+        <div>
+          <span className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[#0A2E1F]">คำขอพิเศษ</span>
+          <p className="mb-2 text-[10.5px] text-stone-400">ไม่บังคับ — ทางที่พักจะพยายามจัดให้ตามคำขอ แต่ไม่การันตี</p>
+          <textarea
+            value={specialRequest}
+            onChange={(e) => setSpecialRequest(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder="เช่น ต้องการเตียงเสริม, ห้องชั้นสูง, แพ้อาหารทะเล"
+            className="w-full resize-none rounded-xl border border-stone-200 p-3 text-[13px] focus:border-[#0A2E1F] focus:outline-none"
+          />
+        </div>
       </div>
 
       {/* FOOTER */}
@@ -634,7 +736,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
             </button>
           </div>
         )}
-        <button onClick={handleConfirmBooking} disabled={cartItems.length === 0 || isBooking || hasUnavailableItems || overCapacity} className="mt-3 w-full rounded-xl bg-[#0A2E1F] py-4 text-[15px] font-bold text-white shadow-lg transition-all hover:bg-emerald-900 active:scale-[0.98] disabled:bg-stone-300">
+        <button onClick={handleConfirmBooking} disabled={cartItems.length === 0 || isBooking || hasUnavailableItems || overCapacity || !allChildAgesSet} className="mt-3 w-full rounded-xl bg-[#0A2E1F] py-4 text-[15px] font-bold text-white shadow-lg transition-all hover:bg-emerald-900 active:scale-[0.98] disabled:bg-stone-300">
           {isBooking ? 'กำลังสร้างการจอง...' : 'ยืนยันการจอง'}
         </button>
         {showLoginNotice && !isAuthenticated && cartItems.length > 0 && (

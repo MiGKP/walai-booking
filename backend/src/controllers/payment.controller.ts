@@ -145,7 +145,8 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     try {
       if (bType === 'room') {
         await pool.query(
-          `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE room_booking_id = $2 AND member_id = $3`,
+          `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid', payment_submitted_at = NOW()
+           WHERE room_booking_id = $2 AND member_id = $3`,
           [uploadedSlip.url, bId, user.id]
         );
         await pool.query(

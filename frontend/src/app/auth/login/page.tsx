@@ -90,10 +90,12 @@ export default function LoginPage(): React.ReactElement | null {
     setIsRedirecting(true);
     try {
       const response = await api.post<LoginResponse>("/auth/login", form);
-      const { token } = response.data.data;
+      const { token, redirectUrl } = response.data.data;
       await login(token);
+      // backend คำนวณปลายทางตาม role ให้แล้ว (เช่น admin -> /admin, staff -> หน้า dashboard ของตัวเอง)
+      // explicitRedirect (query param ?redirect=) มาก่อนเสมอ เผื่อผู้ใช้ถูกเด้งมา login ระหว่างทำอย่างอื่นอยู่
       const explicitRedirect = new URLSearchParams(window.location.search).get("redirect");
-      router.push(explicitRedirect || "/");
+      router.push(explicitRedirect || redirectUrl || "/");
     } catch (error: unknown) {
       toast.error(getLoginErrorMessage(error));
       setIsRedirecting(false);
