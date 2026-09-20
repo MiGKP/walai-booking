@@ -127,6 +127,7 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       'name', 'address', 'coordinates', 'phone', 'email', 'facebook', 'line_id',
       'operating_days', 'operating_hours', 'additional_terms', 'payment_due_days',
       'promptpay_id', 'bank_account_no', 'bank_account_name',
+      'checkin_time_from', 'checkin_time_to',
     ];
 
     const updates: { col: string; val: any }[] = [];

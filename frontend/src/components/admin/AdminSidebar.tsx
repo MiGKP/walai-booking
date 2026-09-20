@@ -27,6 +27,7 @@ import {
   LogOut,
   ChevronDown,
   MapPin,
+  LogIn,
 } from "lucide-react";
 
 interface MenuItem {
@@ -48,6 +49,7 @@ const roomStaffAllowedPaths = [
   "/admin/reviews",
   "/admin/rooms/single",
   "/admin/rooms/amenities",
+  "/admin/checkin",
 ];
 
 const boatStaffAllowedPaths = [
@@ -110,6 +112,11 @@ const menuGroups: MenuGroup[] = [
         label: "แดชบอร์ดจองห้อง",
         path: "/admin/rooms",
         icon: <CreditCard size={16} />,
+      },
+      {
+        label: "เช็คอิน-เช็คเอาต์",
+        path: "/admin/checkin",
+        icon: <LogIn size={16} />,
       },
       {
         label: "จัดการรายห้อง",

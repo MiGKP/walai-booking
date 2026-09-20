@@ -6,7 +6,7 @@ import {
   cancelRoomBooking,
   getAllRoomBookings,
   updateRoomBookingStatus,
-  checkinRoomBooking,
+  checkinBookingRoom,
   checkoutRoomBooking,
   checkoutBookingRoom,
 } from '../controllers/booking.controller';
@@ -21,6 +21,12 @@ router.post('/room', authenticate, createRoomBookingValidator, validate, createR
 router.get('/my', authenticate, getUserRoomBookings);
 router.get('/room/my', authenticate, getUserRoomBookings);
 
+router.put(
+  '/booking-rooms/:bookingRoomId/checkin',
+  authenticate,
+  authorize('admin', 'room_staff'),
+  checkinBookingRoom
+);
 router.put(
   '/booking-rooms/:bookingRoomId/checkout',
   authenticate,
@@ -37,7 +43,6 @@ router.put(
   validate,
   updateRoomBookingStatus
 );
-router.put('/:id/checkin', authenticate, authorize('admin', 'room_staff'), checkinRoomBooking);
 router.put('/:id/checkout', authenticate, authorize('admin', 'room_staff'), checkoutRoomBooking);
 
 router.get('/:id', authenticate, getRoomBookingById);

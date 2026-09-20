@@ -41,6 +41,7 @@ const ROOMS_JSON_SQL = `COALESCE((
     'nights', br.nights,
     'subtotal', br.subtotal,
     'status', br.status,
+    'checkin_at', br.checkin_at,
     'checkout_at', br.checkout_at
   ) ORDER BY br.booking_room_id)
   FROM booking_room br
@@ -815,77 +816,29 @@ export const updateRoomBookingStatus = async (
   }
 };
 
-/** Check-in is not part of the multi-room schema; keep route for compatibility. */
-export const checkinRoomBooking = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  res.status(400).json({
-    success: false,
-    message:
-      'สถานะ checked_in ยังไม่รองรับในระบบ — ใช้สถานะ approved จนถึงเช็คเอาต์ทีละห้อง',
-  });
-};
-
-/** Legacy: check out every approved line under a header booking. */
-export const checkoutRoomBooking = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const client = await pool.connect();
-  try {
-    const { id } = req.params;
-
-    await client.query('BEGIN');
-    const booking = await client.query(
-      `SELECT status FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE`,
-      [id]
+/** เมื่อทุกห้องในบิลนี้ถูกเช็คเอาต์ครบแล้ว ให้อัปเดตสถานะหัวการจองเป็น checked_out ด้วย
+ *  (ต้องเรียกภายใน transaction เดียวกับที่ UPDATE booking_room มาก่อนหน้า) */
+async function syncHeaderStatusIfAllCheckedOut(
+  client: import('pg').PoolClient,
+  roomBookingId: number
+): Promise<void> {
+  if (!roomBookingId) return;
+  const remaining = await client.query(
+    `SELECT COUNT(*)::int AS cnt FROM booking_room
+     WHERE room_booking_id = $1 AND status NOT IN ('checked_out', 'cancelled', 'rejected')`,
+    [roomBookingId]
+  );
+  if (remaining.rows[0]?.cnt === 0) {
+    await client.query(
+      `UPDATE room_bookings SET status = 'checked_out', updated_at = NOW()
+       WHERE room_booking_id = $1 AND status = 'approved'`,
+      [roomBookingId]
     );
-    if (booking.rows.length === 0) {
-      await client.query('ROLLBACK');
-      res.status(404).json({ success: false, message: 'Booking not found' });
-      return;
-    }
-    if (booking.rows[0].status !== 'approved') {
-      await client.query('ROLLBACK');
-      res.status(400).json({
-        success: false,
-        message: 'เช็คเอาต์ได้เฉพาะการจองที่อนุมัติแล้ว',
-      });
-      return;
-    }
-
-    const lines = await client.query(
-      `UPDATE booking_room
-       SET status = 'checked_out', checkout_at = NOW(), updated_at = NOW()
-       WHERE room_booking_id = $1 AND status = 'approved'
-       RETURNING room_id`,
-      [id]
-    );
-
-    for (const line of lines.rows) {
-      await client.query(
-        `UPDATE rooms SET status = 'available' WHERE room_id = $1 AND status <> 'maintenance'`,
-        [line.room_id]
-      );
-    }
-
-    await client.query('COMMIT');
-    res.json({
-      success: true,
-      message: 'เช็คเอาต์สำเร็จเรียบร้อย',
-      data: { checked_out_count: lines.rowCount ?? 0 },
-    });
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Checkout room booking error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
-  } finally {
-    client.release();
   }
-};
+}
 
-export const checkoutBookingRoom = async (
+/** Check-in ทีละห้อง (ที่หน้าเคาน์เตอร์เมื่อลูกค้ามาถึงจริง) */
+export const checkinBookingRoom = async (
   req: Request,
   res: Response
 ): Promise<void> => {
@@ -918,11 +871,135 @@ export const checkoutBookingRoom = async (
       await client.query('ROLLBACK');
       res.status(400).json({
         success: false,
-        message: 'เช็คเอาต์ได้เมื่อหัวการจองเป็น approved',
+        message: 'เช็คอินได้เมื่อหัวการจองเป็น approved',
       });
       return;
     }
     if (line.line_status !== 'approved') {
+      await client.query('ROLLBACK');
+      res.status(400).json({
+        success: false,
+        message: `Cannot check in line with status: ${line.line_status}`,
+      });
+      return;
+    }
+
+    await client.query(
+      `UPDATE booking_room
+       SET status = 'checked_in', checkin_at = NOW(), updated_at = NOW()
+       WHERE booking_room_id = $1`,
+      [bookingRoomId]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'เช็คอินห้องสำเร็จ' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Checkin booking room error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+};
+
+/** Legacy: check out every checked-in line under a header booking. */
+export const checkoutRoomBooking = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+
+    await client.query('BEGIN');
+    const booking = await client.query(
+      `SELECT status FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE`,
+      [id]
+    );
+    if (booking.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, message: 'Booking not found' });
+      return;
+    }
+    if (booking.rows[0].status !== 'approved') {
+      await client.query('ROLLBACK');
+      res.status(400).json({
+        success: false,
+        message: 'เช็คเอาต์ได้เฉพาะการจองที่อนุมัติแล้ว',
+      });
+      return;
+    }
+
+    const lines = await client.query(
+      `UPDATE booking_room
+       SET status = 'checked_out', checkout_at = NOW(), updated_at = NOW()
+       WHERE room_booking_id = $1 AND status = 'checked_in'
+       RETURNING room_id`,
+      [id]
+    );
+
+    for (const line of lines.rows) {
+      await client.query(
+        `UPDATE rooms SET status = 'available' WHERE room_id = $1 AND status <> 'maintenance'`,
+        [line.room_id]
+      );
+    }
+
+    await syncHeaderStatusIfAllCheckedOut(client, Number(id));
+
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      message: 'เช็คเอาต์สำเร็จเรียบร้อย',
+      data: { checked_out_count: lines.rowCount ?? 0 },
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Checkout room booking error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+};
+
+export const checkoutBookingRoom = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const client = await pool.connect();
+  try {
+    const bookingRoomId = Number(req.params.bookingRoomId);
+    if (!Number.isInteger(bookingRoomId) || bookingRoomId < 1) {
+      res.status(400).json({ success: false, message: 'Invalid booking_room id' });
+      return;
+    }
+
+    await client.query('BEGIN');
+    const lineRes = await client.query(
+      `SELECT br.booking_room_id, br.room_id, br.room_booking_id, br.status AS line_status, rb.status AS header_status
+       FROM booking_room br
+       JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+       WHERE br.booking_room_id = $1
+       FOR UPDATE OF br`,
+      [bookingRoomId]
+    );
+
+    if (lineRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, message: 'Booking room not found' });
+      return;
+    }
+
+    const line = lineRes.rows[0];
+    if (line.header_status !== 'approved') {
+      await client.query('ROLLBACK');
+      res.status(400).json({
+        success: false,
+        message: 'เช็คเอาต์ได้เมื่อหัวการจองเป็น approved',
+      });
+      return;
+    }
+    if (line.line_status !== 'checked_in') {
       await client.query('ROLLBACK');
       res.status(400).json({
         success: false,
@@ -941,6 +1018,8 @@ export const checkoutBookingRoom = async (
       `UPDATE rooms SET status = 'available' WHERE room_id = $1 AND status <> 'maintenance'`,
       [line.room_id]
     );
+
+    await syncHeaderStatusIfAllCheckedOut(client, line.room_booking_id);
 
     await client.query('COMMIT');
     res.json({ success: true, message: 'เช็คเอาต์ห้องสำเร็จ' });

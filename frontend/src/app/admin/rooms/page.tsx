@@ -8,8 +8,8 @@ import {
   Eye,
   X,
   RefreshCw,
-  LogOut,
   LogIn,
+  LogOut,
   Filter,
   BedDouble,
   ChevronLeft,
@@ -51,8 +51,7 @@ const REJECT_REASONS = [
 const statusLabel: Record<string, string> = {
   pending: "รอดำเนินการ",
   paid: "รอตรวจสอบสลิป",
-  approved: "อนุมัติแล้ว (รอเช็คอิน)",
-  checked_in: "เช็คอินแล้ว",
+  approved: "อนุมัติแล้ว (รอเช็คเอาต์)",
   checked_out: "เช็คเอาต์แล้ว",
   cancelled: "ยกเลิก",
   rejected: "ถูกปฏิเสธ",
@@ -72,13 +71,8 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string }> =
     },
     approved: {
       bg: "bg-indigo-500/10 border-indigo-200/80 text-indigo-700",
-      text: "อนุมัติแล้ว (รอเช็คอิน)",
+      text: "อนุมัติแล้ว (รอเช็คเอาต์)",
       dot: "bg-indigo-500",
-    },
-    checked_in: {
-      bg: "bg-emerald-500/10 border-emerald-200/80 text-emerald-700",
-      text: "เช็คอินแล้ว (กำลังเข้าพัก)",
-      dot: "bg-emerald-500 animate-pulse",
     },
     checked_out: {
       bg: "bg-slate-500/10 border-slate-200/80 text-slate-600",
@@ -102,7 +96,6 @@ type FilterType =
   | "has_slip"
   | "pending"
   | "approved"
-  | "checked_in"
   | "checked_out";
 
 // -------------------------------------------------------------
@@ -451,6 +444,20 @@ function RoomStaffDashboardContent() {
   // Search Debounce State
   const [searchInput, setSearchInput] = useState(searchParam);
 
+  // การเรียงลำดับตาราง (คลิกหัวคอลัมน์ "ลำดับ"/"ยอดรวม"/"ระยะเวลาเข้าพัก" เพื่อสลับ asc/desc)
+  // ค่าเริ่มต้น (sortKey = null) จะเรียงตามวันที่จองใหม่สุดก่อน (backend ORDER BY created_at DESC อยู่แล้ว)
+  const [sortKey, setSortKey] = useState<"check_in" | "total_price" | "created_at" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const toggleSort = (key: "check_in" | "total_price" | "created_at") => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+
   // Modal สลิป และ รายละเอียด
   const [slipModal, setSlipModal] = useState<{
     open: boolean;
@@ -647,76 +654,6 @@ function RoomStaffDashboardContent() {
     }
   };
 
-  // handleCheckin
-  const handleCheckin = (id: number) => {
-    openConfirmDialog(
-      "ยืนยันการเช็คอิน?",
-      "เมื่อยืนยัน สถานะจะเปลี่ยนเป็น 'เช็คอินแล้ว'",
-      "info",
-      "ยืนยัน Check-in",
-      "bg-indigo-600",
-      async () => {
-        try {
-          await api.put(`/bookings/${id}/checkin`);
-          toast.success("เช็คอินผู้เข้าพักสำเร็จ");
-          setBookings((prev) =>
-            prev.map((b) =>
-              b.id === id
-                ? {
-                    ...b,
-                    status: "checked_in",
-                    checkin_at: new Date().toISOString(),
-                  }
-                : b,
-            ),
-          );
-          fetchBookings();
-        } catch (err: any) {
-          toast.error(err.response?.data?.message || "เช็คอินไม่สำเร็จ");
-        }
-      },
-    );
-  };
-
-  // handleCheckout — check out all approved lines under header
-  const handleCheckout = (id: number) => {
-    openConfirmDialog(
-      "ยืนยันการเช็คเอาต์ทุกห้อง?",
-      "เมื่อยืนยัน จะเช็คเอาต์ทุกห้องที่ยัง approved ในการจองนี้",
-      "warning",
-      "ยืนยัน Check-out",
-      "bg-emerald-700",
-      async () => {
-        try {
-          await api.put(`/bookings/${id}/checkout`);
-          toast.success("เช็คเอาต์สำเร็จเรียบร้อย");
-          fetchBookings();
-        } catch (err: any) {
-          toast.error(err.response?.data?.message || "เช็คเอาต์ไม่สำเร็จ");
-        }
-      },
-    );
-  };
-
-  const handleCheckoutLine = (bookingRoomId: number) => {
-    openConfirmDialog(
-      "ยืนยันเช็คเอาต์ห้องนี้?",
-      "คืนสถานะห้องนี้เป็นว่าง",
-      "warning",
-      "เช็คเอาต์ห้อง",
-      "bg-emerald-700",
-      async () => {
-        try {
-          await api.put(`/bookings/booking-rooms/${bookingRoomId}/checkout`);
-          toast.success("เช็คเอาต์ห้องสำเร็จ");
-          fetchBookings();
-        } catch (err: any) {
-          toast.error(err.response?.data?.message || "เช็คเอาต์ไม่สำเร็จ");
-        }
-      },
-    );
-  };
-
   const handlePrintDetails = () => {
     window.print();
   };
@@ -739,18 +676,14 @@ function RoomStaffDashboardContent() {
 
   const counts = useMemo(() => {
     const approvedList = bookings.filter((b) =>
-      ["approved", "checked_in", "checked_out"].includes(b.status),
+      ["approved", "checked_out"].includes(b.status),
     );
     const pendingSlipList = bookings.filter(
       (b) =>
         b.payment_slip &&
-        ![
-          "approved",
-          "checked_in",
-          "checked_out",
-          "rejected",
-          "cancelled",
-        ].includes(b.status),
+        !["approved", "checked_out", "rejected", "cancelled"].includes(
+          b.status,
+        ),
     );
 
     return {
@@ -758,7 +691,6 @@ function RoomStaffDashboardContent() {
       pending: bookings.filter((b) => !b.payment_slip && b.status === "pending")
         .length,
       approved: bookings.filter((b) => b.status === "approved").length,
-      checked_in: bookings.filter((b) => b.status === "checked_in").length,
       checked_out: bookings.filter((b) => b.status === "checked_out").length,
       totalRevenue: approvedList.reduce(
         (acc, curr) => acc + Number(curr.total_price || 0),
@@ -778,20 +710,14 @@ function RoomStaffDashboardContent() {
       list = list.filter(
         (b) =>
           b.payment_slip &&
-          ![
-            "approved",
-            "checked_in",
-            "checked_out",
-            "rejected",
-            "cancelled",
-          ].includes(b.status),
+          !["approved", "checked_out", "rejected", "cancelled"].includes(
+            b.status,
+          ),
       );
     else if (filter === "pending")
       list = list.filter((b) => !b.payment_slip && b.status === "pending");
     else if (filter === "approved")
       list = list.filter((b) => b.status === "approved");
-    else if (filter === "checked_in")
-      list = list.filter((b) => b.status === "checked_in");
     else if (filter === "checked_out")
       list = list.filter((b) => b.status === "checked_out");
 
@@ -832,14 +758,31 @@ function RoomStaffDashboardContent() {
     return list;
   }, [bookings, filter, roomType, dateFrom, dateTo, searchParam]);
 
-  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered;
+    const list = [...filtered];
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "total_price") {
+        cmp = Number(a.total_price || 0) - Number(b.total_price || 0);
+      } else if (sortKey === "created_at") {
+        cmp = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      } else {
+        cmp = new Date(a.check_in || 0).getTime() - new Date(b.check_in || 0).getTime();
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return list;
+  }, [filtered, sortKey, sortDir]);
+
+  const totalPages = Math.ceil(sorted.length / itemsPerPage) || 1;
 
   const paginatedBookings = useMemo(() => {
-    return filtered.slice(
+    return sorted.slice(
       (currentPage - 1) * itemsPerPage,
       currentPage * itemsPerPage,
     );
-  }, [filtered, currentPage]);
+  }, [sorted, currentPage]);
 
   const getPaginationRange = () => {
     const delta = 1;
@@ -911,94 +854,108 @@ function RoomStaffDashboardContent() {
             </span>
           </div>
           <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจอง เช็คอิน และเช็คเอาต์ผู้เข้าพัก
+            ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจอง และเช็คเอาต์ผู้เข้าพัก
           </p>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 print:hidden">
-        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group">
-          <div className="flex items-start justify-between relative">
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-stone-500">
-                รอตรวจสอบสลิป
-              </span>
-              <p className="text-2xl font-extrabold text-blue-600 tracking-tight font-mono">
-                {counts.has_slip}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
-              <FileCheck2 size={18} />
-            </div>
-          </div>
-        </div>
+      {/* Filter Cards — เป็นทั้งตัวเลขสรุปและปุ่มกรองในตัวเดียว (ไม่ต้องมีแท็บฟิลเตอร์แยกซ้ำเลขเดิมอีกแถว) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 print:hidden">
+        {(
+          [
+            {
+              key: "all" as const,
+              label: "ทั้งหมด",
+              count: bookings.length,
+              icon: <Filter size={15} />,
+              accent: "stone",
+            },
+            {
+              key: "has_slip" as const,
+              label: "รอตรวจสอบสลิป",
+              count: counts.has_slip,
+              icon: <FileCheck2 size={15} />,
+              accent: "blue",
+            },
+            {
+              key: "pending" as const,
+              label: "ยังไม่ชำระเงิน",
+              count: counts.pending,
+              icon: <Clock size={15} />,
+              accent: "amber",
+            },
+            {
+              key: "approved" as const,
+              label: "อนุมัติแล้ว (รอเช็คเอาต์)",
+              count: counts.approved,
+              icon: <ShieldCheck size={15} />,
+              accent: "indigo",
+            },
+            {
+              key: "checked_out" as const,
+              label: "เช็คเอาต์แล้ว",
+              count: counts.checked_out,
+              icon: <LogOut size={15} />,
+              accent: "teal",
+            },
+          ] as const
+        ).map((card) => {
+          const active = filter === card.key;
+          const accentClasses: Record<
+            string,
+            { text: string; bg: string; border: string; ring: string; bar: string }
+          > = {
+            stone: { text: "text-stone-700", bg: "bg-stone-100", border: "border-stone-200", ring: "ring-stone-400", bar: "bg-stone-400" },
+            blue: { text: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", ring: "ring-blue-400", bar: "bg-blue-500" },
+            amber: { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", ring: "ring-amber-400", bar: "bg-amber-500" },
+            indigo: { text: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", ring: "ring-indigo-400", bar: "bg-indigo-500" },
+            teal: { text: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100", ring: "ring-teal-400", bar: "bg-teal-500" },
+          };
+          const a = accentClasses[card.accent];
+          return (
+            <button
+              key={card.key}
+              type="button"
+              onClick={() => handleFilterChange(card.key as FilterType)}
+              className={`bg-white pl-3 pr-2.5 py-2.5 rounded-xl border text-left shadow-xs hover:shadow-md transition-all relative overflow-hidden group ${
+                active ? `${a.border} ring-2 ${a.ring}` : "border-stone-200/80"
+              }`}
+            >
+              <span className={`absolute left-0 top-0 bottom-0 w-1 ${a.bar}`} />
+              <div className="flex items-center justify-between gap-2 relative pl-1">
+                <div className="min-w-0">
+                  <span className="text-[10.5px] font-medium text-stone-500 leading-tight block truncate">
+                    {card.label}
+                  </span>
+                  <p className={`text-lg font-extrabold tracking-tight font-mono leading-tight ${a.text}`}>
+                    {card.count}
+                  </p>
+                </div>
+                <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${a.bg} ${a.border} ${a.text}`}>
+                  {card.icon}
+                </div>
+              </div>
+            </button>
+          );
+        })}
 
-        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group">
-          <div className="flex items-start justify-between relative">
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-stone-500">
-                ยังไม่ชำระเงิน
+        <div className="bg-gradient-to-br from-[#0b3b2c] to-[#0f4a37] p-2.5 pl-3 rounded-xl border border-[#0b3b2c] shadow-xs relative overflow-hidden col-span-2 sm:col-span-1">
+          <div className="flex items-center justify-between gap-2 relative">
+            <div className="min-w-0">
+              <span className="text-[10.5px] font-medium text-emerald-100/80 leading-tight block truncate">
+                รายได้ยืนยันแล้ว
               </span>
-              <p className="text-2xl font-extrabold text-[#0b3b2c] tracking-tight font-mono">
-                {counts.pending}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-[#0b3b2c]/10 border border-[#0b3b2c]/20 flex items-center justify-center text-[#0b3b2c]">
-              <Clock size={18} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group">
-          <div className="flex items-start justify-between relative">
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-stone-500">
-                อนุมัติแล้ว (รอเช็คอิน)
-              </span>
-              <p className="text-2xl font-extrabold text-indigo-600 tracking-tight font-mono">
-                {counts.approved}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-              <ShieldCheck size={18} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group">
-          <div className="flex items-start justify-between relative">
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-stone-500">
-                พักอยู่ (รอ Check-out)
-              </span>
-              <p className="text-2xl font-extrabold text-emerald-600 tracking-tight font-mono">
-                {counts.checked_in}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
-              <LogIn size={18} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group sm:col-span-2 lg:col-span-1">
-          <div className="flex items-start justify-between relative">
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-stone-500">
-                รายได้ที่ยืนยันแล้ว
-              </span>
-              <p className="text-xl font-extrabold text-[#0b3b2c] tracking-tight font-mono">
+              <p className="text-lg font-extrabold text-white tracking-tight font-mono leading-tight">
                 ฿{counts.totalRevenue.toLocaleString()}
               </p>
               {counts.pendingRevenue > 0 && (
-                <p className="text-[10px] text-blue-600 font-medium">
-                  (รอตรวจสอบ: ฿{counts.pendingRevenue.toLocaleString()})
+                <p className="text-[9.5px] text-emerald-200/90 font-medium truncate">
+                  รอตรวจสอบ ฿{counts.pendingRevenue.toLocaleString()}
                 </p>
               )}
             </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#0b3b2c]">
-              <Wallet size={18} />
+            <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center text-emerald-100 shrink-0">
+              <Wallet size={15} />
             </div>
           </div>
         </div>
@@ -1006,43 +963,6 @@ function RoomStaffDashboardContent() {
 
       {/* Control Bar */}
       <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs space-y-4 print:hidden">
-        <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5">
-          {(
-            [
-              ["all", "ทั้งหมด", bookings.length],
-              ["has_slip", "รอตรวจสอบสลิป", counts.has_slip],
-              ["pending", "ยังไม่ชำระ", counts.pending],
-              ["approved", "รอเช็คอิน", counts.approved],
-              ["checked_in", "เช็คอินแล้ว", counts.checked_in],
-              ["checked_out", "เช็คเอาต์แล้ว", counts.checked_out],
-            ] as const
-          ).map(([val, label, count]) => {
-            const active = filter === val;
-            return (
-              <button
-                key={val}
-                onClick={() => handleFilterChange(val as FilterType)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
-                  active
-                    ? "bg-[#0b3b2c] text-white shadow-xs"
-                    : "bg-stone-100/80 text-stone-600 hover:bg-stone-200/70"
-                }`}
-              >
-                <span>{label}</span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    active
-                      ? "bg-white/20 text-white"
-                      : "bg-stone-200 text-stone-700"
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-stone-100">
           <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
             <div className="relative flex-1 sm:w-64 min-w-[200px]">
@@ -1164,11 +1084,66 @@ function RoomStaffDashboardContent() {
           <table className="w-full text-left text-xs md:text-sm">
             <thead>
               <tr className="bg-stone-50 border-b border-stone-200/80 text-stone-500 font-bold text-[11px] tracking-wider uppercase">
-                <th className="px-5 py-4">ID</th>
+                <th className="px-5 py-4">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("created_at")}
+                    className="flex items-center gap-1 hover:text-[#0b3b2c] transition-colors"
+                    title="เรียงตามวันที่จอง (เก่า-ใหม่)"
+                  >
+                    ลำดับ
+                    <ChevronDown
+                      size={12}
+                      className={`transition-transform ${
+                        sortKey === "created_at"
+                          ? sortDir === "asc"
+                            ? "rotate-180 text-[#0b3b2c]"
+                            : "text-[#0b3b2c]"
+                          : "text-stone-300"
+                      }`}
+                    />
+                  </button>
+                </th>
                 <th className="px-5 py-4">ลูกค้า</th>
                 <th className="px-5 py-4">ห้องพัก</th>
-                <th className="px-5 py-4">ระยะเวลาเข้าพัก</th>
-                <th className="px-5 py-4">ยอดรวม</th>
+                <th className="px-5 py-4">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("check_in")}
+                    className="flex items-center gap-1 hover:text-[#0b3b2c] transition-colors"
+                  >
+                    ระยะเวลาเข้าพัก
+                    <ChevronDown
+                      size={12}
+                      className={`transition-transform ${
+                        sortKey === "check_in"
+                          ? sortDir === "asc"
+                            ? "rotate-180 text-[#0b3b2c]"
+                            : "text-[#0b3b2c]"
+                          : "text-stone-300"
+                      }`}
+                    />
+                  </button>
+                </th>
+                <th className="px-5 py-4">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("total_price")}
+                    className="flex items-center gap-1 hover:text-[#0b3b2c] transition-colors"
+                  >
+                    ยอดรวม
+                    <ChevronDown
+                      size={12}
+                      className={`transition-transform ${
+                        sortKey === "total_price"
+                          ? sortDir === "asc"
+                            ? "rotate-180 text-[#0b3b2c]"
+                            : "text-[#0b3b2c]"
+                          : "text-stone-300"
+                      }`}
+                    />
+                  </button>
+                </th>
                 <th className="px-5 py-4">สถานะ</th>
                 <th className="px-5 py-4 text-center">สลิปโอนเงิน</th>
                 <th className="px-5 py-4 text-right">การจัดการ</th>
@@ -1219,7 +1194,9 @@ function RoomStaffDashboardContent() {
                   return (
                     <tr
                       key={bookingId}
-                      className="hover:bg-stone-50/80 transition-colors group"
+                      className={`hover:bg-stone-100/80 transition-colors group ${
+                        idx % 2 === 1 ? "bg-stone-50/50" : "bg-white"
+                      }`}
                     >
                       <td className="px-5 py-4 text-stone-400 font-mono text-xs font-semibold">
                         {rowNumber}
@@ -1279,8 +1256,10 @@ function RoomStaffDashboardContent() {
                                     <li key={line.booking_room_id}>
                                       {line.room_name} #{line.room_number}
                                       {line.status === "checked_out"
-                                        ? " ✓"
-                                        : ""}
+                                        ? " ✓ ออกแล้ว"
+                                        : line.status === "checked_in"
+                                          ? " • เช็คอินแล้ว"
+                                          : ""}
                                     </li>
                                   ),
                                 )}
@@ -1342,12 +1321,9 @@ function RoomStaffDashboardContent() {
                             {statusLabel[b.status] || b.status}
                           </span>
                           {b.approved_by_name &&
-                            [
-                              "approved",
-                              "checked_in",
-                              "checked_out",
-                              "rejected",
-                            ].includes(b.status) && (
+                            ["approved", "checked_out", "rejected"].includes(
+                              b.status,
+                            ) && (
                               <span className="text-[10px] text-stone-400 ml-1">
                                 โดย: {b.approved_by_name}
                               </span>
@@ -1394,36 +1370,27 @@ function RoomStaffDashboardContent() {
                               เช็คเอาต์แล้ว
                             </span>
                           ) : b.status === "approved" ? (
-                            <div className="flex flex-col items-end gap-1.5">
-                              {Array.isArray(b.rooms) &&
-                                b.rooms
-                                  .filter(
-                                    (line: { status: string }) =>
-                                      line.status === "approved",
-                                  )
-                                  .map(
-                                    (line: {
-                                      booking_room_id: number;
-                                      room_number: string;
-                                    }) => (
-                                      <button
-                                        key={line.booking_room_id}
-                                        onClick={() =>
-                                          handleCheckoutLine(line.booking_room_id)
-                                        }
-                                        className="inline-flex items-center gap-1.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
-                                      >
-                                        <LogOut size={13} />
-                                        <span>ออก #{line.room_number}</span>
-                                      </button>
-                                    ),
-                                  )}
+                            <div className="flex flex-col items-end gap-1">
+                              {(() => {
+                                const lines: { status: string }[] = Array.isArray(b.rooms) ? b.rooms : [];
+                                const checkedInCount = lines.filter((l) => l.status === "checked_in").length;
+                                const total = lines.length || 1;
+                                return (
+                                  <span className="text-xs text-indigo-700 font-semibold bg-indigo-50 border border-indigo-200/80 px-3 py-1 rounded-xl inline-block">
+                                    เช็คอินแล้ว {checkedInCount}/{total} ห้อง
+                                  </span>
+                                );
+                              })()}
                               <button
-                                onClick={() => handleCheckout(bookingId)}
-                                className="inline-flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
+                                onClick={() =>
+                                  router.push(
+                                    `/admin/checkin?search=${encodeURIComponent(b.user_phone || b.user_name || "")}`,
+                                  )
+                                }
+                                className="inline-flex items-center gap-1 text-[11px] text-stone-500 hover:text-[#0b3b2c] font-medium transition-colors"
                               >
-                                <LogOut size={13} />
-                                <span>ออกทุกห้อง</span>
+                                <LogIn size={11} />
+                                <span>ไปหน้าเช็คอิน-เช็คเอาต์</span>
                               </button>
                             </div>
                           ) : b.status === "rejected" ? (
