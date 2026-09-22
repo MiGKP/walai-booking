@@ -69,9 +69,9 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ['Pridi', 'serif'],
-        body: ['Sarabun', 'sans-serif'],
-        sans: ['Sarabun', 'sans-serif'],
+        display: ['var(--font-pridi)', 'Pridi', 'serif'],
+        body: ['var(--font-sarabun)', 'Sarabun', 'sans-serif'],
+        sans: ['var(--font-sarabun)', 'Sarabun', 'sans-serif'],
       },
       keyframes: {
         revealUp: {

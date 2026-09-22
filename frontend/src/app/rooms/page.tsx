@@ -244,6 +244,10 @@ export default function RoomsPage(): React.ReactElement {
     <div className="min-h-screen bg-cream-100 pb-20 pt-4">
       <header className="relative z-30 mb-8 mt-16 sm:mt-20">
         <div className="container mx-auto px-4">
+          <div className="mb-6 text-center">
+            <h1 className="font-display text-3xl font-bold text-forest-900 md:text-4xl">ค้นหาห้องพัก</h1>
+            <p className="mt-2 text-charcoal-500">เลือกวันที่และประเภทห้องพักเพื่อดูห้องว่าง</p>
+          </div>
           <div className="mx-auto w-full max-w-4xl" ref={pickerRef}>
             <div className="flex w-full flex-col divide-y divide-stone-100 rounded-3xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.1)] transition-all duration-500 hover:shadow-[0_1px_2px_rgba(18,60,48,0.02),0_12px_32px_-8px_rgba(18,60,48,0.15)] lg:flex-row lg:divide-x lg:divide-y-0 lg:rounded-full">
               <div className="relative flex-1">

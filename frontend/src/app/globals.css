@@ -1,6 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Pridi:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap");
 @import 'leaflet/dist/leaflet.css';
-@import 'globals.css';
 
 @tailwind base;
 @tailwind components;
@@ -97,7 +95,11 @@ h1, h2, h3, h4, h5, h6 {
   .badge-cancelled {
     @apply bg-red-50 text-red-700 text-xs font-medium px-2.5 py-1 rounded-full;
   }
+  /* badge-completed ยังคงไว้เพื่อ backward compat — domain จริงใช้ checked_out */
   .badge-completed {
+    @apply bg-lagoon-50 text-lagoon-700 text-xs font-medium px-2.5 py-1 rounded-full;
+  }
+  .badge-checked-out {
     @apply bg-lagoon-50 text-lagoon-700 text-xs font-medium px-2.5 py-1 rounded-full;
   }
   .badge-paid {

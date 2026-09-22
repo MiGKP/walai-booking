@@ -227,11 +227,20 @@ export default function DashboardPage() {
   };
 
   // ปิด popup รหัสผ่าน โดยเตือนก่อนถ้ามีข้อมูลที่พิมพ์ไว้ยังไม่ได้บันทึก
+  const [showConfirmCloseModal, setShowConfirmCloseModal] = useState(false);
+
   const closePasswordModal = () => {
     const hasUnsavedInput = Object.values(passwords).some((v) => v !== "");
-    if (hasUnsavedInput && !confirm("คุณกรอกข้อมูลไว้ยังไม่ได้บันทึก ต้องการปิดหน้าต่างนี้หรือไม่?")) {
+    if (hasUnsavedInput) {
+      setShowConfirmCloseModal(true);
       return;
     }
+    setPasswords({ current_password: "", new_password: "", confirm: "" });
+    setShowPasswordModal(false);
+  };
+
+  const handleConfirmClose = () => {
+    setShowConfirmCloseModal(false);
     setPasswords({ current_password: "", new_password: "", confirm: "" });
     setShowPasswordModal(false);
   };

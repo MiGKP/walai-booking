@@ -328,83 +328,103 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu Overlay / Focus Trap */}
       {isOpen && (
         <div
-          className="animate-mobile-menu md:hidden bg-cream-100 px-4 py-4 space-y-1 rounded-b-3xl"
-          style={{ borderTop: "1px solid var(--color-stone-200)" }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="เมนูหลัก"
+          className="fixed inset-0 z-40 md:hidden bg-forest-950/20 backdrop-blur-sm"
+          onClick={() => setIsOpen(false)}
         >
-          {NAV_LINKS.map((link) => {
-            const active = isActive(link.href);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`block py-3 px-4 rounded-xl font-medium transition-colors ${
-                  active
-                    ? "bg-forest-50 text-forest-800"
-                    : "text-charcoal hover:bg-forest-50"
-                }`}
-                onClick={() => setIsOpen(false)}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
+          <div
+            className="animate-mobile-menu w-full bg-cream-100 px-4 py-4 space-y-1 rounded-b-3xl absolute top-[4.5rem] shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === 'Escape') setIsOpen(false); }}
+          >
+            {NAV_LINKS.map((link) => {
+              const active = isActive(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`block py-3 px-4 rounded-xl font-medium transition-colors ${
+                    active
+                      ? "bg-forest-50 text-forest-800"
+                      : "text-charcoal hover:bg-forest-50"
+                  }`}
+                  onClick={() => setIsOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
 
-          {isAuthenticated ? (
-            <>
-              <div className="my-2" style={{ borderTop: "1px solid var(--color-stone-200)" }} />
-              <Link
-                href="/dashboard"
-                className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                โปรไฟล์ของฉัน
-              </Link>
-              <Link
-                href="/dashboard/coupons"
-                className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                คูปองของฉัน
-              </Link>
-              <Link
-                href="/reviews"
-                className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                รีวิวของฉัน
-              </Link>
-              <button
-                onClick={() => {
-                  handleLogout();
-                  setIsOpen(false);
-                }}
-                className="w-full text-left py-3 px-4 rounded-xl text-red-600 hover:bg-red-50 font-medium transition-colors"
-              >
-                ออกจากระบบ
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="my-2" style={{ borderTop: "1px solid var(--color-stone-200)" }} />
-              <Link
-                href="/auth/login"
-                className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                เข้าสู่ระบบ
-              </Link>
-              <Link
-                href="/auth/register"
-                className="block py-3 px-4 rounded-xl bg-forest-800 text-cream-100 font-medium text-center transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                สมัครสมาชิก
-              </Link>
-            </>
-          )}
+            {isAuthenticated ? (
+              <>
+                <div className="my-2 border-t border-stone-200" />
+                <Link
+                  href="/dashboard"
+                  className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  โปรไฟล์ของฉัน
+                </Link>
+                <Link
+                  href="/dashboard/coupons"
+                  className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  คูปองของฉัน
+                </Link>
+                <Link
+                  href="/reviews"
+                  className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  รีวิวของฉัน
+                </Link>
+                {/* ถ้าเป็นพนักงาน ให้แสดงเมนูสำหรับ staff/admin ใน mobile ด้วย */}
+                {(user?.role === 'admin' || user?.role === 'room_staff' || user?.role === 'boat_staff') && (
+                  <Link
+                    href={user.role === 'admin' ? '/admin/dashboard' : '/staff/dashboard'}
+                    className="block py-3 px-4 rounded-xl text-forest-700 bg-forest-50 hover:bg-forest-100 font-medium transition-colors"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    แผงควบคุมเจ้าหน้าที่
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleLogout();
+                    setIsOpen(false);
+                  }}
+                  className="w-full text-left py-3 px-4 rounded-xl text-red-600 hover:bg-red-50 font-medium transition-colors"
+                >
+                  ออกจากระบบ
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="my-2 border-t border-stone-200" />
+                <Link
+                  href="/auth/login"
+                  className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  เข้าสู่ระบบ
+                </Link>
+                <Link
+                  href="/auth/register"
+                  className="block py-3 px-4 rounded-xl bg-forest-800 text-cream-100 font-medium text-center transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  สมัครสมาชิก
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       )}
     </nav>

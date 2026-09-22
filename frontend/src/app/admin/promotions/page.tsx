@@ -63,6 +63,8 @@ interface Promotion {
   room_type_name?: string;
   room_count?: number;
   boat_ticket_count?: number;
+  boat_addon_mode?: "free" | "paid";
+  boat_addon_price?: number | null;
 }
 
 const defaultForm = {
@@ -85,6 +87,8 @@ const defaultForm = {
   room_type_id: "",
   room_count: "1",
   boat_ticket_count: "0",
+  boat_addon_mode: "free" as "free" | "paid",
+  boat_addon_price: "",
 };
 
 // 🌟 Component Custom Dropdown
@@ -297,6 +301,8 @@ export default function PromotionsPage() {
       boat_ticket_count: p.boat_ticket_count
         ? String(p.boat_ticket_count)
         : "0",
+      boat_addon_mode: p.boat_addon_mode === "paid" ? "paid" : "free",
+      boat_addon_price: p.boat_addon_price ? String(p.boat_addon_price) : "",
     });
     setShowModal(true);
   };
@@ -325,6 +331,11 @@ export default function PromotionsPage() {
         boat_ticket_count: form.boat_ticket_count
           ? Number(form.boat_ticket_count)
           : 0,
+        boat_addon_mode: form.boat_addon_mode,
+        boat_addon_price:
+          form.boat_addon_mode === "paid" && form.boat_addon_price
+            ? Number(form.boat_addon_price)
+            : null,
       };
 
       if (editingId) {
@@ -609,7 +620,12 @@ export default function PromotionsPage() {
                           {Boolean(p.boat_ticket_count) && (
                             <div className="flex items-center gap-1 text-sky-700 font-semibold">
                               <Ship size={13} className="text-sky-600" />
-                              <span>บัตรพายเรือ {p.boat_ticket_count} ใบ</span>
+                              <span>
+                                บัตรเสริมเรือ {p.boat_ticket_count} ครั้ง/ห้อง
+                                {p.boat_addon_mode === "paid"
+                                  ? ` (ขาย ฿${p.boat_addon_price ?? 0}/ครั้ง)`
+                                  : " (แจกฟรี)"}
+                              </span>
                             </div>
                           )}
                         </div>
@@ -929,7 +945,7 @@ export default function PromotionsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-stone-600 mb-1">
-                    จำนวนบัตรพายเรือ (ใบ)
+                    จำนวนบัตรเสริมเรือ (ครั้งต่อห้อง)
                   </label>
                   <input
                     type="number"
@@ -943,8 +959,72 @@ export default function PromotionsPage() {
                       }))
                     }
                   />
+                  <p className="text-[10.5px] text-stone-400 mt-1">
+                    1 ห้อง = ใช้ได้ {form.boat_ticket_count || 0} ครั้ง (เลือกประเภทเรือ/เวลาได้ตอนชำระเงินห้องพัก)
+                  </p>
                 </div>
               </div>
+
+              {Number(form.boat_ticket_count) > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-amber-50/60 border border-amber-200/70 rounded-xl p-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-600 mb-1">
+                      รูปแบบบัตรเสริมเรือ
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((f) => ({ ...f, boat_addon_mode: "free" }))
+                        }
+                        className={`flex-1 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                          form.boat_addon_mode === "free"
+                            ? "bg-[#0b3b2c] text-white border-[#0b3b2c]"
+                            : "bg-white text-stone-600 border-stone-200 hover:bg-stone-50"
+                        }`}
+                      >
+                        แจกฟรี
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((f) => ({ ...f, boat_addon_mode: "paid" }))
+                        }
+                        className={`flex-1 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                          form.boat_addon_mode === "paid"
+                            ? "bg-[#0b3b2c] text-white border-[#0b3b2c]"
+                            : "bg-white text-stone-600 border-stone-200 hover:bg-stone-50"
+                        }`}
+                      >
+                        แพ็คเสริมขาย
+                      </button>
+                    </div>
+                  </div>
+                  {form.boat_addon_mode === "paid" && (
+                    <div>
+                      <label className="block text-xs font-bold text-stone-600 mb-1">
+                        ราคาต่อครั้ง (บาท) <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3.5 py-2 text-xs font-semibold text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20"
+                        value={form.boat_addon_price}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            boat_addon_price: e.target.value,
+                          }))
+                        }
+                        placeholder="เช่น 200"
+                      />
+                      <p className="text-[10.5px] text-stone-400 mt-1">
+                        ราคานี้จะถูกบวกเพิ่มในยอดชำระห้องพัก เมื่อลูกค้าเลือกใช้บัตรเสริมจริง
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>

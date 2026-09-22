@@ -18,6 +18,9 @@ import {
   Clock,
   Settings,
   Save,
+  Printer,
+  Ship,
+  Check,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -34,6 +37,22 @@ interface RoomLine {
   checkout_at: string | null;
 }
 
+interface BoatAddon {
+  boat_booking_id: number;
+  booking_room_id: number;
+  boat_type_name: string;
+  booking_date: string;
+  start_time: string;
+  end_time: string;
+  boat_count: number;
+  num_passengers: number;
+  mode: "free" | "paid";
+  price: number;
+  status: string;
+  printed_at: string | null;
+  handed_out_at: string | null;
+}
+
 interface BookingRow {
   room_booking_id: number;
   id: number;
@@ -47,6 +66,7 @@ interface BookingRow {
   child_ages?: number[];
   special_request?: string | null;
   rooms: RoomLine[];
+  boat_addons?: BoatAddon[];
 }
 
 interface FlatLine extends RoomLine {
@@ -59,6 +79,7 @@ interface FlatLine extends RoomLine {
   children?: number;
   child_ages?: number[];
   special_request?: string | null;
+  boat_addons: BoatAddon[];
 }
 
 const toLocalISODate = (d: Date): string =>
@@ -189,6 +210,9 @@ function AdminCheckinContent() {
           children: b.children,
           child_ages: b.child_ages,
           special_request: b.special_request,
+          boat_addons: (b.boat_addons || []).filter(
+            (a) => a.booking_room_id === line.booking_room_id && a.status !== "cancelled",
+          ),
         });
       });
     });
@@ -294,6 +318,84 @@ function AdminCheckinContent() {
         }
       },
     });
+  };
+
+  // พิมพ์บัตรเสริมเรือคายัคเป็นสลิปกระดาษให้ลูกค้า (มีรอบวันที่/เวลาระบุชัดเจน)
+  const printAddonTicket = (addon: BoatAddon, line: FlatLine) => {
+    const w = window.open("", "_blank", "width=420,height=640");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>บัตรเสริมเรือคายัค</title>
+      <meta charset="utf-8" />
+      <style>
+        body { font-family: 'Sarabun', 'Segoe UI', sans-serif; padding: 28px; color: #1c1c1c; }
+        h1 { font-size: 18px; margin: 0 0 2px; color: #0b3b2c; }
+        .sub { font-size: 11px; color: #888; margin-bottom: 16px; }
+        .box { border: 2px dashed #0b3b2c; border-radius: 14px; padding: 18px; }
+        .row { margin: 10px 0; }
+        .label { font-size: 10.5px; color: #888; text-transform: uppercase; letter-spacing: .03em; }
+        .value { font-size: 15px; font-weight: 700; margin-top: 2px; }
+        .footer { margin-top: 18px; font-size: 10.5px; color: #999; text-align: center; }
+      </style>
+      </head><body>
+        <h1>บัตรเสริมเรือคายัค</h1>
+        <p class="sub">สวนลัยรุกเวช — โปรดนำบัตรนี้มาแสดงที่ท่าเรือ</p>
+        <div class="box">
+          <div class="row"><div class="label">ลูกค้า</div><div class="value">${line.user_name || "-"}</div></div>
+          <div class="row"><div class="label">ห้องพัก</div><div class="value">${line.room_name} #${line.room_number}</div></div>
+          <div class="row"><div class="label">ประเภทเรือ</div><div class="value">${addon.boat_type_name}</div></div>
+          <div class="row"><div class="label">วันที่ / เวลา</div><div class="value">${formatThaiDate(String(addon.booking_date).slice(0, 10))} · ${String(addon.start_time).slice(0, 5)}-${String(addon.end_time).slice(0, 5)} น.</div></div>
+          <div class="row"><div class="label">จำนวนเรือ / ผู้โดยสาร</div><div class="value">${addon.boat_count} ลำ / ${addon.num_passengers} คน</div></div>
+          <div class="row"><div class="label">ประเภทบัตร</div><div class="value">${addon.mode === "paid" ? `เสริม (ชำระแล้ว ฿${Number(addon.price).toLocaleString()})` : "แถมฟรีจากโปรโมชั่น"}</div></div>
+        </div>
+        <p class="footer">พิมพ์เมื่อ ${new Date().toLocaleString("th-TH")}</p>
+      </body></html>`);
+    w.document.close();
+    w.focus();
+    w.print();
+  };
+
+  const handlePrintAndHandOut = async (addon: BoatAddon, line: FlatLine) => {
+    printAddonTicket(addon, line);
+    try {
+      await api.put(`/kayaks/room-addon/${addon.boat_booking_id}/hand-out`);
+      toast.success("มอบบัตรเสริมเรือแล้ว");
+      fetchBookings();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "บันทึกการมอบบัตรไม่สำเร็จ");
+    }
+  };
+
+  const renderBoatAddons = (line: FlatLine) => {
+    if (!line.boat_addons || line.boat_addons.length === 0) return null;
+    return (
+      <div className="mt-1.5 space-y-1">
+        {line.boat_addons.map((addon) => (
+          <div
+            key={addon.boat_booking_id}
+            className="flex items-center justify-between gap-2 text-[11px] bg-sky-50 border border-sky-200/70 rounded-md px-2 py-1"
+          >
+            <span className="flex items-center gap-1 text-sky-800">
+              <Ship size={11} />
+              {addon.boat_type_name} · {formatThaiDate(String(addon.booking_date).slice(0, 10))} ·{" "}
+              {String(addon.start_time).slice(0, 5)}-{String(addon.end_time).slice(0, 5)} · {addon.boat_count} ลำ
+            </span>
+            {addon.handed_out_at ? (
+              <span className="inline-flex items-center gap-1 text-teal-700 font-semibold shrink-0">
+                <Check size={11} /> มอบแล้ว
+              </span>
+            ) : (
+              <button
+                onClick={() => handlePrintAndHandOut(addon, line)}
+                className="inline-flex items-center gap-1 text-sky-700 hover:text-sky-900 font-semibold shrink-0"
+              >
+                <Printer size={11} />
+                พิมพ์ + มอบบัตร
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   if (!ready) return null;
@@ -499,6 +601,7 @@ function AdminCheckinContent() {
                             <Clock size={10} /> นอกเวลาเช็คอินปกติ ({checkinFrom}-{checkinTo} น.)
                           </p>
                         )}
+                        {renderBoatAddons(line)}
                       </div>
                     </div>
                     {actionable ? (
@@ -580,6 +683,7 @@ function AdminCheckinContent() {
                             <span>{line.special_request}</span>
                           </p>
                         )}
+                        {renderBoatAddons(line)}
                       </div>
                     </div>
                     <button
