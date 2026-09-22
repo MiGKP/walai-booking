@@ -274,7 +274,7 @@ function PromoCodeFieldsInner({
           โค้ดส่วนลด
         </p>
         <Link href="/promotions" className="text-[11px] font-medium text-forest-800 hover:underline">
-          ดูคูปองทั้งหมด
+          ดูโปรโมชั่นทั้งหมด
         </Link>
       </div>
       {urlPromo && basePrice <= 0 ? (

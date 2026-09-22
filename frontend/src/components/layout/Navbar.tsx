@@ -203,7 +203,7 @@ export default function Navbar() {
                       className="flex items-center gap-2 px-4 py-3 text-sm text-charcoal hover:bg-forest-50 transition-colors"
                       onClick={() => setDropdownOpen(false)}
                     >
-                      <Ticket size={16} /> คูปองของฉัน
+                      <Ticket size={16} /> โปรโมชั่นของฉัน
                     </Link>
                     <Link
                       href="/reviews"
@@ -375,7 +375,7 @@ export default function Navbar() {
                   className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
-                  คูปองของฉัน
+                  โปรโมชั่นของฉัน
                 </Link>
                 <Link
                   href="/reviews"

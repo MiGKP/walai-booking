@@ -10,7 +10,7 @@ import { walletStatusLabel, type WalletPromo, type WalletStatus } from '@/lib/pr
 
 type FilterTab = 'saved' | 'used' | 'expired';
 
-// แท็บ "คูปองของฉัน" แบบฝังในหน้า dashboard เดียวกัน ไม่ต้องสลับไปหน้า /dashboard/coupons
+// แท็บ "โปรโมชั่นของฉัน" แบบฝังในหน้า dashboard เดียวกัน ไม่ต้องสลับไปหน้า /dashboard/coupons
 export default function MyCouponsSection(): React.ReactElement {
   const [wallet, setWallet] = useState<WalletPromo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,7 +23,7 @@ export default function MyCouponsSection(): React.ReactElement {
       const res = await api.get<{ data: WalletPromo[] }>('/promotions/mine');
       setWallet(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'โหลดคูปองไม่สำเร็จ'));
+      toast.error(getApiErrorMessage(error, 'โหลดโปรโมชั่นไม่สำเร็จ'));
     } finally {
       setLoading(false);
     }
@@ -52,7 +52,7 @@ export default function MyCouponsSection(): React.ReactElement {
     setRemovingId(promotionId);
     try {
       await api.delete(`/promotions/${promotionId}/collect`);
-      toast.success('เอาคูปองออกจากกระเป๋าแล้ว');
+      toast.success('เอาโปรโมชั่นออกจากกระเป๋าแล้ว');
       await loadWallet();
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, 'เอาออกไม่สำเร็จ'));
@@ -66,7 +66,7 @@ export default function MyCouponsSection(): React.ReactElement {
       {boatTicketBalance > 0 && (
         <div className="mb-4 flex items-center gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-[12.5px] font-medium text-bamboo-800">
           <Ticket size={16} className="shrink-0" />
-          <p>คุณมีบัตรพายเรือฟรี {boatTicketBalance} ใบ — ใช้ได้ตอนจองเรือที่หน้า <Link href="/kayaks" className="font-bold underline">จองเรือคายัค</Link></p>
+          <p>คุณมีโปรโมชั่นพายเรือฟรี {boatTicketBalance} ใบ — ใช้ได้ตอนจองเรือที่หน้า <Link href="/kayaks" className="font-bold underline">จองเรือคายัค</Link></p>
         </div>
       )}
 
@@ -99,9 +99,9 @@ export default function MyCouponsSection(): React.ReactElement {
         <div className="rounded-2xl border border-dashed border-stone-200 py-16 text-center">
           <Ticket size={40} className="mx-auto mb-3 text-stone-300" />
           <p className="mb-4 text-[13px] text-charcoal-400">
-            {filter === 'saved' ? 'ยังไม่มีคูปองในกระเป๋า' : 'ยังไม่มีรายการในหมวดนี้'}
+            {filter === 'saved' ? 'ยังไม่มีโปรโมชั่นในกระเป๋า' : 'ยังไม่มีรายการในหมวดนี้'}
           </p>
-          {filter === 'saved' && <Link href="/promotions" className="btn-primary">ไปเก็บคูปอง</Link>}
+          {filter === 'saved' && <Link href="/promotions" className="btn-primary">ไปเก็บโปรโมชั่น</Link>}
         </div>
       ) : (
         <ul className="space-y-3">
@@ -136,7 +136,7 @@ export default function MyCouponsSection(): React.ReactElement {
                       )}
                     </>
                   ) : (
-                    <Link href="/promotions" className="text-[13px] font-medium text-forest-800">ดูคูปองอื่น</Link>
+                    <Link href="/promotions" className="text-[13px] font-medium text-forest-800">ดูโปรโมชั่นอื่น</Link>
                   )
                 }
               />

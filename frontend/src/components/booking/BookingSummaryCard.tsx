@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { Calendar, Tag, Plus, Minus, X, CheckCircle2, CreditCard, Trash2, AlertTriangle, Baby, ChevronDown } from 'lucide-react';
+import { Calendar, Tag, Plus, Minus, X, CheckCircle2, CreditCard, Trash2, AlertTriangle, Baby, ChevronDown, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatThaiDate, nightsBetween, todayISO, addDaysISO, monthCursorFromISO, MonthCursor } from '@/lib/date';
 import { RoomCartItem } from '@/lib/room-cart';
@@ -172,9 +172,8 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
   // ความจุรวมของห้องที่เลือกไว้ (แต่ละห้องรับได้ตาม capacity ของประเภทห้องนั้น ไม่ว่าจะเป็นผู้ใหญ่หรือเด็ก)
   const totalCapacity = cartItems.reduce((sum, item) => sum + item.capacity * item.qty, 0);
   const totalGuests = adults + children;
-  // เด็กอายุต่ำกว่า 2 ขวบ (ทารก) ไม่นับรวมในความจุห้อง — ต้องตรงกับ backend (booking-room.math.ts)
-  // ช่องที่ยังไม่เลือกอายุ (null) ยังไม่นับความจุจนกว่าจะเลือก แต่จะถูกกันไม่ให้ยืนยันการจองอยู่แล้วจาก allChildAgesSet
-  const countableChildren = childAges.filter((age) => age !== null && age >= 2).length;
+  // จำนวนเด็กที่ถูกนับรวมในความจุ (อายุ 6 ปีขึ้นไป) — เด็ก 0-5 ขวบเข้าพักฟรี ไม่นับรวมความจุ (สอดคล้องกับ backend)
+  const countableChildren = childAges.filter((age) => age !== null && age > 5).length;
   const totalCapacityGuests = adults + countableChildren;
   const overCapacity = cartItems.length > 0 && totalCapacityGuests > totalCapacity;
 
@@ -372,7 +371,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
 
       const boatTicketsGranted = Number(res.data?.data?.boat_tickets_granted || 0);
       if (boatTicketsGranted > 0) {
-        toast.success(`ได้รับบัตรพายเรือฟรี ${boatTicketsGranted} ใบ! ไปใช้ได้ที่หน้าจองเรือ`, { duration: 5000 });
+        toast.success(`ได้รับโปรโมชั่นพายเรือฟรี ${boatTicketsGranted} ใบ! ไปใช้ได้ที่หน้าจองเรือ`, { duration: 5000 });
       }
 
       setSpecialRequest('');

@@ -34,7 +34,9 @@ interface BaseProps {
   dayStatus?: Record<string, DayStatus>;
   loading?: boolean;
   minISO?: string;
-  /** จำนวนเดือนที่เลื่อนไปข้างหน้าได้จากเดือนปัจจุบัน */
+  maxISO?: string;
+  /** จำนวนเดือนที่ยอมให้อนุญาตล่วงหน้า
+  เริ่มจากเดือนปัจจุบัน */
   maxMonthsAhead?: number;
   /** จำนวนเดือนที่แสดงพร้อมกัน (ค่าเริ่มต้น 2 — แก้ปัญหาเลือกข้ามเดือน) */
   visibleMonths?: 1 | 2;
@@ -269,6 +271,7 @@ export default function BookingCalendar(
 
   const isDisabled = (iso: string): boolean => {
     if (iso < minISO) return true;
+    if (props.maxISO && iso > props.maxISO) return true;
     if (props.mode === "range" && pendingStart) return false;
     return dayStatus?.[iso]?.tone === "full";
   };
