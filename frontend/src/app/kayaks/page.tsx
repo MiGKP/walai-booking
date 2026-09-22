@@ -211,7 +211,9 @@ function normalizeSlotTime(value: string): string {
   return raw;
 }
 
-export default function KayaksPage(): React.ReactElement {
+import { Suspense } from 'react';
+
+function KayaksPageContent(): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
   const today = todayISO();
@@ -784,5 +786,13 @@ export default function KayaksPage(): React.ReactElement {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function KayaksPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <KayaksPageContent />
+    </Suspense>
   );
 }
