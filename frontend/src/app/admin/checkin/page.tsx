@@ -385,7 +385,7 @@ function AdminCheckinContent() {
         {line.boat_addons.map((addon) => (
           <div
             key={addon.boat_booking_id}
-            className="flex items-center justify-between gap-2 text-[11px] bg-sky-50 border border-sky-200/70 rounded-md px-2 py-1"
+            className="flex items-center justify-between gap-2 text-xs bg-sky-50 border border-sky-200/70 rounded-md px-2 py-1"
           >
             <span className="flex items-center gap-1 text-sky-800">
               <Ship size={11} />
@@ -449,7 +449,7 @@ function AdminCheckinContent() {
             {settingsOpen && (
               <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-stone-200 rounded-2xl shadow-xl z-50 p-4">
                 <p className="text-xs font-bold text-stone-700 mb-3">ช่วงเวลาเช็คอินปกติ</p>
-                <p className="text-[10.5px] text-stone-400 mb-3">
+                <p className="text-xs text-stone-400 mb-3">
                   ใช้แสดงเตือนเฉยๆ ไม่ได้ปิดกั้นการเช็คอิน พนักงานยังยืนยันเช็คอินนอกเวลาได้ตามดุลยพินิจ
                 </p>
                 <div className="flex items-center gap-2 mb-3">
@@ -508,7 +508,7 @@ function AdminCheckinContent() {
             <span className={`absolute left-0 top-0 bottom-0 w-1 ${c.bar}`} />
             <div className="flex items-center justify-between gap-2 relative pl-1">
               <div className="min-w-0">
-                <span className="text-[10.5px] font-medium text-stone-500 leading-tight block truncate">{c.label}</span>
+                <span className="text-xs font-medium text-stone-500 leading-tight block truncate">{c.label}</span>
                 <p className={`text-lg font-extrabold tracking-tight font-mono leading-tight ${c.color}`}>{c.count}</p>
               </div>
               <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${c.bg} ${c.border} ${c.color}`}>
@@ -558,7 +558,7 @@ function AdminCheckinContent() {
                 <button
                   key={key}
                   onClick={() => setArrivalFilter(key)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
                     arrivalFilter === key
                       ? "bg-[#0b3b2c] text-white"
                       : "bg-stone-100 text-stone-600 hover:bg-stone-200/70"
@@ -589,28 +589,28 @@ function AdminCheckinContent() {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-stone-800 text-sm truncate">{line.user_name || "ไม่ระบุชื่อ"}</p>
-                        <p className="text-[11px] text-stone-500 flex items-center gap-1">
+                        <p className="text-xs text-stone-500 flex items-center gap-1">
                           <Phone size={10} />
                           {line.user_phone || "-"}
                         </p>
-                        <p className="text-[11px] text-stone-600 flex items-center gap-1 mt-0.5 flex-wrap">
+                        <p className="text-xs text-stone-600 flex items-center gap-1 mt-0.5 flex-wrap">
                           <BedDouble size={11} className="text-stone-400" />
                           {line.room_name} #{line.room_number}
                           <span className="text-stone-300">•</span>
                           <span className="font-mono">{formatThaiDate(line.check_in)} → {formatThaiDate(line.check_out)}</span>
                         </p>
-                        <p className="text-[11px] text-stone-500 flex items-center gap-1 mt-0.5">
+                        <p className="text-xs text-stone-500 flex items-center gap-1 mt-0.5">
                           <Users size={11} className="text-stone-400" />
                           {formatGuestSummary(line)}
                         </p>
                         {line.special_request && (
-                          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200/70 rounded-md px-2 py-1 mt-1 flex items-start gap-1 max-w-md">
+                          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200/70 rounded-md px-2 py-1 mt-1 flex items-start gap-1 max-w-md">
                             <MessageSquare size={11} className="shrink-0 mt-0.5" />
                             <span>{line.special_request}</span>
                           </p>
                         )}
                         {outsideWindow && (
-                          <p className="text-[10.5px] text-amber-600 font-semibold flex items-center gap-1 mt-1">
+                          <p className="text-xs text-amber-600 font-semibold flex items-center gap-1 mt-1">
                             <Clock size={10} /> นอกเวลาเช็คอินปกติ ({checkinFrom}-{checkinTo} น.)
                           </p>
                         )}
@@ -628,7 +628,7 @@ function AdminCheckinContent() {
                         <span>เช็คอิน</span>
                       </button>
                     ) : (
-                      <span className="text-[10.5px] text-stone-400 italic shrink-0 mt-1.5">
+                      <span className="text-xs text-stone-400 italic shrink-0 mt-1.5">
                         รอถึงวันที่ {formatThaiDate(line.check_in)}
                       </span>
                     )}
@@ -667,11 +667,11 @@ function AdminCheckinContent() {
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-stone-800 text-sm truncate">{line.user_name || "ไม่ระบุชื่อ"}</p>
-                        <p className="text-[11px] text-stone-500 flex items-center gap-1">
+                        <p className="text-xs text-stone-500 flex items-center gap-1">
                           <Phone size={10} />
                           {line.user_phone || "-"}
                         </p>
-                        <p className="text-[11px] text-stone-600 flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <p className="text-xs text-stone-600 flex items-center gap-1.5 mt-0.5 flex-wrap">
                           <BedDouble size={11} className="text-stone-400" />
                           {line.room_name} #{line.room_number}
                           {isOverdue ? (
@@ -686,12 +686,12 @@ function AdminCheckinContent() {
                             <span className="font-mono text-stone-500">ออก {formatThaiDate(line.check_out)}</span>
                           )}
                         </p>
-                        <p className="text-[11px] text-stone-500 flex items-center gap-1 mt-0.5">
+                        <p className="text-xs text-stone-500 flex items-center gap-1 mt-0.5">
                           <Users size={11} className="text-stone-400" />
                           {formatGuestSummary(line)}
                         </p>
                         {line.special_request && (
-                          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200/70 rounded-md px-2 py-1 mt-1 flex items-start gap-1 max-w-md">
+                          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200/70 rounded-md px-2 py-1 mt-1 flex items-start gap-1 max-w-md">
                             <MessageSquare size={11} className="shrink-0 mt-0.5" />
                             <span>{line.special_request}</span>
                           </p>

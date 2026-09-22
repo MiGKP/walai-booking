@@ -26,7 +26,7 @@ export default function GlobalConfirmModal() {
           {title}
         </h3>
         {description && (
-          <p className="mt-2 text-[13.5px] leading-relaxed text-charcoal-500">
+          <p className="mt-2 text-sm leading-relaxed text-charcoal-500">
             {description}
           </p>
         )}
@@ -34,14 +34,14 @@ export default function GlobalConfirmModal() {
           <button
             onClick={closeConfirm}
             disabled={loading}
-            className="rounded-full bg-stone-100 px-5 py-2.5 text-[13.5px] font-semibold text-stone-600 transition-colors hover:bg-stone-200 disabled:opacity-50"
+            className="rounded-full bg-stone-100 px-5 py-2.5 text-sm font-semibold text-stone-600 transition-colors hover:bg-stone-200 disabled:opacity-50"
           >
             {cancelText}
           </button>
           <button
             onClick={handleConfirm}
             disabled={loading}
-            className={`rounded-full px-5 py-2.5 text-[13.5px] font-semibold text-white shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-forest-700 hover:bg-forest-800'
             }`}
           >

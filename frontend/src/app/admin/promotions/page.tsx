@@ -523,7 +523,7 @@ export default function PromotionsPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-stone-50 border-b border-stone-200/80 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+              <tr className="bg-stone-50 border-b border-stone-200/80 text-xs font-bold text-stone-500 uppercase tracking-wider">
                 <th className="px-5 py-3.5">โค้ด</th>
                 <th className="px-5 py-3.5">ชื่อแพ็คเกจ/โปรโมชั่น</th>
                 <th className="px-5 py-3.5">ห้องพัก & โปรโมชั่นพายเรือ</th>
@@ -597,14 +597,14 @@ export default function PromotionsPage() {
                             <Copy size={13} />
                           </button>
                         </div>
-                        <p className="mt-1 text-[10px] font-medium text-stone-400">
+                        <p className="mt-1 text-xs font-medium text-stone-400">
                           {appliesToLabel(parseAppliesTo(p.applies_to))}
                         </p>
                       </td>
                       <td className="px-5 py-4">
                         <p className="font-bold text-stone-900">{p.name}</p>
                         {p.description && (
-                          <p className="text-[11px] text-stone-400 mt-0.5 line-clamp-1">
+                          <p className="text-xs text-stone-400 mt-0.5 line-clamp-1">
                             {p.description}
                           </p>
                         )}
@@ -652,7 +652,7 @@ export default function PromotionsPage() {
                           )}
                         </div>
                         {p.max_discount && (
-                          <p className="text-[10px] text-stone-400 mt-0.5">
+                          <p className="text-xs text-stone-400 mt-0.5">
                             สูงสุด ฿{Number(p.max_discount).toLocaleString()}
                           </p>
                         )}
@@ -959,7 +959,7 @@ export default function PromotionsPage() {
                       }))
                     }
                   />
-                  <p className="text-[10.5px] text-stone-400 mt-1">
+                  <p className="text-xs text-stone-400 mt-1">
                     1 ห้อง = ใช้ได้ {form.boat_ticket_count || 0} ครั้ง (เลือกประเภทเรือ/เวลาได้ตอนชำระเงินห้องพัก)
                   </p>
                 </div>
@@ -1018,7 +1018,7 @@ export default function PromotionsPage() {
                         }
                         placeholder="เช่น 200"
                       />
-                      <p className="text-[10.5px] text-stone-400 mt-1">
+                      <p className="text-xs text-stone-400 mt-1">
                         ราคานี้จะถูกบวกเพิ่มในยอดชำระห้องพัก เมื่อลูกค้าเลือกใช้บัตรเสริมจริง
                       </p>
                     </div>

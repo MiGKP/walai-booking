@@ -15,7 +15,7 @@ function SectionHeading({ icon, title }: { icon: React.ReactNode; title: string 
   return (
     <div className="flex items-center gap-2.5">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">{icon}</span>
-      <h2 className="font-sans text-[16px] font-semibold text-forest-900">{title}</h2>
+      <h2 className="font-sans text-base font-semibold text-forest-900">{title}</h2>
     </div>
   );
 }
@@ -143,36 +143,36 @@ function PaymentContent() {
 
         {isRejected ? (
           <>
-            <h1 className="font-sans text-[22px] font-semibold text-red-700 sm:text-[24px]">การจองถูกปฏิเสธ</h1>
-            <p className="mt-2 text-[13.5px] leading-relaxed text-charcoal-400">
+            <h1 className="font-sans text-xl font-semibold text-red-700 sm:text-2xl">การจองถูกปฏิเสธ</h1>
+            <p className="mt-2 text-sm leading-relaxed text-charcoal-400">
               {rejectReason ? `เหตุผล: ${rejectReason}` : 'เจ้าหน้าที่ตรวจสอบแล้วไม่สามารถยืนยันการจองนี้ได้ กรุณาติดต่อเจ้าหน้าที่หากต้องการสอบถามเพิ่มเติม'}
             </p>
           </>
         ) : isApproved ? (
           <>
-            <h1 className="font-sans text-[22px] font-semibold text-forest-900 sm:text-[24px]">การจองได้รับการยืนยันแล้ว!</h1>
-            <p className="mt-2 text-[13.5px] leading-relaxed text-charcoal-400">
+            <h1 className="font-sans text-xl font-semibold text-forest-900 sm:text-2xl">การจองได้รับการยืนยันแล้ว!</h1>
+            <p className="mt-2 text-sm leading-relaxed text-charcoal-400">
               เจ้าหน้าที่ตรวจสอบและยืนยันการชำระเงินของคุณเรียบร้อยแล้ว ขอบคุณที่ใช้บริการ
             </p>
           </>
         ) : (
           <>
-            <h1 className="font-sans text-[22px] font-semibold text-forest-900 sm:text-[24px]">ส่งสลิปสำเร็จแล้ว!</h1>
-            <p className="mt-2 text-[13.5px] leading-relaxed text-charcoal-400">
+            <h1 className="font-sans text-xl font-semibold text-forest-900 sm:text-2xl">ส่งสลิปสำเร็จแล้ว!</h1>
+            <p className="mt-2 text-sm leading-relaxed text-charcoal-400">
               ขอบคุณสำหรับการชำระเงิน เจ้าหน้าที่กำลังตรวจสอบสลิปของคุณ
             </p>
           </>
         )}
 
         {payment && (
-          <div className="mt-5 flex items-center justify-between rounded-xl bg-forest-50/60 px-4 py-3 text-left text-[13px]">
+          <div className="mt-5 flex items-center justify-between rounded-xl bg-forest-50/60 px-4 py-3 text-left text-sm">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">หมายเลขการจอง</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-charcoal-400">หมายเลขการจอง</p>
               <p className="font-semibold text-forest-900">#{payment.booking_id}</p>
             </div>
             <div className="text-right">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">ยอดที่ชำระ</p>
-              <p className="font-sans text-[16px] font-extrabold text-forest-900">฿{Number(payment.amount).toLocaleString()}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ยอดที่ชำระ</p>
+              <p className="font-sans text-base font-extrabold text-forest-900">฿{Number(payment.amount).toLocaleString()}</p>
             </div>
           </div>
         )}
@@ -183,41 +183,41 @@ function PaymentContent() {
             <div className="mt-6 flex items-center justify-center gap-2 px-2">
               <div className="flex flex-1 flex-col items-center gap-1.5">
                 <div className="grid h-7 w-7 place-items-center rounded-full bg-forest-800 text-cream-100"><CheckCircle size={14} /></div>
-                <span className="text-[10.5px] font-semibold text-forest-900">ส่งสลิปแล้ว</span>
+                <span className="text-xs font-semibold text-forest-900">ส่งสลิปแล้ว</span>
               </div>
               <div className="h-0.5 flex-1 rounded-full bg-forest-200 -mt-5" />
               <div className="flex flex-1 flex-col items-center gap-1.5">
                 <div className="grid h-7 w-7 place-items-center rounded-full bg-forest-800 text-cream-100"><CheckCircle size={14} /></div>
-                <span className="text-[10.5px] font-semibold text-forest-900">รอตรวจสอบ</span>
+                <span className="text-xs font-semibold text-forest-900">รอตรวจสอบ</span>
               </div>
               <div className={`h-0.5 flex-1 rounded-full -mt-5 ${isApproved ? 'bg-forest-200' : 'bg-stone-200'}`} />
               <div className="flex flex-1 flex-col items-center gap-1.5">
                 {isApproved ? (
                   <div className="grid h-7 w-7 place-items-center rounded-full bg-forest-800 text-cream-100"><CheckCircle size={14} /></div>
                 ) : (
-                  <div className="grid h-7 w-7 place-items-center rounded-full border-2 border-stone-200 bg-white text-stone-400 text-[11px] font-bold">3</div>
+                  <div className="grid h-7 w-7 place-items-center rounded-full border-2 border-stone-200 bg-white text-stone-400 text-xs font-bold">3</div>
                 )}
-                <span className={`text-[10.5px] font-semibold ${isApproved ? 'text-forest-900' : 'text-stone-400'}`}>ยืนยันการจอง</span>
+                <span className={`text-xs font-semibold ${isApproved ? 'text-forest-900' : 'text-stone-400'}`}>ยืนยันการจอง</span>
               </div>
             </div>
-            {!isApproved && <p className="mt-3 text-[11.5px] text-charcoal-400">ใช้เวลาตรวจสอบประมาณ 15-30 นาที</p>}
+            {!isApproved && <p className="mt-3 text-xs text-charcoal-400">ใช้เวลาตรวจสอบประมาณ 15-30 นาที</p>}
           </>
         )}
 
         <div className="mt-7 flex flex-col gap-3">
           {payment?.booking_type === 'room' && (
              <div className="rounded-xl border border-bamboo-200 bg-bamboo-50/70 p-4 text-center mb-2 shadow-sm animate-fade-in">
-               <h3 className="font-sans text-[15px] font-bold text-bamboo-900">🎉 พิเศษ! คุณอาจได้รับโปรโมชั่นพายเรือฟรี</h3>
-               <p className="text-[12px] text-bamboo-700 mt-1.5 mb-4 leading-relaxed">
+               <h3 className="font-sans text-base font-bold text-bamboo-900">🎉 พิเศษ! คุณอาจได้รับโปรโมชั่นพายเรือฟรี</h3>
+               <p className="text-xs text-bamboo-700 mt-1.5 mb-4 leading-relaxed">
                  หากคุณมีโปรโมชั่นแถมเรือ กรุณาเลือกวันและเวลาพายเรือตอนนี้เลย<br/>(เพื่อป้องกันคิวเต็มในวันที่คุณต้องการ)
                </p>
-               <Link href={`/kayaks?room_booking_id=${payment.booking_id}&check_in=${bookingDetail?.check_in_date}&check_out=${bookingDetail?.check_out_date}`} className="flex items-center justify-center gap-2 w-full rounded-xl bg-bamboo-600 py-3 text-[13.5px] font-bold text-white transition-colors hover:bg-bamboo-700 shadow-md">
+               <Link href={`/kayaks?room_booking_id=${payment.booking_id}&check_in=${bookingDetail?.check_in_date}&check_out=${bookingDetail?.check_out_date}`} className="flex items-center justify-center gap-2 w-full rounded-xl bg-bamboo-600 py-3 text-sm font-bold text-white transition-colors hover:bg-bamboo-700 shadow-md">
                  จองคิวเรือคายัค
                </Link>
              </div>
           )}
           <Link href="/dashboard" className="btn-primary text-center">ดูการจองของฉัน</Link>
-          <Link href="/" className="inline-flex w-full items-center justify-center rounded-xl border border-stone-200 py-3 text-[13px] font-bold text-forest-800 transition-colors hover:bg-stone-50">กลับหน้าแรก</Link>
+          <Link href="/" className="inline-flex w-full items-center justify-center rounded-xl border border-stone-200 py-3 text-sm font-bold text-forest-800 transition-colors hover:bg-stone-50">กลับหน้าแรก</Link>
         </div>
       </div>
     </div>
@@ -231,7 +231,7 @@ function PaymentContent() {
         <div>
           <Link
             href="/dashboard"
-            className="group inline-flex items-center gap-2.5 rounded-full bg-white py-1.5 pl-1.5 pr-4 text-[13px] font-bold text-forest-800 shadow-[0_1px_2px_rgba(18,60,48,0.04),0_6px_16px_-6px_rgba(18,60,48,0.2)] ring-1 ring-stone-200/70 transition-all duration-200 hover:-translate-x-0.5 hover:ring-forest-300"
+            className="group inline-flex items-center gap-2.5 rounded-full bg-white py-1.5 pl-1.5 pr-4 text-sm font-bold text-forest-800 shadow-[0_1px_2px_rgba(18,60,48,0.04),0_6px_16px_-6px_rgba(18,60,48,0.2)] ring-1 ring-stone-200/70 transition-all duration-200 hover:-translate-x-0.5 hover:ring-forest-300"
           >
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700 transition-colors group-hover:bg-forest-100">
               <ArrowLeft size={14} />
@@ -242,8 +242,8 @@ function PaymentContent() {
           <div className="mt-4 flex items-center gap-2.5">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700"><CreditCard size={18} /></span>
             <div>
-              <h1 className="font-sans text-[24px] font-semibold leading-tight text-forest-900 sm:text-[28px]">ชำระเงิน</h1>
-              <p className="text-[12.5px] text-charcoal-400">ทำตามขั้นตอนด้านล่างเพื่อยืนยันการจองของคุณ</p>
+              <h1 className="font-sans text-2xl font-semibold leading-tight text-forest-900 sm:text-3xl">ชำระเงิน</h1>
+              <p className="text-xs text-charcoal-400">ทำตามขั้นตอนด้านล่างเพื่อยืนยันการจองของคุณ</p>
             </div>
           </div>
         </div>
@@ -254,7 +254,7 @@ function PaymentContent() {
             <div className="space-y-5 lg:sticky lg:top-24">
               <section className={CARD}>
                 <SectionHeading icon={<Receipt size={16} />} title="สรุปรายการ" />
-                <div className="mt-4 space-y-2 text-[13.5px]">
+                <div className="mt-4 space-y-2 text-sm">
                   <div className="flex justify-between text-charcoal-500">
                     <span>ประเภทการจอง</span>
                     <span className="font-semibold text-forest-900">{payment.booking_type === 'room' ? 'ห้องพัก' : 'เรือ'}</span>
@@ -291,18 +291,18 @@ function PaymentContent() {
 
                 {bookingDetail && payment.booking_type === 'room' && (
                   <>
-                    <div className="mt-4 flex flex-wrap gap-4 border-t border-stone-100 pt-4 text-[13.5px]">
+                    <div className="mt-4 flex flex-wrap gap-4 border-t border-stone-100 pt-4 text-sm">
                       <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">วันเข้าพัก – วันออก</p>
+                        <p className="text-xs font-bold uppercase tracking-wider text-charcoal-400">วันเข้าพัก – วันออก</p>
                         <p className="mt-0.5 font-semibold text-forest-900">
                           {formatThaiDate(String(bookingDetail.check_in_date).slice(0, 10))} – {formatThaiDate(String(bookingDetail.check_out_date).slice(0, 10))}
-                          <span className="ml-1.5 rounded-full bg-forest-50 px-2 py-0.5 text-[11px] font-bold text-forest-700">
+                          <span className="ml-1.5 rounded-full bg-forest-50 px-2 py-0.5 text-xs font-bold text-forest-700">
                             {nightsBetween(String(bookingDetail.check_in_date).slice(0, 10), String(bookingDetail.check_out_date).slice(0, 10))} คืน
                           </span>
                         </p>
                       </div>
                       <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">ผู้เข้าพัก</p>
+                        <p className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ผู้เข้าพัก</p>
                         <p className="mt-0.5 font-semibold text-forest-900">ผู้ใหญ่ {bookingDetail.adults} · เด็ก {bookingDetail.children}</p>
                       </div>
                     </div>
@@ -311,16 +311,16 @@ function PaymentContent() {
                       {(bookingDetail.rooms || []).map((room: any) => (
                         <div key={room.booking_room_id} className="flex items-center justify-between gap-3 rounded-xl bg-stone-50/60 p-3">
                           <div className="min-w-0">
-                            <p className="truncate text-[13px] font-bold text-forest-900">{room.room_name} (ห้อง {room.room_number})</p>
-                            <p className="text-[11.5px] text-charcoal-400">฿{Number(room.price_per_night).toLocaleString()} / คืน × {room.nights} คืน</p>
+                            <p className="truncate text-sm font-bold text-forest-900">{room.room_name} (ห้อง {room.room_number})</p>
+                            <p className="text-xs text-charcoal-400">฿{Number(room.price_per_night).toLocaleString()} / คืน × {room.nights} คืน</p>
                           </div>
-                          <span className="shrink-0 text-[13px] font-bold text-forest-900">฿{Number(room.subtotal).toLocaleString()}</span>
+                          <span className="shrink-0 text-sm font-bold text-forest-900">฿{Number(room.subtotal).toLocaleString()}</span>
                         </div>
                       ))}
                     </div>
 
                     {bookingDetail.special_request && (
-                      <div className="mt-4 rounded-xl bg-bamboo-50/40 p-3 text-[12.5px] text-charcoal-500">
+                      <div className="mt-4 rounded-xl bg-bamboo-50/40 p-3 text-xs text-charcoal-500">
                         <span className="font-bold text-bamboo-600">คำขอพิเศษ:</span> {bookingDetail.special_request}
                       </div>
                     )}
@@ -329,18 +329,18 @@ function PaymentContent() {
 
                 {bookingDetail && payment.booking_type === 'kayak' && (
                   <>
-                    <div className="mt-4 flex flex-wrap gap-4 border-t border-stone-100 pt-4 text-[13.5px]">
+                    <div className="mt-4 flex flex-wrap gap-4 border-t border-stone-100 pt-4 text-sm">
                       <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">วันที่ · รอบเวลา</p>
+                        <p className="text-xs font-bold uppercase tracking-wider text-charcoal-400">วันที่ · รอบเวลา</p>
                         <p className="mt-0.5 font-semibold text-forest-900">
                           {formatThaiDate(String(bookingDetail.booking_date).slice(0, 10))}
-                          <span className="ml-1.5 rounded-full bg-forest-50 px-2 py-0.5 text-[11px] font-bold text-forest-700">
+                          <span className="ml-1.5 rounded-full bg-forest-50 px-2 py-0.5 text-xs font-bold text-forest-700">
                             {formatTimeRange(bookingDetail.start_time, bookingDetail.end_time)}
                           </span>
                         </p>
                       </div>
                       <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400">ผู้โดยสาร</p>
+                        <p className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ผู้โดยสาร</p>
                         <p className="mt-0.5 font-semibold text-forest-900">{bookingDetail.num_passengers} คน</p>
                       </div>
                     </div>
@@ -349,12 +349,12 @@ function PaymentContent() {
                       {(bookingDetail.boats || []).map((boat: any) => (
                         <div key={boat.booking_boat_id} className="flex items-center justify-between gap-3 rounded-xl bg-stone-50/60 p-3">
                           <div className="min-w-0">
-                            <p className="truncate text-[13px] font-bold text-forest-900">{boat.type_name}</p>
-                            <p className="text-[11.5px] text-charcoal-400">
+                            <p className="truncate text-sm font-bold text-forest-900">{boat.type_name}</p>
+                            <p className="text-xs text-charcoal-400">
                               ผู้โดยสาร {boat.num_passengers} คน · {boat.boat_count} ลำ · ฿{Number(boat.unit_price).toLocaleString()}/ลำ
                             </p>
                           </div>
-                          <span className="shrink-0 text-[13px] font-bold text-forest-900">฿{Number(boat.subtotal).toLocaleString()}</span>
+                          <span className="shrink-0 text-sm font-bold text-forest-900">฿{Number(boat.subtotal).toLocaleString()}</span>
                         </div>
                       ))}
                     </div>
@@ -362,7 +362,7 @@ function PaymentContent() {
                 )}
 
                 {/* Price Breakdown */}
-                <div className="mt-4 space-y-2 border-t border-stone-100 pt-4 text-[13.5px]">
+                <div className="mt-4 space-y-2 border-t border-stone-100 pt-4 text-sm">
                   <div className="flex justify-between text-charcoal-500">
                     <span>{payment.booking_type === 'room' ? 'ยอดรวมห้องพัก' : 'ยอดรวมเรือ'}</span>
                     <span className="font-semibold text-forest-900">
@@ -382,8 +382,8 @@ function PaymentContent() {
                     </div>
                   ))}
                   <div className="flex justify-between border-t border-stone-100 pt-3 mt-1">
-                    <span className="text-[14px] font-bold text-forest-900">ยอดชำระสุทธิ</span>
-                    <span className="font-sans text-[20px] font-extrabold text-bamboo-600">฿{Number(payment.amount).toLocaleString()}</span>
+                    <span className="text-sm font-bold text-forest-900">ยอดชำระสุทธิ</span>
+                    <span className="font-sans text-xl font-extrabold text-bamboo-600">฿{Number(payment.amount).toLocaleString()}</span>
                   </div>
                 </div>
               </section>
@@ -401,14 +401,14 @@ function PaymentContent() {
                         <div className="mt-4 inline-block rounded-2xl border border-stone-200/80 bg-white p-4 shadow-sm">
                           <img src={payment.qr_code_url} alt="QR Code" className="w-52 h-52 mx-auto" />
                         </div>
-                        <p className="mt-3 text-[12.5px] text-charcoal-400">สแกนด้วยแอปธนาคารหรือ PromptPay</p>
-                        <p className="mt-1 font-sans text-[18px] font-extrabold text-forest-900">฿{Number(payment.amount).toLocaleString()}</p>
+                        <p className="mt-3 text-xs text-charcoal-400">สแกนด้วยแอปธนาคารหรือ PromptPay</p>
+                        <p className="mt-1 font-sans text-lg font-extrabold text-forest-900">฿{Number(payment.amount).toLocaleString()}</p>
                       </div>
                     )}
 
                     <div className={payment.qr_code_url ? 'mt-6 border-t border-stone-100 pt-6' : ''}>
                       <SectionHeading icon={<Landmark size={16} />} title="ช่องทางการชำระเงิน" />
-                      <div className="mt-4 space-y-2 rounded-xl bg-forest-50/50 p-4 text-[13.5px]">
+                      <div className="mt-4 space-y-2 rounded-xl bg-forest-50/50 p-4 text-sm">
                         <div className="flex justify-between">
                           <span className="text-charcoal-500">ธนาคาร</span>
                           <span className="font-semibold text-forest-900">{payment.bank_info?.bank_name}</span>
@@ -430,7 +430,7 @@ function PaymentContent() {
 
                     <button
                       onClick={() => setStep(2)}
-                      className="btn-primary w-full mt-6 text-center shadow-lg shadow-forest-900/20 py-3 text-[14px]"
+                      className="btn-primary w-full mt-6 text-center shadow-lg shadow-forest-900/20 py-3 text-sm"
                     >
                       ชำระเงินเรียบร้อยแล้ว, ไปหน้าอัปโหลดสลิป
                     </button>
@@ -439,16 +439,16 @@ function PaymentContent() {
                   {/* คำแนะนำและยกเลิกการจอง */}
                   <section className={CARD}>
                     <SectionHeading icon={<Info size={16} />} title="คำแนะนำและยกเลิกการจอง" />
-                    <ul className="mt-4 list-disc pl-5 text-[12.5px] text-charcoal-500 space-y-1.5">
+                    <ul className="mt-4 list-disc pl-5 text-xs text-charcoal-500 space-y-1.5">
                       <li>กรุณาชำระเงินภายในเวลาที่กำหนด หากเกินกำหนดระบบจะยกเลิกการจองอัตโนมัติ</li>
                       <li>หากชำระเงินแล้ว ไม่สามารถขอคืนเงินได้เว้นแต่กรณีฉุกเฉินหรือภัยพิบัติร้ายแรงตามนโยบาย</li>
                       <li>ใช้รูปสลิปโอนเงินที่เห็นข้อมูลครบถ้วนชัดเจนเท่านั้น</li>
                     </ul>
                     <div className="mt-5 border-t border-stone-100 pt-5">
-                      <p className="text-[12.5px] text-stone-500 mb-3">หากเปลี่ยนใจหรือไม่ต้องการจองแล้ว สามารถยกเลิกได้ที่นี่</p>
+                      <p className="text-xs text-stone-500 mb-3">หากเปลี่ยนใจหรือไม่ต้องการจองแล้ว สามารถยกเลิกได้ที่นี่</p>
                       <button
                         onClick={() => setShowCancelConfirm(true)}
-                        className="flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-[13px] font-bold text-red-600 transition-colors hover:bg-red-50"
+                        className="flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-50"
                       >
                         <XCircle size={15} /> ยืนยันการยกเลิกการจอง
                       </button>
@@ -463,7 +463,7 @@ function PaymentContent() {
                       <SectionHeading icon={<Upload size={16} />} title="ยืนยันการโอนเงิน" />
                       <button 
                         onClick={() => setStep(1)}
-                        className="text-[12px] font-semibold text-forest-600 hover:text-forest-800 transition-colors"
+                        className="text-xs font-semibold text-forest-600 hover:text-forest-800 transition-colors"
                       >
                         กลับไปดูช่องทางชำระเงิน
                       </button>
@@ -473,7 +473,7 @@ function PaymentContent() {
                       {slipPreview ? (
                         <div className="space-y-3">
                           <img src={slipPreview} alt="Slip" className="max-h-60 mx-auto rounded-xl object-contain shadow-sm" />
-                          <button onClick={() => { setSlip(null); setSlipPreview(''); }} className="text-[12.5px] font-semibold text-red-500 hover:text-red-600">
+                          <button onClick={() => { setSlip(null); setSlipPreview(''); }} className="text-xs font-semibold text-red-500 hover:text-red-600">
                             เปลี่ยนรูปสลิป
                           </button>
                         </div>
@@ -482,8 +482,8 @@ function PaymentContent() {
                           <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-forest-50 mb-3 text-forest-600">
                             <Upload size={22} />
                           </div>
-                          <p className="text-[13.5px] font-semibold text-forest-900 mb-1">คลิกเพื่ออัปโหลดสลิปโอนเงิน</p>
-                          <p className="text-[11.5px] text-stone-400">รองรับ PNG, JPG ขนาดไม่เกิน 5MB</p>
+                          <p className="text-sm font-semibold text-forest-900 mb-1">คลิกเพื่ออัปโหลดสลิปโอนเงิน</p>
+                          <p className="text-xs text-stone-400">รองรับ PNG, JPG ขนาดไม่เกิน 5MB</p>
                           <input type="file" accept="image/*" className="hidden" onChange={handleSlipChange} />
                         </label>
                       )}
@@ -491,7 +491,7 @@ function PaymentContent() {
                     <button
                       onClick={handleUploadSlip}
                       disabled={!slip || uploading}
-                      className="btn-primary w-full mt-5 text-center py-3 text-[14px] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn-primary w-full mt-5 text-center py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {uploading ? 'กำลังอัปโหลดและส่งให้เจ้าหน้าที่...' : 'ยืนยันการชำระเงิน'}
                     </button>
@@ -509,15 +509,15 @@ function PaymentContent() {
             <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-500">
               <XCircle size={22} />
             </div>
-            <h3 className="text-center text-[16px] font-bold text-forest-900">ยกเลิกการจองนี้?</h3>
-            <p className="mt-1.5 text-center text-[13px] leading-relaxed text-stone-500">
+            <h3 className="text-center text-base font-bold text-forest-900">ยกเลิกการจองนี้?</h3>
+            <p className="mt-1.5 text-center text-sm leading-relaxed text-stone-500">
               ห้อง/เรือที่จองไว้จะถูกปล่อยว่าง และไม่สามารถกู้คืนรายการนี้ได้
             </p>
             <div className="mt-5 flex gap-3">
-              <button onClick={() => setShowCancelConfirm(false)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-[13px] font-bold text-stone-600 hover:bg-stone-50 transition-colors">
+              <button onClick={() => setShowCancelConfirm(false)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-sm font-bold text-stone-600 hover:bg-stone-50 transition-colors">
                 ไม่ยกเลิก
               </button>
-              <button onClick={handleCancelBooking} disabled={cancelling} className="flex-1 rounded-xl bg-red-600 py-2.5 text-[13px] font-bold text-white hover:bg-red-700 transition-colors disabled:opacity-60">
+              <button onClick={handleCancelBooking} disabled={cancelling} className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition-colors disabled:opacity-60">
                 {cancelling ? 'กำลังยกเลิก...' : 'ยกเลิกการจอง'}
               </button>
             </div>

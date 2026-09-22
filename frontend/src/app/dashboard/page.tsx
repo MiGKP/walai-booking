@@ -18,13 +18,13 @@ function SectionHeading({ icon, title }: { icon: React.ReactNode; title: string 
   return (
     <div className="flex items-center gap-2.5">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">{icon}</span>
-      <h2 className="font-sans text-[16px] font-semibold text-forest-900">{title}</h2>
+      <h2 className="font-sans text-base font-semibold text-forest-900">{title}</h2>
     </div>
   );
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }): React.ReactElement {
-  return <label className="mb-1.5 block text-[12.5px] font-semibold text-charcoal-600">{children}</label>;
+  return <label className="mb-1.5 block text-xs font-semibold text-charcoal-600">{children}</label>;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -240,11 +240,11 @@ export default function DashboardPage() {
                   <User size={36} className="text-forest-600 w-full h-full p-4" />
                 )}
               </div>
-              <h2 className="font-sans text-[16px] font-bold text-forest-900 truncate w-full">
+              <h2 className="font-sans text-base font-bold text-forest-900 truncate w-full">
                 {user.first_name} {user.last_name}
               </h2>
-              <p className="text-[12.5px] text-charcoal-400 truncate w-full">{user.email}</p>
-              <span className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wider ${user.role === "admin" ? "bg-bamboo-50 text-bamboo-600" : user.role === "customer" ? "bg-forest-50 text-forest-700" : "bg-lagoon-50 text-lagoon-700"}`}>
+              <p className="text-xs text-charcoal-400 truncate w-full">{user.email}</p>
+              <span className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${user.role === "admin" ? "bg-bamboo-50 text-bamboo-600" : user.role === "customer" ? "bg-forest-50 text-forest-700" : "bg-lagoon-50 text-lagoon-700"}`}>
                 {ROLE_LABELS[user.role] || user.role}
               </span>
             </div>
@@ -254,35 +254,35 @@ export default function DashboardPage() {
               <nav className="flex lg:flex-col gap-1 overflow-x-auto no-scrollbar">
                 <button
                   onClick={() => setActiveTab("bookings")}
-                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-[13.5px] font-semibold transition-colors ${activeTab === "bookings" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
+                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "bookings" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
                 >
                   <CalendarDays size={18} className={activeTab === "bookings" ? "text-forest-700" : "text-charcoal-400"} />
                   การจองของฉัน
                 </button>
                 <button
                   onClick={() => setActiveTab("profile")}
-                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-[13.5px] font-semibold transition-colors ${activeTab === "profile" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
+                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "profile" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
                 >
                   <User size={18} className={activeTab === "profile" ? "text-forest-700" : "text-charcoal-400"} />
                   ข้อมูลส่วนตัว
                 </button>
                 <button
                   onClick={() => setActiveTab("security")}
-                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-[13.5px] font-semibold transition-colors ${activeTab === "security" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
+                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "security" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
                 >
                   <Lock size={18} className={activeTab === "security" ? "text-forest-700" : "text-charcoal-400"} />
                   รหัสผ่านและความปลอดภัย
                 </button>
                 <button
                   onClick={() => setActiveTab("reviews")}
-                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-[13.5px] font-semibold transition-colors ${activeTab === "reviews" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
+                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "reviews" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
                 >
                   <Star size={18} className={activeTab === "reviews" ? "text-forest-700" : "text-charcoal-400"} />
                   รีวิวของฉัน
                 </button>
                 <button
                   onClick={() => setActiveTab("coupons")}
-                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-[13.5px] font-semibold transition-colors ${activeTab === "coupons" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
+                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "coupons" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
                 >
                   <Ticket size={18} className={activeTab === "coupons" ? "text-forest-700" : "text-charcoal-400"} />
                   โปรโมชั่นของฉัน
@@ -295,21 +295,21 @@ export default function DashboardPage() {
           <div className="space-y-6">
             {activeTab === "bookings" && (
               <section className={CARD}>
-                <h1 className="mb-5 font-sans text-[18px] font-semibold text-forest-900 border-b border-stone-100 pb-4">การจองของฉัน</h1>
+                <h1 className="mb-5 font-sans text-lg font-semibold text-forest-900 border-b border-stone-100 pb-4">การจองของฉัน</h1>
                 <MyBookingsPanel ready={ready} />
               </section>
             )}
 
             {activeTab === "reviews" && (
               <section className={CARD}>
-                <h1 className="mb-5 font-sans text-[18px] font-semibold text-forest-900 border-b border-stone-100 pb-4">รีวิวของฉัน</h1>
+                <h1 className="mb-5 font-sans text-lg font-semibold text-forest-900 border-b border-stone-100 pb-4">รีวิวของฉัน</h1>
                 <MyReviewsSection />
               </section>
             )}
 
             {activeTab === "coupons" && (
               <section className={CARD}>
-                <h1 className="mb-5 font-sans text-[18px] font-semibold text-forest-900 border-b border-stone-100 pb-4">โปรโมชั่นของฉัน</h1>
+                <h1 className="mb-5 font-sans text-lg font-semibold text-forest-900 border-b border-stone-100 pb-4">โปรโมชั่นของฉัน</h1>
                 <MyCouponsSection />
               </section>
             )}
@@ -317,7 +317,7 @@ export default function DashboardPage() {
             {activeTab === "profile" && (
               <div className="space-y-6">
                 <section className={CARD}>
-                  <h1 className="mb-5 font-sans text-[18px] font-semibold text-forest-900 border-b border-stone-100 pb-4">จัดการโปรไฟล์</h1>
+                  <h1 className="mb-5 font-sans text-lg font-semibold text-forest-900 border-b border-stone-100 pb-4">จัดการโปรไฟล์</h1>
                   
                   <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 pt-2">
                     {/* ---- ฝั่งซ้าย: รูปโปรไฟล์ ---- */}
@@ -365,11 +365,11 @@ export default function DashboardPage() {
                       </label>
                       
                       <div className="mt-4 text-center lg:text-left">
-                        <p className="text-[13px] font-bold text-forest-900">รูปภาพโปรไฟล์</p>
-                        <p className="text-[12px] text-charcoal-400 mt-1.5 leading-relaxed">
+                        <p className="text-sm font-bold text-forest-900">รูปภาพโปรไฟล์</p>
+                        <p className="text-xs text-charcoal-400 mt-1.5 leading-relaxed">
                           จะแสดงในหน้าต่างๆ และหน้ารีวิวของระบบ
                         </p>
-                        {uploadingAvatar && <p className="mt-2 text-[12px] font-semibold text-forest-600">กำลังอัปโหลด...</p>}
+                        {uploadingAvatar && <p className="mt-2 text-xs font-semibold text-forest-600">กำลังอัปโหลด...</p>}
                       </div>
                     </div>
 
@@ -378,7 +378,7 @@ export default function DashboardPage() {
                       <form onSubmit={handleSaveProfile} className="space-y-8">
                         {/* ข้อมูลส่วนตัว */}
                         <div>
-                          <h3 className="text-[12.5px] font-bold text-forest-800 uppercase tracking-wide border-b border-stone-100 pb-2 mb-4">ข้อมูลส่วนตัว</h3>
+                          <h3 className="text-xs font-bold text-forest-800 uppercase tracking-wide border-b border-stone-100 pb-2 mb-4">ข้อมูลส่วนตัว</h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                               <FieldLabel>ชื่อ</FieldLabel>
@@ -405,7 +405,7 @@ export default function DashboardPage() {
                         
                         {/* ช่องทางติดต่อ */}
                         <div>
-                          <h3 className="text-[12.5px] font-bold text-forest-800 uppercase tracking-wide border-b border-stone-100 pb-2 mb-4">ช่องทางติดต่อ</h3>
+                          <h3 className="text-xs font-bold text-forest-800 uppercase tracking-wide border-b border-stone-100 pb-2 mb-4">ช่องทางติดต่อ</h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                               <FieldLabel>อีเมล</FieldLabel>
@@ -485,13 +485,13 @@ export default function DashboardPage() {
                     <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-full bg-forest-50 text-forest-700 ring-4 ring-forest-50/50">
                       <Lock size={24} />
                     </div>
-                    <h1 className="font-sans text-[18px] font-semibold text-forest-900">รหัสผ่านและความปลอดภัย</h1>
-                    <p className="mt-1.5 text-[13px] text-charcoal-400">จัดการรหัสผ่านของคุณเพื่อความปลอดภัยของบัญชี</p>
+                    <h1 className="font-sans text-lg font-semibold text-forest-900">รหัสผ่านและความปลอดภัย</h1>
+                    <p className="mt-1.5 text-sm text-charcoal-400">จัดการรหัสผ่านของคุณเพื่อความปลอดภัยของบัญชี</p>
                   </div>
                   
                   {user.auth_provider === "google" && !user.has_password ? (
                     <>
-                      <div className="mb-6 rounded-xl bg-forest-50/60 p-4 text-[13px] leading-relaxed text-forest-800">
+                      <div className="mb-6 rounded-xl bg-forest-50/60 p-4 text-sm leading-relaxed text-forest-800">
                         คุณล็อกอินด้วย Google อยู่ คุณสามารถตั้งรหัสผ่านเพื่อใช้ล็อกอินด้วยอีเมลในครั้งต่อไปได้
                       </div>
                       <form onSubmit={handleSetPassword} className="space-y-5">

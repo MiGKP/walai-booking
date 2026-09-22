@@ -14,9 +14,9 @@ function DeadlineCell({ createdAt, dueDays }: { createdAt: string; dueDays: numb
   const deadlineMs = new Date(createdAt).getTime() + dueDays * 24 * 60 * 60 * 1000;
   const deadline = new Date(deadlineMs);
   const isExpired = Date.now() > deadlineMs;
-  if (isExpired) return <span className="text-[11px] font-semibold text-red-500">หมดเวลาแล้ว</span>;
+  if (isExpired) return <span className="text-xs font-semibold text-red-500">หมดเวลาแล้ว</span>;
   return (
-    <span className="flex items-center gap-1 text-[11px] font-semibold text-forest-700">
+    <span className="flex items-center gap-1 text-xs font-semibold text-forest-700">
       <Timer size={13} /> ชำระภายใน {deadline.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
     </span>
   );
@@ -40,8 +40,8 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
     <div className="flex items-start gap-2">
       <span className="mt-0.5 text-forest-500">{icon}</span>
       <div className="min-w-0">
-        <p className="text-[10.5px] font-semibold uppercase tracking-wide text-charcoal-300">{label}</p>
-        <p className="truncate text-[12.5px] font-semibold text-charcoal-700">{value}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-300">{label}</p>
+        <p className="truncate text-xs font-semibold text-charcoal-700">{value}</p>
       </div>
     </div>
   );
@@ -154,19 +154,19 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
                   {type === 'room' ? <CalendarDays size={12} /> : <Anchor size={12} />}
                 </span>
               )}
-              <h3 className="truncate text-[14px] font-bold text-forest-900">
+              <h3 className="truncate text-sm font-bold text-forest-900">
                 {type === 'room' ? b.room_name : b.kayak_name}
               </h3>
-              <span className={`rounded-full px-2.5 py-0.5 text-[10.5px] font-bold ${statusClass[b.status] || 'bg-stone-100 text-charcoal-500'}`}>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${statusClass[b.status] || 'bg-stone-100 text-charcoal-500'}`}>
                 {statusLabel[b.status] || b.status}
               </span>
             </div>
-            <p className="text-[12px] text-charcoal-400">{briefDate}</p>
+            <p className="text-xs text-charcoal-400">{briefDate}</p>
           </div>
           <div className="flex shrink-0 items-start gap-2">
             <div className="text-right">
-              <p className="font-sans text-[16px] font-extrabold text-forest-900">฿{Number(b.total_price).toLocaleString()}</p>
-              <p className="mt-1 text-[11px] text-charcoal-400">#{bid}</p>
+              <p className="font-sans text-base font-extrabold text-forest-900">฿{Number(b.total_price).toLocaleString()}</p>
+              <p className="mt-1 text-xs text-charcoal-400">#{bid}</p>
             </div>
             <ChevronDown size={16} className={`mt-1 shrink-0 text-charcoal-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
           </div>
@@ -243,7 +243,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
 
             {/* รายการห้อง/เรือ */}
             {type === 'room' && Array.isArray(b.rooms) && b.rooms.length > 0 && (
-              <ul className="space-y-1 text-[11.5px] text-charcoal-500">
+              <ul className="space-y-1 text-xs text-charcoal-500">
                 {b.rooms.map((line: { booking_room_id: number; room_name: string; room_number: string; status: string }) => (
                   <li key={line.booking_room_id}>
                     {line.room_name} · ห้อง {line.room_number}
@@ -253,7 +253,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
               </ul>
             )}
             {type === 'kayak' && Array.isArray(b.boats) && b.boats.length > 0 && (
-              <ul className="space-y-1 text-[11.5px] text-charcoal-500">
+              <ul className="space-y-1 text-xs text-charcoal-500">
                 {b.boats.map((line: { booking_boat_id: number; type_name?: string; num_passengers?: number; boat_count?: number }) => (
                   <li key={line.booking_boat_id}>
                     {line.type_name || 'เรือ'} · {line.num_passengers ?? 0} คน · {line.boat_count ?? 0} ลำ
@@ -268,7 +268,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
                 {b.promotions.map((promo: { name?: string; code?: string; discount_amount: number }, i: number) => (
                   <span
                     key={i}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-bamboo-50 px-3 py-1 text-[11.5px] font-bold text-bamboo-700"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-bamboo-50 px-3 py-1 text-xs font-bold text-bamboo-700"
                   >
                     <Tag size={12} /> {promo.name || promo.code} · -฿{Number(promo.discount_amount).toLocaleString()}
                   </span>
@@ -278,7 +278,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
 
             {/* คำขอพิเศษ */}
             {type === 'room' && b.special_request && (
-              <div className="flex items-start gap-2 rounded-xl bg-stone-50 p-2.5 text-[11.5px] text-charcoal-600">
+              <div className="flex items-start gap-2 rounded-xl bg-stone-50 p-2.5 text-xs text-charcoal-600">
                 <MessageSquareWarning size={14} className="mt-0.5 shrink-0 text-charcoal-400" />
                 <p><span className="font-semibold">คำขอพิเศษ:</span> {b.special_request}</p>
               </div>
@@ -286,7 +286,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
 
             {/* เหตุผลที่ถูกปฏิเสธ */}
             {b.status === 'rejected' && b.reject_reason && (
-              <div className="flex items-start gap-2 rounded-xl bg-red-50 p-2.5 text-[11.5px] text-red-700">
+              <div className="flex items-start gap-2 rounded-xl bg-red-50 p-2.5 text-xs text-red-700">
                 <AlertTriangle size={14} className="mt-0.5 shrink-0 text-red-500" />
                 <p><span className="font-semibold">เหตุผลที่ถูกปฏิเสธ:</span> {b.reject_reason}</p>
               </div>
@@ -302,13 +302,13 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
               return (
               <div>
                 {allTypesReviewed ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-forest-50 px-4 py-2 text-[12.5px] font-bold text-forest-700">
+                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-forest-50 px-4 py-2 text-xs font-bold text-forest-700">
                     <CheckCircle2 size={14} /> รีวิวการพักนี้แล้ว
                   </span>
                 ) : (
                   <Link
                     href="/reviews"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 px-4 py-2 text-[12.5px] font-bold text-amber-600 transition-colors hover:bg-amber-100"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 px-4 py-2 text-xs font-bold text-amber-600 transition-colors hover:bg-amber-100"
                   >
                     <Star size={14} className="fill-amber-400 text-amber-400" /> เขียนรีวิวการพักนี้
                   </Link>
@@ -327,7 +327,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
             <div className="mt-4 space-y-3 border-t border-stone-100 pt-4">
               {/* Deadline */}
               <div className="flex items-center justify-between rounded-xl bg-orange-50 px-4 py-2.5">
-                <span className="flex items-center gap-1.5 text-[11px] font-bold text-orange-700"><Clock3 size={13} /> ชำระเงินภายใน</span>
+                <span className="flex items-center gap-1.5 text-xs font-bold text-orange-700"><Clock3 size={13} /> ชำระเงินภายใน</span>
                 <DeadlineCell createdAt={createdAt} dueDays={paymentDueDays} />
               </div>
               {/* Action Buttons */}
@@ -335,13 +335,13 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
                 <div className="flex gap-3">
                   <Link
                     href={`/payment?booking_type=${type}&booking_id=${bid}`}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-forest-900 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-forest-800"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800"
                   >
                     <CreditCard size={15} /> ชำระเงิน
                   </Link>
                   <button
                     onClick={() => handleCancel(type, bid)}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-[12.5px] font-bold text-red-600 transition-colors hover:bg-red-50"
+                    className="flex items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
                   >
                     <XCircle size={15} /> ยกเลิก
                   </button>
@@ -361,19 +361,19 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
         <div className="flex gap-4">
           <button
             onClick={() => setTab('all')}
-            className={`flex items-center gap-2 border-b-2 px-1 pb-3 text-[13px] font-bold transition-colors ${tab === 'all' ? 'border-forest-800 text-forest-900' : 'border-transparent text-charcoal-400 hover:text-charcoal-600'}`}
+            className={`flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-bold transition-colors ${tab === 'all' ? 'border-forest-800 text-forest-900' : 'border-transparent text-charcoal-400 hover:text-charcoal-600'}`}
           >
             <LayoutGrid size={15} /> ทั้งหมด ({combined.length})
           </button>
           <button
             onClick={() => setTab('room')}
-            className={`flex items-center gap-2 border-b-2 px-1 pb-3 text-[13px] font-bold transition-colors ${tab === 'room' ? 'border-forest-800 text-forest-900' : 'border-transparent text-charcoal-400 hover:text-charcoal-600'}`}
+            className={`flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-bold transition-colors ${tab === 'room' ? 'border-forest-800 text-forest-900' : 'border-transparent text-charcoal-400 hover:text-charcoal-600'}`}
           >
             <CalendarDays size={15} /> ห้องพัก ({roomBookings.length})
           </button>
           <button
             onClick={() => setTab('kayak')}
-            className={`flex items-center gap-2 border-b-2 px-1 pb-3 text-[13px] font-bold transition-colors ${tab === 'kayak' ? 'border-forest-800 text-forest-900' : 'border-transparent text-charcoal-400 hover:text-charcoal-600'}`}
+            className={`flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-bold transition-colors ${tab === 'kayak' ? 'border-forest-800 text-forest-900' : 'border-transparent text-charcoal-400 hover:text-charcoal-600'}`}
           >
             <Anchor size={15} /> เรือ ({kayakBookings.length})
           </button>
@@ -397,7 +397,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
       ) : bookings.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-200 py-16 text-center">
           {tab === 'kayak' ? <Anchor size={40} className="mx-auto mb-3 text-stone-300" /> : <CalendarDays size={40} className="mx-auto mb-3 text-stone-300" />}
-          <p className="mb-4 text-[13px] text-charcoal-400">ยังไม่มีการจอง</p>
+          <p className="mb-4 text-sm text-charcoal-400">ยังไม่มีการจอง</p>
           <Link href={tab === 'kayak' ? '/kayaks' : '/rooms'} className="btn-primary">
             {tab === 'kayak' ? 'จองเรือ' : 'จองห้องพัก'}
           </Link>

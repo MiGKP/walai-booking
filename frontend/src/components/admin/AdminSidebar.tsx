@@ -250,7 +250,7 @@ export default function AdminSidebar() {
         <h2 className="font-display font-semibold text-base text-forest-800">
           สวนวลัยรุกขเวช
         </h2>
-        <p className="text-[11px] text-charcoal-400">{getRoleTitle()}</p>
+        <p className="text-xs text-charcoal-400">{getRoleTitle()}</p>
       </div>
 
       {/* Nav Links */}
@@ -378,7 +378,7 @@ export default function AdminSidebar() {
               <p className="text-xs font-bold text-forest-800 truncate">
                 {user?.first_name ? `${user.first_name}` : "ผู้ใช้ระบบ"}
               </p>
-              <p className="text-[10px] text-charcoal-400 truncate">
+              <p className="text-xs text-charcoal-400 truncate">
                 {user?.email || "user@walai.com"}
               </p>
             </div>
@@ -388,7 +388,7 @@ export default function AdminSidebar() {
             <Link
               href={profileHref}
               onClick={() => setMobileOpen(false)}
-              className="flex items-center justify-center gap-1 py-1 text-[11px] font-medium text-charcoal-600 hover:text-forest-800 hover:bg-stone-100 rounded-lg transition-colors"
+              className="flex items-center justify-center gap-1 py-1 text-xs font-medium text-charcoal-600 hover:text-forest-800 hover:bg-stone-100 rounded-lg transition-colors"
             >
               <User size={13} />
               <span>โปรไฟล์</span>
@@ -400,7 +400,7 @@ export default function AdminSidebar() {
                 setMobileOpen(false);
                 logout?.();
               }}
-              className="flex items-center justify-center gap-1 py-1 text-[11px] font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+              className="flex items-center justify-center gap-1 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
             >
               <LogOut size={13} />
               <span>ออกระบบ</span>

@@ -463,7 +463,7 @@ function SingleRoomsPageContent() {
               <Home size={18} />
             </div>
             <div>
-              <span className="text-[10px] font-semibold text-stone-400 block leading-tight">
+              <span className="text-xs font-semibold text-stone-400 block leading-tight">
                 จำนวนห้องพักทั้งหมด
               </span>
               <span className="text-xs font-bold text-[#0b3b2c]">
@@ -502,7 +502,7 @@ function SingleRoomsPageContent() {
             <button
               type="button"
               onClick={handleResetForm}
-              className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+              className="text-xs font-semibold text-rose-600 hover:underline cursor-pointer"
             >
               ยกเลิกการแก้ไข
             </button>
@@ -517,7 +517,7 @@ function SingleRoomsPageContent() {
               เลขถัดไป {currentPrefix}
               {startNumInput === "" ? 1 : startNumInput}
             </span>
-            <span className="text-[11px] font-normal text-stone-500">
+            <span className="text-xs font-normal text-stone-500">
               (ต่อจากเลขเดิมในโซนนี้)
             </span>
           </div>
@@ -525,7 +525,7 @@ function SingleRoomsPageContent() {
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <div className={editingRoomId ? "md:col-span-3" : "md:col-span-4"}>
-            <label className="block text-[11px] font-bold text-stone-700 mb-1">
+            <label className="block text-xs font-bold text-stone-700 mb-1">
               {editingRoomId ? "ประเภทห้องพัก" : "ประเภทห้องหลัก (Default)"}{" "}
               <span className="text-rose-500">*</span>
             </label>
@@ -541,7 +541,7 @@ function SingleRoomsPageContent() {
             <>
               {/* เริ่มที่ห้องหมายเลข */}
               <div className="md:col-span-2">
-                <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                <label className="block text-xs font-bold text-stone-700 mb-1">
                   เริ่มที่ห้องหมายเลข
                 </label>
                 <input
@@ -568,7 +568,7 @@ function SingleRoomsPageContent() {
 
               {/* ช่องจำนวนห้องพร้อมปุ่ม +/- */}
               <div className="md:col-span-3">
-                <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                <label className="block text-xs font-bold text-stone-700 mb-1">
                   จำนวนห้อง <span className="text-rose-500">*</span>
                 </label>
                 <div className="flex items-center">
@@ -624,7 +624,7 @@ function SingleRoomsPageContent() {
           ) : (
             <>
               <div className="md:col-span-3">
-                <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                <label className="block text-xs font-bold text-stone-700 mb-1">
                   หมายเลขห้องพัก <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -637,7 +637,7 @@ function SingleRoomsPageContent() {
               </div>
 
               <div className="md:col-span-3">
-                <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                <label className="block text-xs font-bold text-stone-700 mb-1">
                   สถานะการใช้งาน
                 </label>
                 
@@ -714,7 +714,7 @@ function SingleRoomsPageContent() {
                   <CheckCircle2 size={15} className="text-emerald-600" />
                   พรีวิวผังห้องพัก ({draftRooms.length} ห้อง)
                 </h4>
-                <p className="text-[11px] text-stone-500">
+                <p className="text-xs text-stone-500">
                   ระบบตั้งค่าประเภทหลักให้อัตโนมัติ สามารถกดเปลี่ยนประเภทเฉพาะบางห้องได้ทันที
                 </p>
               </div>
@@ -723,7 +723,7 @@ function SingleRoomsPageContent() {
                 <button
                   type="button"
                   onClick={() => setDraftRooms([])}
-                  className="px-3 py-1.5 text-[11px] font-bold text-stone-600 hover:bg-stone-100 border border-stone-200 rounded-lg transition-all"
+                  className="px-3 py-1.5 text-xs font-bold text-stone-600 hover:bg-stone-100 border border-stone-200 rounded-lg transition-all"
                 >
                   ล้างผังตัวอย่าง
                 </button>
@@ -854,14 +854,14 @@ function SingleRoomsPageContent() {
               <DoorClosed size={16} className="text-[#0b3b2c]" />
               รายการห้องพักย่อย
             </h3>
-            <span className="px-2.5 py-0.5 bg-stone-200/70 text-stone-700 rounded-full text-[11px] font-bold">
+            <span className="px-2.5 py-0.5 bg-stone-200/70 text-stone-700 rounded-full text-xs font-bold">
               {filteredAndSortedRooms.length} รายการ
             </span>
           </div>
 
           <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
             <table className="w-full text-left border-collapse">
-              <thead className="bg-stone-100 border-b border-stone-200/80 text-[11px] font-bold text-stone-500 uppercase tracking-wider select-none sticky top-0 z-10 shadow-2xs">
+              <thead className="bg-stone-100 border-b border-stone-200/80 text-xs font-bold text-stone-500 uppercase tracking-wider select-none sticky top-0 z-10 shadow-2xs">
                 <tr>
                   <th className="px-5 py-3.5 w-16 text-center bg-stone-100">ลำดับ</th>
                   
@@ -961,7 +961,7 @@ function SingleRoomsPageContent() {
                       </td>
                       <td className="px-4 py-3.5">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                          className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                             sr.status === "available"
                               ? "bg-emerald-100 text-emerald-800"
                               : sr.status === "occupied"

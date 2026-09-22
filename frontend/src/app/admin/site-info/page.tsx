@@ -449,28 +449,28 @@ export default function GeneralSettingsPage() {
                       {openDaysDropdown && (
                         <div className="absolute left-0 top-full mt-1 w-full bg-white border border-stone-200 rounded-2xl shadow-xl z-50 p-3 space-y-3">
                           <div className="space-y-1">
-                            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block px-1">
+                            <span className="text-xs font-bold text-stone-400 uppercase tracking-wider block px-1">
                               ตัวเลือกลัด
                             </span>
                             <div className="grid grid-cols-3 gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => handleQuickSelectDays("all")}
-                                className="px-2 py-1 text-[11px] font-medium bg-emerald-50 text-[#064e3b] hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer text-center"
+                                className="px-2 py-1 text-xs font-medium bg-emerald-50 text-[#064e3b] hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer text-center"
                               >
                                 เปิดทุกวัน
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleQuickSelectDays("weekday")}
-                                className="px-2 py-1 text-[11px] font-medium bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-lg transition-colors cursor-pointer text-center"
+                                className="px-2 py-1 text-xs font-medium bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-lg transition-colors cursor-pointer text-center"
                               >
                                 จ. - ศ.
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleQuickSelectDays("weekend")}
-                                className="px-2 py-1 text-[11px] font-medium bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-lg transition-colors cursor-pointer text-center"
+                                className="px-2 py-1 text-xs font-medium bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-lg transition-colors cursor-pointer text-center"
                               >
                                 ส. - อา.
                               </button>
@@ -478,7 +478,7 @@ export default function GeneralSettingsPage() {
                           </div>
 
                           <div className="border-t border-stone-100 pt-2 space-y-1">
-                            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block px-1">
+                            <span className="text-xs font-bold text-stone-400 uppercase tracking-wider block px-1">
                               เลือกแยกตามวัน
                             </span>
                             <div className="space-y-0.5 max-h-44 overflow-y-auto pr-1">
@@ -539,7 +539,7 @@ export default function GeneralSettingsPage() {
                             }`}
                           >
                             <div className="flex items-center">
-                              <span className="text-[10px] uppercase font-bold text-stone-400 mr-2 select-none">
+                              <span className="text-xs uppercase font-bold text-stone-400 mr-2 select-none">
                                 เปิด
                               </span>
                               <span className="text-stone-800">
@@ -605,7 +605,7 @@ export default function GeneralSettingsPage() {
                             }`}
                           >
                             <div className="flex items-center">
-                              <span className="text-[10px] uppercase font-bold text-stone-400 mr-2 select-none">
+                              <span className="text-xs uppercase font-bold text-stone-400 mr-2 select-none">
                                 ปิด
                               </span>
                               <span className="text-stone-800">{endTime}</span>
@@ -824,7 +824,7 @@ export default function GeneralSettingsPage() {
                       </div>
                     </div>
 
-                    <p className="text-[11px] text-stone-400 mt-1">
+                    <p className="text-xs text-stone-400 mt-1">
                       * คำนวณวันครบกำหนดชำระอัตโนมัติหลังทำรายการจอง
                     </p>
                   </div>

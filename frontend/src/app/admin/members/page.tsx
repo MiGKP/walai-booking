@@ -344,7 +344,7 @@ export default function AdminMembersPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-stone-50/80 border-b border-stone-200/80 text-[11px] uppercase tracking-wider text-stone-500 font-bold">
+              <tr className="bg-stone-50/80 border-b border-stone-200/80 text-xs uppercase tracking-wider text-stone-500 font-bold">
                 <th className="py-3.5 px-4 sm:px-6">#</th>
                 <th className="py-3.5 px-4">สมาชิก</th>
                 <th className="py-3.5 px-4">อีเมล</th>
@@ -448,7 +448,7 @@ export default function AdminMembersPage() {
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
                             isActive
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                               : "bg-rose-50 text-rose-600 border border-rose-200"
@@ -612,7 +612,7 @@ export default function AdminMembersPage() {
             <div className="p-6 space-y-5 text-xs text-stone-700 max-h-[80vh] overflow-y-auto">
               {/* ข้อมูลการติดต่อ */}
               <div className="space-y-2">
-                <h4 className="font-bold text-stone-400 text-[11px] uppercase tracking-wider">
+                <h4 className="font-bold text-stone-400 text-xs uppercase tracking-wider">
                   ข้อมูลการติดต่อ
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-stone-50 p-3.5 rounded-2xl border border-stone-200/60">
@@ -633,14 +633,14 @@ export default function AdminMembersPage() {
 
               {/* ช่องทาง Social & Auth Provider */}
               <div className="space-y-2">
-                <h4 className="font-bold text-stone-400 text-[11px] uppercase tracking-wider">
+                <h4 className="font-bold text-stone-400 text-xs uppercase tracking-wider">
                   ช่องทางเชื่อมต่อ & ระบบล็อกอิน
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-stone-50 p-3.5 rounded-2xl border border-stone-200/60">
                   <div className="flex items-center gap-2">
                     <Globe size={14} className="text-stone-400" />
                     <div>
-                      <p className="text-[10px] text-stone-400 font-semibold">การเข้าสู่ระบบ</p>
+                      <p className="text-xs text-stone-400 font-semibold">การเข้าสู่ระบบ</p>
                       <p className="font-bold text-stone-800 uppercase">
                         {detailModal.data.auth_provider || "EMAIL"}
                       </p>
@@ -649,7 +649,7 @@ export default function AdminMembersPage() {
                   <div className="flex items-center gap-2">
                     <MessageCircle size={14} className="text-emerald-600" />
                     <div>
-                      <p className="text-[10px] text-stone-400 font-semibold">Line ID</p>
+                      <p className="text-xs text-stone-400 font-semibold">Line ID</p>
                       <p className="font-bold text-stone-800">
                         {detailModal.data.line_id || "-"}
                       </p>
@@ -658,7 +658,7 @@ export default function AdminMembersPage() {
                   <div className="flex items-center gap-2">
                     <Facebook size={14} className="text-blue-600" />
                     <div>
-                      <p className="text-[10px] text-stone-400 font-semibold">Facebook</p>
+                      <p className="text-xs text-stone-400 font-semibold">Facebook</p>
                       <p className="font-bold text-stone-800 truncate max-w-[90px]">
                         {detailModal.data.facebook || "-"}
                       </p>
@@ -669,7 +669,7 @@ export default function AdminMembersPage() {
 
               {/* สรุปการจอง */}
               <div className="space-y-2">
-                <h4 className="font-bold text-stone-400 text-[11px] uppercase tracking-wider">
+                <h4 className="font-bold text-stone-400 text-xs uppercase tracking-wider">
                   ประวัติการใช้งาน
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
@@ -678,7 +678,7 @@ export default function AdminMembersPage() {
                       <Hotel size={18} />
                     </div>
                     <div>
-                      <p className="text-[11px] text-stone-500 font-semibold">การจองห้องพัก</p>
+                      <p className="text-xs text-stone-500 font-semibold">การจองห้องพัก</p>
                       <p className="text-lg font-bold text-emerald-800">
                         {detailModal.data.room_booking_count ?? 0}{" "}
                         <span className="text-xs font-normal">ครั้ง</span>
@@ -691,7 +691,7 @@ export default function AdminMembersPage() {
                       <Ship size={18} />
                     </div>
                     <div>
-                      <p className="text-[11px] text-stone-500 font-semibold">การจองเรือ</p>
+                      <p className="text-xs text-stone-500 font-semibold">การจองเรือ</p>
                       <p className="text-lg font-bold text-teal-800">
                         {detailModal.data.boat_booking_count ?? 0}{" "}
                         <span className="text-xs font-normal">ครั้ง</span>
@@ -702,7 +702,7 @@ export default function AdminMembersPage() {
               </div>
 
               {/* วันที่สมัคร & เวลาแก้ไขล่าสุด */}
-              <div className="pt-2 border-t border-stone-100 flex flex-col gap-1 text-stone-500 text-[11px]">
+              <div className="pt-2 border-t border-stone-100 flex flex-col gap-1 text-stone-500 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1">
                     <Clock size={12} /> วันที่สมัครสมาชิก:

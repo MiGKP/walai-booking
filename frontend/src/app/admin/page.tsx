@@ -221,7 +221,7 @@ export default function AdminPage() {
                 ) : (
                   <div className="space-y-2 mt-3">
                     {pendingRoomsList.slice(0, 3).map(item => (
-                      <div key={item.id} className="text-[11px] bg-white p-2 rounded-lg border border-bamboo-100/50 flex justify-between">
+                      <div key={item.id} className="text-xs bg-white p-2 rounded-lg border border-bamboo-100/50 flex justify-between">
                         <span className="font-semibold text-charcoal-700 truncate mr-2">
                            #{item.id} {item.customer_name || item.user?.name}
                         </span>
@@ -229,7 +229,7 @@ export default function AdminPage() {
                       </div>
                     ))}
                     {pendingRoomsList.length > 3 && (
-                      <p className="text-[10px] text-center text-bamboo-600 font-medium pt-1">
+                      <p className="text-xs text-center text-bamboo-600 font-medium pt-1">
                         + อีก {pendingRoomsList.length - 3} รายการ
                       </p>
                     )}
@@ -260,7 +260,7 @@ export default function AdminPage() {
                 ) : (
                   <div className="space-y-2 mt-3">
                     {pendingKayaksList.slice(0, 3).map(item => (
-                      <div key={item.id} className="text-[11px] bg-white p-2 rounded-lg border border-lagoon-100/50 flex justify-between">
+                      <div key={item.id} className="text-xs bg-white p-2 rounded-lg border border-lagoon-100/50 flex justify-between">
                         <span className="font-semibold text-charcoal-700 truncate mr-2">
                            #{item.id} {item.customer_name || item.user?.name}
                         </span>
@@ -268,7 +268,7 @@ export default function AdminPage() {
                       </div>
                     ))}
                     {pendingKayaksList.length > 3 && (
-                      <p className="text-[10px] text-center text-lagoon-600 font-medium pt-1">
+                      <p className="text-xs text-center text-lagoon-600 font-medium pt-1">
                         + อีก {pendingKayaksList.length - 3} รายการ
                       </p>
                     )}
@@ -368,7 +368,7 @@ export default function AdminPage() {
           {/* Status Breakdown */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-stone-50 rounded-xl p-4 border border-stone-100">
-              <h4 className="text-[11px] font-bold text-charcoal-500 flex items-center gap-1.5 mb-3">
+              <h4 className="text-xs font-bold text-charcoal-500 flex items-center gap-1.5 mb-3">
                 <Home size={14} /> สถานะห้องพัก
               </h4>
               <div className="space-y-2 text-xs">
@@ -379,7 +379,7 @@ export default function AdminPage() {
             </div>
             
             <div className="bg-stone-50 rounded-xl p-4 border border-stone-100">
-              <h4 className="text-[11px] font-bold text-charcoal-500 flex items-center gap-1.5 mb-3">
+              <h4 className="text-xs font-bold text-charcoal-500 flex items-center gap-1.5 mb-3">
                 <Sailboat size={14} /> สถานะคายัค
               </h4>
               <div className="space-y-2 text-xs">

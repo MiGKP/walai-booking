@@ -24,16 +24,16 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-body {
-  font-family: "Sarabun", sans-serif;
-  color: var(--color-charcoal);
-  background-color: var(--color-cream);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+@layer base {
+  body {
+    @apply font-sans text-charcoal bg-cream-100;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: "Pridi", serif;
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
 }
 
 /* ——————————————————————————————

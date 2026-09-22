@@ -165,7 +165,7 @@ function ScrollMouseIndicator({ targetId }: { targetId: string }) {
       <div className="relative w-6 h-10 rounded-full border-2 border-forest-800/40 group-hover:border-forest-800 group-hover:scale-110 transition-all duration-300 flex justify-center pt-2 bg-white/30 backdrop-blur-xs">
         <div className="w-1.5 h-1.5 rounded-full bg-bamboo-400 animate-scroll-dot" />
       </div>
-      <span className="text-[11px] font-medium text-forest-800/70 group-hover:text-forest-800 transition-colors">
+      <span className="text-xs font-medium text-forest-800/70 group-hover:text-forest-800 transition-colors">
         เลื่อนลงเพื่อดูต่อ
       </span>
     </button>
@@ -240,13 +240,13 @@ function RoomCard({ room, large = false }: { room: LandingRoomType; large?: bool
         )}
         <div className="flex items-end justify-between mt-3 md:mt-4">
           <div>
-            <span className="text-[11px] text-cream-100/65">เริ่มต้น</span>
+            <span className="text-xs text-cream-100/65">เริ่มต้น</span>
             <div className="font-display font-bold text-lg leading-none">
               ฿{formatPrice(room.price_per_night)}
               <span className="text-xs font-normal text-cream-100/70"> /คืน</span>
             </div>
           </div>
-          <span className="text-[11px] bg-white/15 backdrop-blur-sm px-2.5 py-1 rounded-full whitespace-nowrap">
+          <span className="text-xs bg-white/15 backdrop-blur-sm px-2.5 py-1 rounded-full whitespace-nowrap">
             พักได้ {room.capacity} ท่าน
           </span>
         </div>
@@ -562,7 +562,7 @@ export default function HomePage() {
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-12">
               <div className="border-l border-bamboo-300 pl-6">
-                <span className="block text-[13px] tracking-wide text-forest-700 uppercase font-semibold mb-1">Accommodation</span>
+                <span className="block text-sm tracking-wide text-forest-700 uppercase font-semibold mb-1">Accommodation</span>
                 <div className="font-display text-3xl font-bold text-forest-900">
                   {landingStats.room_type_count ? (
                     <>{landingStats.room_type_count} <span className="text-xl font-normal text-forest-700">รูปแบบ</span></>
@@ -573,7 +573,7 @@ export default function HomePage() {
                 <p className="text-sm text-charcoal-400 mt-2 font-light">ห้องพักลอยน้ำที่ออกแบบอย่างกลมกลืน</p>
               </div>
               <div className="border-l border-bamboo-300 pl-6">
-                <span className="block text-[13px] tracking-wide text-forest-700 uppercase font-semibold mb-1">Experience</span>
+                <span className="block text-sm tracking-wide text-forest-700 uppercase font-semibold mb-1">Experience</span>
                 <div className="font-display text-3xl font-bold text-forest-900">
                   {landingStats.boat_type_count ? (
                     <>{landingStats.boat_type_count} <span className="text-xl font-normal text-forest-700">กิจกรรม</span></>
@@ -729,7 +729,7 @@ export default function HomePage() {
                     <div className="sm:w-2/3">
                       <ul className="grid sm:grid-cols-2 gap-x-4 gap-y-3">
                         {group.items.map((item) => (
-                          <li key={item} className="flex items-start gap-2.5 text-[14.5px] leading-relaxed text-charcoal-600">
+                          <li key={item} className="flex items-start gap-2.5 text-sm leading-relaxed text-charcoal-600">
                             <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-forest-200" />
                             <span>{item}</span>
                           </li>

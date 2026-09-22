@@ -54,7 +54,7 @@ export default function PromotionsPage(): React.ReactElement {
     <div className="min-h-screen bg-[#FDFBF7] pt-16">
       <header className="border-b border-stone-200/80 bg-gradient-to-b from-stone-100/50 to-[#FDFBF7]">
         <div className="container mx-auto px-4 py-8">
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-lagoon-600">
+          <span className="text-xs font-semibold uppercase tracking-widest text-lagoon-600">
             โปรโมชั่น
           </span>
           <h1 className="mt-1 font-display text-3xl font-medium tracking-tight text-forest-900">

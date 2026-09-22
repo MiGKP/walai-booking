@@ -44,7 +44,7 @@ function CallbackContent(): React.ReactElement {
         <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-forest-800 text-cream-100">
           <LoaderCircle size={28} className="animate-spin" />
         </div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-lagoon-600">Walai Booking</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-lagoon-600">Walai Booking</p>
         <h1 className="mt-2 font-display text-xl text-forest-900">กำลังเข้าสู่ระบบ</h1>
         <p className="mt-2 text-sm leading-6 text-charcoal-500">กรุณารอสักครู่ ระบบกำลังยืนยันตัวตนของคุณ</p>
       </div>

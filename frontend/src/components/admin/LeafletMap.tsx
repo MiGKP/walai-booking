@@ -159,7 +159,7 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
 
         {/* 🌟 ปุ่มลัดตำแหน่งที่ใช้บ่อย (Quick Preset Buttons) */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-[10px] font-semibold text-stone-600 bg-white/90 px-2 py-1 rounded-lg border border-stone-200 shrink-0 shadow-2xs">
+          <span className="text-xs font-semibold text-stone-600 bg-white/90 px-2 py-1 rounded-lg border border-stone-200 shrink-0 shadow-2xs">
             ทางลัด:
           </span>
           {PRESET_LOCATIONS.map((loc) => (
@@ -167,7 +167,7 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
               key={loc.name}
               type="button"
               onClick={() => setPosition(loc.coords)}
-              className="text-[11px] font-medium bg-emerald-800/90 hover:bg-emerald-900 text-white px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+              className="text-xs font-medium bg-emerald-800/90 hover:bg-emerald-900 text-white px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0 cursor-pointer"
             >
               <MapPin className="w-3 h-3" />
               {loc.name}

@@ -237,7 +237,7 @@ function CustomDatePicker({
             </button>
           </div>
 
-          <div className="grid grid-cols-7 text-center text-[10px] font-bold text-stone-400 mb-1">
+          <div className="grid grid-cols-7 text-center text-xs font-bold text-stone-400 mb-1">
             <span>อา</span>
             <span>จ</span>
             <span>อ</span>
@@ -275,7 +275,7 @@ function CustomDatePicker({
             })}
           </div>
 
-          <div className="flex items-center justify-between pt-2 mt-2 border-t border-stone-100 text-[10px]">
+          <div className="flex items-center justify-between pt-2 mt-2 border-t border-stone-100 text-xs">
             <button
               onClick={() => {
                 const today = new Date().toISOString().split("T")[0];
@@ -924,7 +924,7 @@ function RoomStaffDashboardContent() {
               <span className={`absolute left-0 top-0 bottom-0 w-1 ${a.bar}`} />
               <div className="flex items-center justify-between gap-2 relative pl-1">
                 <div className="min-w-0">
-                  <span className="text-[10.5px] font-medium text-stone-500 leading-tight block truncate">
+                  <span className="text-xs font-medium text-stone-500 leading-tight block truncate">
                     {card.label}
                   </span>
                   <p className={`text-lg font-extrabold tracking-tight font-mono leading-tight ${a.text}`}>
@@ -942,14 +942,14 @@ function RoomStaffDashboardContent() {
         <div className="bg-gradient-to-br from-[#0b3b2c] to-[#0f4a37] p-2.5 pl-3 rounded-xl border border-[#0b3b2c] shadow-xs relative overflow-hidden col-span-2 sm:col-span-1">
           <div className="flex items-center justify-between gap-2 relative">
             <div className="min-w-0">
-              <span className="text-[10.5px] font-medium text-emerald-100/80 leading-tight block truncate">
+              <span className="text-xs font-medium text-emerald-100/80 leading-tight block truncate">
                 รายได้ยืนยันแล้ว
               </span>
               <p className="text-lg font-extrabold text-white tracking-tight font-mono leading-tight">
                 ฿{counts.totalRevenue.toLocaleString()}
               </p>
               {counts.pendingRevenue > 0 && (
-                <p className="text-[9.5px] text-emerald-200/90 font-medium truncate">
+                <p className="text-xs text-emerald-200/90 font-medium truncate">
                   รอตรวจสอบ ฿{counts.pendingRevenue.toLocaleString()}
                 </p>
               )}
@@ -1083,7 +1083,7 @@ function RoomStaffDashboardContent() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs md:text-sm">
             <thead>
-              <tr className="bg-stone-50 border-b border-stone-200/80 text-stone-500 font-bold text-[11px] tracking-wider uppercase">
+              <tr className="bg-stone-50 border-b border-stone-200/80 text-stone-500 font-bold text-xs tracking-wider uppercase">
                 <th className="px-5 py-4">
                   <button
                     type="button"
@@ -1211,7 +1211,7 @@ function RoomStaffDashboardContent() {
                             <p className="font-semibold text-stone-800 leading-snug">
                               {b.user_name || "ไม่ระบุชื่อ"}
                             </p>
-                            <p className="text-[11px] text-stone-500 font-mono flex items-center gap-1 mt-0.5">
+                            <p className="text-xs text-stone-500 font-mono flex items-center gap-1 mt-0.5">
                               <Phone size={10} className="text-stone-400" />
                               {b.user_phone || b.phone || "-"}
                             </p>
@@ -1229,7 +1229,7 @@ function RoomStaffDashboardContent() {
                             <p className="font-semibold text-stone-800 leading-snug">
                               {b.room_name || b.type_name || "-"}
                             </p>
-                            <p className="text-[11px] text-stone-500">
+                            <p className="text-xs text-stone-500">
                               {Array.isArray(b.rooms) && b.rooms.length > 1
                                 ? `${b.rooms.length} ห้อง`
                                 : (
@@ -1245,7 +1245,7 @@ function RoomStaffDashboardContent() {
                                 )}
                             </p>
                             {Array.isArray(b.rooms) && b.rooms.length > 1 && (
-                              <ul className="mt-1 space-y-0.5 text-[10px] text-stone-500">
+                              <ul className="mt-1 space-y-0.5 text-xs text-stone-500">
                                 {b.rooms.map(
                                   (line: {
                                     booking_room_id: number;
@@ -1299,7 +1299,7 @@ function RoomStaffDashboardContent() {
                             </span>
                           </div>
                           {nights > 0 && (
-                            <span className="text-[10px] text-stone-400 flex items-center gap-1 font-medium">
+                            <span className="text-xs text-stone-400 flex items-center gap-1 font-medium">
                               <Moon size={10} /> {nights} คืน
                             </span>
                           )}
@@ -1324,7 +1324,7 @@ function RoomStaffDashboardContent() {
                             ["approved", "checked_out", "rejected"].includes(
                               b.status,
                             ) && (
-                              <span className="text-[10px] text-stone-400 ml-1">
+                              <span className="text-xs text-stone-400 ml-1">
                                 โดย: {b.approved_by_name}
                               </span>
                             )}
@@ -1387,7 +1387,7 @@ function RoomStaffDashboardContent() {
                                     `/admin/checkin?search=${encodeURIComponent(b.user_phone || b.user_name || "")}`,
                                   )
                                 }
-                                className="inline-flex items-center gap-1 text-[11px] text-stone-500 hover:text-[#0b3b2c] font-medium transition-colors"
+                                className="inline-flex items-center gap-1 text-xs text-stone-500 hover:text-[#0b3b2c] font-medium transition-colors"
                               >
                                 <LogIn size={11} />
                                 <span>ไปหน้าเช็คอิน-เช็คเอาต์</span>
@@ -1670,7 +1670,7 @@ function RoomStaffDashboardContent() {
                       </span>
 
                       {isCheckedOut ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 text-[11px] font-bold print:border print:border-teal-300">
+                        <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 text-xs font-bold print:border print:border-teal-300">
                           เช็คเอาต์แล้ว (
                           {new Date(booking.checkout_at).toLocaleTimeString(
                             "th-TH",
@@ -1679,7 +1679,7 @@ function RoomStaffDashboardContent() {
                           น.)
                         </span>
                       ) : isCheckedIn ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold print:border print:border-emerald-300">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold print:border print:border-emerald-300">
                           เช็คอินแล้ว (
                           {new Date(booking.checkin_at).toLocaleTimeString(
                             "th-TH",
@@ -1688,7 +1688,7 @@ function RoomStaffDashboardContent() {
                           น.)
                         </span>
                       ) : (
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#0b3b2c]/10 text-[#0b3b2c] text-[11px] font-bold print:border print:border-emerald-300">
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#0b3b2c]/10 text-[#0b3b2c] text-xs font-bold print:border print:border-emerald-300">
                           {statusLabel[booking.status] || booking.status}
                         </span>
                       )}

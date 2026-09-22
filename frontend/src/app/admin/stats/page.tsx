@@ -336,7 +336,7 @@ export default function StatsPage() {
                   <p className="font-display text-2xl font-bold text-emerald-800 tabular-nums">
                     ฿{totalRevenue.toLocaleString()}
                   </p>
-                  <p className="text-[11px] text-charcoal-400 mt-1 font-medium">รวมห้องพักและเรือคายัค</p>
+                  <p className="text-xs text-charcoal-400 mt-1 font-medium">รวมห้องพักและเรือคายัค</p>
                 </div>
               </div>
 
@@ -351,7 +351,7 @@ export default function StatsPage() {
                   <p className="font-display text-2xl font-bold text-forest-800 tabular-nums">
                     {roomStats.approved_count || 0} รายการ
                   </p>
-                  <p className="text-[11px] text-charcoal-400 mt-1 font-medium">
+                  <p className="text-xs text-charcoal-400 mt-1 font-medium">
                     รอ {roomStats.pending_count || 0} | ยกเลิก {roomStats.cancelled_count || 0}
                   </p>
                 </div>
@@ -368,7 +368,7 @@ export default function StatsPage() {
                   <p className="font-display text-2xl font-bold text-lagoon-700 tabular-nums">
                     {kayakStats.approved_count || 0} รายการ
                   </p>
-                  <p className="text-[11px] text-charcoal-400 mt-1 font-medium">
+                  <p className="text-xs text-charcoal-400 mt-1 font-medium">
                     รอ {kayakStats.pending_count || 0} | ยกเลิก {kayakStats.cancelled_count || 0}
                   </p>
                 </div>
@@ -385,7 +385,7 @@ export default function StatsPage() {
                   <p className="font-display text-2xl font-bold text-indigo-700 tabular-nums">
                     {data.total_members || 0} คน
                   </p>
-                  <p className="text-[11px] text-charcoal-400 mt-1 font-medium">ผู้ใช้งานลงทะเบียนในระบบ</p>
+                  <p className="text-xs text-charcoal-400 mt-1 font-medium">ผู้ใช้งานลงทะเบียนในระบบ</p>
                 </div>
               </div>
             </div>
@@ -497,7 +497,7 @@ export default function StatsPage() {
 
                       return (
                         <div key={dayStr} className="flex flex-col items-center gap-1 w-7 group relative">
-                          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-forest-900 text-white text-[10px] font-semibold rounded-lg px-2 py-1 opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap z-20 shadow-md">
+                          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-forest-900 text-white text-xs font-semibold rounded-lg px-2 py-1 opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap z-20 shadow-md">
                             วันที่ {dayNum}: ฿{total.toLocaleString()}
                           </div>
 
@@ -506,7 +506,7 @@ export default function StatsPage() {
                             {rH > 0 && <div className="bg-forest-800 w-full transition-all" style={{ height: rH }} />}
                           </div>
 
-                          <span className="text-[10px] font-medium text-charcoal-400 group-hover:text-forest-800">
+                          <span className="text-xs font-medium text-charcoal-400 group-hover:text-forest-800">
                             {dayNum}
                           </span>
                         </div>

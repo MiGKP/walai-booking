@@ -86,7 +86,7 @@ interface Review {
 }
 
 const CARD = 'rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)] transition-shadow duration-300 hover:shadow-[0_1px_2px_rgba(18,60,48,0.02),0_12px_28px_-8px_rgba(18,60,48,0.14)]';
-const SECTION_TITLE = 'font-sans text-[18px] font-semibold leading-tight text-forest-900';
+const SECTION_TITLE = 'font-sans text-lg font-semibold leading-tight text-forest-900';
 
 function SectionHeading({ icon, title, action }: { icon: React.ReactNode; title: string; action?: React.ReactNode }): React.ReactElement {
   return (
@@ -285,7 +285,7 @@ export default function RoomDetailPage(): React.ReactElement {
   };
 
   if (loading) return <div className="min-h-screen bg-cream-100 pb-20 pt-24"><div className="container mx-auto max-w-6xl px-4"><div className="mb-6 h-9 w-40 animate-pulse rounded-full bg-white" /><div className="mb-6 space-y-3"><div className="h-5 w-48 animate-pulse rounded-full bg-white" /><div className="h-9 w-2/3 animate-pulse rounded-xl bg-white" /></div><div className="grid gap-8 lg:grid-cols-[1fr_360px]"><div className="space-y-6"><div className="h-[300px] animate-pulse rounded-2xl bg-white sm:h-[420px]" /><div className="h-56 animate-pulse rounded-2xl bg-white" /><div className="h-72 animate-pulse rounded-2xl bg-white" /></div><div className="h-[540px] animate-pulse rounded-2xl bg-white" /></div></div></div>;
-  if (!room) return <div className="grid min-h-screen place-items-center bg-cream-100 px-4 pt-20 text-center"><div className={`${CARD} max-w-sm px-6 py-10`}><AlertCircle className="mx-auto mb-4 h-8 w-8 text-stone-300" /><h2 className="font-sans text-[20px] font-semibold text-forest-900">ไม่พบห้องพักนี้</h2><p className="mt-1.5 text-[13px] leading-relaxed text-charcoal-400">ห้องพักอาจถูกปิดปรับปรุง หรือถูกนำออกจากระบบแล้ว ลองกลับไปเลือกจากรายการห้องพักทั้งหมด</p><Link href={`/rooms?${searchParams.toString()}`} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-forest-900 py-3 text-[13px] font-bold text-white shadow-md transition-all hover:bg-forest-800 active:scale-[0.98]"><ArrowLeft size={15} />ดูห้องพักทั้งหมด</Link></div></div>;
+  if (!room) return <div className="grid min-h-screen place-items-center bg-cream-100 px-4 pt-20 text-center"><div className={`${CARD} max-w-sm px-6 py-10`}><AlertCircle className="mx-auto mb-4 h-8 w-8 text-stone-300" /><h2 className="font-sans text-xl font-semibold text-forest-900">ไม่พบห้องพักนี้</h2><p className="mt-1.5 text-sm leading-relaxed text-charcoal-400">ห้องพักอาจถูกปิดปรับปรุง หรือถูกนำออกจากระบบแล้ว ลองกลับไปเลือกจากรายการห้องพักทั้งหมด</p><Link href={`/rooms?${searchParams.toString()}`} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-forest-900 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-forest-800 active:scale-[0.98]"><ArrowLeft size={15} />ดูห้องพักทั้งหมด</Link></div></div>;
 
   const availableCount = sortedPhysicalRooms.length > 0 ? sortedPhysicalRooms.filter((r) => r.is_available).length : 1;
 
@@ -296,7 +296,7 @@ export default function RoomDetailPage(): React.ReactElement {
         <div className="relative">
           <Link
             href={`/rooms?${searchParams.toString()}`}
-            className="group absolute left-3 top-3 z-10 inline-flex items-center gap-2.5 rounded-full bg-white/90 py-1.5 pl-1.5 pr-4 text-[13px] font-bold text-forest-800 shadow-md backdrop-blur-sm transition-all duration-200 hover:-translate-x-0.5 hover:bg-white"
+            className="group absolute left-3 top-3 z-10 inline-flex items-center gap-2.5 rounded-full bg-white/90 py-1.5 pl-1.5 pr-4 text-sm font-bold text-forest-800 shadow-md backdrop-blur-sm transition-all duration-200 hover:-translate-x-0.5 hover:bg-white"
           >
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700 transition-colors group-hover:bg-forest-100">
               <ArrowLeft size={14} />
@@ -320,7 +320,7 @@ export default function RoomDetailPage(): React.ReactElement {
             <button
               type="button"
               onClick={() => setLightboxOpen(true)}
-              className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-bold text-forest-800 shadow-md backdrop-blur-sm transition-colors hover:bg-white"
+              className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-bold text-forest-800 shadow-md backdrop-blur-sm transition-colors hover:bg-white"
             >
               <Maximize2 size={13} />
               ดูภาพขยาย
@@ -343,7 +343,7 @@ export default function RoomDetailPage(): React.ReactElement {
                 >
                   <ChevronRight size={18} />
                 </button>
-                <span className="absolute bottom-3 right-3 rounded-full bg-forest-950/60 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">{activeImage + 1} / {galleryImages.length}</span>
+                <span className="absolute bottom-3 right-3 rounded-full bg-forest-950/60 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-sm">{activeImage + 1} / {galleryImages.length}</span>
               </>
             )}
           </div>
@@ -377,30 +377,30 @@ export default function RoomDetailPage(): React.ReactElement {
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="mb-2.5 flex flex-wrap items-center gap-2">
-                    {room.type_name && <span className="rounded bg-bamboo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-bamboo-600">{room.type_name}</span>}
-                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${availableCount > 0 ? 'bg-forest-50 text-forest-700' : 'bg-stone-200 text-stone-600'}`}>{availableCount > 0 ? `ว่าง ${availableCount} ห้อง` : 'เต็ม'}</span>
+                    {room.type_name && <span className="rounded bg-bamboo-50 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-bamboo-600">{room.type_name}</span>}
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${availableCount > 0 ? 'bg-forest-50 text-forest-700' : 'bg-stone-200 text-stone-600'}`}>{availableCount > 0 ? `ว่าง ${availableCount} ห้อง` : 'เต็ม'}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <h1 className="font-sans text-[26px] font-semibold leading-tight text-forest-900 sm:text-[32px]">{room.room_name}</h1>
+                    <h1 className="font-sans text-2xl font-semibold leading-tight text-forest-900 sm:text-4xl">{room.room_name}</h1>
                     {avgRating !== null && (
                       <div className="flex items-center gap-2">
-                        <span className="grid h-9 min-w-9 place-items-center rounded-lg bg-forest-900 px-1.5 text-[15px] font-extrabold text-white">{avgRating.toFixed(1)}</span>
+                        <span className="grid h-9 min-w-9 place-items-center rounded-lg bg-forest-900 px-1.5 text-base font-extrabold text-white">{avgRating.toFixed(1)}</span>
                         <div className="leading-tight">
-                          <p className="text-[12px] font-bold text-forest-900">{ratingLabel(avgRating)}</p>
-                          <p className="text-[11px] text-stone-500">{reviews.length} รีวิว</p>
+                          <p className="text-xs font-bold text-forest-900">{ratingLabel(avgRating)}</p>
+                          <p className="text-xs text-stone-500">{reviews.length} รีวิว</p>
                         </div>
                       </div>
                     )}
                   </div>
-                  <p className="mt-2 text-[13.5px] leading-[1.85] text-charcoal-500">{room.description}</p>
+                  <p className="mt-2 text-sm leading-[1.85] text-charcoal-500">{room.description}</p>
                 </div>
                 <div className="flex shrink-0 items-baseline gap-1 sm:flex-col sm:items-end sm:gap-0.5">
-                  <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{Number(room.price_per_night).toLocaleString()}</span>
-                  <span className="text-[12px] font-medium text-charcoal-400">/ คืน</span>
+                  <span className="font-sans text-2xl font-extrabold leading-none text-forest-900">฿{Number(room.price_per_night).toLocaleString()}</span>
+                  <span className="text-xs font-medium text-charcoal-400">/ คืน</span>
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2.5 border-t border-stone-100 pt-4">
-                <span className="flex items-center gap-1.5 rounded-full bg-stone-50 px-3 py-1.5 text-[12px] font-semibold text-charcoal-600"><Users size={13} className="text-forest-500" />ความจุ {room.capacity} ท่าน</span>
+                <span className="flex items-center gap-1.5 rounded-full bg-stone-50 px-3 py-1.5 text-xs font-semibold text-charcoal-600"><Users size={13} className="text-forest-500" />ความจุ {room.capacity} ท่าน</span>
               </div>
             </section>
 
@@ -408,7 +408,7 @@ export default function RoomDetailPage(): React.ReactElement {
             {room.amenities && room.amenities.length > 0 && (
               <section className={`${CARD} p-5 sm:p-6`}>
                 <SectionHeading icon={<Sparkles size={16} />} title="สิ่งอำนวยความสะดวก" />
-                <ul className="mt-4 columns-2 gap-x-8 text-[13.5px] text-charcoal-600">
+                <ul className="mt-4 columns-2 gap-x-8 text-sm text-charcoal-600">
                   {room.amenities.map((amenity, index) => (
                     <li key={index} className="mb-2.5 flex items-start gap-2 break-inside-avoid">
                       <Check size={14} className="mt-0.5 shrink-0 text-forest-500" />
@@ -438,8 +438,8 @@ export default function RoomDetailPage(): React.ReactElement {
                             <Tag size={18} />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className={`truncate text-[14px] font-bold ${isSelected ? 'text-white' : 'text-amber-800'}`}>{promo.name}</p>
-                            <p className={`text-[11px] ${isSelected ? 'text-white/90' : 'text-amber-600'}`}>
+                            <p className={`truncate text-sm font-bold ${isSelected ? 'text-white' : 'text-amber-800'}`}>{promo.name}</p>
+                            <p className={`text-xs ${isSelected ? 'text-white/90' : 'text-amber-600'}`}>
                               โค้ด {promo.code} · {discountText}
                               {promo.min_nights ? ` (ขั้นต่ำ ${promo.min_nights} คืน)` : ''}
                             </p>
@@ -449,13 +449,13 @@ export default function RoomDetailPage(): React.ReactElement {
                         <button
                           type="button"
                           onClick={() => setExpandedPromoId(isExpanded ? null : promo.id)}
-                          className={`flex w-full items-center justify-center gap-1 border-t py-2 text-[11px] font-bold transition-colors ${isSelected ? 'border-white/25 text-white/90 hover:text-white' : 'border-amber-100 text-amber-700 hover:text-amber-900'}`}
+                          className={`flex w-full items-center justify-center gap-1 border-t py-2 text-xs font-bold transition-colors ${isSelected ? 'border-white/25 text-white/90 hover:text-white' : 'border-amber-100 text-amber-700 hover:text-amber-900'}`}
                         >
                           {isExpanded ? 'ซ่อนรายละเอียด' : 'ดูเพิ่มเติม'}
                           <ChevronDown size={13} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                         </button>
                         {isExpanded && (
-                          <div className={`px-4 pb-4 text-[12px] leading-relaxed ${isSelected ? 'text-white/95' : 'text-amber-800'}`}>
+                          <div className={`px-4 pb-4 text-xs leading-relaxed ${isSelected ? 'text-white/95' : 'text-amber-800'}`}>
                             <p>{promo.description || 'ไม่มีรายละเอียดเพิ่มเติมสำหรับโปรโมชั่นนี้'}</p>
                             <ul className="mt-2 space-y-1 font-medium">
                               <li>• {discountText}{promo.discount_type === 'percent' && promo.max_discount != null ? ` (สูงสุด ฿${Number(promo.max_discount).toLocaleString()})` : ''}</li>
@@ -475,7 +475,7 @@ export default function RoomDetailPage(): React.ReactElement {
               <SectionHeading
                 icon={<BedDouble size={16} />}
                 title="เลือกหมายเลขห้องพักที่ต้องการ"
-                action={<span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-[11px] font-bold text-forest-700">ว่าง {availableCount} จาก {sortedPhysicalRooms.length} ห้อง</span>}
+                action={<span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-xs font-bold text-forest-700">ว่าง {availableCount} จาก {sortedPhysicalRooms.length} ห้อง</span>}
               />
               <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
                 {sortedPhysicalRooms.map((physical) => {
@@ -483,21 +483,21 @@ export default function RoomDetailPage(): React.ReactElement {
                   return (
                     <div key={physical.room_id} className={`group relative flex flex-col justify-between gap-1 rounded-2xl border p-4 text-left transition-all duration-300 ${isSelected ? 'border-forest-900 bg-forest-50/40 shadow-sm' : physical.is_available ? 'border-stone-200 bg-white hover:border-forest-300 hover:shadow-md' : 'border-stone-100 bg-stone-50/50 opacity-60'}`}>
                       <div className="flex items-center justify-between">
-                        <span className="text-[15px] font-bold text-forest-900">ห้อง {physical.room_number}</span>
+                        <span className="text-base font-bold text-forest-900">ห้อง {physical.room_number}</span>
                         {isSelected && <CheckCircle2 size={16} className="text-forest-700" />}
                       </div>
-                      <span className="mb-2 text-[12px] text-charcoal-500">{physical.is_available ? `ความจุ ${room.capacity} ท่าน` : 'ถูกจองแล้ว'}</span>
+                      <span className="mb-2 text-xs text-charcoal-500">{physical.is_available ? `ความจุ ${room.capacity} ท่าน` : 'ถูกจองแล้ว'}</span>
                       
                       {physical.is_available ? (
                         <button
                           type="button"
                           onClick={() => handleToggleRoom(physical.room_id)}
-                          className={`mt-auto w-full rounded-xl py-2 text-[12px] font-bold transition-all ${isSelected ? 'bg-forest-900 text-white shadow-md hover:bg-forest-800' : 'bg-forest-50 text-forest-800 hover:bg-forest-100'}`}
+                          className={`mt-auto w-full rounded-xl py-2 text-xs font-bold transition-all ${isSelected ? 'bg-forest-900 text-white shadow-md hover:bg-forest-800' : 'bg-forest-50 text-forest-800 hover:bg-forest-100'}`}
                         >
                           {isSelected ? 'เลือกแล้ว' : 'เพิ่มลงตะกร้า'}
                         </button>
                       ) : (
-                         <div className="mt-auto w-full rounded-xl bg-stone-100 py-2 text-center text-[12px] font-bold text-stone-400">
+                         <div className="mt-auto w-full rounded-xl bg-stone-100 py-2 text-center text-xs font-bold text-stone-400">
                            ไม่ว่าง
                          </div>
                       )}
@@ -512,21 +512,21 @@ export default function RoomDetailPage(): React.ReactElement {
               <SectionHeading icon={<Star size={16} />} title="รีวิวจากผู้เข้าพัก" />
               <div className="mt-4 flex flex-col gap-6 sm:flex-row">
                 <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 sm:w-32 sm:border-r sm:border-stone-100">
-                  <span className="font-sans text-[44px] font-extrabold leading-none text-forest-900">{avgRating !== null ? avgRating.toFixed(1) : '-'}</span>
+                  <span className="font-sans text-5xl font-extrabold leading-none text-forest-900">{avgRating !== null ? avgRating.toFixed(1) : '-'}</span>
                   <Stars value={avgRating ?? 0} size={13} />
-                  <span className="text-[11px] text-stone-500">จาก {reviews.length} รีวิว</span>
+                  <span className="text-xs text-stone-500">จาก {reviews.length} รีวิว</span>
                 </div>
                 <ul className="flex-1 space-y-3">
                   {reviews.map((review) => (
                     <li key={review.review_id} className="rounded-xl bg-stone-50/60 p-4">
                       <div className="flex items-center gap-3">
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-900 text-[13px] font-bold text-cream-50">{review.first_name?.[0]?.toUpperCase() || 'U'}</span>
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-900 text-sm font-bold text-cream-50">{review.first_name?.[0]?.toUpperCase() || 'U'}</span>
                         <div className="min-w-0">
-                          <p className="truncate text-[13px] font-bold text-forest-900">{maskReviewerName(review.first_name, review.last_name)}</p>
-                          <div className="mt-1 flex items-center gap-2"><Stars value={review.rating} size={11} /><span className="text-[11px] text-charcoal-400">{new Date(review.review_date).toLocaleDateString('th-TH')}</span></div>
+                          <p className="truncate text-sm font-bold text-forest-900">{maskReviewerName(review.first_name, review.last_name)}</p>
+                          <div className="mt-1 flex items-center gap-2"><Stars value={review.rating} size={11} /><span className="text-xs text-charcoal-400">{new Date(review.review_date).toLocaleDateString('th-TH')}</span></div>
                         </div>
                       </div>
-                      {review.comment && <p className="mt-2.5 pl-12 text-[13px] leading-relaxed text-charcoal-500">{review.comment}</p>}
+                      {review.comment && <p className="mt-2.5 pl-12 text-sm leading-relaxed text-charcoal-500">{review.comment}</p>}
                     </li>
                   ))}
                 </ul>
@@ -536,7 +536,7 @@ export default function RoomDetailPage(): React.ReactElement {
             {/* Policies */}
             <section className={`${CARD} p-5 sm:p-6 bg-stone-50/50 border-none`}>
               <SectionHeading icon={<Clock size={16} />} title="นโยบายการเข้าพัก" />
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-[13px] text-charcoal-600">
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-charcoal-600">
                 <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm">
                   <p className="font-bold text-forest-900 mb-1">เวลาเช็คอิน (Check-in)</p>
                   <p>ตั้งแต่ 14:00 น. ถึง 23:00 น.</p>
@@ -568,7 +568,7 @@ export default function RoomDetailPage(): React.ReactElement {
       {lightboxOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/95 backdrop-blur-sm" onClick={() => setLightboxOpen(false)}>
           <div className="absolute inset-x-4 top-4 flex items-center justify-between">
-            <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-[12px] font-semibold text-cream-100">{activeImage + 1} / {galleryImages.length}</span>
+            <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-cream-100">{activeImage + 1} / {galleryImages.length}</span>
             <button type="button" onClick={() => setLightboxOpen(false)} className="grid h-9 w-9 place-items-center rounded-full bg-white/10 text-cream-100"><X size={18} /></button>
           </div>
           {galleryImages.length > 1 && (

@@ -450,7 +450,7 @@ export default function BoatTypesPage() {
               <Layers size={18} />
             </div>
             <div>
-              <span className="text-[10px] font-semibold text-stone-400 block leading-tight">
+              <span className="text-xs font-semibold text-stone-400 block leading-tight">
                 ทั้งหมด
               </span>
               <span className="text-xs font-bold text-[#0b3b2c]">
@@ -468,7 +468,7 @@ export default function BoatTypesPage() {
             <h2 className="text-sm font-bold text-stone-800">
               รายการประเภทเรือทั้งหมด
             </h2>
-            <span className="px-2 py-0.5 bg-stone-200/70 text-stone-600 rounded-full text-[11px] font-bold">
+            <span className="px-2 py-0.5 bg-stone-200/70 text-stone-600 rounded-full text-xs font-bold">
               {filteredBoatTypes.length}
             </span>
           </div>
@@ -500,7 +500,7 @@ export default function BoatTypesPage() {
         {/* Table Area */}
         <div className="flex-1 overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead className="bg-stone-100/70 border-b border-stone-200/80 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+            <thead className="bg-stone-100/70 border-b border-stone-200/80 text-xs font-bold text-stone-500 uppercase tracking-wider">
               <tr>
                 <th className="px-5 py-3.5">ชื่อประเภทเรือ</th>
                 <th className="px-4 py-3.5">ที่นั่ง</th>
@@ -579,7 +579,7 @@ export default function BoatTypesPage() {
                             <div className="font-bold text-stone-900 text-sm truncate">
                               {boatName}
                             </div>
-                            <div className="text-[11px] text-stone-400 truncate max-w-sm font-normal mt-0.5">
+                            <div className="text-xs text-stone-400 truncate max-w-sm font-normal mt-0.5">
                               {bt.description || "ไม่มีรายละเอียดเพิ่มเติม"}
                             </div>
                           </div>
@@ -601,7 +601,7 @@ export default function BoatTypesPage() {
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                          className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                             bt.is_active !== false
                               ? "bg-emerald-100/80 text-emerald-800 border border-emerald-200/60"
                               : "bg-stone-100 text-stone-500 border border-stone-200"
@@ -861,7 +861,7 @@ export default function BoatTypesPage() {
                       <p className="text-xs font-bold text-stone-700 group-hover:text-[#0b3b2c] transition-colors">
                         คลิก หรือลากไฟล์มาวางเพื่ออัปโหลด
                       </p>
-                      <p className="text-[10px] text-stone-400 mt-0.5">
+                      <p className="text-xs text-stone-400 mt-0.5">
                         JPG, PNG, WEBP (ไม่เกิน 5MB)
                       </p>
                       <input
@@ -880,7 +880,7 @@ export default function BoatTypesPage() {
                     <label className="block text-xs font-bold text-stone-700">
                       รูปภาพเพิ่มเติม (Gallery)
                     </label>
-                    <span className="text-[11px] font-semibold text-stone-400">
+                    <span className="text-xs font-semibold text-stone-400">
                       {galleryPreviews.length}/{MAX_GALLERY_COUNT} รูป
                     </span>
                   </div>
@@ -989,7 +989,7 @@ export default function BoatTypesPage() {
                   <h3 className="text-sm font-bold tracking-tight text-white">
                     แก้ไขประเภทเรือ
                   </h3>
-                  <p className="text-[10px] text-stone-300 font-normal">
+                  <p className="text-xs text-stone-300 font-normal">
                     อัปเดตรายละเอียด สเปกเรือ และรูปภาพตัวอย่าง
                   </p>
                 </div>
@@ -1046,7 +1046,7 @@ export default function BoatTypesPage() {
                 <div className="grid grid-cols-3 gap-2.5">
                   {/* ที่นั่ง (คน) */}
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
                       ที่นั่ง (คน)
                     </label>
                     <div className="flex items-center border border-stone-200 bg-stone-50/50 rounded-lg overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0b3b2c]/20 focus-within:border-[#0b3b2c]">
@@ -1100,7 +1100,7 @@ export default function BoatTypesPage() {
 
                   {/* ราคา(บาท) */}
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
                       ราคา (บาท)
                     </label>
                     <input
@@ -1125,7 +1125,7 @@ export default function BoatTypesPage() {
 
                   {/* จำนวนเรือ (ลำ) */}
                   <div>
-                    <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
                       จำนวนเรือ (ลำ)
                     </label>
                     <div className="flex items-center border border-stone-200 bg-stone-50/50 rounded-lg overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0b3b2c]/20 focus-within:border-[#0b3b2c]">
@@ -1197,7 +1197,7 @@ export default function BoatTypesPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-stone-100 text-stone-400 text-[11px] font-medium">
+                        <div className="w-full h-full flex items-center justify-center bg-stone-100 text-stone-400 text-xs font-medium">
                           ไม่มีรูปภาพ
                         </div>
                       )}
@@ -1214,7 +1214,7 @@ export default function BoatTypesPage() {
                           onChange={handleEditCoverChange}
                         />
                       </label>
-                      <p className="text-[10px] text-stone-400">
+                      <p className="text-xs text-stone-400">
                         รองรับไฟล์ JPG, PNG, WEBP (ไม่เกิน 5MB)
                       </p>
                     </div>
@@ -1228,7 +1228,7 @@ export default function BoatTypesPage() {
                     <label className="block font-bold text-stone-800">
                       รูปภาพเพิ่มเติม (Gallery)
                     </label>
-                    <span className="text-[10px] font-bold px-2 py-0.5 bg-stone-100 rounded-full text-stone-500">
+                    <span className="text-xs font-bold px-2 py-0.5 bg-stone-100 rounded-full text-stone-500">
                       {(editingBoat.existing_gallery?.length || 0) +
                         editGalleryFiles.length}
                       /{MAX_GALLERY_COUNT} รูป
@@ -1279,7 +1279,7 @@ export default function BoatTypesPage() {
                           alt={`New preview ${idx}`}
                           className="w-full h-full object-cover"
                         />
-                        <span className="absolute top-0.5 left-0.5 px-1 bg-amber-500 text-white rounded text-[8px] font-bold shadow-xs">
+                        <span className="absolute top-0.5 left-0.5 px-1 bg-amber-500 text-white rounded text-xs font-bold shadow-xs">
                           ใหม่
                         </span>
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

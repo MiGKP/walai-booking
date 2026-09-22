@@ -55,7 +55,7 @@ export function PromoVoucher({
       }`}
     >
       <div className="flex w-[7.5rem] shrink-0 flex-col items-center justify-center bg-forest-800 px-3 py-5 text-center text-cream-100 sm:w-36">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-bamboo-300">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bamboo-300">
           ส่วนลด
         </p>
         <p className="mt-1 font-display text-2xl font-semibold leading-none sm:text-3xl">
@@ -84,7 +84,7 @@ export function PromoVoucher({
             ) : null}
           </div>
           {badge ? (
-            <span className="shrink-0 rounded-full bg-forest-50 px-2.5 py-1 text-[11px] font-semibold text-forest-800">
+            <span className="shrink-0 rounded-full bg-forest-50 px-2.5 py-1 text-xs font-semibold text-forest-800">
               {badge}
             </span>
           ) : null}

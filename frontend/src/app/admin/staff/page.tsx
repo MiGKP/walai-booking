@@ -329,7 +329,7 @@ export default function StaffManagementPage() {
             <Users size={18} />
           </div>
           <div>
-            <span className="text-[11px] font-semibold text-stone-400 block leading-tight">
+            <span className="text-xs font-semibold text-stone-400 block leading-tight">
               พนักงานทั้งหมด
             </span>
             <span className="text-sm font-bold text-[#0b3b2c]">
@@ -350,7 +350,7 @@ export default function StaffManagementPage() {
               <h2 className="text-base font-semibold tracking-wide">
                 เพิ่มพนักงานใหม่
               </h2>{" "}
-              <p className="text-[11px] text-emerald-100/80">
+              <p className="text-xs text-emerald-100/80">
                 กรอกข้อมูลเพื่อสร้างบัญชีผู้ใช้งานใหม่
               </p>
             </div>
@@ -436,7 +436,7 @@ export default function StaffManagementPage() {
 
             {/* Address Optional */}
             <div className="pt-3 border-t border-stone-100">
-              <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block mb-2">
+              <span className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-2">
                 ข้อมูลที่อยู่เพิ่มเติม (ตัวเลือก)
               </span>
               <div className="space-y-2">
@@ -518,7 +518,7 @@ export default function StaffManagementPage() {
               <h2 className="text-base font-semibold text-stone-800">
                 รายชื่อพนักงานในระบบ
               </h2>
-              <span className="text-[11px] text-stone-400 font-medium">
+              <span className="text-xs text-stone-400 font-medium">
                 แสดงผล {filteredStaffList.length} รายการ
               </span>
             </div>
@@ -647,7 +647,7 @@ export default function StaffManagementPage() {
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead className="sticky top-0 bg-stone-50 z-10 shadow-2xs">
-                <tr className="border-b border-stone-200/80 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+                <tr className="border-b border-stone-200/80 text-xs font-bold text-stone-500 uppercase tracking-wider">
                   <th className="px-4 py-3">รายชื่อพนักงาน</th>
                   <th className="px-3 py-3">ตำแหน่ง</th>
                   <th className="px-3 py-3">สถานะ</th>
@@ -692,7 +692,7 @@ export default function StaffManagementPage() {
                             ? `${s.first_name || ""} ${s.last_name || ""}`.trim()
                             : s.name || "ไม่ระบุชื่อ"}
                         </div>
-                        <div className="text-[11px] text-stone-400 flex items-center gap-2 mt-0.5 font-medium">
+                        <div className="text-xs text-stone-400 flex items-center gap-2 mt-0.5 font-medium">
                           <span className="flex items-center gap-1">
                             <Mail size={11} /> {s.email}
                           </span>
@@ -708,7 +708,7 @@ export default function StaffManagementPage() {
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">
                         {s.status ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
                             <CheckCircle2
                               size={11}
                               className="text-emerald-600"
@@ -716,7 +716,7 @@ export default function StaffManagementPage() {
                             ใช้งาน
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-200">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200">
                             <XCircle size={11} className="text-rose-600" />
                             ระงับ
                           </span>
@@ -859,7 +859,7 @@ export default function StaffManagementPage() {
               </div>
 
               <div className="border-t border-stone-100 pt-3">
-                <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block mb-2">
+                <span className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-2">
                   ข้อมูลที่อยู่
                 </span>
                 <div className="space-y-2">
@@ -979,7 +979,7 @@ export default function StaffManagementPage() {
                       ? `${selectedStaff.first_name || ""} ${selectedStaff.last_name || ""}`.trim()
                       : selectedStaff.name || "ไม่ระบุชื่อ"}
                   </h4>
-                  <p className="text-[11px] text-stone-400">
+                  <p className="text-xs text-stone-400">
                     ID: #{selectedStaff.id}
                   </p>
                 </div>
@@ -1017,12 +1017,12 @@ export default function StaffManagementPage() {
               <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
                 <span className="text-stone-500 font-medium">สถานะบัญชี</span>
                 {selectedStaff.status ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
                     <CheckCircle2 size={11} className="text-emerald-600" />{" "}
                     ใช้งาน
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-200">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200">
                     <XCircle size={11} className="text-rose-600" />{" "}
                     ระงับการใช้งาน
                   </span>

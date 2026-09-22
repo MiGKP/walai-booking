@@ -64,7 +64,7 @@ export default function MyCouponsSection(): React.ReactElement {
   return (
     <div>
       {boatTicketBalance > 0 && (
-        <div className="mb-4 flex items-center gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-[12.5px] font-medium text-bamboo-800">
+        <div className="mb-4 flex items-center gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-xs font-medium text-bamboo-800">
           <Ticket size={16} className="shrink-0" />
           <p>คุณมีโปรโมชั่นพายเรือฟรี {boatTicketBalance} ใบ — ใช้ได้ตอนจองเรือที่หน้า <Link href="/kayaks" className="font-bold underline">จองเรือคายัค</Link></p>
         </div>
@@ -82,7 +82,7 @@ export default function MyCouponsSection(): React.ReactElement {
             key={t.id}
             type="button"
             onClick={() => setFilter(t.id)}
-            className={`rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
               filter === t.id ? 'bg-forest-800 text-cream-100' : 'bg-stone-100 text-charcoal-500 hover:bg-stone-200'
             }`}
           >
@@ -98,7 +98,7 @@ export default function MyCouponsSection(): React.ReactElement {
       ) : visible.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-200 py-16 text-center">
           <Ticket size={40} className="mx-auto mb-3 text-stone-300" />
-          <p className="mb-4 text-[13px] text-charcoal-400">
+          <p className="mb-4 text-sm text-charcoal-400">
             {filter === 'saved' ? 'ยังไม่มีโปรโมชั่นในกระเป๋า' : 'ยังไม่มีรายการในหมวดนี้'}
           </p>
           {filter === 'saved' && <Link href="/promotions" className="btn-primary">ไปเก็บโปรโมชั่น</Link>}
@@ -125,18 +125,18 @@ export default function MyCouponsSection(): React.ReactElement {
                       <PromoBookingLinks code={item.code} appliesTo={item.applies_to} roomLabel="ใช้กับห้องพัก" kayakLabel="ใช้กับเรือ" />
                       <button
                         type="button"
-                        className="text-[12px] font-medium text-charcoal-400 hover:text-red-600"
+                        className="text-xs font-medium text-charcoal-400 hover:text-red-600"
                         disabled={removingId === item.promotion_id}
                         onClick={() => void handleRemove(item.promotion_id)}
                       >
                         เอาออก
                       </button>
                       {item.remaining != null && (
-                        <span className="ml-auto text-[12px] text-charcoal-400">เหลือ {item.remaining} ครั้ง</span>
+                        <span className="ml-auto text-xs text-charcoal-400">เหลือ {item.remaining} ครั้ง</span>
                       )}
                     </>
                   ) : (
-                    <Link href="/promotions" className="text-[13px] font-medium text-forest-800">ดูโปรโมชั่นอื่น</Link>
+                    <Link href="/promotions" className="text-sm font-medium text-forest-800">ดูโปรโมชั่นอื่น</Link>
                   )
                 }
               />

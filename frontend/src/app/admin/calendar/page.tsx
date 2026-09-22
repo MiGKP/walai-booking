@@ -340,7 +340,7 @@ export default function AdminCalendarPage() {
                     {dayNum}
                   </span>
                   {dayEvents.length > 0 && (
-                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                    <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded-full">
                       {dayEvents.length} คิว
                     </span>
                   )}
@@ -352,7 +352,7 @@ export default function AdminCalendarPage() {
                     <button
                       key={ev.id}
                       onClick={() => setSelectedEvent(ev)}
-                      className={`w-full text-left px-2 py-1 rounded-md text-[10px] font-medium truncate transition-all shadow-2xs ${
+                      className={`w-full text-left px-2 py-1 rounded-md text-xs font-medium truncate transition-all shadow-2xs ${
                         ev.type === 'room'
                           ? 'bg-emerald-100/80 text-emerald-900 border border-emerald-200/80 hover:bg-emerald-200'
                           : 'bg-sky-100/80 text-sky-900 border border-sky-200/80 hover:bg-sky-200'
@@ -404,7 +404,7 @@ export default function AdminCalendarPage() {
                   <span className="font-semibold text-charcoal-800">ผู้จอง: </span>
                   <span>{selectedEvent.raw.customer_name}</span>
                   {selectedEvent.raw.customer_email !== '-' && (
-                    <p className="text-[11px] text-stone-400">{selectedEvent.raw.customer_email}</p>
+                    <p className="text-xs text-stone-400">{selectedEvent.raw.customer_email}</p>
                   )}
                 </div>
               </div>
@@ -486,7 +486,7 @@ export default function AdminCalendarPage() {
               <div className="flex items-center gap-2">
                 <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
                 <span className="font-semibold text-charcoal-800">สถานะ:</span>
-                <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${statusClass[selectedEvent.raw.status] || 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${statusClass[selectedEvent.raw.status] || 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>
                   {statusLabel[selectedEvent.raw.status] || 'จองสำเร็จแล้ว'}
                 </span>
               </div>

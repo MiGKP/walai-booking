@@ -105,7 +105,7 @@ function MonthPanel({
         {THAI_WEEKDAYS_SHORT.map((label) => (
           <div
             key={`${cursor.year}-${cursor.month}-${label}`}
-            className="text-center text-[11px] font-semibold tracking-wide text-charcoal-400/80 py-1"
+            className="text-center text-xs font-semibold tracking-wide text-charcoal-400/80 py-1"
           >
             {label}
           </div>
@@ -425,7 +425,7 @@ export default function BookingCalendar(
       </div>
 
       {/* <div className="mt-4 border-t border-stone-100 pt-3">
-        <div className="flex flex-wrap items-center justify-start gap-4 text-[12px] text-charcoal-500">
+        <div className="flex flex-wrap items-center justify-start gap-4 text-xs text-charcoal-500">
           <div className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-forest-800" />
             <span>วันที่เลือก</span>

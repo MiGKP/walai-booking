@@ -43,8 +43,8 @@ function SectionHeading({ icon, title, hint }: { icon: React.ReactNode; title: s
     <div className="flex items-center gap-2.5">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">{icon}</span>
       <div className="min-w-0">
-        <h2 className="font-sans text-[16px] font-semibold text-forest-900">{title}</h2>
-        {hint && <p className="text-[12px] text-charcoal-400">{hint}</p>}
+        <h2 className="font-sans text-base font-semibold text-forest-900">{title}</h2>
+        {hint && <p className="text-xs text-charcoal-400">{hint}</p>}
       </div>
     </div>
   );
@@ -91,7 +91,7 @@ function Stepper({
         }}
         onFocus={(e) => e.currentTarget.select()}
         aria-label={ariaLabel}
-        className="h-7 w-9 rounded-md border border-stone-200 bg-white text-center text-[13px] font-bold tabular-nums text-forest-900 transition-colors focus:border-forest-400 focus:outline-none"
+        className="h-7 w-9 rounded-md border border-stone-200 bg-white text-center text-sm font-bold tabular-nums text-forest-900 transition-colors focus:border-forest-400 focus:outline-none"
       />
       <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`เพิ่ม${ariaLabel}`} className={btn}><Plus size={13} /></button>
     </div>
@@ -478,11 +478,11 @@ function KayaksPageContent(): React.ReactElement {
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">
             <Anchor size={18} />
           </span>
-          <h1 className="font-sans text-[24px] font-semibold leading-tight text-forest-900 sm:text-[28px]">จองเรือคายัค</h1>
+          <h1 className="font-sans text-2xl font-semibold leading-tight text-forest-900 sm:text-3xl">จองเรือคายัค</h1>
         </div>
 
         {pastCutoffToday && (
-          <div className="mb-6 flex items-start gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-[12.5px] font-medium text-bamboo-800">
+          <div className="mb-6 flex items-start gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-xs font-medium text-bamboo-800">
             <Clock3 size={16} className="mt-0.5 shrink-0" />
             <p>วันนี้{CLOSED_TODAY_HINT.replace('ปิดรับจองแล้ว ', '')} — กรุณาเลือกวันถัดไปในปฏิทิน</p>
           </div>
@@ -518,15 +518,15 @@ function KayaksPageContent(): React.ReactElement {
                 <div className="min-w-0 flex-1 space-y-5">
                   {/* รอบเวลา — เลื่อนดูซ้ายขวาได้ เพราะมีไม่กี่รอบต่อวัน แสดงจำนวนเรือที่เหลือให้จองต่อรอบด้วย */}
                   <div>
-                    <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-wide text-charcoal-300">เลือกรอบเวลา</p>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-charcoal-300">เลือกรอบเวลา</p>
                     {!selectedDate ? (
-                      <p className="text-[12.5px] text-charcoal-400">เลือกวันที่ก่อน</p>
+                      <p className="text-xs text-charcoal-400">เลือกวันที่ก่อน</p>
                     ) : slotsLoading ? (
                       <div className="flex gap-2 overflow-x-auto pb-1">
                         {[0, 1, 2].map((i) => <div key={i} className="h-14 w-28 shrink-0 animate-pulse rounded-xl bg-stone-100" />)}
                       </div>
                     ) : slots.length === 0 ? (
-                      <p className="text-[12.5px] text-charcoal-400">วันนี้ไม่มีรอบให้บริการ</p>
+                      <p className="text-xs text-charcoal-400">วันนี้ไม่มีรอบให้บริการ</p>
                     ) : (
                       <>
                         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -548,10 +548,10 @@ function KayaksPageContent(): React.ReactElement {
                                       : 'cursor-not-allowed border-stone-100 opacity-50'
                                 }`}
                               >
-                                <span className={`block text-[12.5px] font-semibold tabular-nums ${isSelected ? (fits ? 'text-cream-100' : 'text-rose-700') : 'text-forest-900'}`}>
+                                <span className={`block text-xs font-semibold tabular-nums ${isSelected ? (fits ? 'text-cream-100' : 'text-rose-700') : 'text-forest-900'}`}>
                                   {formatTimeRange(slot.start_time, slot.end_time)}
                                 </span>
-                                <span className={`block text-[10.5px] ${isSelected ? (fits ? 'text-cream-200' : 'text-rose-600') : fits ? 'text-charcoal-400' : 'text-stone-400 line-through'}`}>
+                                <span className={`block text-xs ${isSelected ? (fits ? 'text-cream-200' : 'text-rose-600') : fits ? 'text-charcoal-400' : 'text-stone-400 line-through'}`}>
                                   {fits ? `เหลือ ${slot.remaining} ลำ` : !slot.available ? 'เต็ม' : 'เรือไม่พอ'}
                                 </span>
                               </button>
@@ -559,7 +559,7 @@ function KayaksPageContent(): React.ReactElement {
                           })}
                         </div>
                         {cartLines.length === 0 && (
-                          <p className="mt-1.5 text-[11px] text-charcoal-400">ใส่จำนวนผู้โดยสารด้านล่างก่อน เพื่อกรองเฉพาะรอบที่มีเรือว่างพอ</p>
+                          <p className="mt-1.5 text-xs text-charcoal-400">ใส่จำนวนผู้โดยสารด้านล่างก่อน เพื่อกรองเฉพาะรอบที่มีเรือว่างพอ</p>
                         )}
                       </>
                     )}
@@ -567,13 +567,13 @@ function KayaksPageContent(): React.ReactElement {
 
                   <div>
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-[10.5px] font-semibold uppercase tracking-wide text-charcoal-300">จำนวนผู้โดยสารต่อประเภทเรือ</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-300">จำนวนผู้โดยสารต่อประเภทเรือ</p>
                     {typeOptions.length > 1 && (
                       <div className="flex flex-wrap gap-1.5">
                         <button
                           type="button"
                           onClick={() => setTypeFilter('all')}
-                          className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors ${
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
                             typeFilter === 'all'
                               ? 'border-forest-800 bg-forest-800 text-cream-100'
                               : 'border-stone-200 text-charcoal-500 hover:border-forest-300 hover:bg-forest-50'
@@ -586,7 +586,7 @@ function KayaksPageContent(): React.ReactElement {
                             key={type}
                             type="button"
                             onClick={() => setTypeFilter(type)}
-                            className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors ${
+                            className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
                               typeFilter === type
                                 ? 'border-forest-800 bg-forest-800 text-cream-100'
                                 : 'border-stone-200 text-charcoal-500 hover:border-forest-300 hover:bg-forest-50'
@@ -599,7 +599,7 @@ function KayaksPageContent(): React.ReactElement {
                     )}
                   </div>
                   {!selectedDate ? (
-                    <p className="rounded-xl border border-dashed border-stone-200 px-4 py-8 text-center text-[12.5px] text-charcoal-400">
+                    <p className="rounded-xl border border-dashed border-stone-200 px-4 py-8 text-center text-xs text-charcoal-400">
                       เลือกวันในปฏิทินก่อน แล้วใส่จำนวนคนต่อประเภทเรือ
                     </p>
                   ) : boatsLoading || slotsLoading ? (
@@ -607,11 +607,11 @@ function KayaksPageContent(): React.ReactElement {
                       {[0, 1].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-stone-100" />)}
                     </div>
                   ) : boats.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-stone-200 px-4 py-8 text-center text-[12.5px] text-charcoal-400">
+                    <p className="rounded-xl border border-dashed border-stone-200 px-4 py-8 text-center text-xs text-charcoal-400">
                       ยังไม่มีเรือเปิดให้จอง
                     </p>
                   ) : filteredBoats.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-stone-200 px-4 py-8 text-center text-[12.5px] text-charcoal-400">
+                    <p className="rounded-xl border border-dashed border-stone-200 px-4 py-8 text-center text-xs text-charcoal-400">
                       ไม่มีเรือประเภทนี้
                     </p>
                   ) : (
@@ -643,14 +643,14 @@ function KayaksPageContent(): React.ReactElement {
                                 )}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <span className="mb-1 inline-block rounded-full bg-lagoon-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lagoon-700">
+                                <span className="mb-1 inline-block rounded-full bg-lagoon-50 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-lagoon-700">
                                   {TYPE_LABELS[boat.type] || 'อื่นๆ'}
                                 </span>
-                                <p className="truncate text-[13.5px] font-semibold text-forest-900">{boat.name}</p>
+                                <p className="truncate text-sm font-semibold text-forest-900">{boat.name}</p>
                                 {boat.description && (
-                                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-charcoal-400">{boat.description}</p>
+                                  <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-charcoal-400">{boat.description}</p>
                                 )}
-                                <p className="mt-1 flex items-center gap-1 text-[11.5px] text-charcoal-500">
+                                <p className="mt-1 flex items-center gap-1 text-xs text-charcoal-500">
                                   <Users size={12} className="text-forest-400" />
                                   นั่งได้สูงสุด {boat.capacity} คน/ลำ · ฿{Number(boat.price_per_hour).toLocaleString()}/ลำ
                                   {disabled && ` · ${!hasRound ? 'ไม่มีรอบในวันนี้' : 'เต็ม'}`}
@@ -665,7 +665,7 @@ function KayaksPageContent(): React.ReactElement {
                               {!disabled && (
                                 <div className="ml-auto flex shrink-0 flex-col items-end gap-2 text-right">
                                   <div>
-                                    <p className="mb-1 text-[9.5px] font-semibold uppercase tracking-wide text-charcoal-300">จำนวนลำ</p>
+                                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-charcoal-300">จำนวนลำ</p>
                                     <Stepper
                                       value={boatCount}
                                       min={0}
@@ -695,14 +695,14 @@ function KayaksPageContent(): React.ReactElement {
 
               <div className="mt-5 grid grid-cols-2 gap-3 border-t border-stone-100 pt-5">
                 <div>
-                  <p className="text-[10.5px] font-semibold uppercase tracking-wide text-charcoal-300">วันที่</p>
-                  <p className="mt-0.5 text-[13px] font-semibold text-forest-900">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-300">วันที่</p>
+                  <p className="mt-0.5 text-sm font-semibold text-forest-900">
                     {selectedDate ? formatThaiDateLong(selectedDate) : '—'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10.5px] font-semibold uppercase tracking-wide text-charcoal-300">รอบเวลา</p>
-                  <p className="mt-0.5 text-[13px] font-semibold tabular-nums text-forest-900">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-300">รอบเวลา</p>
+                  <p className="mt-0.5 text-sm font-semibold tabular-nums text-forest-900">
                     {selectedSlot ? formatTimeRange(selectedSlot.start_time, selectedSlot.end_time) : '—'}
                   </p>
                 </div>
@@ -710,7 +710,7 @@ function KayaksPageContent(): React.ReactElement {
 
               <div className="mt-5 space-y-2.5 border-t border-stone-100 pt-5">
                 {cartLines.length === 0 ? (
-                  <p className="text-[12.5px] text-charcoal-400">ยังไม่ได้ใส่จำนวนผู้โดยสาร</p>
+                  <p className="text-xs text-charcoal-400">ยังไม่ได้ใส่จำนวนผู้โดยสาร</p>
                 ) : (
                   cartLines.map((line) => {
                     const gross = lineSubtotal(line.price_per_hour, line.boat_count);
@@ -719,16 +719,16 @@ function KayaksPageContent(): React.ReactElement {
                     return (
                       <div key={line.boat_type_id} className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-[13px] font-semibold text-forest-900">{line.name}</p>
-                          <p className="text-[11.5px] text-charcoal-400">
+                          <p className="truncate text-sm font-semibold text-forest-900">{line.name}</p>
+                          <p className="text-xs text-charcoal-400">
                             {line.boat_count} ลำ
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
                           {discount > 0 && (
-                            <p className="text-[11px] text-stone-400 line-through">฿{gross.toLocaleString()}</p>
+                            <p className="text-xs text-stone-400 line-through">฿{gross.toLocaleString()}</p>
                           )}
-                          <p className="text-[13px] font-bold tabular-nums text-forest-900">
+                          <p className="text-sm font-bold tabular-nums text-forest-900">
                             ฿{sub.toLocaleString()}
                           </p>
                         </div>
@@ -739,7 +739,7 @@ function KayaksPageContent(): React.ReactElement {
               </div>
 
               {cartLines.length > 0 && (
-                <div className="mt-4 space-y-1.5 rounded-xl bg-forest-50/70 px-3.5 py-3 text-[12.5px] text-forest-900">
+                <div className="mt-4 space-y-1.5 rounded-xl bg-forest-50/70 px-3.5 py-3 text-xs text-forest-900">
                   <div className="flex justify-between">
                     <span className="text-charcoal-500">เรือทั้งหมด</span>
                     <span className="font-bold tabular-nums">{totalBoats} ลำ</span>
@@ -748,8 +748,8 @@ function KayaksPageContent(): React.ReactElement {
               )}
 
               <div className="mt-5 flex items-center justify-between rounded-xl bg-forest-900 px-4 py-3.5">
-                <span className="text-[13px] font-bold text-cream-100">ราคารวม</span>
-                <span className="font-sans text-[26px] font-extrabold leading-none text-cream-100">
+                <span className="text-sm font-bold text-cream-100">ราคารวม</span>
+                <span className="font-sans text-2xl font-extrabold leading-none text-cream-100">
                   ฿{totalPrice.toLocaleString()}
                 </span>
               </div>
@@ -778,7 +778,7 @@ function KayaksPageContent(): React.ReactElement {
                   </button>
                 );
               })()}
-              <p className="mt-3 text-center text-[11px] text-charcoal-400">
+              <p className="mt-3 text-center text-xs text-charcoal-400">
                 ยังไม่ตัดเงิน — ชำระเงินในขั้นตอนถัดไป (ครั้งเดียวทั้งกลุ่ม)
               </p>
             </form>
