@@ -220,10 +220,10 @@ export default function AdminPage() {
                   <p className="text-xs text-bamboo-600/70 py-4 text-center">ไม่มีรายการค้างตรวจสอบ</p>
                 ) : (
                   <div className="space-y-2 mt-3">
-                    {pendingRoomsList.slice(0, 3).map(item => (
-                      <div key={item.id} className="text-xs bg-white p-2 rounded-lg border border-bamboo-100/50 flex justify-between">
+                    {pendingRoomsList.slice(0, 3).map((item, index) => (
+                      <div key={item.id || index} className="text-xs bg-white p-2 rounded-lg border border-bamboo-100/50 flex justify-between">
                         <span className="font-semibold text-charcoal-700 truncate mr-2">
-                           #{item.id} {item.customer_name || item.user?.name}
+                           #{item.id || '?'} {item.customer_name || item.user?.name}
                         </span>
                         <span className="text-bamboo-700 font-bold shrink-0">{formatMoney(item.total_price)}</span>
                       </div>
@@ -259,10 +259,10 @@ export default function AdminPage() {
                   <p className="text-xs text-lagoon-600/70 py-4 text-center">ไม่มีรายการค้างตรวจสอบ</p>
                 ) : (
                   <div className="space-y-2 mt-3">
-                    {pendingKayaksList.slice(0, 3).map(item => (
-                      <div key={item.id} className="text-xs bg-white p-2 rounded-lg border border-lagoon-100/50 flex justify-between">
+                    {pendingKayaksList.slice(0, 3).map((item, index) => (
+                      <div key={item.id || index} className="text-xs bg-white p-2 rounded-lg border border-lagoon-100/50 flex justify-between">
                         <span className="font-semibold text-charcoal-700 truncate mr-2">
-                           #{item.id} {item.customer_name || item.user?.name}
+                           #{item.id || '?'} {item.customer_name || item.user?.name}
                         </span>
                         <span className="text-lagoon-700 font-bold shrink-0">{formatMoney(item.total_price)}</span>
                       </div>
