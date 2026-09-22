@@ -237,10 +237,10 @@ export default function AdminPage() {
                 )}
               </div>
               <button 
-                onClick={() => router.push('/staff/rooms/single')}
+                onClick={() => router.push('/admin/rooms')}
                 className="mt-4 w-full py-2 bg-white border border-bamboo-200 text-bamboo-700 text-xs font-bold rounded-lg hover:bg-bamboo-50 transition-colors"
               >
-                จัดการห้องพัก
+                ตรวจสอบสลิปห้องพัก
               </button>
             </div>
 
@@ -276,10 +276,10 @@ export default function AdminPage() {
                 )}
               </div>
               <button 
-                onClick={() => router.push('/staff/boats/calendar')}
+                onClick={() => router.push('/admin/boats')}
                 className="mt-4 w-full py-2 bg-white border border-lagoon-200 text-lagoon-700 text-xs font-bold rounded-lg hover:bg-lagoon-50 transition-colors"
               >
-                จัดการตั๋วเรือ
+                ตรวจสอบสลิปเรือคายัค
               </button>
             </div>
           </div>
@@ -389,6 +389,33 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Tier 4: Quick Links (เมนูลัด) */}
+      <section>
+        <h2 className="text-lg font-bold font-display text-forest-900 mb-4 flex items-center gap-2">
+           เมนูลัด (Quick Links)
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {[
+            { label: 'ปฏิทิน', icon: CalendarIcon, path: '/admin/calendar', color: 'text-lagoon-600', bg: 'bg-lagoon-50' },
+            { label: 'จัดการสมาชิก', icon: Users, path: '/admin/members', color: 'text-forest-600', bg: 'bg-forest-50' },
+            { label: 'โปรโมชั่น', icon: Tag, path: '/admin/promotions', color: 'text-amber-600', bg: 'bg-amber-50' },
+            { label: 'พนักงาน', icon: UserCheck, path: '/admin/staff', color: 'text-charcoal-600', bg: 'bg-stone-100' },
+            { label: 'สถิติแบบละเอียด', icon: BarChart3, path: '/admin/stats', color: 'text-sky-600', bg: 'bg-sky-50' }
+          ].map((item, idx) => (
+            <button
+              key={idx}
+              onClick={() => router.push(item.path)}
+              className="p-4 rounded-2xl bg-white border border-stone-100 shadow-sm hover:shadow-md hover:border-forest-200 transition-all flex flex-col items-center justify-center gap-3 group"
+            >
+              <div className={`p-3 rounded-xl ${item.bg} ${item.color} group-hover:scale-110 transition-transform`}>
+                <item.icon size={20} />
+              </div>
+              <span className="text-xs font-bold text-charcoal-700">{item.label}</span>
+            </button>
+          ))}
         </div>
       </section>
 
