@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -130,7 +130,19 @@ function GuestRow({ label, hint, value, min, max = 20, onChange }: { label: stri
   );
 }
 
-export default function RoomsPage(): React.ReactElement {
+export default function RoomsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-cream-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-forest-800"></div>
+      </div>
+    }>
+      <RoomsPageContent />
+    </Suspense>
+  );
+}
+
+function RoomsPageContent(): React.ReactElement {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -201,6 +213,22 @@ export default function RoomsPage(): React.ReactElement {
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
+  const handleClearFilters = () => {
+    setTypeFilter("all");
+    setGuests({ adults: 1, children: 0 });
+    const t = todayISO();
+    const tm = addDaysISO(t, 1);
+    setRange({ start: t, end: tm });
+    setCursor(monthCursorFromISO(t));
+    const params = new URLSearchParams();
+    params.set("check_in", t);
+    params.set("check_out", tm);
+    if (selectedPromoCodes.length > 0) {
+      params.set("promo_code", selectedPromoCodes.join(","));
+    }
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
   // การกดจองที่พักจากหน้ารายการจะพาไปเลือกเลขห้องที่หน้ารายละเอียดแทน (ดู Link "จองที่พัก" ด้านล่าง)
   // เพื่อให้ลูกค้าเลือกห้องเจาะจงเองเสมอ แทนที่จะให้ระบบสุ่ม/auto-assign ห้องแรกที่ว่างให้แบบเดิม
 
@@ -237,17 +265,14 @@ export default function RoomsPage(): React.ReactElement {
 
   const roomTypeOptions = useMemo(() => Array.from(new Set(rooms.map((room) => room.type_name).filter(Boolean))), [rooms]);
   const roomsByType = useMemo(() => typeFilter === "all" ? rooms : rooms.filter((room) => room.type_name === typeFilter), [rooms, typeFilter]);
-  const availableRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) > 0), [roomsByType]);
-  const fullRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) <= 0), [roomsByType]);
+  const totalGuests = guests.adults + guests.children;
+  const availableRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) > 0 && Number(room.capacity) >= totalGuests), [roomsByType, totalGuests]);
+  const fullRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) <= 0 || Number(room.capacity) < totalGuests), [roomsByType, totalGuests]);
 
   return (
     <div className="min-h-screen bg-cream-100 pb-20 pt-4">
       <header className="relative z-30 mb-8 mt-16 sm:mt-20">
         <div className="container mx-auto px-4">
-          <div className="mb-6 text-center">
-            <h1 className="font-display text-3xl font-bold text-forest-900 md:text-4xl">ค้นหาห้องพัก</h1>
-            <p className="mt-2 text-charcoal-500">เลือกวันที่และประเภทห้องพักเพื่อดูห้องว่าง</p>
-          </div>
           <div className="mx-auto w-full max-w-4xl" ref={pickerRef}>
             <div className="flex w-full flex-col divide-y divide-stone-100 rounded-3xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.1)] transition-all duration-500 hover:shadow-[0_1px_2px_rgba(18,60,48,0.02),0_12px_32px_-8px_rgba(18,60,48,0.15)] lg:flex-row lg:divide-x lg:divide-y-0 lg:rounded-full">
               <div className="relative flex-1">
@@ -281,6 +306,15 @@ export default function RoomsPage(): React.ReactElement {
                   <div className="animate-dropdown absolute left-1/2 top-full z-40 mt-2 w-[280px] -translate-x-1/2 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl lg:left-0 lg:translate-x-0">
                     <GuestRow label="ผู้ใหญ่" hint="อายุ 18 ปีขึ้นไป" value={guests.adults} min={1} onChange={(v) => handleGuestsChange({ ...guests, adults: v })} />
                     <GuestRow label="เด็ก" hint="อายุ 0–17 ปี" value={guests.children} min={0} onChange={(v) => handleGuestsChange({ ...guests, children: v })} />
+                    <div className="mt-2 border-t border-stone-100 p-2">
+                      <button
+                        type="button"
+                        onClick={() => setOpenPanel(null)}
+                        className="w-full rounded-xl bg-forest-900 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-forest-800"
+                      >
+                        ตกลง
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -314,19 +348,21 @@ export default function RoomsPage(): React.ReactElement {
       <div className="container mx-auto px-4 lg:py-2">
         <div className="flex flex-col gap-8 lg:flex-row">
           <section className="flex-1">
-            {loading ? (
+            {loading && rooms.length === 0 ? (
               <div className="grid gap-6">{[0, 1].map((index) => <div key={index} className="h-64 w-full animate-pulse rounded-2xl border border-stone-100 bg-white" />)}</div>
-            ) : roomsByType.length === 0 ? (
+            ) : roomsByType.length === 0 && !loading ? (
               <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white/40 px-6 py-20 text-center backdrop-blur-sm">
                 <AlertCircle className="mb-4 h-8 w-8 text-stone-300" />
                 <h3 className="font-display text-lg font-medium text-forest-900">ไม่พบที่พักในช่วงนี้</h3>
                 <p className="mt-1 text-sm text-charcoal-400">ลองเปลี่ยนช่วงวันที่ หรือเลือกประเภทที่พักอื่น</p>
+                <button type="button" onClick={handleClearFilters} className="mt-6 rounded-xl border border-stone-200 bg-white px-6 py-2.5 text-[13px] font-bold text-forest-800 shadow-sm transition-colors hover:bg-stone-50">ล้างการค้นหา</button>
               </div>
             ) : (
-              <div className="grid gap-8">
+              <div className={`grid gap-8 transition-opacity duration-300 ${loading ? 'pointer-events-none opacity-50' : 'opacity-100'}`}>
                 {[...availableRooms, ...fullRooms].map((room, idx) => {
                   const availableCount = Number(room.available_count);
-                  const isAvailable = availableCount > 0;
+                  const isCapacityEnough = Number(room.capacity) >= totalGuests;
+                  const isAvailable = availableCount > 0 && isCapacityEnough;
                   const unitPrice = Number(room.price_per_night);
                   const activePromotion = room.available_promotions?.find((p) => selectedPromoCodes.includes(p.code));
                   const discount = activePromotion
@@ -349,7 +385,9 @@ export default function RoomsPage(): React.ReactElement {
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="rounded bg-bamboo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-bamboo-600">{room.type_name}</span>
-                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isAvailable ? "bg-forest-50 text-forest-700" : "bg-stone-200 text-stone-600"}`}>{isAvailable ? `ว่าง ${availableCount} ห้อง` : "เต็ม"}</span>
+                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isAvailable ? "bg-forest-50 text-forest-700" : "bg-stone-200 text-stone-600"}`}>
+                              {isAvailable ? `ว่าง ${availableCount} ห้อง` : !isCapacityEnough ? "ความจุไม่พอ" : "เต็ม"}
+                            </span>
                             {typeof room.avg_rating !== "undefined" && <div className="flex items-center gap-1.5 rounded-full bg-amber-50/70 px-2 py-0.5 text-[11px] font-bold text-amber-600"><Star size={11} className="fill-amber-400 text-amber-400" /><span>{Number(room.avg_rating).toFixed(1)}</span><span className="font-medium text-stone-500">({room.review_count ?? 0} รีวิว)</span></div>}
                           </div>
                           <div><h3 className="font-sans text-[20px] font-semibold leading-tight text-forest-900">{room.room_name}</h3><p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-charcoal-400">{room.description}</p></div>

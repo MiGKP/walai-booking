@@ -383,15 +383,7 @@ export default function KayaksPage(): React.ReactElement {
   const totalPassengers = cartPassengerTotal(cartLines);
   const totalBoats = cartBoatTotal(cartLines);
 
-  // ถ้าปรับจำนวนผู้โดยสารแล้วรอบเวลาที่เลือกไว้เดิมไม่พอที่จะรองรับ ให้เคลียร์การเลือกรอบทิ้ง กันจองพลาด
-  useEffect(() => {
-    if (!selectedSlotKey) return;
-    const slot = slots.find((s) => s.key === selectedSlotKey);
-    if (!slot || !slotFitsCart(slot, cartLines)) {
-      setSelectedSlotKey(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartLines, slots]);
+  // ลบ useEffect ที่ล้างการเลือกรอบทิ้ง (Silent Deselection) เพื่อให้ผู้ใช้รู้ว่าทำไมถึงจองไม่ได้ แทนที่จะปิดการเลือกไปดื้อๆ
 
   const handleSelectDate = (date: string | null): void => {
     // กันไว้อีกชั้นเผื่อกดก่อนปฏิทินโหลดสถานะ "หมดรอบ" เสร็จ
@@ -421,13 +413,14 @@ export default function KayaksPage(): React.ReactElement {
       }
       return next;
     });
-    // เปลี่ยนจำนวนคนแล้ว รีเซ็ตจำนวนเรือกลับไปเป็นค่าคำนวณอัตโนมัติใหม่ (ผู้ใช้ปรับเพิ่มเองได้อีกทีหลังจากนี้)
+    // รักษาจำนวนเรือที่ผู้ใช้บวกเพิ่มไว้ (แต่ต้องไม่น้อยกว่าขั้นต่ำที่ต้องใช้)
     setBoatCountByType((prev) => {
       const next = { ...prev };
       if (raw < 1) {
         delete next[boatId];
       } else {
-        next[boatId] = boatsNeeded(raw, capacity);
+        const requiredMin = boatsNeeded(raw, capacity);
+        next[boatId] = Math.max(requiredMin, prev[boatId] || 0);
       }
       return next;
     });
@@ -584,21 +577,21 @@ export default function KayaksPage(): React.ReactElement {
                               <button
                                 key={slot.key}
                                 type="button"
-                                disabled={!fits}
+                                disabled={!fits && !isSelected}
                                 aria-pressed={isSelected}
                                 onClick={() => handleSelectSlot(slot.key)}
                                 className={`shrink-0 rounded-xl border px-4 py-2.5 text-left transition-colors ${
                                   isSelected
-                                    ? 'border-forest-800 bg-forest-800 text-cream-100'
+                                    ? fits ? 'border-forest-800 bg-forest-800 text-cream-100' : 'border-rose-500 bg-rose-50 text-rose-700'
                                     : fits
                                       ? 'border-stone-200 hover:border-forest-300 hover:bg-forest-50'
                                       : 'cursor-not-allowed border-stone-100 opacity-50'
                                 }`}
                               >
-                                <span className={`block text-[12.5px] font-semibold tabular-nums ${isSelected ? 'text-cream-100' : 'text-forest-900'}`}>
+                                <span className={`block text-[12.5px] font-semibold tabular-nums ${isSelected ? (fits ? 'text-cream-100' : 'text-rose-700') : 'text-forest-900'}`}>
                                   {formatTimeRange(slot.start_time, slot.end_time)}
                                 </span>
-                                <span className={`block text-[10.5px] ${isSelected ? 'text-cream-200' : fits ? 'text-charcoal-400' : 'text-stone-400 line-through'}`}>
+                                <span className={`block text-[10.5px] ${isSelected ? (fits ? 'text-cream-200' : 'text-rose-600') : fits ? 'text-charcoal-400' : 'text-stone-400 line-through'}`}>
                                   {fits ? `เหลือ ${slot.remaining} ลำ` : !slot.available ? 'เต็ม' : 'เรือไม่พอ'}
                                 </span>
                               </button>
@@ -832,19 +825,30 @@ export default function KayaksPage(): React.ReactElement {
                 </span>
               </div>
 
-              <button
-                type="submit"
-                disabled={
-                  bookingLoading ||
-                  !selectedDate ||
-                  !selectedSlot ||
-                  cartLines.length === 0 ||
-                  (selectedDate === today && pastCutoffToday)
-                }
-                className="btn-primary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {bookingLoading ? 'กำลังจอง...' : 'ยืนยันการจองเรือ'}
-              </button>
+              {(() => {
+                const isDateInvalid = !selectedDate || (selectedDate === today && pastCutoffToday);
+                const hasNoCart = cartLines.length === 0;
+                const hasNoSlot = !selectedSlot;
+                const slotNotFit = selectedSlot && !slotFitsCart(selectedSlot, cartLines);
+                const isDisabled = bookingLoading || isDateInvalid || hasNoSlot || hasNoCart || slotNotFit;
+                
+                let btnText = 'ยืนยันการจองเรือ';
+                if (bookingLoading) btnText = 'กำลังจอง...';
+                else if (isDateInvalid) btnText = 'กรุณาเลือกวันที่';
+                else if (hasNoSlot) btnText = 'กรุณาเลือกรอบเวลา';
+                else if (hasNoCart) btnText = 'กรุณาระบุจำนวนผู้โดยสาร';
+                else if (slotNotFit) btnText = 'เรือในรอบที่เลือกไม่พอ';
+
+                return (
+                  <button
+                    type="submit"
+                    disabled={!!isDisabled}
+                    className={`btn-primary mt-5 w-full disabled:cursor-not-allowed ${slotNotFit ? 'disabled:bg-rose-100 disabled:text-rose-600 disabled:opacity-100' : 'disabled:opacity-50'}`}
+                  >
+                    {btnText}
+                  </button>
+                );
+              })()}
               <p className="mt-3 text-center text-[11px] text-charcoal-400">
                 ยังไม่ตัดเงิน — ชำระเงินในขั้นตอนถัดไป (ครั้งเดียวทั้งกลุ่ม)
               </p>

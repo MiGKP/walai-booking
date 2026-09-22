@@ -176,18 +176,7 @@ export default function RoomDetailPage(): React.ReactElement {
     }).catch(() => undefined);
   }, [id, range.start, range.end]);
 
-  // Next.js ไม่ scroll ไปยัง #hash ให้อัตโนมัติถ้า element ยังไม่อยู่ใน DOM ตอน navigate มา (ข้อมูลห้องยังโหลดไม่เสร็จ)
-  // จึงต้อง scroll เองหลังข้อมูลห้องโหลดเสร็จ เพื่อรองรับลิงก์ "จองที่พัก" จากหน้ารายการที่พาตรงมาที่ตัวเลือกเลขห้อง
-  useEffect(() => {
-    if (!room || typeof window === 'undefined') return;
-    if (window.location.hash === '#room-picker') {
-      requestAnimationFrame(() => {
-        document.getElementById('room-picker')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-      // ลบ #room-picker ออกจาก URL ทันทีหลัง scroll เพื่อไม่ให้ค้างโชว์ในแถบที่อยู่ (ไม่กระทบการ scroll ที่กำลังทำอยู่)
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
-  }, [room]);
+  // นำ Auto-scroll ไปยัง #room-picker ออก เพื่อให้ผู้ใช้ได้เห็นรูปภาพและรายละเอียดห้องก่อน
 
   useEffect(() => {
     if (!id) return;
@@ -487,21 +476,31 @@ export default function RoomDetailPage(): React.ReactElement {
                 title="เลือกหมายเลขห้องพักที่ต้องการ"
                 action={<span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-[11px] font-bold text-forest-700">ว่าง {availableCount} จาก {sortedPhysicalRooms.length} ห้อง</span>}
               />
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
                 {sortedPhysicalRooms.map((physical) => {
                   const isSelected = selectedRoomIds.includes(physical.room_id);
                   return (
-                    <button key={physical.room_id} disabled={!physical.is_available} onClick={() => handleToggleRoom(physical.room_id)} className={`group relative flex flex-col gap-1 rounded-2xl border p-4 text-left transition-all duration-300 ${isSelected ? 'border-forest-900 bg-forest-900 shadow-md' : physical.is_available ? 'border-stone-200 bg-white hover:border-forest-300 hover:shadow-md' : 'cursor-not-allowed border-stone-100 bg-stone-50/50 opacity-60'}`}>
+                    <div key={physical.room_id} className={`group relative flex flex-col justify-between gap-1 rounded-2xl border p-4 text-left transition-all duration-300 ${isSelected ? 'border-forest-900 bg-forest-50/40 shadow-sm' : physical.is_available ? 'border-stone-200 bg-white hover:border-forest-300 hover:shadow-md' : 'border-stone-100 bg-stone-50/50 opacity-60'}`}>
                       <div className="flex items-center justify-between">
-                        <span className={`text-[15px] font-bold ${isSelected ? 'text-white' : 'text-forest-800'}`}>ห้อง {physical.room_number}</span>
-                        {isSelected ? (
-                          <div className="grid h-5 w-5 place-items-center rounded-full bg-white text-forest-900"><CheckCircle2 size={12} /></div>
-                        ) : (
-                          <div className={`h-4 w-4 rounded-full border-2 ${physical.is_available ? 'border-stone-300 group-hover:border-forest-400' : 'border-stone-200'}`} />
-                        )}
+                        <span className="text-[15px] font-bold text-forest-900">ห้อง {physical.room_number}</span>
+                        {isSelected && <CheckCircle2 size={16} className="text-forest-700" />}
                       </div>
-                      <span className={`text-[12px] ${isSelected ? 'text-forest-100' : 'text-charcoal-400'}`}>{physical.is_available ? `ความจุ ${room.capacity} ท่าน` : 'ถูกจองแล้ว'}</span>
-                    </button>
+                      <span className="mb-2 text-[12px] text-charcoal-500">{physical.is_available ? `ความจุ ${room.capacity} ท่าน` : 'ถูกจองแล้ว'}</span>
+                      
+                      {physical.is_available ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleRoom(physical.room_id)}
+                          className={`mt-auto w-full rounded-xl py-2 text-[12px] font-bold transition-all ${isSelected ? 'bg-forest-900 text-white shadow-md hover:bg-forest-800' : 'bg-forest-50 text-forest-800 hover:bg-forest-100'}`}
+                        >
+                          {isSelected ? 'เลือกแล้ว' : 'เพิ่มลงตะกร้า'}
+                        </button>
+                      ) : (
+                         <div className="mt-auto w-full rounded-xl bg-stone-100 py-2 text-center text-[12px] font-bold text-stone-400">
+                           ไม่ว่าง
+                         </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>

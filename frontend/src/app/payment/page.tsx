@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { CreditCard, Upload, CheckCircle, ArrowLeft, XCircle, Receipt, Landmark, QrCode, Info, X } from 'lucide-react';
+import { CreditCard, Upload, CheckCircle, ArrowLeft, XCircle, Receipt, Landmark, QrCode, Info } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { formatThaiDate, formatTimeRange, nightsBetween } from '@/lib/date';
@@ -16,246 +16,6 @@ function SectionHeading({ icon, title }: { icon: React.ReactNode; title: string 
     <div className="flex items-center gap-2.5">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">{icon}</span>
       <h2 className="font-sans text-[16px] font-semibold text-forest-900">{title}</h2>
-    </div>
-  );
-}
-
-// การ์ดบัตรเสริมเรือคายัคต่อห้องพักจริง 1 ห้อง — ให้ลูกค้าเลือกประเภทเรือ/เวลา/จำนวน ตอนกดชำระเงินห้องพัก
-// (จองคิวรอบจริงทันทีตามเงื่อนไข ไม่ใช่แค่บันทึกความต้องการไว้ก่อน)
-function BoatAddonCard({
-  bookingRoomId,
-  roomLabel,
-  onTotalChanged,
-}: {
-  bookingRoomId: number;
-  roomLabel: string;
-  onTotalChanged: () => void;
-}) {
-  const [info, setInfo] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [showPicker, setShowPicker] = useState(false);
-  const [kayakTypes, setKayakTypes] = useState<any[]>([]);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTypeId, setSelectedTypeId] = useState('');
-  const [rounds, setRounds] = useState<any[]>([]);
-  const [selectedRoundId, setSelectedRoundId] = useState('');
-  const [numPassengers, setNumPassengers] = useState(1);
-  const [boatCount, setBoatCount] = useState(1);
-  const [submitting, setSubmitting] = useState(false);
-
-  const fetchInfo = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get(`/kayaks/room-addon/${bookingRoomId}`);
-      setInfo(res.data.data);
-    } catch {
-      // ไม่มีบัตรเสริมสำหรับห้องนี้ก็แค่ไม่แสดงส่วนนี้
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchInfo();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookingRoomId]);
-
-  useEffect(() => {
-    if (showPicker && kayakTypes.length === 0) {
-      api
-        .get('/kayaks')
-        .then((res) => setKayakTypes(res.data.data || []))
-        .catch(() => {});
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showPicker]);
-
-  useEffect(() => {
-    if (selectedDate && selectedTypeId) {
-      api
-        .get('/kayaks/rounds-availability', {
-          params: { kayak_id: selectedTypeId, booking_date: selectedDate },
-        })
-        .then((res) => setRounds(res.data.data?.rounds || []))
-        .catch(() => setRounds([]));
-      setSelectedRoundId('');
-    }
-  }, [selectedDate, selectedTypeId]);
-
-  const handleSubmit = async () => {
-    if (!selectedDate || !selectedTypeId || !selectedRoundId) {
-      toast.error('กรุณาเลือกวันที่ ประเภทเรือ และรอบเวลาให้ครบ');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await api.post(`/kayaks/room-addon/${bookingRoomId}`, {
-        boat_type_id: Number(selectedTypeId),
-        boat_round_id: Number(selectedRoundId),
-        booking_date: selectedDate,
-        num_passengers: numPassengers,
-        boat_count: boatCount,
-      });
-      toast.success('เพิ่มทริปพายเรือสำเร็จ');
-      setShowPicker(false);
-      setSelectedDate('');
-      setSelectedTypeId('');
-      setSelectedRoundId('');
-      await fetchInfo();
-      onTotalChanged();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'เพิ่มทริปพายเรือไม่สำเร็จ');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (loading || !info) return null;
-  const hasBalance = info.balance > 0;
-  const hasExisting = Array.isArray(info.existing_addons) && info.existing_addons.length > 0;
-  if (!hasBalance && !hasExisting) return null;
-
-  return (
-    <div className="rounded-xl border border-lagoon-200 bg-lagoon-50/50 p-3 space-y-2">
-      <div className="flex items-center justify-between flex-wrap gap-1">
-        <p className="text-[12.5px] font-bold text-lagoon-800">🚣 บัตรเสริมเรือคายัค — {roomLabel}</p>
-        {hasBalance && (
-          <span className="text-[11px] font-semibold text-lagoon-700">
-            เหลือ {info.balance} ครั้ง {info.mode === 'paid' ? `(฿${info.unit_price}/ครั้ง)` : '(แจกฟรี)'}
-          </span>
-        )}
-      </div>
-
-      {hasExisting && (
-        <ul className="space-y-1">
-          {info.existing_addons
-            .filter((a: any) => a.status !== 'cancelled')
-            .map((a: any) => (
-              <li
-                key={a.boat_booking_id}
-                className="text-[11.5px] text-charcoal-500 flex items-center justify-between bg-white rounded-lg px-2.5 py-1.5"
-              >
-                <span>
-                  {a.boat_type_name} · {formatThaiDate(String(a.booking_date).slice(0, 10))} ·{' '}
-                  {String(a.start_time || '').slice(0, 5)}-{String(a.end_time || '').slice(0, 5)} · {a.boat_count} ลำ
-                </span>
-                <span className="font-semibold shrink-0 ml-2">
-                  {a.mode === 'paid' ? `฿${Number(a.price).toLocaleString()}` : 'ฟรี'}
-                </span>
-              </li>
-            ))}
-        </ul>
-      )}
-
-      {hasBalance && !info.valid_from && (
-        <p className="text-[11px] text-stone-400">ที่พักคืนเดียวไม่มีวันที่ให้เลือกใช้บัตรเสริม</p>
-      )}
-
-      {hasBalance && info.valid_from && !showPicker && (
-        <button
-          type="button"
-          onClick={() => setShowPicker(true)}
-          className="text-[11.5px] font-bold text-lagoon-700 hover:underline"
-        >
-          + เพิ่มทริปพายเรือ
-        </button>
-      )}
-
-      {showPicker && (
-        <div className="space-y-2 bg-white rounded-lg p-2.5 border border-lagoon-100">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label htmlFor="addon-date" className="text-[10.5px] font-bold text-stone-500 block mb-1">วันที่ใช้บริการ</label>
-              <input
-                id="addon-date"
-                type="date"
-                min={info.valid_from}
-                max={info.valid_to}
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="input-field text-xs px-2 py-1.5"
-              />
-            </div>
-            <div>
-              <label htmlFor="addon-type" className="text-[10.5px] font-bold text-stone-500 block mb-1">ประเภทเรือ</label>
-              <select
-                id="addon-type"
-                value={selectedTypeId}
-                onChange={(e) => setSelectedTypeId(e.target.value)}
-                className="input-field text-xs px-2 py-1.5"
-              >
-                <option value="">เลือก</option>
-                {kayakTypes.map((k: any) => (
-                  <option key={k.id} value={k.id}>
-                    {k.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {selectedDate && selectedTypeId && (
-            <div>
-              <label htmlFor="addon-round" className="text-[10.5px] font-bold text-stone-500 block mb-1">รอบเวลา</label>
-              <select
-                id="addon-round"
-                value={selectedRoundId}
-                onChange={(e) => setSelectedRoundId(e.target.value)}
-                className="input-field text-xs px-2 py-1.5"
-              >
-                <option value="">เลือกรอบ</option>
-                {rounds.map((r: any) => (
-                  <option key={r.boat_round_id} value={r.boat_round_id} disabled={!r.available || r.remaining <= 0}>
-                    {String(r.start_time).slice(0, 5)}-{String(r.end_time).slice(0, 5)} (เหลือ {Math.max(0, r.remaining)} ลำ)
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[10.5px] font-bold text-stone-500">จำนวนผู้โดยสาร</label>
-              <input
-                type="number"
-                min={1}
-                value={numPassengers}
-                onChange={(e) => setNumPassengers(Math.max(1, Number(e.target.value)))}
-                className="w-full text-xs border border-stone-200 rounded-lg px-2 py-1.5"
-              />
-            </div>
-            <div>
-              <label className="text-[10.5px] font-bold text-stone-500">จำนวนเรือ (สูงสุด {info.balance})</label>
-              <input
-                type="number"
-                min={1}
-                max={info.balance}
-                value={boatCount}
-                onChange={(e) => setBoatCount(Math.min(info.balance, Math.max(1, Number(e.target.value))))}
-                className="w-full text-xs border border-stone-200 rounded-lg px-2 py-1.5"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => setShowPicker(false)}
-              className="text-[11px] font-semibold text-stone-500 px-3 py-1.5"
-            >
-              ยกเลิก
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="text-[11px] font-bold text-white bg-sky-600 hover:bg-sky-700 rounded-lg px-3 py-1.5 disabled:opacity-60"
-            >
-              {submitting ? 'กำลังบันทึก...' : 'ยืนยันจอง'}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -280,6 +40,7 @@ function PaymentContent() {
   const [rejectReason, setRejectReason] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [step, setStep] = useState<1 | 2>(1);
 
   useEffect(() => {
     if (!ready) return;
@@ -333,8 +94,8 @@ function PaymentContent() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setDone(true);
-    } catch (err) {
-      toast.error(getApiErrorMessage(err, 'อัปโหลดสลิปไม่สำเร็จ'));
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'อัปโหลดสลิปไม่สำเร็จ');
     } finally {
       setUploading(false);
     }
@@ -454,7 +215,7 @@ function PaymentContent() {
 
   return (
     <div className="min-h-screen bg-cream-100 pt-20">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="max-w-5xl mx-auto p-6 space-y-6">
         {/* Header Section */}
         <div>
           <Link
@@ -477,9 +238,9 @@ function PaymentContent() {
         </div>
 
         {payment && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-start">
-            {/* ---- คอลัมน์ 1: สรุปรายการจอง + รายละเอียดการเข้าพัก (การ์ดเดียว) ---- */}
-            <div className="space-y-5">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.1fr] items-start">
+            {/* ---- ด้านซ้าย: สรุปรายการจอง ---- */}
+            <div className="space-y-5 lg:sticky lg:top-24">
               <section className={CARD}>
                 <SectionHeading icon={<Receipt size={16} />} title="สรุปรายการ" />
                 <div className="mt-4 space-y-2 text-[13.5px]">
@@ -546,19 +307,6 @@ function PaymentContent() {
                         </div>
                       ))}
                     </div>
-
-                    {!['rejected', 'cancelled', 'checked_out'].includes(String(bookingStatus)) && (
-                      <div className="mt-4 space-y-2 border-t border-stone-100 pt-4">
-                        {(bookingDetail.rooms || []).map((room: any) => (
-                          <BoatAddonCard
-                            key={room.booking_room_id}
-                            bookingRoomId={room.booking_room_id}
-                            roomLabel={`${room.room_name} #${room.room_number}`}
-                            onTotalChanged={createPayment}
-                          />
-                        ))}
-                      </div>
-                    )}
 
                     {bookingDetail.special_request && (
                       <div className="mt-4 rounded-xl bg-bamboo-50/40 p-3 text-[12.5px] text-charcoal-500">
@@ -630,85 +378,115 @@ function PaymentContent() {
               </section>
             </div>
 
-            {/* ---- คอลัมน์ 2: ช่องทางการชำระเงิน (QR ข้างบน + บัญชีข้างล่าง ในการ์ดเดียวกัน) ---- */}
+            {/* ---- ด้านขวา: ขั้นตอนการชำระเงิน ---- */}
             <div className="space-y-5">
-              <section className={CARD}>
-                {payment.qr_code_url && (
-                  <div className="text-center">
-                    <SectionHeading icon={<QrCode size={16} />} title="สแกน QR Code ชำระเงิน" />
-                    <div className="mt-4 inline-block rounded-2xl border border-stone-200/80 bg-white p-4 shadow-sm">
-                      <img src={payment.qr_code_url} alt={`QR Code สำหรับสแกนจ่ายเงินจำนวน ${Number(payment.amount).toLocaleString()} บาท`} className="w-52 h-52 mx-auto" />
-                    </div>
-                    <p className="mt-3 text-[12.5px] text-charcoal-400">สแกนด้วยแอปธนาคารหรือ PromptPay</p>
-                    <p className="mt-1 font-sans text-[18px] font-extrabold text-forest-900">฿{Number(payment.amount).toLocaleString()}</p>
-                  </div>
-                )}
-                {/* Fallback to Bank Info if no QR */}
-                {!payment.qr_code_url && (
-                  <div className="text-center">
-                    <SectionHeading icon={<CreditCard size={16} />} title="โอนผ่านบัญชีธนาคาร" />
-                    <div className="mt-4 inline-block rounded-2xl border border-stone-200/80 bg-white p-4 shadow-sm space-y-2 text-left w-full max-w-xs mx-auto">
-                      <p className="text-[13px] font-medium text-forest-800">ธนาคาร: <span className="font-semibold text-charcoal-600">กสิกรไทย (KBank)</span></p>
-                      <p className="text-[13px] font-medium text-forest-800">เลขบัญชี: <span className="font-sans font-bold text-lg text-bamboo-600 tracking-wider">123-4-56789-0</span></p>
-                      <p className="text-[13px] font-medium text-forest-800">ชื่อบัญชี: <span className="font-semibold text-charcoal-600">บริษัท สวนวลัย จำกัด</span></p>
-                    </div>
-                  </div>
-                )}
-              </section>
-            </div>
+              {step === 1 ? (
+                <>
+                  {/* Step 1: ช่องทางชำระเงิน */}
+                  <section className={CARD}>
+                    {payment.qr_code_url && (
+                      <div className="text-center">
+                        <SectionHeading icon={<QrCode size={16} />} title="สแกน QR Code ชำระเงิน" />
+                        <div className="mt-4 inline-block rounded-2xl border border-stone-200/80 bg-white p-4 shadow-sm">
+                          <img src={payment.qr_code_url} alt="QR Code" className="w-52 h-52 mx-auto" />
+                        </div>
+                        <p className="mt-3 text-[12.5px] text-charcoal-400">สแกนด้วยแอปธนาคารหรือ PromptPay</p>
+                        <p className="mt-1 font-sans text-[18px] font-extrabold text-forest-900">฿{Number(payment.amount).toLocaleString()}</p>
+                      </div>
+                    )}
 
-            {/* ---- คอลัมน์ 3: ยืนยันการโอนเงิน (อัปโหลดสลิป) ---- */}
-            <div className="space-y-5">
-              {/* Upload Slip */}
-              <section className={CARD}>
-                <SectionHeading icon={<Upload size={16} />} title="แจ้งชำระเงิน (อัปโหลดสลิป)" />
-                <div className="mt-4 flex flex-col items-center">
-                  {slipPreview ? (
-                    <div className="relative w-full max-w-[200px] rounded-xl overflow-hidden border-2 border-stone-200/80">
-                      <img src={slipPreview} alt="Slip preview" className="w-full h-auto object-cover" />
+                    <div className={payment.qr_code_url ? 'mt-6 border-t border-stone-100 pt-6' : ''}>
+                      <SectionHeading icon={<Landmark size={16} />} title="ช่องทางการชำระเงิน" />
+                      <div className="mt-4 space-y-2 rounded-xl bg-forest-50/50 p-4 text-[13.5px]">
+                        <div className="flex justify-between">
+                          <span className="text-charcoal-500">ธนาคาร</span>
+                          <span className="font-semibold text-forest-900">{payment.bank_info?.bank_name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-charcoal-500">เลขบัญชี</span>
+                          <span className="font-semibold text-forest-900">{payment.bank_info?.account_number}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-charcoal-500">ชื่อบัญชี</span>
+                          <span className="font-semibold text-forest-900">{payment.bank_info?.account_name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-charcoal-500">PromptPay</span>
+                          <span className="font-semibold text-forest-900">{payment.bank_info?.promptpay}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setStep(2)}
+                      className="btn-primary w-full mt-6 text-center shadow-lg shadow-forest-900/20 py-3 text-[14px]"
+                    >
+                      ชำระเงินเรียบร้อยแล้ว, ไปหน้าอัปโหลดสลิป
+                    </button>
+                  </section>
+
+                  {/* คำแนะนำและยกเลิกการจอง */}
+                  <section className={CARD}>
+                    <SectionHeading icon={<Info size={16} />} title="คำแนะนำและยกเลิกการจอง" />
+                    <ul className="mt-4 list-disc pl-5 text-[12.5px] text-charcoal-500 space-y-1.5">
+                      <li>กรุณาชำระเงินภายในเวลาที่กำหนด หากเกินกำหนดระบบจะยกเลิกการจองอัตโนมัติ</li>
+                      <li>หากชำระเงินแล้ว ไม่สามารถขอคืนเงินได้เว้นแต่กรณีฉุกเฉินหรือภัยพิบัติร้ายแรงตามนโยบาย</li>
+                      <li>ใช้รูปสลิปโอนเงินที่เห็นข้อมูลครบถ้วนชัดเจนเท่านั้น</li>
+                    </ul>
+                    <div className="mt-5 border-t border-stone-100 pt-5">
+                      <p className="text-[12.5px] text-stone-500 mb-3">หากเปลี่ยนใจหรือไม่ต้องการจองแล้ว สามารถยกเลิกได้ที่นี่</p>
                       <button
-                        onClick={() => {
-                          setSlip(null);
-                          setSlipPreview('');
-                        }}
-                        className="absolute top-2 right-2 bg-red-500/90 hover:bg-red-600 text-white p-1 rounded-full backdrop-blur-sm transition-colors"
+                        onClick={() => setShowCancelConfirm(true)}
+                        className="flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-[13px] font-bold text-red-600 transition-colors hover:bg-red-50"
                       >
-                        <X size={14} />
+                        <XCircle size={15} /> ยืนยันการยกเลิกการจอง
                       </button>
                     </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-stone-300 rounded-xl bg-stone-50/50 hover:bg-stone-50 cursor-pointer transition-colors group">
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6 text-stone-400 group-hover:text-forest-600 transition-colors">
-                        <Upload size={24} className="mb-2" />
-                        <p className="text-[12.5px] font-medium">คลิกเพื่อเลือกไฟล์สลิป</p>
-                        <p className="text-[11px] mt-1">PNG, JPG</p>
-                      </div>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleSlipChange} />
-                    </label>
-                  )}
-                </div>
-                <button
-                  onClick={handleUploadSlip}
-                  disabled={!slip || uploading}
-                  className="btn-primary w-full mt-4 text-center disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {uploading ? 'กำลังอัปโหลด...' : 'ยืนยันการชำระเงิน'}
-                </button>
-              </section>
+                  </section>
+                </>
+              ) : (
+                <>
+                  {/* Step 2: อัปโหลดสลิป */}
+                  <section className={CARD}>
+                    <div className="flex items-center justify-between mb-4 border-b border-stone-100 pb-4">
+                      <SectionHeading icon={<Upload size={16} />} title="ยืนยันการโอนเงิน" />
+                      <button 
+                        onClick={() => setStep(1)}
+                        className="text-[12px] font-semibold text-forest-600 hover:text-forest-800 transition-colors"
+                      >
+                        กลับไปดูช่องทางชำระเงิน
+                      </button>
+                    </div>
 
-              <section className={`${CARD} bg-transparent border-none shadow-none items-center text-center px-0 pt-0`}>
-                <p className="mt-3 text-[12.5px] leading-relaxed text-charcoal-400">
-                  หลังโอนเงินแล้ว กรุณาอัปโหลดสลิปการโอนด้านบนเพื่อให้เจ้าหน้าที่ตรวจสอบและยืนยันการจองของคุณ
-                  หากยังไม่สะดวกชำระเงินตอนนี้ สามารถยกเลิกการจองนี้ได้
-                </p>
-                <button
-                  onClick={() => setShowCancelConfirm(true)}
-                  disabled={cancelling}
-                  className="w-auto mt-2 inline-flex py-2 px-4 text-red-600/80 font-medium text-[12.5px] hover:text-red-700 hover:bg-red-50/50 rounded-lg transition-colors disabled:opacity-60 underline underline-offset-2"
-                >
-                  ต้องการยกเลิกการจองใช่หรือไม่?
-                </button>
-              </section>
+                    <div className="mt-4 rounded-xl border-2 border-dashed border-stone-200 p-6 text-center transition-colors hover:border-forest-300">
+                      {slipPreview ? (
+                        <div className="space-y-3">
+                          <img src={slipPreview} alt="Slip" className="max-h-60 mx-auto rounded-xl object-contain shadow-sm" />
+                          <button onClick={() => { setSlip(null); setSlipPreview(''); }} className="text-[12.5px] font-semibold text-red-500 hover:text-red-600">
+                            เปลี่ยนรูปสลิป
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer block">
+                          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-forest-50 mb-3 text-forest-600">
+                            <Upload size={22} />
+                          </div>
+                          <p className="text-[13.5px] font-semibold text-forest-900 mb-1">คลิกเพื่ออัปโหลดสลิปโอนเงิน</p>
+                          <p className="text-[11.5px] text-stone-400">รองรับ PNG, JPG ขนาดไม่เกิน 5MB</p>
+                          <input type="file" accept="image/*" className="hidden" onChange={handleSlipChange} />
+                        </label>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleUploadSlip}
+                      disabled={!slip || uploading}
+                      className="btn-primary w-full mt-5 text-center py-3 text-[14px] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploading ? 'กำลังอัปโหลดและส่งให้เจ้าหน้าที่...' : 'ยืนยันการชำระเงิน'}
+                    </button>
+                  </section>
+                </>
+              )}
             </div>
           </div>
         )}
