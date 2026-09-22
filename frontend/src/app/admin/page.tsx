@@ -179,7 +179,7 @@ export default function AdminPage() {
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="font-display text-2xl font-bold text-forest-900">
-            ภาพรวมระบบ (Executive Overview)
+            ภาพรวมระบบ
           </h1>
           <p className="mt-1 text-sm text-charcoal-400">
             ยอดขาย สถิติการเข้าพัก และข้อมูลทรัพยากรบุคลากร
@@ -259,7 +259,7 @@ export default function AdminPage() {
               <Users size={100} />
             </div>
             <div className="relative z-10">
-              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-amber-700/80">ฐานลูกค้า (สมาชิกระบบ)</p>
+              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-amber-700/80">ฐานลูกค้า</p>
               <div className="flex items-baseline gap-2">
                 <span className="font-display text-4xl font-bold">{membersList.length}</span>
                 <span className="text-sm text-amber-700">บัญชี</span>
@@ -273,7 +273,7 @@ export default function AdminPage() {
               <UserCheck size={90} />
             </div>
             <div className="relative z-10">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-charcoal-500">พนักงาน (Staff)</p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-charcoal-500">พนักงาน</p>
               <div className="flex items-baseline gap-2 mb-3">
                 <span className="font-display text-4xl font-bold">{staffList.length}</span>
                 <span className="text-sm text-charcoal-500">คน</span>
@@ -328,7 +328,7 @@ export default function AdminPage() {
         {/* Bookings Status Breakdown */}
         <div className="rounded-2xl border border-stone-100 bg-white p-6 shadow-sm lg:col-span-7">
           <h2 className="mb-4 font-display text-lg font-bold text-forest-900">
-            สถานะการจองตามช่วงเวลา (Bookings Status)
+            สถานะการจองตามช่วงเวลา
           </h2>
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-xl border border-stone-100 bg-stone-50 p-4">
@@ -372,7 +372,7 @@ export default function AdminPage() {
       <section className="rounded-2xl border border-stone-100 bg-white p-6 shadow-sm">
         <div className="mb-5 flex items-center gap-2 text-bamboo-700">
           <Clock size={20} className="stroke-[2.5px]" />
-          <h2 className="font-display text-lg font-bold">รอตรวจสอบการชำระเงิน (Action Required)</h2>
+          <h2 className="font-display text-lg font-bold">รอตรวจสอบการชำระเงิน</h2>
         </div>
         
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
