@@ -309,7 +309,7 @@ export const createRoomBooking = async (
                    SELECT br.room_id
                    FROM booking_room br
                    JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
-                   WHERE br.status NOT IN ('cancelled', 'rejected')
+                   WHERE br.status NOT IN ('cancelled', 'rejected', 'checked_out')
                      AND rb.check_in < $5 AND rb.check_out > $4
                  )
                FOR UPDATE`,
@@ -324,7 +324,7 @@ export const createRoomBooking = async (
                    SELECT br.room_id
                    FROM booking_room br
                    JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
-                   WHERE br.status NOT IN ('cancelled', 'rejected')
+                   WHERE br.status NOT IN ('cancelled', 'rejected', 'checked_out')
                      AND rb.check_in < $3 AND rb.check_out > $2
                  )
                LIMIT 1

@@ -55,7 +55,7 @@ export const getAllRooms = async (
           SELECT br.room_id
           FROM booking_room br
           JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
-          WHERE br.status NOT IN ('cancelled', 'rejected')
+          WHERE br.status NOT IN ('cancelled', 'rejected', 'checked_out')
           AND rb.check_in < $${idx} AND rb.check_out > $${idx + 1}
         )
       )`;
@@ -117,7 +117,7 @@ export const getAllRooms = async (
                     SELECT br.room_id
                     FROM booking_room br
                     JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
-                    WHERE br.status NOT IN ('cancelled', 'rejected')
+                    WHERE br.status NOT IN ('cancelled', 'rejected', 'checked_out')
                     AND rb.check_in < $2 AND rb.check_out > $3
                   )`
                : ""
@@ -174,7 +174,7 @@ export const getRoomById = async (
               SELECT br.room_id
               FROM booking_room br
               JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
-              WHERE br.status NOT IN ('cancelled', 'rejected')
+              WHERE br.status NOT IN ('cancelled', 'rejected', 'checked_out')
               AND (rb.check_in < $4 AND rb.check_out > $3)
             )
           )
@@ -319,7 +319,7 @@ export const getRoomCalendar = async (
            FROM booking_room br
            JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
            JOIN rooms r ON r.room_id = br.room_id
-           WHERE br.status NOT IN ('cancelled', 'rejected')
+           WHERE br.status NOT IN ('cancelled', 'rejected', 'checked_out')
              AND r.status <> 'maintenance'
              AND ($1::int IS NULL OR r.room_type_id = $1::int)
              AND rb.check_in <= d.day
@@ -383,7 +383,7 @@ export const checkRoomAvailability = async (
          SELECT br.room_id
          FROM booking_room br
          JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
-         WHERE br.status NOT IN ('cancelled', 'rejected')
+         WHERE br.status NOT IN ('cancelled', 'rejected', 'checked_out')
          AND (rb.check_in < $3 AND rb.check_out > $2)
        ) LIMIT 1`,
       [room_type_id, check_in_date, check_out_date],
