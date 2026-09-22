@@ -266,8 +266,8 @@ function RoomsPageContent(): React.ReactElement {
   const roomTypeOptions = useMemo(() => Array.from(new Set(rooms.map((room) => room.type_name).filter(Boolean))), [rooms]);
   const roomsByType = useMemo(() => typeFilter === "all" ? rooms : rooms.filter((room) => room.type_name === typeFilter), [rooms, typeFilter]);
   const totalGuests = guests.adults + guests.children;
-  const availableRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) > 0 && Number(room.capacity) >= totalGuests), [roomsByType, totalGuests]);
-  const fullRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) <= 0 || Number(room.capacity) < totalGuests), [roomsByType, totalGuests]);
+  const availableRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) > 0 && (Number(room.capacity) * Number(room.available_count)) >= totalGuests), [roomsByType, totalGuests]);
+  const fullRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) <= 0 || (Number(room.capacity) * Number(room.available_count)) < totalGuests), [roomsByType, totalGuests]);
 
   return (
     <div className="min-h-screen bg-cream-100 pb-20 pt-4">
@@ -366,7 +366,7 @@ function RoomsPageContent(): React.ReactElement {
               <div className={`grid gap-8 transition-opacity duration-300 ${loading ? 'pointer-events-none opacity-50' : 'opacity-100'}`}>
                 {[...availableRooms, ...fullRooms].map((room, idx) => {
                   const availableCount = Number(room.available_count);
-                  const isCapacityEnough = Number(room.capacity) >= totalGuests;
+                  const isCapacityEnough = (Number(room.capacity) * availableCount) >= totalGuests;
                   const isAvailable = availableCount > 0 && isCapacityEnough;
                   const unitPrice = Number(room.price_per_night);
                   const activePromotion = room.available_promotions?.find((p) => selectedPromoCodes.includes(p.code));

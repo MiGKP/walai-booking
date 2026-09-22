@@ -211,7 +211,7 @@ function PaymentContent() {
                <p className="text-[12px] text-bamboo-700 mt-1.5 mb-4 leading-relaxed">
                  หากคุณมีโปรโมชั่นแถมเรือ กรุณาเลือกวันและเวลาพายเรือตอนนี้เลย<br/>(เพื่อป้องกันคิวเต็มในวันที่คุณต้องการ)
                </p>
-               <Link href="/kayaks" className="flex items-center justify-center gap-2 w-full rounded-xl bg-bamboo-600 py-3 text-[13.5px] font-bold text-white transition-colors hover:bg-bamboo-700 shadow-md">
+               <Link href={`/kayaks?room_booking_id=${payment.booking_id}&check_in=${bookingDetail?.check_in_date}&check_out=${bookingDetail?.check_out_date}`} className="flex items-center justify-center gap-2 w-full rounded-xl bg-bamboo-600 py-3 text-[13.5px] font-bold text-white transition-colors hover:bg-bamboo-700 shadow-md">
                  จองคิวเรือคายัค
                </Link>
              </div>

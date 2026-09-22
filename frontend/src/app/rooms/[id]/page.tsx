@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Clock,
   ImageIcon,
   Maximize2,
   Sparkles,

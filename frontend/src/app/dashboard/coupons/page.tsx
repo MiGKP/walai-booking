@@ -28,7 +28,7 @@ export default function CouponsPage(): React.ReactElement | null {
       const res = await api.get<{ data: WalletPromo[] }>('/promotions/mine');
       setWallet(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'โหลดคูปองไม่สำเร็จ'));
+      toast.error(getApiErrorMessage(error, 'โหลดโปรโมชั่นไม่สำเร็จ'));
     } finally {
       setLoading(false);
     }
@@ -59,7 +59,7 @@ export default function CouponsPage(): React.ReactElement | null {
     setRemovingId(promotionId);
     try {
       await api.delete(`/promotions/${promotionId}/collect`);
-      toast.success('เอาคูปองออกจากกระเป๋าแล้ว');
+      toast.success('เอาโปรโมชั่นออกจากกระเป๋าแล้ว');
       await loadWallet();
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, 'เอาออกไม่สำเร็จ'));
@@ -74,9 +74,9 @@ export default function CouponsPage(): React.ReactElement | null {
     <div className="min-h-screen bg-[#FDFBF7] pt-16">
       <div className="container mx-auto max-w-3xl px-4 py-8">
         <div className="mb-8">
-          <h1 className="font-display text-2xl font-medium text-forest-900">คูปองของฉัน</h1>
+          <h1 className="font-display text-2xl font-medium text-forest-900">โปรโมชั่นของฉัน</h1>
           <p className="mt-1 text-sm text-charcoal-500">
-            คูปองที่เก็บไว้ ใช้ตอนจองห้องพักหรือเรือคายัค
+            โปรโมชั่นที่เก็บไว้ ใช้ตอนจองห้องพักหรือเรือคายัค
           </p>
         </div>
 
@@ -115,11 +115,11 @@ export default function CouponsPage(): React.ReactElement | null {
           <div className="card px-6 py-16 text-center">
             <Ticket size={40} className="mx-auto text-stone-300" />
             <p className="mt-4 text-charcoal-500">
-              {filter === 'saved' ? 'ยังไม่มีคูปองในกระเป๋า' : 'ยังไม่มีรายการในหมวดนี้'}
+              {filter === 'saved' ? 'ยังไม่มีโปรโมชั่นในกระเป๋า' : 'ยังไม่มีรายการในหมวดนี้'}
             </p>
             {filter === 'saved' ? (
               <Link href="/promotions" className="btn-primary mt-5 inline-flex">
-                ไปเก็บคูปอง
+                ไปเก็บโปรโมชั่น
               </Link>
             ) : null}
           </div>
@@ -166,7 +166,7 @@ export default function CouponsPage(): React.ReactElement | null {
                       </>
                     ) : (
                       <Link href="/promotions" className="text-sm font-medium text-forest-800">
-                        ดูคูปองอื่น
+                        ดูโปรโมชั่นอื่น
                       </Link>
                     )
                   }

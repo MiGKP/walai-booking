@@ -22,7 +22,7 @@ export default function PromotionsPage(): React.ReactElement {
       const res = await api.get<{ data: CatalogPromo[] }>('/promotions/active');
       setPromos(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'โหลดคูปองไม่สำเร็จ'));
+      toast.error(getApiErrorMessage(error, 'โหลดโปรโมชั่นไม่สำเร็จ'));
     } finally {
       setLoading(false);
     }
@@ -41,10 +41,10 @@ export default function PromotionsPage(): React.ReactElement {
     setCollectingId(id);
     try {
       await api.post(`/promotions/${id}/collect`);
-      toast.success('เก็บคูปองแล้ว');
+      toast.success('เก็บโปรโมชั่นแล้ว');
       await loadPromos();
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'เก็บคูปองไม่สำเร็จ'));
+      toast.error(getApiErrorMessage(error, 'เก็บโปรโมชั่นไม่สำเร็จ'));
     } finally {
       setCollectingId(null);
     }
@@ -55,10 +55,10 @@ export default function PromotionsPage(): React.ReactElement {
       <header className="border-b border-stone-200/80 bg-gradient-to-b from-stone-100/50 to-[#FDFBF7]">
         <div className="container mx-auto px-4 py-8">
           <span className="text-[11px] font-semibold uppercase tracking-widest text-lagoon-600">
-            คูปองส่วนลด
+            โปรโมชั่น
           </span>
           <h1 className="mt-1 font-display text-3xl font-medium tracking-tight text-forest-900">
-            เก็บคูปองไปใช้ตอนจอง
+            เก็บโปรโมชั่นไปใช้ตอนจอง
           </h1>
           <p className="mt-2 max-w-xl text-sm leading-6 text-charcoal-500">
             กดเก็บไว้ในกระเป๋าก่อน แล้วเลือกใช้ตอนจองห้องพักหรือเรือคายัค
@@ -77,7 +77,7 @@ export default function PromotionsPage(): React.ReactElement {
         ) : promos.length === 0 ? (
           <div className="card px-6 py-16 text-center">
             <Ticket size={40} className="mx-auto text-stone-300" />
-            <p className="mt-4 text-charcoal-500">ยังไม่มีคูปองที่เก็บได้ในตอนนี้</p>
+            <p className="mt-4 text-charcoal-500">ยังไม่มีโปรโมชั่นที่เก็บได้ในตอนนี้</p>
           </div>
         ) : (
           <ul className="space-y-4">
