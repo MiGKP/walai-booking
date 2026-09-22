@@ -347,6 +347,19 @@ function AdminCheckinContent() {
           <div class="row"><div class="label">จำนวนเรือ / ผู้โดยสาร</div><div class="value">${addon.boat_count} ลำ / ${addon.num_passengers} คน</div></div>
           <div class="row"><div class="label">ประเภทบัตร</div><div class="value">${addon.mode === "paid" ? `เสริม (ชำระแล้ว ฿${Number(addon.price).toLocaleString()})` : "แถมฟรีจากโปรโมชั่น"}</div></div>
         </div>
+        <div style="margin-top: 24px; padding: 14px; background: #f9f9f9; border-radius: 10px;">
+          <h2 style="font-size: 13px; margin: 0 0 6px; color: #333;">ข้อควรปฏิบัติ</h2>
+          <ul style="font-size: 11px; color: #555; padding-left: 18px; margin: 0 0 12px; line-height: 1.5;">
+            <li>ต้องสวมเสื้อชูชีพตลอดเวลาขณะอยู่บนเรือ</li>
+            <li>ห้ามดื่มเครื่องดื่มแอลกอฮอล์บนเรือ</li>
+            <li>กรุณามาถึงท่าเรือก่อนรอบเวลา 15 นาที</li>
+          </ul>
+          <h2 style="font-size: 13px; margin: 0 0 6px; color: #333;">สิ่งที่ควรมีบนเรือ</h2>
+          <ul style="font-size: 11px; color: #555; padding-left: 18px; margin: 0; line-height: 1.5;">
+            <li>น้ำดื่ม 1 ขวด / หมวกกันแดด</li>
+            <li>ถุงกันน้ำสำหรับใส่โทรศัพท์มือถือ</li>
+          </ul>
+        </div>
         <p class="footer">พิมพ์เมื่อ ${new Date().toLocaleString("th-TH")}</p>
       </body></html>`);
     w.document.close();

@@ -413,7 +413,7 @@ export default function PromotionsPage() {
             จัดการโปรโมชั่น / แพ็คเกจ
           </h1>
           <p className="text-stone-400 mt-0.5 text-xs md:text-sm">
-            สร้างและจัดการโค้ดส่วนลดและแพ็คเกจห้องพักพร้อมบัตรพายเรือ
+            สร้างและจัดการโค้ดส่วนลดและแพ็คเกจห้องพักพร้อมโปรโมชั่นพายเรือ
           </p>
         </div>
 
@@ -526,7 +526,7 @@ export default function PromotionsPage() {
               <tr className="bg-stone-50 border-b border-stone-200/80 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
                 <th className="px-5 py-3.5">โค้ด</th>
                 <th className="px-5 py-3.5">ชื่อแพ็คเกจ/โปรโมชั่น</th>
-                <th className="px-5 py-3.5">ห้องพัก & บัตรพายเรือ</th>
+                <th className="px-5 py-3.5">ห้องพัก & โปรโมชั่นพายเรือ</th>
                 <th className="px-5 py-3.5">ส่วนลด</th>
                 <th className="px-5 py-3.5">เงื่อนไข</th>
                 <th className="px-5 py-3.5">ระยะเวลา</th>
@@ -893,7 +893,7 @@ export default function PromotionsPage() {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, name: e.target.value }))
                     }
-                    placeholder="เช่น แพ็คเกจห้องพักพร้อมบัตรพายเรือ"
+                    placeholder="เช่น แพ็คเกจห้องพักพร้อมโปรโมชั่นพายเรือ"
                     required
                   />
                 </div>
@@ -910,11 +910,11 @@ export default function PromotionsPage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, description: e.target.value }))
                   }
-                  placeholder="เช่น รวมบัตรพายเรือคายัค 1 ชั่วโมงฟรี..."
+                  placeholder="เช่น รวมโปรโมชั่นพายเรือคายัค 1 ชั่วโมงฟรี..."
                 />
               </div>
 
-              {/* ข้อมูลห้องพักและบัตรพายเรือ */}
+              {/* ข้อมูลห้องพักและโปรโมชั่นพายเรือ */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-stone-50/60 p-3.5 rounded-xl border border-stone-200/60">
                 <div>
                   <label className="block text-xs font-bold text-stone-600 mb-1">

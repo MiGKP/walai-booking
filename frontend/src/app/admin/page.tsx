@@ -648,7 +648,7 @@ export default function AdminPage() {
                 โปรโมชั่น
               </p>
               <p className="text-[10px] text-charcoal-400 mt-0.5 line-clamp-1">
-                จัดการส่วนลดและคูปอง
+                จัดการส่วนลดและโปรโมชั่น
               </p>
             </div>
           </button>
