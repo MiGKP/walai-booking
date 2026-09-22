@@ -531,6 +531,29 @@ export default function RoomDetailPage(): React.ReactElement {
                 </ul>
               </div>
             </section>
+
+            {/* Policies */}
+            <section className={`${CARD} p-5 sm:p-6 bg-stone-50/50 border-none`}>
+              <SectionHeading icon={<Clock size={16} />} title="นโยบายการเข้าพัก" />
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-[13px] text-charcoal-600">
+                <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm">
+                  <p className="font-bold text-forest-900 mb-1">เวลาเช็คอิน (Check-in)</p>
+                  <p>ตั้งแต่ 14:00 น. ถึง 23:00 น.</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm">
+                  <p className="font-bold text-forest-900 mb-1">เวลาเช็คเอาต์ (Check-out)</p>
+                  <p>ก่อน 12:00 น.</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm sm:col-span-2">
+                  <p className="font-bold text-forest-900 mb-1">นโยบายเด็กและเตียงเสริม</p>
+                  <ul className="list-disc list-inside mt-1 space-y-0.5">
+                    <li>เด็กอายุ 0-5 ปี: เข้าพักฟรี (ไม่มีค่าใช้จ่าย)</li>
+                    <li>เด็กอายุ 6-11 ปี: คิดราคาเด็ก / เตียงเสริม</li>
+                    <li>ผู้เข้าพักอายุ 12 ปีขึ้นไป: คิดราคาผู้ใหญ่</li>
+                  </ul>
+                </div>
+              </div>
+            </section>
           </div>
 
           {/* ---- ฝั่งขวา: การ์ดสรุปการจอง ---- */}

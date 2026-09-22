@@ -265,39 +265,39 @@ export default function RoomCartPanel({
         </div>
       ) : (
         <div className="mb-6 space-y-2">
-          {cart.items.map((item) => (
-            <div
-              key={item.room_type_id}
-              className="group relative rounded-xl border border-stone-100 p-3 transition-all hover:border-forest-200 hover:shadow-sm bg-white"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-bold text-forest-900">{item.room_name}</p>
-                  <p className="text-[11px] font-semibold text-charcoal-400">
-                    ฿{item.price_per_night.toLocaleString()} / คืน
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 bg-stone-50 rounded-lg p-1 border border-stone-100">
+          {cart.items.map((item) => {
+            const key = item.room_id ? `room-${item.room_id}` : `type-${item.room_type_id}`;
+            return (
+              <div
+                key={key}
+                className="group relative rounded-xl border border-stone-100 p-3 transition-all hover:border-forest-200 hover:shadow-sm bg-white"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-bold text-forest-900">
+                      {item.room_name} {item.room_number ? `(ห้อง ${item.room_number})` : ''}
+                    </p>
+                    <p className="text-[11px] font-semibold text-charcoal-400">
+                      ฿{item.price_per_night.toLocaleString()} / คืน
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => onChange(setCartItemQuantity(cart, item.room_type_id, item.quantity - 1))}
-                    className="flex h-6 w-6 items-center justify-center rounded bg-white border border-stone-200 text-charcoal-400 hover:text-forest-800 shadow-xs"
+                    onClick={() => {
+                      const newItems = item.room_id
+                        ? cart.items.filter((i) => i.room_id !== item.room_id)
+                        : cart.items.filter((i) => i.room_type_id !== item.room_type_id);
+                      onChange({ ...cart, items: newItems });
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors shadow-sm shrink-0"
+                    title="ลบห้องนี้ออก"
                   >
-                    <Minus size={10} />
-                  </button>
-                  <span className="w-4 text-center text-[12px] font-bold text-forest-900 tabular-nums">{item.quantity}</span>
-                  <button
-                    type="button"
-                    disabled={item.quantity >= item.available_count}
-                    onClick={() => onChange(setCartItemQuantity(cart, item.room_type_id, item.quantity + 1))}
-                    className="flex h-6 w-6 items-center justify-center rounded bg-white border border-stone-200 text-charcoal-400 hover:text-forest-800 disabled:opacity-20 shadow-xs"
-                  >
-                    <Plus size={10} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

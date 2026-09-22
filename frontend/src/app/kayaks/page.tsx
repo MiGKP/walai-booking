@@ -519,16 +519,6 @@ export default function KayaksPage(): React.ReactElement {
           </div>
         )}
 
-        {boatTicketBalance > 0 && (
-          <div className="mb-6 flex items-start gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-[12.5px] font-medium text-bamboo-800">
-            <Ticket size={16} className="mt-0.5 shrink-0" />
-            <p>
-              คุณมีบัตรพายเรือฟรี {boatTicketBalance} ใบ
-              {' — '}
-              {Math.max(0, boatTicketBalance - Object.values(freeTicketsByType).reduce((a, b) => a + b, 0))} ใบยังไม่ได้ใช้ ใช้ได้ที่ตัวนับ &quot;ใช้บัตรฟรี&quot; ในแต่ละประเภทเรือด้านล่าง
-            </p>
-          </div>
-        )}
 
         <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:items-start">
           <div className="space-y-6">
@@ -726,20 +716,7 @@ export default function KayaksPage(): React.ReactElement {
                                       />
                                     </div>
                                   )}
-                                  {passengers > 0 && boatTicketBalance > 0 && (
-                                    <div>
-                                      <p className="mb-1 flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wide text-bamboo-600">
-                                        <Ticket size={11} /> ใช้บัตรฟรี
-                                      </p>
-                                      <Stepper
-                                        value={freeTicketsUsed}
-                                        min={0}
-                                        max={maxFreeTickets}
-                                        ariaLabel={`ใช้บัตรพายเรือฟรี ${boat.name}`}
-                                        onChange={(v) => handleFreeTicketChange(boat.id, v, boatCount)}
-                                      />
-                                    </div>
-                                  )}
+
                                 </div>
                               )}
                             </div>

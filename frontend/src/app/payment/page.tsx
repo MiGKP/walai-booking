@@ -205,6 +205,17 @@ function PaymentContent() {
         )}
 
         <div className="mt-7 flex flex-col gap-3">
+          {payment?.booking_type === 'room' && (
+             <div className="rounded-xl border border-bamboo-200 bg-bamboo-50/70 p-4 text-center mb-2 shadow-sm animate-fade-in">
+               <h3 className="font-sans text-[15px] font-bold text-bamboo-900">🎉 พิเศษ! คุณอาจได้รับโปรโมชั่นพายเรือฟรี</h3>
+               <p className="text-[12px] text-bamboo-700 mt-1.5 mb-4 leading-relaxed">
+                 หากคุณมีโปรโมชั่นแถมเรือ กรุณาเลือกวันและเวลาพายเรือตอนนี้เลย<br/>(เพื่อป้องกันคิวเต็มในวันที่คุณต้องการ)
+               </p>
+               <Link href="/kayaks" className="flex items-center justify-center gap-2 w-full rounded-xl bg-bamboo-600 py-3 text-[13.5px] font-bold text-white transition-colors hover:bg-bamboo-700 shadow-md">
+                 จองคิวเรือคายัค
+               </Link>
+             </div>
+          )}
           <Link href="/dashboard" className="btn-primary text-center">ดูการจองของฉัน</Link>
           <Link href="/" className="inline-flex w-full items-center justify-center rounded-xl border border-stone-200 py-3 text-[13px] font-bold text-forest-800 transition-colors hover:bg-stone-50">กลับหน้าแรก</Link>
         </div>

@@ -90,9 +90,7 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<"bookings" | "profile" | "reviews" | "coupons">("bookings");
+  const [activeTab, setActiveTab] = useState<"bookings" | "profile" | "security" | "reviews" | "coupons">("bookings");
   const displayAvatarSrc = useMemo(
     () => (avatarLoadError ? "" : avatarPreview),
     [avatarLoadError, avatarPreview],
@@ -191,7 +189,6 @@ export default function DashboardPage() {
       });
       toast.success("เปลี่ยนรหัสผ่านสำเร็จ");
       setPasswords({ current_password: "", new_password: "", confirm: "" });
-      setShowPasswordModal(false);
     } catch (err: any) {
       toast.error(err.response?.data?.message || "เปลี่ยนรหัสผ่านไม่สำเร็จ");
     } finally {
@@ -217,7 +214,6 @@ export default function DashboardPage() {
       });
       toast.success("ตั้งรหัสผ่านสำเร็จ");
       setPasswords({ current_password: "", new_password: "", confirm: "" });
-      setShowPasswordModal(false);
       // Update local user state to reflect they now have a password
       updateUser({ has_password: true });
     } catch (err: any) {
@@ -225,22 +221,6 @@ export default function DashboardPage() {
     } finally {
       setChangingPw(false);
     }
-  };
-
-  // ปิด popup รหัสผ่าน โดยเตือนก่อนถ้ามีข้อมูลที่พิมพ์ไว้ยังไม่ได้บันทึก
-  const closePasswordModal = () => {
-    const hasUnsavedInput = Object.values(passwords).some((v) => v !== "");
-    if (hasUnsavedInput) {
-      setShowUnsavedModal(true);
-      return;
-    }
-    forceClosePasswordModal();
-  };
-
-  const forceClosePasswordModal = () => {
-    setPasswords({ current_password: "", new_password: "", confirm: "" });
-    setShowPasswordModal(false);
-    setShowUnsavedModal(false);
   };
 
   if (!user) return null;
@@ -284,7 +264,14 @@ export default function DashboardPage() {
                   className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-[13.5px] font-semibold transition-colors ${activeTab === "profile" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
                 >
                   <User size={18} className={activeTab === "profile" ? "text-forest-700" : "text-charcoal-400"} />
-                  โปรไฟล์และการตั้งค่า
+                  ข้อมูลส่วนตัว
+                </button>
+                <button
+                  onClick={() => setActiveTab("security")}
+                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-[13.5px] font-semibold transition-colors ${activeTab === "security" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
+                >
+                  <Lock size={18} className={activeTab === "security" ? "text-forest-700" : "text-charcoal-400"} />
+                  รหัสผ่านและความปลอดภัย
                 </button>
                 <button
                   onClick={() => setActiveTab("reviews")}
@@ -298,7 +285,7 @@ export default function DashboardPage() {
                   className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-[13.5px] font-semibold transition-colors ${activeTab === "coupons" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
                 >
                   <Ticket size={18} className={activeTab === "coupons" ? "text-forest-700" : "text-charcoal-400"} />
-                  คูปองส่วนลด
+                  โปรโมชั่นของฉัน
                 </button>
               </nav>
             </div>
@@ -322,7 +309,7 @@ export default function DashboardPage() {
 
             {activeTab === "coupons" && (
               <section className={CARD}>
-                <h1 className="mb-5 font-sans text-[18px] font-semibold text-forest-900 border-b border-stone-100 pb-4">คูปองส่วนลด</h1>
+                <h1 className="mb-5 font-sans text-[18px] font-semibold text-forest-900 border-b border-stone-100 pb-4">โปรโมชั่นของฉัน</h1>
                 <MyCouponsSection />
               </section>
             )}
@@ -330,293 +317,261 @@ export default function DashboardPage() {
             {activeTab === "profile" && (
               <div className="space-y-6">
                 <section className={CARD}>
-                  <h1 className="mb-5 font-sans text-[18px] font-semibold text-forest-900">จัดการโปรไฟล์</h1>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border-b border-stone-100 pb-6">
-                    <label
-                      htmlFor="avatar-upload"
-                      className={`group relative grid h-[72px] w-[72px] shrink-0 place-items-center ${user.role === "customer" ? "cursor-pointer" : ""}`}
-                    >
-                      <div className="grid h-full w-full place-items-center overflow-hidden rounded-2xl bg-forest-50">
-                        {displayAvatarSrc ? (
-                          <img
-                            src={displayAvatarSrc}
-                            alt={`${user.first_name} ${user.last_name}`}
-                            className="h-full w-full object-cover"
-                            onError={() => setAvatarLoadError(true)}
-                          />
-                        ) : (
-                          <User size={32} className="text-forest-600" />
-                        )}
+                  <h1 className="mb-5 font-sans text-[18px] font-semibold text-forest-900 border-b border-stone-100 pb-4">จัดการโปรไฟล์</h1>
+                  
+                  <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 pt-2">
+                    {/* ---- ฝั่งซ้าย: รูปโปรไฟล์ ---- */}
+                    <div className="flex flex-col items-center lg:items-start lg:w-48 shrink-0">
+                      <label
+                        htmlFor="avatar-upload"
+                        className={`group relative grid h-28 w-28 shrink-0 place-items-center ${user.role === "customer" ? "cursor-pointer" : ""}`}
+                      >
+                        <div className="grid h-full w-full place-items-center overflow-hidden rounded-full bg-forest-50 ring-4 ring-white shadow-md">
+                          {displayAvatarSrc ? (
+                            <img
+                              src={displayAvatarSrc}
+                              alt={`${user.first_name} ${user.last_name}`}
+                              className="h-full w-full object-cover"
+                              onError={() => setAvatarLoadError(true)}
+                            />
+                          ) : (
+                            <User size={40} className="text-forest-600" />
+                          )}
+                          {user.role === "customer" && (
+                            <div className="absolute inset-0 grid place-items-center rounded-full bg-forest-950/0 text-cream-100 opacity-0 transition-all group-hover:bg-forest-950/50 group-hover:opacity-100">
+                              <Camera size={24} />
+                            </div>
+                          )}
+                        </div>
                         {user.role === "customer" && (
-                          <div className="absolute inset-0 grid place-items-center rounded-2xl bg-forest-950/0 text-cream-100 opacity-0 transition-all group-hover:bg-forest-950/50 group-hover:opacity-100">
-                            <Camera size={20} />
-                          </div>
+                          <>
+                            <span
+                              role="img"
+                              aria-label="เปลี่ยนรูปโปรไฟล์"
+                              className="absolute bottom-0 right-0 grid h-8 w-8 place-items-center rounded-full bg-forest-800 text-white ring-2 ring-white shadow-sm"
+                            >
+                              <Camera size={14} />
+                            </span>
+                            <input
+                              id="avatar-upload"
+                              type="file"
+                              accept="image/*"
+                              onChange={handleAvatarChange}
+                              disabled={uploadingAvatar}
+                              className="hidden"
+                            />
+                          </>
                         )}
+                      </label>
+                      
+                      <div className="mt-4 text-center lg:text-left">
+                        <p className="text-[13px] font-bold text-forest-900">รูปภาพโปรไฟล์</p>
+                        <p className="text-[12px] text-charcoal-400 mt-1.5 leading-relaxed">
+                          จะแสดงในหน้าต่างๆ และหน้ารีวิวของระบบ
+                        </p>
+                        {uploadingAvatar && <p className="mt-2 text-[12px] font-semibold text-forest-600">กำลังอัปโหลด...</p>}
                       </div>
-                      {user.role === "customer" && (
-                        <>
-                          <span
-                            role="img"
-                            aria-label="เปลี่ยนรูปโปรไฟล์"
-                            className="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full bg-forest-800 text-white ring-2 ring-white"
-                          >
-                            <Camera size={12} />
-                          </span>
-                          <input
-                            id="avatar-upload"
-                            type="file"
-                            accept="image/*"
-                            onChange={handleAvatarChange}
-                            disabled={uploadingAvatar}
-                            className="hidden"
-                          />
-                        </>
-                      )}
-                    </label>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] text-charcoal-500 mb-1">ภาพโปรไฟล์จะแสดงในหน้ารีวิวและแผงควบคุม</p>
-                      {uploadingAvatar && <p className="mt-1 text-[12px] font-semibold text-forest-600">กำลังอัปโหลดรูป...</p>}
                     </div>
-                    {user.role === "customer" && (
-                      <button
-                        type="button"
-                        onClick={() => setShowPasswordModal(true)}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-stone-200 px-4 py-2 text-[12.5px] font-bold text-forest-800 transition-colors hover:bg-stone-50"
-                      >
-                        <Lock size={14} />
-                        {user.auth_provider === "google" && !user.has_password ? "ตั้งรหัสผ่าน" : "เปลี่ยนรหัสผ่าน"}
-                      </button>
-                    )}
-                  </div>
 
-                  <form onSubmit={handleSaveProfile} className="mt-5">
-                    <h3 className="text-[12.5px] font-bold text-forest-800 uppercase tracking-wide border-b border-stone-100 pb-2 mb-4">ข้อมูลส่วนตัว</h3>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* ---- ฝั่งขวา: ฟอร์มข้อมูล ---- */}
+                    <div className="flex-1 min-w-0">
+                      <form onSubmit={handleSaveProfile} className="space-y-8">
+                        {/* ข้อมูลส่วนตัว */}
                         <div>
-                          <FieldLabel>ชื่อ</FieldLabel>
-                          <input
-                            type="text"
-                            required
-                            className="input-field"
-                            value={profile.first_name || ""}
-                            onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
-                          />
+                          <h3 className="text-[12.5px] font-bold text-forest-800 uppercase tracking-wide border-b border-stone-100 pb-2 mb-4">ข้อมูลส่วนตัว</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <FieldLabel>ชื่อ</FieldLabel>
+                              <input
+                                type="text"
+                                required
+                                className="input-field"
+                                value={profile.first_name || ""}
+                                onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <FieldLabel>นามสกุล</FieldLabel>
+                              <input
+                                type="text"
+                                required
+                                className="input-field"
+                                value={profile.last_name || ""}
+                                onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
+                              />
+                            </div>
+                          </div>
                         </div>
+                        
+                        {/* ช่องทางติดต่อ */}
                         <div>
-                          <FieldLabel>นามสกุล</FieldLabel>
-                          <input
-                            type="text"
-                            required
-                            className="input-field"
-                            value={profile.last_name || ""}
-                            onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
-                          />
+                          <h3 className="text-[12.5px] font-bold text-forest-800 uppercase tracking-wide border-b border-stone-100 pb-2 mb-4">ช่องทางติดต่อ</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <FieldLabel>อีเมล</FieldLabel>
+                              <div className="relative">
+                                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                                <input
+                                  type="email"
+                                  disabled
+                                  className="input-field cursor-not-allowed bg-stone-50 pl-10 text-charcoal-400"
+                                  value={user.email}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <FieldLabel>เบอร์โทรศัพท์</FieldLabel>
+                              <div className="relative">
+                                <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                                <input
+                                  type="tel"
+                                  className="input-field pl-10"
+                                  placeholder="08X-XXX-XXXX"
+                                  value={profile.phone}
+                                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <FieldLabel>LINE ID</FieldLabel>
+                              <div className="relative">
+                                <MessageCircle size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                                <input
+                                  type="text"
+                                  className="input-field pl-10"
+                                  placeholder="เช่น walai_user"
+                                  value={profile.line_id}
+                                  onChange={(e) => setProfile({ ...profile, line_id: e.target.value })}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <FieldLabel>Facebook</FieldLabel>
+                              <div className="relative">
+                                <Facebook size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                                <input
+                                  type="text"
+                                  className="input-field pl-10"
+                                  placeholder="ลิงก์หรือชื่อบัญชี"
+                                  value={profile.facebook}
+                                  onChange={(e) => setProfile({ ...profile, facebook: e.target.value })}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                        
+                        <div className="pt-2 border-t border-stone-100 flex justify-end">
+                          <button
+                            type="submit"
+                            disabled={saving}
+                            className="btn-primary w-full sm:w-auto px-8 py-2.5 items-center justify-center gap-2 disabled:opacity-60"
+                          >
+                            <Save size={16} className="inline-block mr-2" />
+                            {saving ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+                          </button>
+                        </div>
+                      </form>
                     </div>
-                    
-                    <h3 className="text-[12.5px] font-bold text-forest-800 uppercase tracking-wide border-b border-stone-100 pb-2 mb-4 mt-8">ช่องทางติดต่อ</h3>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <FieldLabel>อีเมล</FieldLabel>
-                          <div className="relative">
-                            <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
-                            <input
-                              type="email"
-                              disabled
-                              className="input-field cursor-not-allowed bg-stone-50 pl-10 text-charcoal-400"
-                              value={user.email}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <FieldLabel>เบอร์โทรศัพท์</FieldLabel>
-                          <div className="relative">
-                            <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
-                            <input
-                              type="tel"
-                              className="input-field pl-10"
-                              placeholder="08X-XXX-XXXX"
-                              value={profile.phone}
-                              onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <FieldLabel>LINE ID</FieldLabel>
-                          <div className="relative">
-                            <MessageCircle size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
-                            <input
-                              type="text"
-                              className="input-field pl-10"
-                              placeholder="เช่น walai_user"
-                              value={profile.line_id}
-                              onChange={(e) => setProfile({ ...profile, line_id: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <FieldLabel>Facebook</FieldLabel>
-                          <div className="relative">
-                            <Facebook size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
-                            <input
-                              type="text"
-                              className="input-field pl-10"
-                              placeholder="ลิงก์หรือชื่อบัญชี"
-                              value={profile.facebook}
-                              onChange={(e) => setProfile({ ...profile, facebook: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-8 pt-6 border-t border-stone-100 flex justify-end">
-                      <button
-                        type="submit"
-                        disabled={saving}
-                        className="btn-primary w-full sm:w-auto px-8 py-2.5 items-center justify-center gap-2 disabled:opacity-60"
-                      >
-                        <Save size={16} className="inline-block mr-2" />
-                        {saving ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
-                      </button>
-                    </div>
-                  </form>
+                  </div>
                 </section>
               </div>
+            )}
+
+            {activeTab === "security" && (
+              <section className={CARD}>
+                <div className="max-w-md mx-auto py-2 sm:py-6">
+                  <div className="mb-8 text-center">
+                    <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-full bg-forest-50 text-forest-700 ring-4 ring-forest-50/50">
+                      <Lock size={24} />
+                    </div>
+                    <h1 className="font-sans text-[18px] font-semibold text-forest-900">รหัสผ่านและความปลอดภัย</h1>
+                    <p className="mt-1.5 text-[13px] text-charcoal-400">จัดการรหัสผ่านของคุณเพื่อความปลอดภัยของบัญชี</p>
+                  </div>
+                  
+                  {user.auth_provider === "google" && !user.has_password ? (
+                    <>
+                      <div className="mb-6 rounded-xl bg-forest-50/60 p-4 text-[13px] leading-relaxed text-forest-800">
+                        คุณล็อกอินด้วย Google อยู่ คุณสามารถตั้งรหัสผ่านเพื่อใช้ล็อกอินด้วยอีเมลในครั้งต่อไปได้
+                      </div>
+                      <form onSubmit={handleSetPassword} className="space-y-5">
+                        <div>
+                          <FieldLabel>รหัสผ่านใหม่</FieldLabel>
+                          <PasswordField
+                            required
+                            minLength={6}
+                            value={passwords.new_password}
+                            onChange={(v) => setPasswords({ ...passwords, new_password: v })}
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>ยืนยันรหัสผ่านใหม่</FieldLabel>
+                          <PasswordField
+                            required
+                            minLength={6}
+                            value={passwords.confirm}
+                            onChange={(v) => setPasswords({ ...passwords, confirm: v })}
+                          />
+                        </div>
+                        <div className="pt-2">
+                          <button
+                            type="submit"
+                            disabled={changingPw}
+                            className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60"
+                          >
+                            <Lock size={16} />
+                            {changingPw ? "กำลังบันทึก..." : "ตั้งรหัสผ่าน"}
+                          </button>
+                        </div>
+                      </form>
+                    </>
+                  ) : (
+                    <form onSubmit={handleChangePassword} className="space-y-5">
+                      <div>
+                        <FieldLabel>รหัสผ่านปัจจุบัน</FieldLabel>
+                        <PasswordField
+                          required
+                          value={passwords.current_password}
+                          onChange={(v) => setPasswords({ ...passwords, current_password: v })}
+                        />
+                      </div>
+                      <div className="pt-2 border-t border-stone-100"></div>
+                      <div>
+                        <FieldLabel>รหัสผ่านใหม่</FieldLabel>
+                        <PasswordField
+                          required
+                          minLength={6}
+                          value={passwords.new_password}
+                          onChange={(v) => setPasswords({ ...passwords, new_password: v })}
+                        />
+                      </div>
+                      <div>
+                        <FieldLabel>ยืนยันรหัสผ่านใหม่</FieldLabel>
+                        <PasswordField
+                          required
+                          minLength={6}
+                          value={passwords.confirm}
+                          onChange={(v) => setPasswords({ ...passwords, confirm: v })}
+                        />
+                      </div>
+                      <div className="pt-2">
+                        <button
+                          type="submit"
+                          disabled={changingPw}
+                          className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60"
+                        >
+                          <Lock size={16} />
+                          {changingPw ? "กำลังบันทึก..." : "เปลี่ยนรหัสผ่าน"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </section>
             )}
           </div>
         </div>
       </div>
-
-      {/* Popup เปลี่ยน/ตั้งรหัสผ่าน */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-sm" onClick={closePasswordModal}>
-          <div className={`${CARD} w-full max-w-sm`} onClick={(e) => e.stopPropagation()}>
-            {user.auth_provider === "google" && !user.has_password ? (
-              /* Google user — offer to set a password */
-              <>
-                <SectionHeading icon={<Lock size={16} />} title="ตั้งรหัสผ่าน" />
-                <div className="mt-4 rounded-xl bg-forest-50/60 p-3 text-[12.5px] leading-relaxed text-forest-800">
-                  คุณล็อกอินด้วย Google อยู่ คุณสามารถตั้งรหัสผ่านเพื่อใช้ล็อกอินด้วยอีเมลในครั้งต่อไปได้
-                </div>
-                <form onSubmit={handleSetPassword} className="mt-4 space-y-4">
-                  <div>
-                    <FieldLabel>รหัสผ่านใหม่</FieldLabel>
-                    <PasswordField
-                      required
-                      minLength={6}
-                      value={passwords.new_password}
-                      onChange={(v) => setPasswords({ ...passwords, new_password: v })}
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>ยืนยันรหัสผ่านใหม่</FieldLabel>
-                    <PasswordField
-                      required
-                      minLength={6}
-                      value={passwords.confirm}
-                      onChange={(v) => setPasswords({ ...passwords, confirm: v })}
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={closePasswordModal}
-                      className="flex-1 rounded-xl border border-stone-200 py-3 text-[13px] font-bold text-stone-600 transition-colors hover:bg-stone-50"
-                    >
-                      ยกเลิก
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={changingPw}
-                      className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
-                    >
-                      <Lock size={16} />
-                      {changingPw ? "กำลังบันทึก..." : "ตั้งรหัสผ่าน"}
-                    </button>
-                  </div>
-                </form>
-              </>
-            ) : (
-              /* Email user (or Google user that already set password) — change password */
-              <>
-                <SectionHeading icon={<Lock size={16} />} title="เปลี่ยนรหัสผ่าน" />
-                <form onSubmit={handleChangePassword} className="mt-4 space-y-4">
-                  <div>
-                    <FieldLabel>รหัสผ่านปัจจุบัน</FieldLabel>
-                    <PasswordField
-                      required
-                      value={passwords.current_password}
-                      onChange={(v) => setPasswords({ ...passwords, current_password: v })}
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>รหัสผ่านใหม่</FieldLabel>
-                    <PasswordField
-                      required
-                      minLength={6}
-                      value={passwords.new_password}
-                      onChange={(v) => setPasswords({ ...passwords, new_password: v })}
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>ยืนยันรหัสผ่านใหม่</FieldLabel>
-                    <PasswordField
-                      required
-                      minLength={6}
-                      value={passwords.confirm}
-                      onChange={(v) => setPasswords({ ...passwords, confirm: v })}
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={closePasswordModal}
-                      className="flex-1 rounded-xl border border-stone-200 py-3 text-[13px] font-bold text-stone-600 transition-colors hover:bg-stone-50"
-                    >
-                      ยกเลิก
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={changingPw}
-                      className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
-                    >
-                      <Lock size={16} />
-                      {changingPw ? "กำลังบันทึก..." : "เปลี่ยนรหัสผ่าน"}
-                    </button>
-                  </div>
-                </form>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Popup ยืนยันการปิดเมื่อมีข้อมูลยังไม่ได้บันทึก */}
-      {showUnsavedModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-sm" onClick={() => setShowUnsavedModal(false)}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-amber-50 text-amber-500">
-              <MessageCircle size={22} />
-            </div>
-            <h3 className="text-center text-[16px] font-bold text-forest-900">ละทิ้งการเปลี่ยนแปลง?</h3>
-            <p className="mt-1.5 text-center text-[13px] leading-relaxed text-stone-500">
-              คุณกรอกข้อมูลรหัสผ่านไว้แต่ยังไม่ได้บันทึก หากปิดหน้าต่างนี้ข้อมูลที่กรอกจะหายไป
-            </p>
-            <div className="mt-5 flex gap-3">
-              <button onClick={() => setShowUnsavedModal(false)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-[13px] font-bold text-stone-600 hover:bg-stone-50 transition-colors">
-                พิมพ์ต่อ
-              </button>
-              <button onClick={forceClosePasswordModal} className="flex-1 rounded-xl bg-red-600 py-2.5 text-[13px] font-bold text-white hover:bg-red-700 transition-colors">
-                ละทิ้งข้อมูล
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

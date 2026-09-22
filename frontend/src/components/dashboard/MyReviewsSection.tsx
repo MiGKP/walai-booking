@@ -5,6 +5,7 @@ import { Star, MessageSquare, PenLine, Trash2, X, Check } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
+import { toastConfirm } from '@/lib/toastConfirm';
 
 interface ReviewableBooking {
   room_booking_id: number;
@@ -140,15 +141,20 @@ export default function MyReviewsSection(): React.ReactElement {
     }
   };
 
-  const handleDelete = async (reviewId: number) => {
-    if (!confirm('ต้องการลบรีวิวนี้หรือไม่?')) return;
-    try {
-      await api.delete(`/reviews/${reviewId}`);
-      toast.success('ลบรีวิวสำเร็จ');
-      fetchAll();
-    } catch {
-      toast.error('ลบรีวิวไม่สำเร็จ');
-    }
+  const handleDelete = (reviewId: number) => {
+    toastConfirm({
+      title: 'ต้องการลบรีวิวนี้หรือไม่?',
+      confirmText: 'ลบรีวิว',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/reviews/${reviewId}`);
+          toast.success('ลบรีวิวสำเร็จ');
+          fetchAll();
+        } catch {
+          toast.error('ลบรีวิวไม่สำเร็จ');
+        }
+      }
+    });
   };
 
   const ratingLabel = (r: number) => ['', 'แย่มาก', 'แย่', 'พอใช้', 'ดี', 'ดีมาก'][r] || '';

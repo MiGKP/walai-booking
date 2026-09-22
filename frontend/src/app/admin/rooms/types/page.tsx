@@ -247,7 +247,7 @@ export default function RoomTypesPage() {
     const numericPrice = Number(form.price);
     // ตรวจสอบราคาบังคับ
     if (!form.price || Number.isNaN(numericPrice) || numericPrice <= 0) {
-      alert("กรุณาระบุราคาห้องพักให้ถูกต้อง");
+      toast.error("กรุณาระบุราคาห้องพักให้ถูกต้อง");
       return;
     }
 

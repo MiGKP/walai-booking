@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { CalendarDays, Anchor, XCircle, CreditCard, Timer, Star, LayoutGrid, Clock3, ChevronDown, RefreshCw, CheckCircle2, Tag, MessageSquareWarning, AlertTriangle, LogIn, LogOut, Wallet, Users } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+import { toastConfirm } from '@/lib/toastConfirm';
 import Link from 'next/link';
 
 type BookingType = 'room' | 'kayak';
@@ -101,24 +102,31 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
     }
   };
 
-  const handleCancel = async (type: BookingType, id: number) => {
-    if (!confirm('ต้องการยกเลิกการจองนี้?')) return;
-    try {
-      if (type === 'room') await api.put(`/bookings/${id}/cancel`);
-      else await api.put(`/kayaks/bookings/${id}/cancel`);
-      toast.success('ยกเลิกการจองสำเร็จ');
-      fetchBookings();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'ยกเลิกไม่สำเร็จ');
-    }
+  const handleCancel = (type: BookingType, id: number) => {
+    toastConfirm({
+      title: 'ต้องการยกเลิกการจองนี้ใช่หรือไม่?',
+      confirmText: 'ยกเลิกการจอง',
+      onConfirm: async () => {
+        try {
+          if (type === 'room') await api.put(`/bookings/${id}/cancel`);
+          else await api.put(`/kayaks/bookings/${id}/cancel`);
+          toast.success('ยกเลิกการจองสำเร็จ');
+          fetchBookings();
+        } catch (err: any) {
+          toast.error(err.response?.data?.message || 'ยกเลิกไม่สำเร็จ');
+        }
+      }
+    });
   };
 
-  // รวมทุกประเภทเรียงจากล่าสุด ใช้กับแท็บ "ทั้งหมด"
-  const combined = [...roomBookings.map((b) => ({ ...b, __type: 'room' as BookingType })), ...kayakBookings.map((b) => ({ ...b, __type: 'kayak' as BookingType }))].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  // เรียงลำดับจากการจองล่าสุด (ใหม่ไปเก่า) ตามความต้องการของผู้ใช้งาน
+  const combined = [...roomBookings.map((b) => ({ ...b, __type: 'room' as BookingType })), ...kayakBookings.map((b) => ({ ...b, __type: 'kayak' as BookingType }))]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  const bookings: any[] = tab === 'all' ? combined : tab === 'room' ? roomBookings : kayakBookings;
+  const sortedRooms = [...roomBookings].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const sortedKayaks = [...kayakBookings].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const bookings: any[] = tab === 'all' ? combined : tab === 'room' ? sortedRooms : sortedKayaks;
 
   const renderBookingCard = (b: any, type: BookingType) => {
     const bid = bookingId(b);

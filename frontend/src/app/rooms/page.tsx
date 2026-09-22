@@ -303,10 +303,15 @@ function RoomsPageContent(): React.ReactElement {
                   <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "guests" ? "rotate(180deg)" : "rotate(0deg)" }} />
                 </button>
                 {openPanel === "guests" && (
-                  <div className="animate-dropdown absolute left-1/2 top-full z-40 mt-2 w-[280px] -translate-x-1/2 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl lg:left-0 lg:translate-x-0">
-                    <GuestRow label="ผู้ใหญ่" hint="อายุ 18 ปีขึ้นไป" value={guests.adults} min={1} onChange={(v) => handleGuestsChange({ ...guests, adults: v })} />
-                    <GuestRow label="เด็ก" hint="อายุ 0–17 ปี" value={guests.children} min={0} onChange={(v) => handleGuestsChange({ ...guests, children: v })} />
-                    <div className="mt-2 border-t border-stone-100 p-2">
+                  <div className="animate-dropdown absolute left-1/2 top-full z-40 mt-2 w-[320px] -translate-x-1/2 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl lg:left-0 lg:translate-x-0">
+                    <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={guests.adults} min={1} onChange={(v) => handleGuestsChange({ ...guests, adults: v })} />
+                    <GuestRow label="เด็ก" hint="อายุ 0–11 ปี" value={guests.children} min={0} onChange={(v) => handleGuestsChange({ ...guests, children: v })} />
+                    <div className="px-3 py-2 bg-stone-50 rounded-xl mt-1 mb-2">
+                      <p className="text-[10px] text-charcoal-400 leading-relaxed">
+                        <span className="font-bold text-forest-700">นโยบายเด็ก:</span> 0-5 ปี เข้าพักฟรีไม่มีค่าใช้จ่าย, 6-11 ปี คิดราคาเด็ก (เตียงเสริม), 12 ปีขึ้นไป คิดราคาผู้ใหญ่
+                      </p>
+                    </div>
+                    <div className="border-t border-stone-100 p-2">
                       <button
                         type="button"
                         onClick={() => setOpenPanel(null)}

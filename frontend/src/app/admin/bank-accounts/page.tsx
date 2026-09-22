@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Edit2, Trash2, X, Star, CreditCard } from 'lucide-reac
 import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
+import { toastConfirm } from '@/lib/toastConfirm';
 import Link from 'next/link';
 
 interface BankAccount {
@@ -86,15 +87,20 @@ export default function BankAccountsPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('ต้องการลบบัญชีธนาคารนี้?')) return;
-    try {
-      await api.delete(`/settings/bank-accounts/${id}`);
-      toast.success('ลบบัญชีธนาคารสำเร็จ');
-      fetchAccounts();
-    } catch {
-      toast.error('ลบไม่สำเร็จ');
-    }
+  const handleDelete = (id: number) => {
+    toastConfirm({
+      title: 'ต้องการลบบัญชีธนาคารนี้หรือไม่?',
+      confirmText: 'ลบบัญชีธนาคาร',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/settings/bank-accounts/${id}`);
+          toast.success('ลบบัญชีธนาคารสำเร็จ');
+          fetchAccounts();
+        } catch {
+          toast.error('ลบไม่สำเร็จ');
+        }
+      }
+    });
   };
 
   if (!ready) return null;

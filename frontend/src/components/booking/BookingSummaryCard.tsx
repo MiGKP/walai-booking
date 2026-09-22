@@ -736,6 +736,13 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
             </button>
           </div>
         )}
+        
+        <div className="mt-4 mb-2 flex items-start gap-2 rounded-lg bg-stone-100/50 p-2 text-[10px] leading-relaxed text-charcoal-400">
+          <Clock size={12} className="mt-0.5 shrink-0 text-charcoal-500" />
+          <p>
+            <span className="font-semibold text-charcoal-600">นโยบาย:</span> เช็คอิน 14:00 - 23:00 น. | เช็คเอาต์ ก่อน 12:00 น.
+          </p>
+        </div>
         <button onClick={handleConfirmBooking} disabled={cartItems.length === 0 || isBooking || hasUnavailableItems || overCapacity || !allChildAgesSet} className="mt-3 w-full rounded-xl bg-[#0A2E1F] py-4 text-[15px] font-bold text-white shadow-lg transition-all hover:bg-emerald-900 active:scale-[0.98] disabled:bg-stone-300">
           {isBooking ? 'กำลังสร้างการจอง...' : 'ยืนยันการจอง'}
         </button>

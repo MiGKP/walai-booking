@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
+import { toastConfirm } from '@/lib/toastConfirm';
 import Link from 'next/link';
 
 interface ReviewableBooking {
@@ -146,15 +147,20 @@ export default function ReviewsPage() {
     }
   };
 
-  const handleDelete = async (reviewId: number) => {
-    if (!confirm('ต้องการลบรีวิวนี้หรือไม่?')) return;
-    try {
-      await api.delete(`/reviews/${reviewId}`);
-      toast.success('ลบรีวิวสำเร็จ');
-      fetchAll();
-    } catch {
-      toast.error('ลบรีวิวไม่สำเร็จ');
-    }
+  const handleDelete = (reviewId: number) => {
+    toastConfirm({
+      title: 'ต้องการลบรีวิวนี้หรือไม่?',
+      confirmText: 'ลบรีวิว',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/reviews/${reviewId}`);
+          toast.success('ลบรีวิวสำเร็จ');
+          fetchAll();
+        } catch {
+          toast.error('ลบรีวิวไม่สำเร็จ');
+        }
+      }
+    });
   };
 
   const ratingLabel = (r: number) => ['', 'แย่มาก', 'แย่', 'พอใช้', 'ดี', 'ดีมาก'][r] || '';
