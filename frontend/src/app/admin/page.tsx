@@ -322,19 +322,26 @@ export default function AdminPage() {
             <TrendingUp size={20} className="stroke-[2.5px]" />
             <h2 className="text-lg font-bold font-display">สรุปรายได้และสถิติ</h2>
           </div>
-          <div className="relative inline-flex">
-            <select
-              value={timeframe}
-              onChange={(e) => setTimeframe(e.target.value as Timeframe)}
-              className="appearance-none bg-stone-50 border border-stone-200 text-charcoal-700 text-xs font-bold rounded-xl py-2 pl-4 pr-10 focus:outline-none focus:border-forest-500 cursor-pointer"
+        <div className="flex bg-stone-100/80 p-1 rounded-xl">
+          {[
+            { id: "today", label: "วันนี้" },
+            { id: "month", label: "เดือนนี้" },
+            { id: "year", label: "ปีนี้" },
+            { id: "all", label: "ทั้งหมด" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setTimeframe(tab.id as Timeframe)}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                timeframe === tab.id
+                  ? "bg-white text-forest-800 shadow-sm"
+                  : "text-charcoal-500 hover:text-forest-700 hover:bg-stone-200/50"
+              }`}
             >
-              <option value="today">วันนี้</option>
-              <option value="month">เดือนนี้</option>
-              <option value="year">ปีนี้</option>
-              <option value="all">ทั้งหมด</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-charcoal-400 pointer-events-none" />
-          </div>
+              {tab.label}
+            </button>
+          ))}
+        </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
