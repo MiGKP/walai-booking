@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 import { resolveMediaUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
 import BookingCalendar, { DayStatus } from '@/components/booking/BookingCalendar';
@@ -214,19 +215,23 @@ function normalizeSlotTime(value: string): string {
 import { Suspense } from 'react';
 
 function KayaksPageContent(): React.ReactElement {
+  const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const today = todayISO();
   
   // ดึงข้อมูลวันที่เข้าพักจาก query parameters (กรณีมาจากหน้า Payment Success)
   const roomBookingId = searchParams.get('room_booking_id');
-  const promoCheckIn = searchParams.get('check_in');
-  const promoCheckOut = searchParams.get('check_out');
+  let promoCheckIn = searchParams.get('check_in');
+  if (promoCheckIn === 'undefined' || promoCheckIn === 'null') promoCheckIn = null;
+  let promoCheckOut = searchParams.get('check_out');
+  if (promoCheckOut === 'undefined' || promoCheckOut === 'null') promoCheckOut = null;
   
   // หากมีวันเข้าพัก ให้บังคับเลือกได้แค่วันที่เช็คอิน ถึง วันก่อนเช็คเอาต์
-  const minAllowedISO = promoCheckIn && promoCheckIn >= today ? promoCheckIn : today;
+  const isValidISO = (iso: string | null) => /^\d{4}-\d{2}-\d{2}$/.test(iso || "");
+  const minAllowedISO = promoCheckIn && isValidISO(promoCheckIn) && promoCheckIn >= today ? promoCheckIn : today;
   let maxAllowedISO: string | undefined = undefined;
-  if (promoCheckIn && promoCheckOut) {
+  if (promoCheckIn && promoCheckOut && isValidISO(promoCheckOut)) {
     const outDate = new Date(promoCheckOut);
     outDate.setDate(outDate.getDate() - 1);
     maxAllowedISO = outDate.toISOString().split('T')[0];
@@ -241,6 +246,14 @@ function KayaksPageContent(): React.ReactElement {
 
   const [cursor, setCursor] = useState<MonthCursor>(() => monthCursorFromISO(minAllowedISO));
   const [dayStatus, setDayStatus] = useState<Record<string, DayStatus>>({});
+  const [ticketBalance, setTicketBalance] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+      api.get('/kayaks/ticket-balance').then(res => setTicketBalance(res.data.balance || 0)).catch(() => {});
+    }
+  }, [user]);
+
   const [calendarLoading, setCalendarLoading] = useState(false);
 
   // ยังไม่กดอะไรก็โชว์รอบเรือ+เรือทั้งหมดของวันแรกที่จองได้ไปเลย ไม่ต้องรอผู้ใช้เลือกวันเอง
@@ -381,7 +394,7 @@ function KayaksPageContent(): React.ReactElement {
         };
       })
       .filter((line): line is KayakCartLine => line != null);
-  }, [boats, boatCountByType]);
+  }, [boats, boatCountByType, ticketBalance]);
 
   const totalPrice = cartTotal(cartLines);
   const totalPassengers = cartPassengerTotal(cartLines);

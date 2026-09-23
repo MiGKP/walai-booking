@@ -56,7 +56,8 @@ function PaymentContent() {
       setBookingStatus(res.data.data.booking_status ?? null);
       setRejectReason(res.data.data.reject_reason ?? null);
       if (res.data.data.slip_image) {
-        setDone(true); // ส่งสลิปแล้ว — สถานะจริงหลังจากนี้ (รอตรวจสอบ/อนุมัติ/ปฏิเสธ) ดูจาก bookingStatus
+        setDone(true);
+        if (payment.booking_type === 'room' && payment.has_boat_tickets) { const checkInParam = bookingDetail?.check_in_date ? `&check_in=${String(bookingDetail.check_in_date).slice(0,10)}` : ''; const checkOutParam = bookingDetail?.check_out_date ? `&check_out=${String(bookingDetail.check_out_date).slice(0,10)}` : ''; router.push(`/kayaks?room_booking_id=${payment.booking_id}${checkInParam}${checkOutParam}`); } // ส่งสลิปแล้ว — สถานะจริงหลังจากนี้ (รอตรวจสอบ/อนุมัติ/ปฏิเสธ) ดูจาก bookingStatus
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'ไม่สามารถสร้างรายการชำระเงินได้');
@@ -206,12 +207,16 @@ function PaymentContent() {
 
         <div className="mt-7 flex flex-col gap-3">
           {payment?.booking_type === 'room' && (
-             <div className="rounded-xl border border-bamboo-200 bg-bamboo-50/70 p-4 text-center mb-2 shadow-sm animate-fade-in">
-               <h3 className="font-sans text-base font-bold text-bamboo-900">🎉 พิเศษ! คุณอาจได้รับโปรโมชั่นพายเรือฟรี</h3>
-               <p className="text-xs text-bamboo-700 mt-1.5 mb-4 leading-relaxed">
-                 หากคุณมีโปรโมชั่นแถมเรือ กรุณาเลือกวันและเวลาพายเรือตอนนี้เลย<br/>(เพื่อป้องกันคิวเต็มในวันที่คุณต้องการ)
-               </p>
-               <Link href={`/kayaks?room_booking_id=${payment.booking_id}&check_in=${bookingDetail?.check_in_date}&check_out=${bookingDetail?.check_out_date}`} className="flex items-center justify-center gap-2 w-full rounded-xl bg-bamboo-600 py-3 text-sm font-bold text-white transition-colors hover:bg-bamboo-700 shadow-md">
+             <div className="rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-100 p-4 text-center mb-2 shadow-md animate-fade-in relative overflow-hidden">
+             <div className="absolute top-0 right-0 w-32 h-32 bg-white/60 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+             <div className="absolute bottom-0 left-0 w-24 h-24 bg-amber-400/10 rounded-full blur-xl -ml-10 -mb-10 pointer-events-none"></div>
+             <h3 className="font-sans text-base font-bold text-amber-900 relative z-10 flex items-center justify-center gap-1.5">
+               <span className="text-amber-500 text-lg">✨</span> พิเศษ! คุณอาจได้รับโปรโมชั่นพายเรือฟรี <span className="text-amber-500 text-lg">✨</span>
+             </h3>
+             <p className="text-xs text-amber-800 mt-1.5 mb-4 leading-relaxed relative z-10">
+               กรุณาเลือกวันและเวลาพายเรือ<br/>(เพื่อป้องกันคิวเต็มในวันที่คุณต้องการ)
+             </p>
+               <Link href={`/kayaks?room_booking_id=${payment.booking_id}${bookingDetail?.check_in_date ? `&check_in=${String(bookingDetail.check_in_date).slice(0,10)}` : ''}${bookingDetail?.check_out_date ? `&check_out=${String(bookingDetail.check_out_date).slice(0,10)}` : ''}`} className="flex items-center justify-center gap-2 w-full rounded-xl bg-bamboo-600 py-3 text-sm font-bold text-white transition-colors hover:bg-bamboo-700 shadow-md">
                  จองคิวเรือคายัค
                </Link>
              </div>
