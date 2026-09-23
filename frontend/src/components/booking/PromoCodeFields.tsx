@@ -162,7 +162,7 @@ function PromoCodeFieldsInner({
         applyPayload(first);
       }
       if (!silent) {
-        toast.success(`ใช้โค้ด "${first.code}" สำเร็จ`);
+        
       }
     } catch (error: unknown) {
       const needId = collectIdFromError(error);

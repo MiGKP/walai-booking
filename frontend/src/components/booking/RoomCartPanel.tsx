@@ -13,6 +13,8 @@ import {
 import { formatThaiDate, nightsBetween } from '@/lib/date';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { todayISO, addDaysISO } from '@/lib/date';
+import { useAuth } from "@/hooks/useAuth";
 import PromoPriceBreakdown from '@/components/booking/PromoPriceBreakdown';
 import BookingCalendar, { DateRange, DayStatus } from '@/components/booking/BookingCalendar';
 import { MonthCursor } from '@/lib/date';
@@ -63,6 +65,8 @@ export default function RoomCartPanel({
   const overCapacity = guests > capacity;
   const empty = cart.items.length === 0;
 
+  const { user } = useAuth();
+  const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
   const [promoCode, setPromoCode] = useState('');
   const [promoLoading, setPromoLoading] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
@@ -125,7 +129,7 @@ export default function RoomCartPanel({
       });
       const data = res.data.data as AppliedPromo;
       setAppliedPromo(data);
-      toast.success(`ใช้โค้ด "${data.code}" สำเร็จ`);
+      
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, 'โค้ดส่วนลดไม่ถูกต้องหรือหมดอายุ'));
     } finally {
@@ -197,7 +201,7 @@ export default function RoomCartPanel({
               onCursorChange={onCursorChange}
               dayStatus={dayStatus}
               loading={calendarLoading}
-              minISO={cart.check_in < cart.check_in ? cart.check_in : undefined} // today logic handled in page
+              minISO={isAdminOrStaff ? todayISO() : addDaysISO(todayISO(), 1)} // today logic handled in page
             />
           </div>
         )}

@@ -19,6 +19,7 @@ import {
   Tag,
   CheckCircle2,
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import toast from "react-hot-toast";
@@ -143,12 +144,15 @@ export default function RoomsPage() {
 }
 
 function RoomsPageContent(): React.ReactElement {
+  const { user } = useAuth();
+  const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const today = todayISO();
 
-  const checkIn = searchParams.get("check_in") || today;
+  const defaultCheckIn = isAdminOrStaff ? today : addDaysISO(today, 1);
+  const checkIn = searchParams.get("check_in") || defaultCheckIn;
   const checkOut = searchParams.get("check_out") || addDaysISO(checkIn, 1);
   const adults = parseInt(searchParams.get("adults") || "1", 10);
   const children = parseInt(searchParams.get("children") || "0", 10);
@@ -206,7 +210,7 @@ function RoomsPageContent(): React.ReactElement {
       nextCodes = selectedPromoCodes.filter((c) => c !== code);
     } else {
       nextCodes = [...selectedPromoCodes, code];
-      toast.success(`ใช้โค้ดส่วนลด ${code} แล้ว`);
+      
     }
     if (nextCodes.length > 0) params.set("promo_code", nextCodes.join(","));
     else params.delete("promo_code");
@@ -341,7 +345,7 @@ function RoomsPageContent(): React.ReactElement {
                       <h3 className="font-display text-base font-medium text-forest-900">เลือกช่วงวันเข้าพัก</h3>
                       <button type="button" onClick={() => setOpenPanel(null)} className="text-charcoal-300 hover:text-charcoal-500"><X size={18} /></button>
                     </div>
-                    <BookingCalendar mode="range" value={range} onSelect={handleRangeSelect} cursor={cursor} onCursorChange={setCursor} dayStatus={dayStatus} loading={calendarLoading} minISO={today} />
+                    <BookingCalendar mode="range" value={range} onSelect={handleRangeSelect} cursor={cursor} onCursorChange={setCursor} dayStatus={dayStatus} loading={calendarLoading} minISO={isAdminOrStaff ? today : addDaysISO(today, 1)} />
                   </div>
                 )}
               </div>

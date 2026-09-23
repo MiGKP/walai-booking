@@ -26,6 +26,7 @@ interface Promotion {
   discount_type?: 'percent' | 'fixed';
   min_nights?: number;
   max_discount?: number;
+  stackable?: boolean;
 }
 
 interface RoomType {
@@ -44,11 +45,14 @@ interface BookingSummaryCardProps {
 }
 
 export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCardProps) {
+  const { user } = useAuth();
+  const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const checkIn = searchParams.get('check_in') || todayISO();
+  const defaultCheckIn = isAdminOrStaff ? todayISO() : addDaysISO(todayISO(), 1);
+  const checkIn = searchParams.get('check_in') || defaultCheckIn;
   const checkOut = searchParams.get('check_out') || addDaysISO(checkIn, 1);
   const adults = parseInt(searchParams.get('adults') || '1', 10);
   const children = parseInt(searchParams.get('children') || '0', 10);
@@ -369,11 +373,6 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
       const bookingId = res.data?.data?.room_booking_id;
       if (!bookingId) throw new Error('ไม่ได้รับหมายเลขการจองจากระบบ');
 
-      const boatTicketsGranted = Number(res.data?.data?.boat_tickets_granted || 0);
-      if (boatTicketsGranted > 0) {
-        toast.success(`ได้รับโปรโมชั่นพายเรือฟรี ${boatTicketsGranted} ใบ! ไปใช้ได้ที่หน้าจองเรือ`, { duration: 5000 });
-      }
-
       setSpecialRequest('');
       clearCartEverywhere();
       router.push(`/payment?booking_type=room&booking_id=${bookingId}`);
@@ -467,6 +466,48 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
       toast.error('ใช้โค้ดนี้ไปแล้ว');
       return;
     }
+    if (promoCodes.length >= 3) {
+      toast.error('ใช้โค้ดได้สูงสุด 3 โค้ดเท่านั้น');
+      return;
+    }
+
+    // Check stackability
+    // Get the promotion object for the new code
+    let newPromo: Promotion | undefined;
+    for (const r of allRooms) {
+      const found = r.available_promotions?.find(p => p.code === code);
+      if (found) {
+        newPromo = found;
+        break;
+      }
+    }
+
+    if (!newPromo) {
+      toast.error('โค้ดไม่ถูกต้องหรือหมดอายุ');
+      return;
+    }
+
+    if (promoCodes.length > 0) {
+      // If we already have codes, they ALL must be stackable, including the new one
+      if (!newPromo.stackable) {
+        toast.error('โค้ดนี้ไม่สามารถใช้ร่วมกับโค้ดอื่นได้');
+        return;
+      }
+
+      // Check existing codes
+      for (const existingCode of promoCodes) {
+        let p: Promotion | undefined;
+        for (const r of allRooms) {
+          const found = r.available_promotions?.find(x => x.code === existingCode);
+          if (found) { p = found; break; }
+        }
+        if (p && !p.stackable) {
+          toast.error(`โค้ด ${existingCode} ที่ใช้อยู่ ไม่สามารถใช้ร่วมกับโค้ดอื่นได้ กรุณาลบออกก่อน`);
+          return;
+        }
+      }
+    }
+
     updateUrl({ promo_code: [...promoCodes, code].join(',') });
     setPromoInput('');
   };
@@ -530,7 +571,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
                         setIsCalendarOpen(false);
                       }
                     }}
-                    minISO={todayISO()}
+                    minISO={isAdminOrStaff ? todayISO() : addDaysISO(todayISO(), 1)}
                   />
                 </div>
               </>

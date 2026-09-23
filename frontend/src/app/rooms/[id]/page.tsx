@@ -129,7 +129,7 @@ export default function RoomDetailPage(): React.ReactElement {
   const [room, setRoom] = useState<RoomDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const checkIn = searchParams.get('check_in') || today;
+  const checkIn = searchParams.get('check_in') || addDaysISO(today, 1);
   const checkOut = searchParams.get('check_out') || addDaysISO(checkIn, 1);
   const range = useMemo(() => ({ start: checkIn, end: checkOut }), [checkIn, checkOut]);
 
@@ -214,7 +214,7 @@ export default function RoomDetailPage(): React.ReactElement {
       nextCodes = selectedPromoCodes.filter((c) => c !== code);
     } else {
       nextCodes = [...selectedPromoCodes, code];
-      toast.success(`ใช้โค้ดส่วนลด ${code} แล้ว`);
+      
     }
     if (nextCodes.length > 0) params.set('promo_code', nextCodes.join(','));
     else params.delete('promo_code');
