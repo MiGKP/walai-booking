@@ -74,12 +74,15 @@ export default function Navbar() {
     return null;
   }
 
+  const isHomePage = pathname === "/";
+  const showSolidNav = scrolled || !isHomePage;
+
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${
-        scrolled
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        showSolidNav
           ? "bg-cream-100/95 backdrop-blur-md shadow-[0_2px_10px_rgba(18,60,48,0.08)]"
-          : "bg-cream-100/80 backdrop-blur-sm"
+          : "bg-transparent"
       }`}
       style={WAVE_BORDER}
     >
@@ -87,20 +90,19 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="transition-transform duration-300 group-hover:scale-105">
+            <div className="transition-transform duration-300 group-hover:scale-105 rounded-full overflow-hidden border-2 border-forest-800/10">
               <Image
-                src="/images/logo_walai.png"
+                src="https://res.cloudinary.com/chbkkmxt/image/upload/v1790154452/walai-booking/walai_logo.jpg"
                 alt="Logo Walai"
                 width={40}
                 height={40}
-                className="object-contain"
+                className="object-cover w-10 h-10"
                 priority
               />
             </div>
-            <span className="font-display text-xl font-semibold text-forest-800 tracking-tight">
-              วลัย
-            </span>
           </Link>
+
+
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
@@ -165,136 +167,124 @@ export default function Navbar() {
                 </button>
                 {dropdownOpen && (
                   <div
-                    className="animate-dropdown absolute right-0 mt-2 w-56 bg-cream-100 rounded-3xl overflow-hidden"
-                    style={{
-                      border: "1px solid var(--color-stone-200)",
-                      boxShadow: "0 10px 28px rgba(18,60,48,0.10)",
-                    }}
+                    className="animate-dropdown absolute right-0 mt-2 w-64 bg-white rounded-2xl border border-stone-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.08)] overflow-hidden"
                   >
-                    <div
-                      className="h-1"
-                      style={{
-                        background:
-                          "linear-gradient(90deg, var(--color-forest-800, #123C30), var(--color-bamboo-400, #C9A876))",
-                      }}
-                    />
-                    <div
-                      className="px-4 py-3"
-                      style={{
-                        borderBottom: "1px solid var(--color-stone-200)",
-                      }}
-                    >
-                      <p className="text-sm font-semibold text-charcoal truncate">
-                        {user.first_name} {user.last_name}
-                      </p>
-                      <p className="text-xs text-charcoal-400 truncate">
-                        {user.email}
-                      </p>
+                    {/* Header */}
+                    <div className="flex items-center gap-3 px-4 py-4 border-b border-stone-100 bg-stone-50/50">
+                      {avatarSrc && !avatarLoadError ? (
+                        <img
+                          src={avatarSrc}
+                          alt={`${user.first_name} ${user.last_name}`}
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm"
+                          onError={() => setAvatarLoadError(true)}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-forest-100 flex items-center justify-center ring-2 ring-white shadow-sm">
+                          <User size={18} className="text-forest-700" />
+                        </div>
+                      )}
+                      <div className="flex flex-col min-w-0">
+                        <p className="text-sm font-bold text-forest-900 truncate">
+                          {user.first_name} {user.last_name}
+                        </p>
+                        <p className="text-xs text-charcoal-400 truncate">
+                          {user.email}
+                        </p>
+                      </div>
                     </div>
-                    <Link
-                      href="/dashboard"
-                      className="flex items-center gap-2 px-4 py-3 text-sm text-charcoal hover:bg-forest-50 transition-colors"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      <User size={16} /> โปรไฟล์ของฉัน
-                    </Link>
-                    <Link
-                      href="/dashboard/coupons"
-                      className="flex items-center gap-2 px-4 py-3 text-sm text-charcoal hover:bg-forest-50 transition-colors"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      <Ticket size={16} /> โปรโมชั่นของฉัน
-                    </Link>
-                    <Link
-                      href="/reviews"
-                      className="flex items-center gap-2 px-4 py-3 text-sm text-charcoal hover:bg-forest-50 transition-colors"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      <Star size={16} /> รีวิวของฉัน
-                    </Link>
 
-                    {(user.role === "admin" ||
-                      user.role === "room_staff" ||
-                      user.role === "boat_staff") && (
-                      <div style={{ borderTop: "1px solid var(--color-stone-200)" }} />
-                    )}
+                    <div className="p-1.5">
+                      <Link
+                        href="/dashboard"
+                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-charcoal-600 hover:text-forest-800 hover:bg-forest-50 transition-colors"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        <User size={16} /> โปรไฟล์ของฉัน
+                      </Link>
 
-                    {user.role === "admin" && (
-                      <>
-                        <Link
-                          href="/admin"
-                          className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          แผงควบคุม Admin
-                        </Link>
-                        <Link
-                          href="/admin/stats"
-                          className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          รายงานสถิติ
-                        </Link>
-                      </>
-                    )}
-                    {user.role === "room_staff" && (
-                      <>
-                        <Link
-                          href="/staff/rooms/dashboard"
-                          className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          แดชบอร์ดห้องพัก
-                        </Link>
-                        <Link
-                          href="/admin/reviews"
-                          className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          รีวิวจากผู้เข้าพัก
-                        </Link>
-                        <Link
-                          href="/admin/stats"
-                          className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          รายงานสถิติ
-                        </Link>
-                      </>
-                    )}
-                    {user.role === "boat_staff" && (
-                      <>
-                        <Link
-                          href="/staff/boats/dashboard"
-                          className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          แดชบอร์ดเรือ
-                        </Link>
-                        <Link
-                          href="/admin/boat-hours"
-                          className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          เวลาทำการเรือ
-                        </Link>
-                        <Link
-                          href="/admin/stats"
-                          className="flex items-center gap-2 px-4 py-3 text-sm text-forest-700 hover:bg-forest-50 transition-colors"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          รายงานสถิติ
-                        </Link>
-                      </>
-                    )}
+                      {(user.role === "admin" ||
+                        user.role === "room_staff" ||
+                        user.role === "boat_staff") && (
+                        <div className="my-1.5 border-t border-stone-100" />
+                      )}
 
-                    <div style={{ borderTop: "1px solid var(--color-stone-200)" }} />
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 w-full transition-colors"
-                    >
-                      <LogOut size={16} /> ออกจากระบบ
-                    </button>
+                      {user.role === "admin" && (
+                        <>
+                          <Link
+                            href="/admin"
+                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-forest-700 hover:bg-forest-50 transition-colors"
+                            onClick={() => setDropdownOpen(false)}
+                          >
+                            แผงควบคุม Admin
+                          </Link>
+                          <Link
+                            href="/admin/stats"
+                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-forest-700 hover:bg-forest-50 transition-colors"
+                            onClick={() => setDropdownOpen(false)}
+                          >
+                            รายงานสถิติ
+                          </Link>
+                        </>
+                      )}
+                      {user.role === "room_staff" && (
+                        <>
+                          <Link
+                            href="/staff/rooms/dashboard"
+                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-forest-700 hover:bg-forest-50 transition-colors"
+                            onClick={() => setDropdownOpen(false)}
+                          >
+                            แดชบอร์ดห้องพัก
+                          </Link>
+                          <Link
+                            href="/admin/reviews"
+                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-forest-700 hover:bg-forest-50 transition-colors"
+                            onClick={() => setDropdownOpen(false)}
+                          >
+                            รีวิวจากผู้เข้าพัก
+                          </Link>
+                          <Link
+                            href="/admin/stats"
+                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-forest-700 hover:bg-forest-50 transition-colors"
+                            onClick={() => setDropdownOpen(false)}
+                          >
+                            รายงานสถิติ
+                          </Link>
+                        </>
+                      )}
+                      {user.role === "boat_staff" && (
+                        <>
+                          <Link
+                            href="/staff/boats/dashboard"
+                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-forest-700 hover:bg-forest-50 transition-colors"
+                            onClick={() => setDropdownOpen(false)}
+                          >
+                            แดชบอร์ดเรือ
+                          </Link>
+                          <Link
+                            href="/admin/boat-hours"
+                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-forest-700 hover:bg-forest-50 transition-colors"
+                            onClick={() => setDropdownOpen(false)}
+                          >
+                            เวลาทำการเรือ
+                          </Link>
+                          <Link
+                            href="/admin/stats"
+                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-forest-700 hover:bg-forest-50 transition-colors"
+                            onClick={() => setDropdownOpen(false)}
+                          >
+                            รายงานสถิติ
+                          </Link>
+                        </>
+                      )}
+
+                      <div className="my-1.5 border-t border-stone-100" />
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 w-full transition-colors"
+                      >
+                        <LogOut size={16} /> ออกจากระบบ
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -369,20 +359,6 @@ export default function Navbar() {
                   onClick={() => setIsOpen(false)}
                 >
                   โปรไฟล์ของฉัน
-                </Link>
-                <Link
-                  href="/dashboard/coupons"
-                  className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
-                  onClick={() => setIsOpen(false)}
-                >
-                  โปรโมชั่นของฉัน
-                </Link>
-                <Link
-                  href="/reviews"
-                  className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
-                  onClick={() => setIsOpen(false)}
-                >
-                  รีวิวของฉัน
                 </Link>
                 {/* ถ้าเป็นพนักงาน ให้แสดงเมนูสำหรับ staff/admin ใน mobile ด้วย */}
                 {(user?.role === 'admin' || user?.role === 'room_staff' || user?.role === 'boat_staff') && (

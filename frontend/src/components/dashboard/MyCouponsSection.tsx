@@ -16,7 +16,6 @@ export default function MyCouponsSection(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterTab>('saved');
   const [removingId, setRemovingId] = useState<number | null>(null);
-  const [boatTicketBalance, setBoatTicketBalance] = useState(0);
 
   const loadWallet = useCallback(async (): Promise<void> => {
     try {
@@ -31,10 +30,6 @@ export default function MyCouponsSection(): React.ReactElement {
 
   useEffect(() => {
     void loadWallet();
-    api
-      .get('/promotions/boat-tickets/mine')
-      .then((res) => setBoatTicketBalance(Number(res.data?.data?.total_remaining || 0)))
-      .catch(() => {});
   }, [loadWallet]);
 
   const grouped = useMemo(() => {
@@ -63,14 +58,7 @@ export default function MyCouponsSection(): React.ReactElement {
 
   return (
     <div>
-      {boatTicketBalance > 0 && (
-        <div className="mb-4 flex items-center gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-xs font-medium text-bamboo-800">
-          <Ticket size={16} className="shrink-0" />
-          <p>คุณมีโปรโมชั่นพายเรือฟรี {boatTicketBalance} ใบ — ใช้ได้ตอนจองเรือที่หน้า <Link href="/kayaks" className="font-bold underline">จองเรือคายัค</Link></p>
-        </div>
-      )}
-
-      <div className="mb-4 flex gap-2">
+      <div className="mb-6 flex flex-wrap gap-2">
         {(
           [
             { id: 'saved', label: 'พร้อมใช้', count: grouped.saved.length },
@@ -82,26 +70,35 @@ export default function MyCouponsSection(): React.ReactElement {
             key={t.id}
             type="button"
             onClick={() => setFilter(t.id)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-              filter === t.id ? 'bg-forest-800 text-cream-100' : 'bg-stone-100 text-charcoal-500 hover:bg-stone-200'
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+              filter === t.id ? 'bg-forest-900 text-cream-100 shadow-sm' : 'bg-stone-100 text-charcoal-500 hover:bg-stone-200/80'
             }`}
           >
-            {t.label} ({t.count})
+            {t.label} <span className={filter === t.id ? 'text-forest-200/80' : 'text-charcoal-400'}>({t.count})</span>
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2].map((key) => <div key={key} className="h-28 animate-pulse rounded-2xl bg-stone-100" />)}
+        <div className="space-y-4">
+          {[1, 2].map((key) => <div key={key} className="h-32 animate-pulse rounded-2xl bg-stone-100" />)}
         </div>
       ) : visible.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-stone-200 py-16 text-center">
-          <Ticket size={40} className="mx-auto mb-3 text-stone-300" />
-          <p className="mb-4 text-sm text-charcoal-400">
-            {filter === 'saved' ? 'ยังไม่มีโปรโมชั่นในกระเป๋า' : 'ยังไม่มีรายการในหมวดนี้'}
+        <div className="flex flex-col items-center justify-center rounded-3xl bg-stone-50 py-12 px-4 text-center border border-stone-100/50">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm mb-4">
+            <Ticket size={28} className="text-stone-300" />
+          </div>
+          <h3 className="mb-1 text-base font-bold text-forest-900">
+            {filter === 'saved' ? 'กระเป๋าโปรโมชั่นว่างเปล่า' : 'ไม่พบข้อมูล'}
+          </h3>
+          <p className="mb-6 text-sm text-charcoal-400 max-w-[260px]">
+            {filter === 'saved' ? 'คุณยังไม่ได้เก็บโค้ดส่วนลดใดๆ ลองไปดูโปรโมชั่นที่น่าสนใจกันไหม?' : 'ยังไม่มีรายการในหมวดหมู่นี้ที่คุณเลือกดู'}
           </p>
-          {filter === 'saved' && <Link href="/promotions" className="btn-primary">ไปเก็บโปรโมชั่น</Link>}
+          {filter === 'saved' && (
+            <Link href="/promotions" className="rounded-full bg-forest-800 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-900 shadow-sm">
+              ค้นหาโปรโมชั่น
+            </Link>
+          )}
         </div>
       ) : (
         <ul className="space-y-3">

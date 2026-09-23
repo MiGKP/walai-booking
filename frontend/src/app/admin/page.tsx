@@ -174,24 +174,25 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 pb-10">
+    <div className="mx-auto max-w-6xl space-y-6 pb-10 font-sans">
       {/* Header */}
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center pb-4 border-b border-stone-200/80">
         <div>
-          <h1 className="font-display text-2xl font-bold text-forest-900">
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-forest-800 tracking-tight flex items-center gap-2">
+            <TrendingUp size={28} className="text-forest-800" />
             ภาพรวมระบบ
           </h1>
-          <p className="mt-1 text-sm text-charcoal-400">
+          <p className="mt-1 text-xs md:text-sm text-charcoal-400">
             ยอดขาย สถิติการเข้าพัก และข้อมูลทรัพยากรบุคลากร
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchAll}
-            className="rounded-xl border border-stone-200 bg-white p-2.5 text-charcoal-500 shadow-sm transition-colors hover:border-forest-800/30 hover:text-forest-800"
+            className="rounded-xl border border-stone-200 bg-white p-2.5 text-forest-800 font-semibold text-xs shadow-sm transition-colors hover:bg-stone-50 flex items-center gap-2"
             title="รีเฟรชข้อมูล"
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={16} /> รีเฟรช
           </button>
         </div>
       </header>
@@ -199,38 +200,40 @@ export default function AdminPage() {
       {/* Tier 1: Executive KPIs (Revenue, Members, Staff) */}
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Revenue Card (Takes up more space) */}
-        <div className="rounded-2xl border border-stone-100 bg-white p-6 shadow-sm lg:col-span-6 flex flex-col justify-between">
-          <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-2 text-forest-900">
+        <div className="rounded-2xl border border-stone-200/80 bg-white p-5 sm:p-6 shadow-sm lg:col-span-6 flex flex-col justify-between">
+          <div className="mb-6 flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-center">
+            <div className="flex items-center gap-2 text-forest-800">
               <TrendingUp size={20} className="stroke-[2.5px]" />
-              <h2 className="font-display text-lg font-bold">ยอดขายที่อนุมัติแล้ว</h2>
+              <h2 className="font-display text-xl font-bold tracking-tight">ยอดขายที่อนุมัติแล้ว</h2>
             </div>
             
             {/* Segmented Control for Timeframe */}
-            <div className="flex rounded-xl bg-stone-100/80 p-1">
-              {[
-                { id: "today", label: "วันนี้" },
-                { id: "month", label: "เดือนนี้" },
-                { id: "year", label: "ปีนี้" },
-                { id: "all", label: "ทั้งหมด" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setTimeframe(tab.id as Timeframe)}
-                  className={`rounded-lg px-4 py-1.5 text-xs font-bold transition-all ${
-                    timeframe === tab.id
-                      ? "bg-white text-forest-800 shadow-sm"
-                      : "text-charcoal-500 hover:bg-stone-200/50 hover:text-forest-700"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className="flex w-full overflow-x-auto rounded-xl bg-stone-100/80 p-1 2xl:w-auto">
+              <div className="flex min-w-max w-full">
+                {[
+                  { id: "today", label: "วันนี้" },
+                  { id: "month", label: "เดือนนี้" },
+                  { id: "year", label: "ปีนี้" },
+                  { id: "all", label: "ทั้งหมด" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setTimeframe(tab.id as Timeframe)}
+                    className={`flex-1 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-bold transition-all ${
+                      timeframe === tab.id
+                        ? "bg-white text-forest-800 shadow-sm"
+                        : "text-charcoal-500 hover:bg-stone-200/50 hover:text-forest-700"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
           <div>
-            <h3 className="mb-6 font-display text-4xl font-bold text-forest-800">{formatMoney(totalRevenue)}</h3>
+            <h3 className="mb-6 font-display text-3xl sm:text-4xl font-bold text-forest-800 break-words">{formatMoney(totalRevenue)}</h3>
             <div className="space-y-4">
               <p className="text-xs font-bold text-charcoal-500">สัดส่วนรายได้</p>
               <div className="flex h-3 w-full overflow-hidden rounded-full bg-stone-100">
@@ -252,34 +255,34 @@ export default function AdminPage() {
         </div>
 
         {/* Resources Cards */}
-        <div className="grid grid-rows-2 gap-6 lg:col-span-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 lg:grid-rows-2 gap-6 lg:col-span-6">
           {/* Members */}
-          <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-amber-50 p-6 text-amber-900 border border-amber-100 shadow-sm">
+          <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-amber-50 p-5 sm:p-6 text-amber-900 border border-amber-100 shadow-sm">
             <div className="absolute -right-4 -top-4 text-amber-200/50">
               <Users size={100} />
             </div>
             <div className="relative z-10">
               <p className="mb-1 text-xs font-bold uppercase tracking-wider text-amber-700/80">ฐานลูกค้า</p>
               <div className="flex items-baseline gap-2">
-                <span className="font-display text-4xl font-bold">{membersList.length}</span>
-                <span className="text-sm text-amber-700">บัญชี</span>
+                <span className="font-display text-3xl sm:text-4xl font-bold">{membersList.length}</span>
+                <span className="text-xs sm:text-sm text-amber-700">บัญชี</span>
               </div>
             </div>
           </div>
           
           {/* Staff */}
-          <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-stone-50 p-6 text-charcoal-900 border border-stone-200 shadow-sm">
+          <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-stone-50 p-5 sm:p-6 text-charcoal-900 border border-stone-200 shadow-sm">
             <div className="absolute -bottom-4 -right-4 text-stone-200/60">
               <UserCheck size={90} />
             </div>
             <div className="relative z-10">
               <p className="mb-2 text-xs font-bold uppercase tracking-wider text-charcoal-500">พนักงาน</p>
               <div className="flex items-baseline gap-2 mb-3">
-                <span className="font-display text-4xl font-bold">{staffList.length}</span>
-                <span className="text-sm text-charcoal-500">คน</span>
+                <span className="font-display text-3xl sm:text-4xl font-bold">{staffList.length}</span>
+                <span className="text-xs sm:text-sm text-charcoal-500">คน</span>
               </div>
               
-              <div className="flex gap-2 text-xs font-medium">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-medium">
                 <span className="rounded-md bg-forest-100 px-2 py-1 text-forest-800">
                   ห้องพัก: {staffList.filter((s) => s.role === "room_staff").length}
                 </span>
@@ -299,39 +302,39 @@ export default function AdminPage() {
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Live Today */}
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:col-span-5">
-          <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-forest-900 p-6 text-white shadow-sm">
+          <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-forest-900 p-5 sm:p-6 text-white shadow-sm">
             <div className="absolute -right-4 -top-4 text-forest-800/50">
               <Home size={100} />
             </div>
             <div className="relative z-10">
               <p className="mb-1 text-xs font-medium text-forest-200">ห้องพักที่เช็คอินวันนี้</p>
               <div className="flex items-baseline gap-2">
-                <span className="font-display text-4xl font-bold">{todayRoomBookings}</span>
-                <span className="text-sm text-forest-200">ห้อง</span>
+                <span className="font-display text-3xl sm:text-4xl font-bold">{todayRoomBookings}</span>
+                <span className="text-xs sm:text-sm text-forest-200">ห้อง</span>
               </div>
             </div>
           </div>
-          <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-lagoon-900 p-6 text-white shadow-sm">
+          <div className="relative flex flex-col justify-center overflow-hidden rounded-2xl bg-lagoon-900 p-5 sm:p-6 text-white shadow-sm">
             <div className="absolute -bottom-2 -right-2 text-lagoon-800/50">
               <Sailboat size={90} />
             </div>
             <div className="relative z-10">
               <p className="mb-1 text-xs font-medium text-lagoon-200">คิวเรือคายัควันนี้</p>
               <div className="flex items-baseline gap-2">
-                <span className="font-display text-4xl font-bold">{todayKayakBookings}</span>
-                <span className="text-sm text-lagoon-200">คิว</span>
+                <span className="font-display text-3xl sm:text-4xl font-bold">{todayKayakBookings}</span>
+                <span className="text-xs sm:text-sm text-lagoon-200">คิว</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Bookings Status Breakdown */}
-        <div className="rounded-2xl border border-stone-100 bg-white p-6 shadow-sm lg:col-span-7">
-          <h2 className="mb-4 font-display text-lg font-bold text-forest-900">
+        <div className="rounded-2xl border border-stone-200/80 bg-white p-5 sm:p-6 shadow-sm lg:col-span-7">
+          <h2 className="mb-4 font-display text-lg sm:text-xl font-bold tracking-tight text-forest-800">
             สถานะการจองตามช่วงเวลา
           </h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl border border-stone-100 bg-stone-50 p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-stone-200/80 bg-stone-50 p-4">
               <h4 className="mb-3 flex items-center gap-1.5 text-[11px] font-bold text-charcoal-500">
                 <Home size={14} /> สรุปห้องพัก
               </h4>
@@ -348,7 +351,7 @@ export default function AdminPage() {
               </div>
             </div>
             
-            <div className="rounded-xl border border-stone-100 bg-stone-50 p-4">
+            <div className="rounded-xl border border-stone-200/80 bg-stone-50 p-4">
               <h4 className="mb-3 flex items-center gap-1.5 text-[11px] font-bold text-charcoal-500">
                 <Sailboat size={14} /> สรุปคายัค
               </h4>
@@ -369,10 +372,10 @@ export default function AdminPage() {
       </section>
 
       {/* Tier 3: Action Required (Pending) */}
-      <section className="rounded-2xl border border-stone-100 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-stone-200/80 bg-white p-5 sm:p-6 shadow-sm">
         <div className="mb-5 flex items-center gap-2 text-bamboo-700">
           <Clock size={20} className="stroke-[2.5px]" />
-          <h2 className="font-display text-lg font-bold">รอตรวจสอบการชำระเงิน</h2>
+          <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight">รอตรวจสอบการชำระเงิน</h2>
         </div>
         
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
