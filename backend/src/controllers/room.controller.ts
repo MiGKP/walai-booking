@@ -100,7 +100,7 @@ export const getAllRooms = async (
            WHERE rev.room_type_id = rt.id
          ) as review_count,
          (
-           SELECT json_agg(json_build_object('id', p.id, 'name', p.name, 'code', p.code, 'description', p.description, 'discount_value', p.discount_value, 'discount_type', p.discount_type, 'min_nights', p.min_nights, 'max_discount', p.max_discount))
+           SELECT json_agg(json_build_object('id', p.id, 'name', p.name, 'code', p.code, 'description', p.description, 'discount_value', p.discount_value, 'discount_type', p.discount_type, 'min_nights', p.min_nights, 'max_discount', p.max_discount, 'boat_ticket_count', p.boat_ticket_count, 'boat_addon_mode', p.boat_addon_mode, 'boat_addon_price', p.boat_addon_price, 'stackable', p.stackable))
            FROM promotions p
            WHERE p.is_active = true
              AND p.start_date <= CURRENT_DATE
@@ -201,7 +201,7 @@ export const getRoomById = async (
              ) as amenities,
              (${roomsSubquery}) as rooms,
              (
-               SELECT json_agg(json_build_object('id', p.id, 'name', p.name, 'code', p.code, 'description', p.description, 'discount_value', p.discount_value, 'discount_type', p.discount_type, 'min_nights', p.min_nights, 'max_discount', p.max_discount))
+               SELECT json_agg(json_build_object('id', p.id, 'name', p.name, 'code', p.code, 'description', p.description, 'discount_value', p.discount_value, 'discount_type', p.discount_type, 'min_nights', p.min_nights, 'max_discount', p.max_discount, 'boat_ticket_count', p.boat_ticket_count, 'boat_addon_mode', p.boat_addon_mode, 'boat_addon_price', p.boat_addon_price, 'stackable', p.stackable))
                FROM promotions p
                WHERE p.is_active = true
                  AND p.start_date <= CURRENT_DATE
