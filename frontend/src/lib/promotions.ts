@@ -20,11 +20,6 @@ export interface CatalogPromo {
   boat_addon_price?: number | null;
   start_date: string | null;
   end_date: string | null;
-  min_nights?: number | null;
-  max_discount?: number | null;
-  boat_ticket_count?: number | null;
-  boat_addon_mode?: "free" | "paid" | null;
-  boat_addon_price?: number | null;
   is_collectible: boolean;
   stackable: boolean;
   applies_to?: PromoAppliesTo | string | null;
@@ -44,6 +39,11 @@ export interface WalletPromo {
   applies_to?: PromoAppliesTo | string | null;
   start_date: string | null;
   end_date: string | null;
+  min_nights?: number | null;
+  max_discount?: number | null;
+  boat_ticket_count?: number | null;
+  boat_addon_mode?: "free" | "paid" | null;
+  boat_addon_price?: number | null;
 }
 
 export function toIsoDay(value: string | null): string {
@@ -53,46 +53,39 @@ export function toIsoDay(value: string | null): string {
     if (Number.isNaN(parsed.getTime())) return '';
     return toISODate(parsed);
   }
-  return value.slice(0, 10);
+  return value;
 }
 
 export function formatPromoDiscount(
-  type: PromoDiscountType,
+  type: CatalogPromo['discount_type'],
   value: number | string
 ): string {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return '';
-  if (type === 'percent') return `${amount}%`;
-  return `฿${amount.toLocaleString('th-TH')}`;
+  const num = Number(value);
+  if (type === 'percent') {
+    return `${num}%`;
+  }
+  return `฿${num.toLocaleString()}`;
 }
 
-export function formatPromoWindow(
-  startDate: string | null,
-  endDate: string | null
-): string {
-  const start = toIsoDay(startDate);
-  const end = toIsoDay(endDate);
-  if (start && end) return `${formatThaiDate(start)} – ${formatThaiDate(end)}`;
-  if (end) return `ถึง ${formatThaiDate(end)}`;
-  if (start) return `ตั้งแต่ ${formatThaiDate(start)}`;
-  return 'ใช้ได้ตามเงื่อนไข';
+export function formatPromoWindow(start: string | null, end: string | null): string {
+  if (!start && !end) return 'ไม่มีวันหมดอายุ';
+  const startStr = start ? formatThaiDate(toIsoDay(start)) : '';
+  const endStr = end ? formatThaiDate(toIsoDay(end)) : '';
+  if (start && end) return `${startStr} - ${endStr}`;
+  if (start) return `ตั้งแต่ ${startStr}`;
+  return `ถึง ${endStr}`;
 }
 
-export function walletStatusLabel(status: WalletStatus): string {
-  if (status === 'used') return 'ใช้แล้ว';
-  if (status === 'expired') return 'หมดอายุ';
-  return 'พร้อมใช้';
+export function bookingPromoHref(scope: BookingPromoScope, code: string): string {
+  if (scope === 'kayak') {
+    return `/kayaks?promo=${encodeURIComponent(code)}`;
+  }
+  return `/rooms?promo=${encodeURIComponent(code)}`;
 }
 
-export function bookingPromoHref(kind: 'room' | 'kayak', code: string): string {
-  const path = kind === 'room' ? '/rooms' : '/kayaks';
-  const trimmed = code.trim().toUpperCase();
-  if (!trimmed) return path;
-  return `${path}?promo=${encodeURIComponent(trimmed)}`;
-}
-
-export function parseAppliesTo(value: unknown): PromoAppliesTo {
-  if (value === 'room' || value === 'kayak' || value === 'both') return value;
+export function parseAppliesTo(val?: string | null): PromoAppliesTo {
+  if (val === 'room') return 'room';
+  if (val === 'kayak') return 'kayak';
   return 'both';
 }
 
@@ -106,5 +99,11 @@ export function promoAllowsScope(
 export function appliesToLabel(appliesTo: PromoAppliesTo): string {
   if (appliesTo === 'room') return 'ห้องพักเท่านั้น';
   if (appliesTo === 'kayak') return 'เรือคายัคเท่านั้น';
-  return 'ห้องและเรือ';
+  return 'ห้องพักและเรือคายัค';
+}
+
+export function walletStatusLabel(status: WalletStatus): string {
+  if (status === 'saved') return 'พร้อมใช้งาน';
+  if (status === 'used') return 'ใช้แล้ว';
+  return 'หมดอายุ';
 }
