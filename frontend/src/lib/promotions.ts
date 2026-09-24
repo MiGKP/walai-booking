@@ -15,8 +15,16 @@ export interface CatalogPromo {
   min_nights: number | null;
   min_price: number | null;
   max_discount: number | null;
+  boat_ticket_count?: number | null;
+  boat_addon_mode?: "free" | "paid" | null;
+  boat_addon_price?: number | null;
   start_date: string | null;
   end_date: string | null;
+  min_nights?: number | null;
+  max_discount?: number | null;
+  boat_ticket_count?: number | null;
+  boat_addon_mode?: "free" | "paid" | null;
+  boat_addon_price?: number | null;
   is_collectible: boolean;
   stackable: boolean;
   applies_to?: PromoAppliesTo | string | null;

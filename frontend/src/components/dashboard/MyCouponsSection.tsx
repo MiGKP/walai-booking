@@ -117,6 +117,10 @@ export default function MyCouponsSection(): React.ReactElement {
                 endDate={item.end_date}
                 stackable={Boolean(item.stackable)}
                 appliesTo={item.applies_to}
+                  minNights={item.min_nights}
+                  maxDiscount={item.max_discount}
+                  boatTicketCount={item.boat_ticket_count}
+                  boatAddonMode={item.boat_addon_mode}
                 muted={item.status !== 'saved'}
                 badge={walletStatusLabel(item.status)}
                 footer={

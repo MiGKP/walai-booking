@@ -34,7 +34,7 @@ export const getActivePromotions = async (req: Request, res: Response): Promise<
       `SELECT p.id, p.code, p.name, p.description, p.discount_type, p.discount_value,
               p.min_nights, p.min_price, p.max_discount, p.start_date, p.end_date,
               p.usage_limit, p.usage_count, p.is_active,
-              p.usage_limit_per_member, p.is_collectible, p.stackable, p.applies_to,
+              p.usage_limit_per_member, p.is_collectible, p.stackable, p.applies_to, p.boat_ticket_count, p.boat_addon_mode, p.boat_addon_price,
               mp.status AS wallet_status
        FROM promotions p
        LEFT JOIN member_promotions mp
@@ -279,7 +279,7 @@ export const getMyPromotions = async (req: Request, res: Response): Promise<void
       `SELECT mp.member_promotion_id, mp.promotion_id, mp.status, mp.saved_at, mp.used_at,
               p.code, p.name, p.description, p.discount_type, p.discount_value,
               p.is_active, p.start_date, p.end_date, p.usage_limit_per_member,
-              p.is_collectible, p.stackable, p.applies_to,
+              p.is_collectible, p.stackable, p.applies_to, p.min_nights, p.max_discount, p.boat_ticket_count, p.boat_addon_mode, p.boat_addon_price,
               (SELECT COUNT(*)::int FROM booking_promotions bp
                WHERE bp.member_id = mp.member_id AND bp.promotion_id = mp.promotion_id) AS used_count
        FROM member_promotions mp

@@ -93,6 +93,10 @@ export default function PromotionsPage(): React.ReactElement {
                   endDate={promo.end_date}
                   stackable={Boolean(promo.stackable)}
                   appliesTo={promo.applies_to}
+                  minNights={promo.min_nights}
+                  maxDiscount={promo.max_discount}
+                  boatTicketCount={promo.boat_ticket_count}
+                  boatAddonMode={promo.boat_addon_mode}
                   badge={promo.is_collectible ? 'ต้องเก็บก่อนใช้' : 'พิมพ์ตอนจอง'}
                   footer={
                     <PromoCollectAction
