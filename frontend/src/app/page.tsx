@@ -16,12 +16,6 @@ import {
   parseLatLng,
 } from '@/lib/coordinates';
 import Navbar from '@/components/layout/Navbar';
-// โหลดแยก bundle เพราะ three.js หนัก และฉากต้องรันบนเบราว์เซอร์เท่านั้น
-const WaterHouseScene3D = dynamic(
-  () => import('@/components/3D/WaterHouseScene3D'),
-  { ssr: false, loading: () => <div className="h-full w-full" /> }
-);
-
 interface ResortInfo {
   name?: string;
   address?: string;
@@ -387,7 +381,7 @@ export default function HomePage() {
   const locationRef = useRevealOnScroll();
   const ctaRef = useRevealOnScroll();
   const facebookLink = resolveFacebookLink(resortInfo.facebook);
-  const mapCoords = parseLatLng(resortInfo.coordinates);
+  const mapCoords = parseLatLng(resortInfo.coordinates || "16.219759824221544, 103.32908547853327");
   const mapSrc = mapCoords
     ? googleMapsEmbedUrl(mapCoords)
     : googleMapsSearchUrl(
@@ -471,69 +465,65 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           1. HERO SECTION
           ═══════════════════════════════ */}
-      <section className="relative min-h-screen flex items-center overflow-hidden">
-        <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-gradient-to-b from-lagoon-100/40 via-bamboo-100/20 to-transparent blur-3xl pointer-events-none" />
-        <div className="absolute bottom-10 left-0 w-1/3 h-1/3 bg-forest-800/5 blur-3xl pointer-events-none" />
+      <section className="relative min-h-[100vh] flex flex-col items-center justify-center pt-32 pb-24 overflow-hidden">
+        {/* Full-bleed Background Image */}
+        <div className="absolute inset-0 w-full h-full">
+          <img 
+            src="/images/balcony.jpg"
+            alt="Walai Resort Background"
+            className="w-full h-full object-cover transition-transform duration-[20s] hover:scale-105"
+          />
+          {/* Overlays to ensure readability */}
+          {/* Top gradient for Navbar (cream-100 is #fbfaf8) */}
+          <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-cream-100/90 via-cream-100/50 to-transparent" />
+          
+          {/* Main dark overlay for text contrast */}
+          <div className="absolute inset-0 bg-forest-950/40 mix-blend-multiply" />
+          <div className="absolute inset-0 bg-gradient-to-t from-forest-950/80 via-forest-900/40 to-transparent" />
+          
+          {/* Bottom fade into next section (cream-100) */}
+          <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-cream-100 to-transparent" />
+        </div>
 
-        <div className="relative container mx-auto px-4 py-32 md:py-36">
-          <div className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-            {/* Left — Text content */}
-            <div className="lg:col-span-7">
-              <p
-                className="flex items-center gap-3 text-forest-700 font-medium text-sm mb-7 animate-reveal-up"
-              >
-                <span className="w-8 h-px bg-bamboo-400" />
-                รีสอร์ตและที่พักลอยน้ำ กลางสวนพฤกษศาสตร์
-              </p>
+        <div className="relative container mx-auto px-4 z-10 w-full flex flex-col items-center mt-12">
+          <div className="flex flex-col items-center text-center max-w-4xl mx-auto">
+            <h1 
+              className="font-display text-5xl md:text-6xl lg:text-[6.5rem] font-bold text-white leading-[1.05] tracking-tight mb-8 animate-reveal-up drop-shadow-xl" 
+              style={{ animationDelay: '100ms' }}
+            >
+              ค้นพบความสงบที่แท้จริง <br className="hidden md:block" />
+              บน <span className="text-bamboo-300 italic font-light pr-4">เรือนแพลอยน้ำ</span>
+            </h1>
 
-              <h1
-                className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-forest-800 leading-[1.08] mb-4 animate-reveal-up"
-              >
-                {resortInfo.name || 'สวนวลัยรุกขเวช'}
-              </h1>
-              <p
-                className="font-display text-2xl md:text-3xl text-bamboo-600 mb-8 animate-reveal-up"
-                style={{ animationDelay: '80ms' }}
-              >
-                สัมผัสธรรมชาติลอยน้ำ
-              </p>
+            <p 
+              className="text-lg md:text-2xl text-cream-100/90 leading-relaxed max-w-3xl mx-auto mb-12 animate-reveal-up font-light drop-shadow-md" 
+              style={{ animationDelay: '200ms' }}
+            >
+              หลบหนีความวุ่นวายมาผ่อนคลายกับบรรยากาศสุดสโลว์ไลฟ์ พร้อมกิจกรรมพายเรือคายัคชมทัศนียภาพอันร่มรื่นกลางผืนน้ำ
+            </p>
 
-              <p
-                className="text-lg text-charcoal-400 leading-relaxed max-w-xl mb-10 animate-reveal-up"
-                style={{ animationDelay: '160ms' }}
-              >
-                หลบหนีความวุ่นวายมาผ่อนคลายกับที่พักเรือนแพลอยน้ำบรรยากาศสุดสโลว์ไลฟ์
-                พร้อมกิจกรรมพายเรือคายัคชมทัศนียภาพอันร่มรื่นกลางผืนน้ำ
-              </p>
-
-              <div
-                className="flex flex-col sm:flex-row gap-4 pt-2 animate-reveal-up"
-                style={{ animationDelay: '220ms' }}
-              >
-                <Link
-                  href="/rooms"
-                  className="inline-flex items-center justify-center gap-2 bg-forest-800 text-cream-100 font-semibold px-8 py-4 rounded-2xl shadow-lg shadow-forest-800/20 hover:bg-forest-700 active:scale-[0.97] transition-all duration-200"
-                >
-                  <Calendar size={18} aria-hidden="true" />
-                  จองห้องพัก
-                  <ArrowRight size={18} aria-hidden="true" />
-                </Link>
-                <Link
-                  href="/kayaks"
-                  className="inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 rounded-2xl border border-forest-800/20 text-forest-800 hover:bg-white active:scale-[0.97] transition-all duration-200"
-                >
-                  <Anchor size={18} aria-hidden="true" />
-                  บริการเรือคายัค
-                </Link>
-              </div>
-            </div>
-
-            {/* Right — Interactive 3D scene */}
-            <div
-              className="lg:col-span-5 relative h-[380px] sm:h-[460px] lg:h-[500px] w-full animate-reveal-up"
+            <div 
+              className="flex flex-col sm:flex-row items-center justify-center gap-5 animate-reveal-up w-full sm:w-auto" 
               style={{ animationDelay: '300ms' }}
             >
-              <WaterHouseScene3D />
+              <Link
+                href="/rooms"
+                className="group relative inline-flex items-center justify-center gap-3 bg-bamboo-500 text-forest-950 font-bold px-10 py-4 rounded-full overflow-hidden transition-all duration-300 hover:scale-105 active:scale-[0.98] w-full sm:w-auto shadow-[0_0_40px_rgba(234,179,8,0.3)]"
+              >
+                <span className="relative flex items-center gap-2 text-lg">
+                  <Calendar size={20} />
+                  จองห้องพัก
+                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                </span>
+              </Link>
+              
+              <Link
+                href="/kayaks"
+                className="inline-flex items-center justify-center gap-3 font-semibold px-10 py-4 rounded-full bg-white/10 text-white backdrop-blur-md border border-white/30 hover:bg-white/20 active:scale-[0.98] transition-all duration-300 w-full sm:w-auto text-lg"
+              >
+                <Anchor size={20} />
+                บริการเรือคายัค
+              </Link>
             </div>
           </div>
         </div>

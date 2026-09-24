@@ -32,9 +32,9 @@ export function parseLatLng(raw: string | undefined | null): LatLng | null {
 export function googleMapsEmbedUrl(coords: LatLng, zoom = 16): string {
   const q = `${coords.lat},${coords.lng}`;
   const encoded = encodeURIComponent(q);
-  return `https://maps.google.com/maps?q=${encoded}&ll=${encoded}&z=${zoom}&hl=th&output=embed`;
+  return `https://maps.google.com/maps?q=${encoded}&ll=${encoded}&z=${zoom}&t=k&hl=th&output=embed`;
 }
 
 export function googleMapsSearchUrl(query: string, zoom = 16): string {
-  return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=${zoom}&hl=th&output=embed`;
+  return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=${zoom}&t=k&hl=th&output=embed`;
 }

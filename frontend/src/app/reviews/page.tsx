@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { Star, MessageSquare, PenLine, Trash2, X, Check } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
@@ -34,26 +34,67 @@ interface MyReview {
 }
 
 function StarRating({ value, onChange, readonly = false }: { value: number; onChange?: (v: number) => void; readonly?: boolean }) {
-  const [hovered, setHovered] = useState(0);
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          disabled={readonly}
-          onClick={() => onChange?.(star)}
-          onMouseEnter={() => !readonly && setHovered(star)}
-          onMouseLeave={() => !readonly && setHovered(0)}
-          className={`transition-colors ${readonly ? 'cursor-default' : 'cursor-pointer'}`}
-        >
+  const uid = useId().replace(/:/g, '');
+
+  if (readonly) {
+    return (
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
           <Star
-            size={readonly ? 16 : 28}
-            className={`transition-colors ${(hovered || value) >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
+            key={star}
+            size={16}
+            className={`${value >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
           />
-        </button>
-      ))}
-    </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <style>{`
+        .rating-wrapper-${uid} {
+          display: inline-flex;
+          flex-direction: row-reverse;
+          justify-content: flex-end;
+        }
+        .rating-wrapper-${uid} input {
+          display: none;
+        }
+        .rating-wrapper-${uid} label {
+          cursor: pointer;
+          color: #d1d5db;
+          transition: color 0.3s;
+          margin: 0 1px;
+        }
+        .rating-wrapper-${uid} label:before {
+          content: '\\2605';
+          font-size: 30px;
+          line-height: 1;
+        }
+        .rating-wrapper-${uid} input:checked ~ label,
+        .rating-wrapper-${uid} label:hover,
+        .rating-wrapper-${uid} label:hover ~ label {
+          color: #facc15;
+          transition: color 0.3s;
+        }
+      `}</style>
+      <div className={`rating-wrapper-${uid}`}>
+        {[5, 4, 3, 2, 1].map((star) => (
+          <React.Fragment key={star}>
+            <input
+              id={`star-${uid}-${star}`}
+              name={`rating-${uid}`}
+              type="radio"
+              value={star}
+              checked={value === star}
+              onChange={() => onChange?.(star)}
+            />
+            <label htmlFor={`star-${uid}-${star}`} />
+          </React.Fragment>
+        ))}
+      </div>
+    </>
   );
 }
 

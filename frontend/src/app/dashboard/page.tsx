@@ -91,6 +91,19 @@ export default function DashboardPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
   const [activeTab, setActiveTab] = useState<"bookings" | "profile" | "security" | "reviews" | "coupons">("bookings");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("walai_dashboard_tab");
+    if (saved) {
+      setActiveTab(saved as any);
+    }
+  }, []);
+
+  const changeTab = (tab: "bookings" | "profile" | "security" | "reviews" | "coupons") => {
+    setActiveTab(tab);
+    localStorage.setItem("walai_dashboard_tab", tab);
+  };
+
   const displayAvatarSrc = useMemo(
     () => (avatarLoadError ? "" : avatarPreview),
     [avatarLoadError, avatarPreview],
@@ -253,35 +266,35 @@ export default function DashboardPage() {
             <div className={`${CARD} p-2 lg:p-3`}>
               <nav className="flex lg:flex-col gap-1 overflow-x-auto no-scrollbar">
                 <button
-                  onClick={() => setActiveTab("bookings")}
+                  onClick={() => changeTab("bookings")}
                   className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "bookings" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
                 >
                   <CalendarDays size={18} className={activeTab === "bookings" ? "text-forest-700" : "text-charcoal-400"} />
                   การจองของฉัน
                 </button>
                 <button
-                  onClick={() => setActiveTab("profile")}
+                  onClick={() => changeTab("profile")}
                   className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "profile" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
                 >
                   <User size={18} className={activeTab === "profile" ? "text-forest-700" : "text-charcoal-400"} />
                   ข้อมูลส่วนตัว
                 </button>
                 <button
-                  onClick={() => setActiveTab("security")}
+                  onClick={() => changeTab("security")}
                   className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "security" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
                 >
                   <Lock size={18} className={activeTab === "security" ? "text-forest-700" : "text-charcoal-400"} />
                   รหัสผ่านและความปลอดภัย
                 </button>
                 <button
-                  onClick={() => setActiveTab("reviews")}
+                  onClick={() => changeTab("reviews")}
                   className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "reviews" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
                 >
                   <Star size={18} className={activeTab === "reviews" ? "text-forest-700" : "text-charcoal-400"} />
                   รีวิวของฉัน
                 </button>
                 <button
-                  onClick={() => setActiveTab("coupons")}
+                  onClick={() => changeTab("coupons")}
                   className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "coupons" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
                 >
                   <Ticket size={18} className={activeTab === "coupons" ? "text-forest-700" : "text-charcoal-400"} />

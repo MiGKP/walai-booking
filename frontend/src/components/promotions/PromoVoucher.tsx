@@ -59,21 +59,20 @@ export function PromoVoucher({
 
   return (
     <div
-      className={`relative transition-opacity ${muted ? 'opacity-60' : ''}`}
-      style={{ perspective: '1200px', minHeight: '160px' }}
+      className={`relative transition-opacity ${muted ? 'opacity-60' : ''} h-full`}
+      style={{ perspective: '1200px' }}
     >
       <div
-        className="relative w-full h-full transition-transform duration-500"
+        className="grid w-full h-full transition-transform duration-500"
         style={{
           transformStyle: 'preserve-3d',
-          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-          minHeight: '160px',
+          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
         }}
       >
         {/* ──── FRONT ──── */}
         <div
-          className="absolute inset-0 w-full overflow-hidden rounded-2xl border border-forest-100/60 bg-gradient-to-br from-white to-forest-50/30 shadow-sm hover:shadow-md hover:border-forest-200 transition-all"
-          style={{ backfaceVisibility: 'hidden', minHeight: '160px' }}
+          className="overflow-hidden rounded-2xl border border-forest-100/60 bg-gradient-to-br from-white to-forest-50/30 shadow-sm hover:shadow-md hover:border-forest-200 transition-all"
+          style={{ gridArea: '1/1', backfaceVisibility: 'hidden', minHeight: '160px' }}
         >
           <div className="flex h-full">
             {/* Left: discount slab */}
@@ -148,8 +147,9 @@ export function PromoVoucher({
 
         {/* ──── BACK ──── */}
         <div
-          className="absolute inset-0 w-full overflow-hidden rounded-2xl border border-forest-100 bg-forest-800 shadow-md"
+          className="overflow-hidden rounded-2xl border border-forest-100 bg-forest-800 shadow-md"
           style={{
+            gridArea: '1/1',
             backfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)',
             minHeight: '160px',
@@ -172,37 +172,35 @@ export function PromoVoucher({
                 <p className="mb-3 text-sm leading-relaxed text-cream-100/90">{description}</p>
               ) : null}
 
-              <ul className="space-y-2">
-                <li className="flex items-center gap-2 text-xs text-cream-100/80">
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                <li className="flex items-start gap-2 text-xs text-cream-100/80">
                   <Tag size={12} className="shrink-0 text-bamboo-300" />
                   <span>ใช้ได้กับ {scopeLabel}</span>
                 </li>
                 {minNights && minNights > 0 ? (
-                  <li className="flex items-center gap-2 text-xs text-cream-100/80">
+                  <li className="flex items-start gap-2 text-xs text-cream-100/80">
                     <Moon size={12} className="shrink-0 text-bamboo-300" />
                     <span>เข้าพักขั้นต่ำ {minNights} คืน</span>
                   </li>
                 ) : null}
                 {maxDiscount && maxDiscount > 0 ? (
-                  <li className="flex items-center gap-2 text-xs text-cream-100/80">
+                  <li className="flex items-start gap-2 text-xs text-cream-100/80">
                     <span className="shrink-0 font-semibold text-bamboo-300">฿</span>
                     <span>ส่วนลดสูงสุด ฿{maxDiscount.toLocaleString()}</span>
                   </li>
                 ) : null}
                 {boatTicketCount && boatTicketCount > 0 ? (
-                  <li className="flex items-center gap-2 text-xs font-semibold text-bamboo-200">
+                  <li className="flex items-start gap-2 text-xs font-semibold text-bamboo-200">
                     <Sailboat size={12} className="shrink-0 text-bamboo-300" />
                     <span>แถมตั๋วเรือคายัคฟรี {boatTicketCount} ใบ</span>
                   </li>
                 ) : null}
-                <li className="flex items-center gap-2 text-xs text-cream-100/70">
+                <li className="flex items-start gap-2 text-xs text-cream-100/70">
                   <Layers size={12} className="shrink-0 text-bamboo-300" />
                   <span>{stackable ? 'ใช้ซ้อนกับโค้ดอื่นได้' : 'ไม่สามารถใช้ซ้อนกับโค้ดอื่น'}</span>
                 </li>
               </ul>
             </div>
-
-            <p className="mt-3 text-right text-[10px] text-cream-100/40">{windowText}</p>
           </div>
         </div>
       </div>

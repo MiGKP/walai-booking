@@ -30,7 +30,7 @@ export default function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, loading } = useAuth();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const avatarSrc = useMemo(
@@ -132,7 +132,12 @@ export default function Navbar() {
 
           {/* Auth */}
           <div className="hidden md:flex items-center gap-3">
-            {isAuthenticated && user ? (
+            {loading ? (
+              <div className="flex items-center gap-3 animate-pulse px-4 py-2">
+                <div className="w-8 h-8 rounded-full bg-stone-200"></div>
+                <div className="w-20 h-4 rounded bg-stone-200"></div>
+              </div>
+            ) : isAuthenticated && user ? (
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -351,7 +356,11 @@ export default function Navbar() {
               );
             })}
 
-            {isAuthenticated ? (
+            {loading ? (
+              <div className="py-4 flex justify-center">
+                <div className="w-6 h-6 border-2 border-stone-200 border-t-forest-600 rounded-full animate-spin"></div>
+              </div>
+            ) : isAuthenticated ? (
               <>
                 <div className="my-2 border-t border-stone-200" />
                 <Link

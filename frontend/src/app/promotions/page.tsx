@@ -118,17 +118,6 @@ export default function PromotionsPage(): React.ReactElement {
     <div className="min-h-screen bg-cream-100 pb-24 pt-4">
       <div className="container mx-auto px-4 pt-16 sm:pt-20">
 
-        {/* Page heading — same pattern as kayaks/rooms */}
-        <div className="mb-6 flex items-center gap-2.5">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">
-            <Ticket size={18} />
-          </span>
-          <div>
-            <h1 className="font-display text-xl font-semibold text-forest-900">โปรโมชั่น</h1>
-            <p className="text-xs text-charcoal-400">เก็บโค้ดไว้ใช้ตอนจองได้เลย</p>
-          </div>
-        </div>
-
         {/* Mobile Filter Toggle */}
         <div className="mb-4 flex items-center gap-3 md:hidden">
           <button
