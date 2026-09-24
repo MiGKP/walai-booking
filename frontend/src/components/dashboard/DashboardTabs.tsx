@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const TABS: ReadonlyArray<{ href: string; label: string }> = [
   { href: '/dashboard', label: 'โปรไฟล์ & การจอง' },
-  { href: '/dashboard/coupons', label: 'คูปองของฉัน' },
+  { href: '/dashboard/coupons', label: 'โปรโมชั่นของฉัน' },
 ];
 
 export default function DashboardTabs(): React.ReactElement {

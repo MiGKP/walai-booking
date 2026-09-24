@@ -162,7 +162,7 @@ function PromoCodeFieldsInner({
         applyPayload(first);
       }
       if (!silent) {
-        toast.success(`ใช้โค้ด "${first.code}" สำเร็จ`);
+
       }
     } catch (error: unknown) {
       const needId = collectIdFromError(error);
@@ -273,12 +273,12 @@ function PromoCodeFieldsInner({
           <Tag size={12} aria-hidden="true" />
           โค้ดส่วนลด
         </p>
-        <Link href="/promotions" className="text-[11px] font-medium text-forest-800 hover:underline">
-          ดูคูปองทั้งหมด
+        <Link href="/promotions" className="text-xs font-medium text-forest-800 hover:underline">
+          ดูโปรโมชั่นทั้งหมด
         </Link>
       </div>
       {urlPromo && basePrice <= 0 ? (
-        <p className="text-[11px] text-charcoal-400">
+        <p className="text-xs text-charcoal-400">
           จะใช้โค้ด <span className="font-mono font-semibold">{urlPromo}</span> เมื่อมีรายการจอง
         </p>
       ) : null}

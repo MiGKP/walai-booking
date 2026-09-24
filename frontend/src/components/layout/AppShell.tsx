@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { AuthProvider } from '@/hooks/useAuth';
+import GlobalConfirmModal from '@/components/layout/GlobalConfirmModal';
 
 interface AppShellProps {
   children: ReactNode;
@@ -37,38 +38,41 @@ export default function AppShell({ children }: AppShellProps): ReactNode {
       <main className="min-h-screen">{children}</main>
       {!hideFooter && <Footer />}
       
-      {/* 🌟 ปรับเป็น top-center และแต่งสไตล์ตรงนี้ที่เดียว */}
+      {/* 🌟 ปรับ Toast ให้ทันสมัย สไตล์ Minimal Pill & ย้ายลงล่าง */}
       <Toaster
-        position="top-center"
+        position="bottom-center"
         toastOptions={{
           duration: 3500,
           style: {
-            background: "#0b3b2c",
-            color: "#ffffff",
-            borderRadius: "14px",
-            fontSize: "13px",
+            background: "#ffffff",
+            color: "#123C30",
+            border: "1px solid #e7e5e4",
+            borderRadius: "100px",
+            fontSize: "13.5px",
             fontWeight: "600",
-            padding: "12px 16px",
-            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.15)",
+            padding: "12px 20px",
+            boxShadow: "0 8px 30px rgba(0, 0, 0, 0.08)",
           },
           success: {
             iconTheme: {
-              primary: "#34d399",
-              secondary: "#0b3b2c",
+              primary: "#059669",
+              secondary: "#ffffff",
             },
           },
           error: {
             style: {
-              background: "#881337",
-              color: "#ffffff",
+              background: "#fff1f2",
+              color: "#be123c",
+              border: "1px solid #fecdd3",
             },
             iconTheme: {
-              primary: "#fb7185",
-              secondary: "#881337",
+              primary: "#e11d48",
+              secondary: "#ffffff",
             },
           },
         }}
       />
+      <GlobalConfirmModal />
     </AuthProvider>
   );
 }

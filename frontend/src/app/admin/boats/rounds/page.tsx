@@ -126,7 +126,7 @@ const ThaiTimePicker: React.FC<ThaiTimePickerProps> = ({
 
   return (
     <div className="relative w-full" ref={containerRef}>
-      <label className="block text-[11px] font-bold text-stone-700 mb-1">
+      <label className="block text-xs font-bold text-stone-700 mb-1">
         {label} {required && <span className="text-rose-500">*</span>}
       </label>
 
@@ -141,7 +141,7 @@ const ThaiTimePicker: React.FC<ThaiTimePickerProps> = ({
 
       {isOpen && (
         <div className="absolute left-0 top-full mt-1 w-56 bg-white border border-stone-200 rounded-2xl shadow-xl z-50 p-2 text-stone-800 animate-in fade-in zoom-in-95 duration-150">
-          <div className="text-[10px] font-bold text-stone-400 px-2 py-1 border-b border-stone-100 flex justify-between">
+          <div className="text-xs font-bold text-stone-400 px-2 py-1 border-b border-stone-100 flex justify-between">
             <span>ชั่วโมง (00-23)</span>
             <span>นาที (00-59)</span>
           </div>
@@ -199,7 +199,7 @@ const ThaiTimePicker: React.FC<ThaiTimePickerProps> = ({
           <button
             type="button"
             onClick={() => setIsOpen(false)}
-            className="w-full mt-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-[11px] font-bold transition-colors cursor-pointer"
+            className="w-full mt-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
           >
             ตกลง ({value} น.)
           </button>
@@ -408,7 +408,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
           >
             <Ship size={13} className="text-[#0b3b2c]" />
             <span>{name}</span>
-            <span className="px-1.5 py-0.5 bg-[#0b3b2c] text-white rounded-md text-[10px] font-bold">
+            <span className="px-1.5 py-0.5 bg-[#0b3b2c] text-white rounded-md text-xs font-bold">
               {b.quantity} ลำ
             </span>
           </span>
@@ -432,7 +432,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-900 border border-emerald-200/80 rounded-lg text-xs font-semibold shadow-2xs">
           <Ship size={13} className="text-[#0b3b2c]" />
           <span>{name}</span>
-          <span className="px-1.5 py-0.5 bg-[#0b3b2c] text-white rounded-md text-[10px] font-bold">
+          <span className="px-1.5 py-0.5 bg-[#0b3b2c] text-white rounded-md text-xs font-bold">
             {total} ลำ
           </span>
         </span>
@@ -507,7 +507,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
             <Clock size={18} />
           </div>
           <div>
-            <span className="text-[10px] font-semibold text-stone-400 block leading-tight">
+            <span className="text-xs font-semibold text-stone-400 block leading-tight">
               รอบเปิดบริการ
             </span>
             <span className="text-xs font-bold text-[#0b3b2c]">
@@ -540,7 +540,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
             <button
               type="button"
               onClick={handleResetForm}
-              className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+              className="text-xs font-semibold text-rose-600 hover:underline cursor-pointer"
             >
               ยกเลิกการแก้ไข
             </button>
@@ -567,7 +567,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-[11px] font-bold text-stone-700 mb-1">
+            <label className="block text-xs font-bold text-stone-700 mb-1">
               รวมโควตาในรอบนี้ (ลำ)
             </label>
             <input
@@ -580,7 +580,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
 
           {/* Dropdown ประเภทเรือ */}
           <div className="md:col-span-3 relative" ref={dropdownRef}>
-            <label className="block text-[11px] font-bold text-stone-700 mb-1">
+            <label className="block text-xs font-bold text-stone-700 mb-1">
               ประเภทเรือ <span className="text-rose-500">*</span>
             </label>
 
@@ -682,7 +682,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
                               </button>
                             </div>
 
-                            <span className="text-[11px] font-semibold text-stone-500 select-none">
+                            <span className="text-xs font-semibold text-stone-500 select-none">
                               ลำ
                             </span>
                           </div>
@@ -755,7 +755,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
                     {formatThaiDisplay(round.end_time)}
                   </div>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                       round.is_active
                         ? "bg-emerald-100/80 text-emerald-800 border-emerald-200/60"
                         : "bg-stone-100 text-stone-500 border-stone-200"
@@ -766,7 +766,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
                 </div>
 
                 <div className="flex-1 flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-bold text-stone-400 mr-1 hidden lg:inline">
+                  <span className="text-xs font-bold text-stone-400 mr-1 hidden lg:inline">
                     ประเภทเรือ:
                   </span>
                   {renderBoatChips(round)}

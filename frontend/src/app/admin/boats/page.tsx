@@ -235,7 +235,7 @@ function CustomDatePicker({
             </button>
           </div>
 
-          <div className="grid grid-cols-7 text-center text-[10px] font-bold text-stone-400 mb-1">
+          <div className="grid grid-cols-7 text-center text-xs font-bold text-stone-400 mb-1">
             <span>อา</span>
             <span>จ</span>
             <span>อ</span>
@@ -273,7 +273,7 @@ function CustomDatePicker({
             })}
           </div>
 
-          <div className="flex items-center justify-between pt-2 mt-2 border-t border-stone-100 text-[10px]">
+          <div className="flex items-center justify-between pt-2 mt-2 border-t border-stone-100 text-xs">
             <button
               type="button"
               onClick={() => {
@@ -915,7 +915,7 @@ function BoatStaffDashboardContent() {
                 ฿{counts.totalRevenue.toLocaleString()}
               </p>
               {counts.pendingRevenue > 0 && (
-                <p className="text-[10px] text-blue-600 font-medium">
+                <p className="text-xs text-blue-600 font-medium">
                   (รอตรวจสอบ: ฿{counts.pendingRevenue.toLocaleString()})
                 </p>
               )}
@@ -952,7 +952,7 @@ function BoatStaffDashboardContent() {
               >
                 <span>{label}</span>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                     active
                       ? "bg-white/20 text-white"
                       : "bg-stone-200 text-stone-700"
@@ -1058,7 +1058,7 @@ function BoatStaffDashboardContent() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs md:text-sm">
             <thead>
-              <tr className="bg-stone-50 border-b border-stone-200/80 text-stone-500 font-bold text-[11px] tracking-wider uppercase">
+              <tr className="bg-stone-50 border-b border-stone-200/80 text-stone-500 font-bold text-xs tracking-wider uppercase">
                 <th className="px-5 py-4">ID</th>
                 <th className="px-5 py-4">ลูกค้า</th>
                 <th className="px-5 py-4">ประเภทเรือ</th>
@@ -1128,7 +1128,7 @@ function BoatStaffDashboardContent() {
                             <p className="font-semibold text-stone-800 leading-snug">
                               {b.user_name || "ไม่ระบุชื่อ"}
                             </p>
-                            <p className="text-[11px] text-stone-500 font-mono flex items-center gap-1 mt-0.5">
+                            <p className="text-xs text-stone-500 font-mono flex items-center gap-1 mt-0.5">
                               <Phone size={10} className="text-stone-400" />
                               {b.user_phone || b.phone || "-"}
                             </p>
@@ -1144,7 +1144,7 @@ function BoatStaffDashboardContent() {
                               {b.kayak_name || b.boat_name || "-"}
                             </p>
                             {Array.isArray(b.boats) && b.boats.length > 1 && (
-                              <ul className="mt-1 space-y-0.5 text-[11px] text-stone-500">
+                              <ul className="mt-1 space-y-0.5 text-xs text-stone-500">
                                 {b.boats.map(
                                   (line: {
                                     booking_boat_id: number;
@@ -1162,7 +1162,7 @@ function BoatStaffDashboardContent() {
                               </ul>
                             )}
                             {Array.isArray(b.boats) && b.boats.length === 1 && (
-                              <p className="mt-0.5 text-[11px] text-stone-500">
+                              <p className="mt-0.5 text-xs text-stone-500">
                                 {b.boats[0].num_passengers ?? 0} คน ·{" "}
                                 {b.boats[0].boat_count ?? 0} ลำ
                               </p>
@@ -1215,7 +1215,7 @@ function BoatStaffDashboardContent() {
                             ["approved", "checked_out", "rejected"].includes(
                               b.status,
                             ) && (
-                              <span className="text-[10px] text-stone-400 ml-1">
+                              <span className="text-xs text-stone-400 ml-1">
                                 โดย: {b.approved_by_name}
                               </span>
                             )}
@@ -1547,11 +1547,11 @@ function BoatStaffDashboardContent() {
                       </span>
 
                       {isCheckedOut ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 text-[11px] font-bold print:border print:border-teal-300">
+                        <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 text-xs font-bold print:border print:border-teal-300">
                           คืนเรือแล้ว
                         </span>
                       ) : (
-                        <span className="px-2.5 py-0.5 rounded-full bg-cyan-900/10 text-cyan-900 text-[11px] font-bold print:border print:border-cyan-300">
+                        <span className="px-2.5 py-0.5 rounded-full bg-cyan-900/10 text-cyan-900 text-xs font-bold print:border print:border-cyan-300">
                           {statusLabel[booking.status] || booking.status}
                         </span>
                       )}
@@ -1784,9 +1784,15 @@ function BoatStaffDashboardContent() {
   );
 }
 
-export default function BoatStaffDashboardPage() {
+export default function AdminBoatsPage() {
   return (
-    <Suspense>
+    <Suspense
+      fallback={
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <RefreshCw size={28} className="animate-spin text-[#0b3b2c]" />
+        </div>
+      }
+    >
       <BoatStaffDashboardContent />
     </Suspense>
   );

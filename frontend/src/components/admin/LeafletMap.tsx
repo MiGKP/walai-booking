@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Search, Loader2, Navigation, MapPin } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const customIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -95,10 +96,10 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
         const lon = parseFloat(data[0].lon);
         setPosition([lat, lon]);
       } else {
-        alert('ไม่พบสถานที่ดังกล่าว ลองพิมพ์ชื่ออำเภอ/จังหวัด เช่น "บรบือ" หรือ "มหาสารคาม"');
+        toast.error('ไม่พบสถานที่ดังกล่าว ลองพิมพ์ชื่ออำเภอ/จังหวัด');
       }
     } catch {
-      alert('เกิดข้อผิดพลาดในการค้นหา');
+      toast.error('เกิดข้อผิดพลาดในการค้นหา');
     } finally {
       setSearching(false);
     }
@@ -110,7 +111,7 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
         (pos) => {
           setPosition([pos.coords.latitude, pos.coords.longitude]);
         },
-        () => alert('ไม่สามารถดึงตำแหน่งปัจจุบันของคุณได้')
+        () => toast.error('ไม่สามารถดึงตำแหน่งปัจจุบันของคุณได้')
       );
     }
   };
@@ -158,7 +159,7 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
 
         {/* 🌟 ปุ่มลัดตำแหน่งที่ใช้บ่อย (Quick Preset Buttons) */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-[10px] font-semibold text-stone-600 bg-white/90 px-2 py-1 rounded-lg border border-stone-200 shrink-0 shadow-2xs">
+          <span className="text-xs font-semibold text-stone-600 bg-white/90 px-2 py-1 rounded-lg border border-stone-200 shrink-0 shadow-2xs">
             ทางลัด:
           </span>
           {PRESET_LOCATIONS.map((loc) => (
@@ -166,7 +167,7 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
               key={loc.name}
               type="button"
               onClick={() => setPosition(loc.coords)}
-              className="text-[11px] font-medium bg-emerald-800/90 hover:bg-emerald-900 text-white px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+              className="text-xs font-medium bg-emerald-800/90 hover:bg-emerald-900 text-white px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0 cursor-pointer"
             >
               <MapPin className="w-3 h-3" />
               {loc.name}

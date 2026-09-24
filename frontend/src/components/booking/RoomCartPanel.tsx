@@ -13,6 +13,8 @@ import {
 import { formatThaiDate, nightsBetween } from '@/lib/date';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { todayISO, addDaysISO } from '@/lib/date';
+import { useAuth } from "@/hooks/useAuth";
 import PromoPriceBreakdown from '@/components/booking/PromoPriceBreakdown';
 import BookingCalendar, { DateRange, DayStatus } from '@/components/booking/BookingCalendar';
 import { MonthCursor } from '@/lib/date';
@@ -63,6 +65,8 @@ export default function RoomCartPanel({
   const overCapacity = guests > capacity;
   const empty = cart.items.length === 0;
 
+  const { user } = useAuth();
+  const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
   const [promoCode, setPromoCode] = useState('');
   const [promoLoading, setPromoLoading] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
@@ -125,7 +129,7 @@ export default function RoomCartPanel({
       });
       const data = res.data.data as AppliedPromo;
       setAppliedPromo(data);
-      toast.success(`ใช้โค้ด "${data.code}" สำเร็จ`);
+
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, 'โค้ดส่วนลดไม่ถูกต้องหรือหมดอายุ'));
     } finally {
@@ -144,7 +148,7 @@ export default function RoomCartPanel({
   return (
     <aside className="rounded-2xl border border-stone-200 bg-white p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
       <div className="mb-5 flex items-center justify-between">
-        <h2 className="font-sans text-[18px] font-semibold text-forest-900 flex items-center gap-2">
+        <h2 className="font-sans text-lg font-semibold text-forest-900 flex items-center gap-2">
           <ShoppingBag size={20} className="text-forest-700" />
           การจองของคุณ
         </h2>
@@ -152,7 +156,7 @@ export default function RoomCartPanel({
           <button
             type="button"
             onClick={onClear}
-            className="text-[12px] font-medium text-charcoal-400 hover:text-red-500 transition-colors"
+            className="text-xs font-medium text-charcoal-400 hover:text-red-500 transition-colors"
           >
             ล้างทั้งหมด
           </button>
@@ -169,10 +173,10 @@ export default function RoomCartPanel({
               <Calendar size={18} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-sans text-[14px] font-semibold text-forest-900 truncate">
+              <p className="font-sans text-sm font-semibold text-forest-900 truncate">
                 {formatThaiDate(cart.check_in)} – {formatThaiDate(cart.check_out)}
               </p>
-              <p className="text-[11px] font-medium text-charcoal-400 uppercase tracking-tight">
+              <p className="text-xs font-medium text-charcoal-400 uppercase tracking-tight">
                 เข้าพัก {nights} คืน
               </p>
             </div>
@@ -180,7 +184,7 @@ export default function RoomCartPanel({
         </button>
 
         {showCalendar && (
-          <div 
+          <div
             ref={calendarRef}
             className="absolute left-0 top-full z-50 mt-2 w-full min-w-[320px] lg:-left-20 lg:w-[450px] rounded-2xl border border-stone-200 bg-white p-4 shadow-2xl animate-dropdown"
           >
@@ -197,7 +201,7 @@ export default function RoomCartPanel({
               onCursorChange={onCursorChange}
               dayStatus={dayStatus}
               loading={calendarLoading}
-              minISO={cart.check_in < cart.check_in ? cart.check_in : undefined} // today logic handled in page
+              minISO={isAdminOrStaff ? todayISO() : addDaysISO(todayISO(), 1)} // today logic handled in page
             />
           </div>
         )}
@@ -208,7 +212,7 @@ export default function RoomCartPanel({
         <div className="flex items-center divide-x divide-stone-200">
           {/* Adults */}
           <div className="flex-1 px-1">
-            <p className="mb-2 text-center text-[11px] font-bold uppercase tracking-wider text-charcoal-400">ผู้ใหญ่</p>
+            <p className="mb-2 text-center text-xs font-bold uppercase tracking-wider text-charcoal-400">ผู้ใหญ่</p>
             <div className="flex items-center justify-center gap-3">
               <button
                 type="button"
@@ -218,7 +222,7 @@ export default function RoomCartPanel({
               >
                 <Minus size={12} />
               </button>
-              <span className="w-4 text-center text-[14px] font-bold text-forest-900 tabular-nums">{cart.adults}</span>
+              <span className="w-4 text-center text-sm font-bold text-forest-900 tabular-nums">{cart.adults}</span>
               <button
                 type="button"
                 onClick={() => updateGuests(cart.adults + 1, cart.children)}
@@ -230,7 +234,7 @@ export default function RoomCartPanel({
           </div>
           {/* Children */}
           <div className="flex-1 px-1">
-            <p className="mb-2 text-center text-[11px] font-bold uppercase tracking-wider text-charcoal-400">เด็ก</p>
+            <p className="mb-2 text-center text-xs font-bold uppercase tracking-wider text-charcoal-400">เด็ก</p>
             <div className="flex items-center justify-center gap-3">
               <button
                 type="button"
@@ -240,7 +244,7 @@ export default function RoomCartPanel({
               >
                 <Minus size={12} />
               </button>
-              <span className="w-4 text-center text-[14px] font-bold text-forest-900 tabular-nums">{cart.children}</span>
+              <span className="w-4 text-center text-sm font-bold text-forest-900 tabular-nums">{cart.children}</span>
               <button
                 type="button"
                 onClick={() => updateGuests(cart.adults, cart.children + 1)}
@@ -252,7 +256,7 @@ export default function RoomCartPanel({
           </div>
         </div>
         {overCapacity && (
-          <p className="mt-2 text-center text-[10px] font-bold text-red-500 uppercase tracking-tight animate-pulse">
+          <p className="mt-2 text-center text-xs font-bold text-red-500 uppercase tracking-tight animate-pulse">
             เกินความจุรวม ({capacity} ท่าน)
           </p>
         )}
@@ -261,50 +265,50 @@ export default function RoomCartPanel({
       {empty ? (
         <div className="py-10 text-center flex flex-col items-center gap-2">
           <ShoppingBag size={32} className="text-stone-200" />
-          <p className="text-[13px] font-medium text-charcoal-400 tracking-tight">ยังไม่มีห้องในรายการ</p>
+          <p className="text-sm font-medium text-charcoal-400 tracking-tight">ยังไม่มีห้องในรายการ</p>
         </div>
       ) : (
         <div className="mb-6 space-y-2">
-          {cart.items.map((item) => (
-            <div
-              key={item.room_type_id}
-              className="group relative rounded-xl border border-stone-100 p-3 transition-all hover:border-forest-200 hover:shadow-sm bg-white"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-bold text-forest-900">{item.room_name}</p>
-                  <p className="text-[11px] font-semibold text-charcoal-400">
-                    ฿{item.price_per_night.toLocaleString()} / คืน
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 bg-stone-50 rounded-lg p-1 border border-stone-100">
+          {cart.items.map((item) => {
+            const key = item.room_id ? `room-${item.room_id}` : `type-${item.room_type_id}`;
+            return (
+              <div
+                key={key}
+                className="group relative rounded-xl border border-stone-100 p-3 transition-all hover:border-forest-200 hover:shadow-sm bg-white"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-forest-900">
+                      {item.room_name} {item.room_number ? `(ห้อง ${item.room_number})` : ''}
+                    </p>
+                    <p className="text-xs font-semibold text-charcoal-400">
+                      ฿{item.price_per_night.toLocaleString()} / คืน
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => onChange(setCartItemQuantity(cart, item.room_type_id, item.quantity - 1))}
-                    className="flex h-6 w-6 items-center justify-center rounded bg-white border border-stone-200 text-charcoal-400 hover:text-forest-800 shadow-xs"
+                    onClick={() => {
+                      const newItems = item.room_id
+                        ? cart.items.filter((i) => i.room_id !== item.room_id)
+                        : cart.items.filter((i) => i.room_type_id !== item.room_type_id);
+                      onChange({ ...cart, items: newItems });
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors shadow-sm shrink-0"
+                    title="ลบห้องนี้ออก"
                   >
-                    <Minus size={10} />
-                  </button>
-                  <span className="w-4 text-center text-[12px] font-bold text-forest-900 tabular-nums">{item.quantity}</span>
-                  <button
-                    type="button"
-                    disabled={item.quantity >= item.available_count}
-                    onClick={() => onChange(setCartItemQuantity(cart, item.room_type_id, item.quantity + 1))}
-                    className="flex h-6 w-6 items-center justify-center rounded bg-white border border-stone-200 text-charcoal-400 hover:text-forest-800 disabled:opacity-20 shadow-xs"
-                  >
-                    <Plus size={10} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {!empty && nights > 0 && (
         <div className="mb-6 space-y-4 border-t border-stone-100 pt-6">
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-charcoal-500">
+            <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-charcoal-500">
               <Tag size={13} className="text-forest-600" />
               โค้ดส่วนลด
             </label>
@@ -315,8 +319,8 @@ export default function RoomCartPanel({
                     <CheckCircle2 size={12} />
                   </div>
                   <div>
-                    <p className="text-[12px] font-bold text-emerald-900">{appliedPromo.name}</p>
-                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{appliedPromo.code}</p>
+                    <p className="text-xs font-bold text-emerald-900">{appliedPromo.name}</p>
+                    <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">{appliedPromo.code}</p>
                   </div>
                 </div>
                 <button
@@ -333,7 +337,7 @@ export default function RoomCartPanel({
             ) : (
               <div className="flex gap-2">
                 <input
-                  className="w-full rounded-xl border border-stone-200 bg-stone-50/30 px-3 py-2 text-[13px] font-medium placeholder:text-stone-300 focus:border-forest-500 focus:outline-none transition-all"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50/30 px-3 py-2 text-sm font-medium placeholder:text-stone-300 focus:border-forest-500 focus:outline-none transition-all"
                   placeholder="กรอกโค้ด"
                   value={promoCode}
                   onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
@@ -342,7 +346,7 @@ export default function RoomCartPanel({
                   type="button"
                   onClick={handleApplyPromo}
                   disabled={promoLoading || !promoCode.trim()}
-                  className="rounded-xl bg-forest-900 px-4 text-[12px] font-bold text-white transition-all hover:bg-forest-800 disabled:opacity-30 shadow-md active:scale-95"
+                  className="rounded-xl bg-forest-900 px-4 text-xs font-bold text-white transition-all hover:bg-forest-800 disabled:opacity-30 shadow-md active:scale-95"
                 >
                   {promoLoading ? <Loader2 size={14} className="animate-spin" /> : 'ใช้'}
                 </button>
@@ -360,7 +364,7 @@ export default function RoomCartPanel({
         type="button"
         disabled={empty || overCapacity || checkoutLoading}
         onClick={() => onCheckout(appliedPromo ? { promotion_id: appliedPromo.id } : undefined)}
-        className="w-full rounded-xl bg-forest-900 py-4 text-[14px] font-bold text-white transition-all hover:bg-forest-800 disabled:opacity-40 active:scale-[0.98] shadow-lg shadow-forest-900/20 uppercase tracking-wide"
+        className="w-full rounded-xl bg-forest-900 py-4 text-sm font-bold text-white transition-all hover:bg-forest-800 disabled:opacity-40 active:scale-[0.98] shadow-lg shadow-forest-900/20 uppercase tracking-wide"
       >
         {checkoutLoading ? 'กำลังดำเนินการ...' : 'ยืนยันการจอง'}
       </button>

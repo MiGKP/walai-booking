@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -19,6 +19,7 @@ import {
   Tag,
   CheckCircle2,
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import toast from "react-hot-toast";
@@ -38,9 +39,6 @@ import {
   todayISO,
 } from "@/lib/date";
 
-import { RoomCartItem } from '@/lib/room-cart';
-import { useRoomCart } from '@/lib/room-cart-store';
-import { useCartSync } from '@/hooks/useCartSync';
 
 interface Promotion {
   id: number;
@@ -112,9 +110,9 @@ function Stepper({
     <div className="flex items-center gap-2">
       <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} aria-label={`ลด${ariaLabel}`} className={btn}><Minus size={13} /></button>
       {editable ? (
-        <input type="text" inputMode="numeric" value={draft} onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ""))} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} onFocus={(e) => e.currentTarget.select()} aria-label={ariaLabel} className="h-7 w-9 rounded-md border border-transparent bg-transparent text-center text-[13px] font-bold tabular-nums text-forest-900 transition-colors hover:border-stone-200 focus:border-forest-400 focus:bg-[#FFFFFF] focus:outline-none" />
+        <input type="text" inputMode="numeric" value={draft} onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ""))} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} onFocus={(e) => e.currentTarget.select()} aria-label={ariaLabel} className="h-7 w-9 rounded-md border border-transparent bg-transparent text-center text-sm font-bold tabular-nums text-forest-900 transition-colors hover:border-stone-200 focus:border-forest-400 focus:bg-[#FFFFFF] focus:outline-none" />
       ) : (
-        <span className="w-9 text-center text-[13px] font-bold tabular-nums text-forest-900">{value}</span>
+        <span className="w-9 text-center text-sm font-bold tabular-nums text-forest-900">{value}</span>
       )}
       <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`เพิ่ม${ariaLabel}`} className={btn}><Plus size={13} /></button>
     </div>
@@ -125,21 +123,36 @@ function GuestRow({ label, hint, value, min, max = 20, onChange }: { label: stri
   return (
     <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
       <div className="min-w-0">
-        <p className="text-[13px] font-medium text-charcoal-700">{label}</p>
-        <p className="text-[10.5px] text-stone-400">{hint}</p>
+        <p className="text-sm font-medium text-charcoal-700">{label}</p>
+        <p className="text-xs text-stone-400">{hint}</p>
       </div>
       <Stepper value={value} min={min} max={max} ariaLabel={label} onChange={onChange} />
     </div>
   );
 }
 
+export default function RoomsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-cream-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-forest-800"></div>
+      </div>
+    }>
+      <RoomsPageContent />
+    </Suspense>
+  );
+}
+
 function RoomsPageContent(): React.ReactElement {
+  const { user } = useAuth();
+  const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const today = todayISO();
 
-  const checkIn = searchParams.get("check_in") || today;
+  const defaultCheckIn = isAdminOrStaff ? today : addDaysISO(today, 1);
+  const checkIn = searchParams.get("check_in") || defaultCheckIn;
   const checkOut = searchParams.get("check_out") || addDaysISO(checkIn, 1);
   const adults = parseInt(searchParams.get("adults") || "1", 10);
   const children = parseInt(searchParams.get("children") || "0", 10);
@@ -158,9 +171,6 @@ function RoomsPageContent(): React.ReactElement {
 
   const pickerRef = useRef<HTMLDivElement>(null);
   const nights = range ? nightsBetween(range.start, range.end) : 0;
-
-  const cart = useRoomCart();
-  const { commit: commitCart } = useCartSync({ checkIn, checkOut, adults, children });
 
   useEffect(() => {
     const adults = parseInt(searchParams.get("adults") || "1", 10);
@@ -200,80 +210,31 @@ function RoomsPageContent(): React.ReactElement {
       nextCodes = selectedPromoCodes.filter((c) => c !== code);
     } else {
       nextCodes = [...selectedPromoCodes, code];
-      toast.success(`ใช้โค้ดส่วนลด ${code} แล้ว`);
+
     }
     if (nextCodes.length > 0) params.set("promo_code", nextCodes.join(","));
     else params.delete("promo_code");
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
-  const handleAddToCart = (room: RoomType): void => {
-    const items = cart?.items ?? [];
-
-    // 1. ดึง ID ของห้องพักจริงของประเภทนี้ที่อยู่ในตะกร้าแล้ว
-    const existingPhysicalRoomIds = new Set<number>(
-      items.filter((i) => i.room_type_id === room.id && i.room_id).map((i) => i.room_id as number)
-    );
-    const existingTypeOnlyIndex = items.findIndex((i) => i.room_type_id === room.id && !i.room_id);
-    const existingTypeOnlyQty = existingTypeOnlyIndex >= 0 ? items[existingTypeOnlyIndex].quantity : 0;
-
-    // กันไม่ให้เพิ่มห้องเกินจำนวนที่ว่างจริง (นับรวมทั้งห้องที่ระบุเลขแล้วและแบบไม่ระบุเลข)
-    const totalInCart = existingPhysicalRoomIds.size + existingTypeOnlyQty;
-    if (totalInCart >= Number(room.available_count)) {
-      toast.error(`${room.room_name} ว่างครบจำนวนที่มีแล้ว (${room.available_count} ห้อง)`);
-      return;
+  const handleClearFilters = () => {
+    setTypeFilter("all");
+    setGuests({ adults: 1, children: 0 });
+    const t = todayISO();
+    const tm = addDaysISO(t, 1);
+    setRange({ start: t, end: tm });
+    setCursor(monthCursorFromISO(t));
+    const params = new URLSearchParams();
+    params.set("check_in", t);
+    params.set("check_out", tm);
+    if (selectedPromoCodes.length > 0) {
+      params.set("promo_code", selectedPromoCodes.join(","));
     }
-
-    // 2. เรียงลำดับห้องพักตามเลขห้อง (เช่น W1, W2, W3... หรือเลขห้องจากน้อยไปมาก)
-    const sortedPhysicalRooms = [...(room.rooms || [])].sort((a, b) =>
-      a.room_number.localeCompare(b.room_number, undefined, { numeric: true, sensitivity: 'base' })
-    );
-
-    // 3. หาห้องแรกที่ยังไม่ถูกเลือกในตะกร้า แล้วเลือกเลขห้องให้อัตโนมัติ
-    const availablePhysicalRoom = sortedPhysicalRooms.find(r => !existingPhysicalRoomIds.has(r.room_id));
-
-    let assignedName = room.room_name;
-    let nextItems: RoomCartItem[];
-
-    if (availablePhysicalRoom) {
-      assignedName = `${room.room_name} (ห้อง ${availablePhysicalRoom.room_number})`;
-      nextItems = [
-        ...items,
-        {
-          room_type_id: room.id,
-          room_id: availablePhysicalRoom.room_id,
-          room_number: availablePhysicalRoom.room_number,
-          room_name: assignedName,
-          type_name: room.type_name,
-          capacity: room.capacity,
-          price_per_night: room.price_per_night,
-          available_count: room.available_count,
-          quantity: 1,
-        },
-      ];
-    } else {
-      // กรณีไม่มีข้อมูลห้องย่อย หรือเลือกห้องครบทุกห้องย่อยแล้ว ให้เพิ่มตาม Room Type ปกติ (ไม่ระบุเลขห้อง)
-      nextItems = existingTypeOnlyIndex >= 0
-        ? items.map((i, idx) => (idx === existingTypeOnlyIndex ? { ...i, quantity: i.quantity + 1 } : i))
-        : [
-            ...items,
-            {
-              room_type_id: room.id,
-              room_id: null,
-              room_number: null,
-              room_name: room.room_name,
-              type_name: room.type_name,
-              capacity: room.capacity,
-              price_per_night: room.price_per_night,
-              available_count: room.available_count,
-              quantity: 1,
-            },
-          ];
-    }
-
-    commitCart(nextItems);
-    toast.success(`เพิ่ม ${assignedName} แล้ว`);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
+
+  // การกดจองที่พักจากหน้ารายการจะพาไปเลือกเลขห้องที่หน้ารายละเอียดแทน (ดู Link "จองที่พัก" ด้านล่าง)
+  // เพื่อให้ลูกค้าเลือกห้องเจาะจงเองเสมอ แทนที่จะให้ระบบสุ่ม/auto-assign ห้องแรกที่ว่างให้แบบเดิม
 
   useEffect(() => {
     let cancelled = false;
@@ -308,8 +269,9 @@ function RoomsPageContent(): React.ReactElement {
 
   const roomTypeOptions = useMemo(() => Array.from(new Set(rooms.map((room) => room.type_name).filter(Boolean))), [rooms]);
   const roomsByType = useMemo(() => typeFilter === "all" ? rooms : rooms.filter((room) => room.type_name === typeFilter), [rooms, typeFilter]);
-  const availableRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) > 0), [roomsByType]);
-  const fullRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) <= 0), [roomsByType]);
+  const totalGuests = guests.adults + guests.children;
+  const availableRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) > 0 && (Number(room.capacity) * Number(room.available_count)) >= totalGuests), [roomsByType, totalGuests]);
+  const fullRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) <= 0 || (Number(room.capacity) * Number(room.available_count)) < totalGuests), [roomsByType, totalGuests]);
 
   return (
     <div className="min-h-screen bg-cream-100 pb-20 pt-4">
@@ -321,7 +283,7 @@ function RoomsPageContent(): React.ReactElement {
                 <button type="button" onClick={() => setOpenPanel((v) => (v === "type" ? null : "type"))} className={`flex h-full w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-200 lg:rounded-l-full ${openPanel === "type" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
                   <BedDouble size={16} className="shrink-0 text-forest-700" />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[9px] font-bold uppercase tracking-wider text-charcoal-400">ประเภทที่พัก</span>
+                    <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">ประเภทที่พัก</span>
                     <span className="block truncate text-sm font-semibold text-forest-900">{typeFilter === "all" ? "ทุกประเภท" : typeFilter}</span>
                   </span>
                   <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "type" ? "rotate(180deg)" : "rotate(0deg)" }} />
@@ -339,15 +301,29 @@ function RoomsPageContent(): React.ReactElement {
                 <button type="button" onClick={() => setOpenPanel((v) => (v === "guests" ? null : "guests"))} className={`flex h-full w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-200 ${openPanel === "guests" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
                   <Users size={16} className="shrink-0 text-forest-700" />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[9px] font-bold uppercase tracking-wider text-charcoal-400">ผู้เข้าพัก</span>
+                    <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">ผู้เข้าพัก</span>
                     <span className="block truncate text-sm font-semibold text-forest-900">{guests.adults + guests.children} ท่าน</span>
                   </span>
                   <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "guests" ? "rotate(180deg)" : "rotate(0deg)" }} />
                 </button>
                 {openPanel === "guests" && (
-                  <div className="animate-dropdown absolute left-1/2 top-full z-40 mt-2 w-[280px] -translate-x-1/2 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl lg:left-0 lg:translate-x-0">
+                  <div className="animate-dropdown absolute left-1/2 top-full z-40 mt-2 w-[320px] -translate-x-1/2 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl lg:left-0 lg:translate-x-0">
                     <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={guests.adults} min={1} onChange={(v) => handleGuestsChange({ ...guests, adults: v })} />
-                    <GuestRow label="เด็ก" hint="อายุ 2–11 ปี" value={guests.children} min={0} onChange={(v) => handleGuestsChange({ ...guests, children: v })} />
+                    <GuestRow label="เด็ก" hint="อายุ 0–11 ปี" value={guests.children} min={0} onChange={(v) => handleGuestsChange({ ...guests, children: v })} />
+                    <div className="px-3 py-2 bg-stone-50 rounded-xl mt-1 mb-2">
+                      <p className="text-xs text-charcoal-400 leading-relaxed">
+                        <span className="font-bold text-forest-700">นโยบายเด็ก:</span> 0-5 ปี เข้าพักฟรีไม่มีค่าใช้จ่าย, 6-11 ปี คิดราคาเด็ก (เตียงเสริม), 12 ปีขึ้นไป คิดราคาผู้ใหญ่
+                      </p>
+                    </div>
+                    <div className="border-t border-stone-100 p-2">
+                      <button
+                        type="button"
+                        onClick={() => setOpenPanel(null)}
+                        className="w-full rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800"
+                      >
+                        ตกลง
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -355,11 +331,11 @@ function RoomsPageContent(): React.ReactElement {
                 <button type="button" onClick={() => setOpenPanel((v) => (v === "calendar" ? null : "calendar"))} className={`flex h-full w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-200 lg:rounded-r-full ${openPanel === "calendar" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
                   <Calendar size={16} className="shrink-0 text-forest-700" />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[9px] font-bold uppercase tracking-wider text-charcoal-400">วันเข้าพัก – วันออก</span>
+                    <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">วันเข้าพัก – วันออก</span>
                     <span className="block truncate text-sm font-semibold text-forest-900">{range ? `${formatThaiDate(range.start)} – ${formatThaiDate(range.end)}` : "เลือกวันเข้าพัก"}</span>
                   </span>
                   <div className="flex items-center gap-2">
-                    {nights > 0 && <span className="rounded-full bg-forest-100 px-2 py-0.5 text-[9px] font-bold text-forest-800">{nights} คืน</span>}
+                    {nights > 0 && <span className="rounded-full bg-forest-100 px-2 py-0.5 text-xs font-bold text-forest-800">{nights} คืน</span>}
                     <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "calendar" ? "rotate(180deg)" : "rotate(0deg)" }} />
                   </div>
                 </button>
@@ -369,7 +345,7 @@ function RoomsPageContent(): React.ReactElement {
                       <h3 className="font-display text-base font-medium text-forest-900">เลือกช่วงวันเข้าพัก</h3>
                       <button type="button" onClick={() => setOpenPanel(null)} className="text-charcoal-300 hover:text-charcoal-500"><X size={18} /></button>
                     </div>
-                    <BookingCalendar mode="range" value={range} onSelect={handleRangeSelect} cursor={cursor} onCursorChange={setCursor} dayStatus={dayStatus} loading={calendarLoading} minISO={today} />
+                    <BookingCalendar mode="range" value={range} onSelect={handleRangeSelect} cursor={cursor} onCursorChange={setCursor} dayStatus={dayStatus} loading={calendarLoading} minISO={isAdminOrStaff ? today : addDaysISO(today, 1)} />
                   </div>
                 )}
               </div>
@@ -381,19 +357,21 @@ function RoomsPageContent(): React.ReactElement {
       <div className="container mx-auto px-4 lg:py-2">
         <div className="flex flex-col gap-8 lg:flex-row">
           <section className="flex-1">
-            {loading ? (
+            {loading && rooms.length === 0 ? (
               <div className="grid gap-6">{[0, 1].map((index) => <div key={index} className="h-64 w-full animate-pulse rounded-2xl border border-stone-100 bg-white" />)}</div>
-            ) : roomsByType.length === 0 ? (
+            ) : roomsByType.length === 0 && !loading ? (
               <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white/40 px-6 py-20 text-center backdrop-blur-sm">
                 <AlertCircle className="mb-4 h-8 w-8 text-stone-300" />
                 <h3 className="font-display text-lg font-medium text-forest-900">ไม่พบที่พักในช่วงนี้</h3>
                 <p className="mt-1 text-sm text-charcoal-400">ลองเปลี่ยนช่วงวันที่ หรือเลือกประเภทที่พักอื่น</p>
+                <button type="button" onClick={handleClearFilters} className="mt-6 rounded-xl border border-stone-200 bg-white px-6 py-2.5 text-sm font-bold text-forest-800 shadow-sm transition-colors hover:bg-stone-50">ล้างการค้นหา</button>
               </div>
             ) : (
-              <div className="grid gap-8">
+              <div className={`grid gap-8 transition-opacity duration-300 ${loading ? 'pointer-events-none opacity-50' : 'opacity-100'}`}>
                 {[...availableRooms, ...fullRooms].map((room, idx) => {
                   const availableCount = Number(room.available_count);
-                  const isAvailable = availableCount > 0;
+                  const isCapacityEnough = (Number(room.capacity) * availableCount) >= totalGuests;
+                  const isAvailable = availableCount > 0 && isCapacityEnough;
                   const unitPrice = Number(room.price_per_night);
                   const activePromotion = room.available_promotions?.find((p) => selectedPromoCodes.includes(p.code));
                   const discount = activePromotion
@@ -415,16 +393,18 @@ function RoomsPageContent(): React.ReactElement {
                       <div className="flex flex-col justify-between border-b border-stone-100 p-5 lg:border-b-0 lg:border-r lg:border-stone-100 lg:p-6">
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded bg-bamboo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-bamboo-600">{room.type_name}</span>
-                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isAvailable ? "bg-forest-50 text-forest-700" : "bg-stone-200 text-stone-600"}`}>{isAvailable ? `ว่าง ${availableCount} ห้อง` : "เต็ม"}</span>
-                            {typeof room.avg_rating !== "undefined" && <div className="flex items-center gap-1.5 rounded-full bg-amber-50/70 px-2 py-0.5 text-[11px] font-bold text-amber-600"><Star size={11} className="fill-amber-400 text-amber-400" /><span>{Number(room.avg_rating).toFixed(1)}</span><span className="font-medium text-stone-500">({room.review_count ?? 0} รีวิว)</span></div>}
+                            <span className="rounded bg-bamboo-50 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-bamboo-600">{room.type_name}</span>
+                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${isAvailable ? "bg-forest-50 text-forest-700" : "bg-stone-200 text-stone-600"}`}>
+                              {isAvailable ? `ว่าง ${availableCount} ห้อง` : !isCapacityEnough ? "ความจุไม่พอ" : "เต็ม"}
+                            </span>
+                            {typeof room.avg_rating !== "undefined" && <div className="flex items-center gap-1.5 rounded-full bg-amber-50/70 px-2 py-0.5 text-xs font-bold text-amber-600"><Star size={11} className="fill-amber-400 text-amber-400" /><span>{Number(room.avg_rating).toFixed(1)}</span><span className="font-medium text-stone-500">({room.review_count ?? 0} รีวิว)</span></div>}
                           </div>
-                          <div><h3 className="font-sans text-[20px] font-semibold leading-tight text-forest-900">{room.room_name}</h3><p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-charcoal-400">{room.description}</p></div>
+                          <div><h3 className="font-sans text-xl font-semibold leading-tight text-forest-900">{room.room_name}</h3><p className="mt-1 line-clamp-2 text-sm leading-relaxed text-charcoal-400">{room.description}</p></div>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-4 border-t border-stone-100 pt-3">
-                          <div className="flex items-center gap-1.5 text-[13px] text-charcoal-500"><Users size={14} className="text-forest-400" /><span>ความจุ {room.capacity} ท่าน</span></div>
-                          {room.air_conditioner && <div className="flex items-center gap-1.5 text-[13px] text-charcoal-500"><Wind size={14} className="text-forest-400" /><span>เครื่องปรับอากาศ</span></div>}
-                          {room.bed_size && <div className="flex items-center gap-1.5 text-[13px] text-charcoal-500"><BedDouble size={14} className="text-forest-400" /><span>{room.bed_size}</span></div>}
+                          <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><Users size={14} className="text-forest-400" /><span>ความจุ {room.capacity} ท่าน</span></div>
+                          {room.air_conditioner && <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><Wind size={14} className="text-forest-400" /><span>เครื่องปรับอากาศ</span></div>}
+                          {room.bed_size && <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><BedDouble size={14} className="text-forest-400" /><span>{room.bed_size}</span></div>}
                         </div>
                         {room.available_promotions && room.available_promotions.length > 0 && (
                           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -433,7 +413,7 @@ function RoomsPageContent(): React.ReactElement {
                                 key={promo.id}
                                 type="button"
                                 onClick={() => handleSelectPromo(promo.code)}
-                                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors ${selectedPromoCodes.includes(promo.code) ? "border-emerald-600 bg-emerald-600 text-white" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-400"}`}
+                                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold transition-colors ${selectedPromoCodes.includes(promo.code) ? "border-emerald-600 bg-emerald-600 text-white" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-400"}`}
                               >
                                 <Tag size={11} />
                                 {promo.name}
@@ -443,14 +423,14 @@ function RoomsPageContent(): React.ReactElement {
                         )}
                       </div>
                       <div className="flex flex-col justify-between bg-stone-50/40 p-5 lg:bg-white lg:p-6">
-                        <div className="mb-4 lg:text-right">{room.today_bookings > 0 ? <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-100 bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-700"><span className="h-1.5 w-1.5 rounded-full bg-orange-500" />ยอดจองวันนี้ {room.today_bookings} ครั้ง</span> : <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-500">ยังไม่มีการจองวันนี้</span>}</div>
+                        <div className="mb-4 lg:text-right">{room.today_bookings > 0 ? <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-100 bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-700"><span className="h-1.5 w-1.5 rounded-full bg-orange-500" />ยอดจองวันนี้ {room.today_bookings} ครั้ง</span> : <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-50 px-2.5 py-1 text-xs font-medium text-stone-500">ยังไม่มีการจองวันนี้</span>}</div>
                         <div className="mb-6 flex flex-col items-start gap-1 lg:items-end">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-charcoal-400">ราคาต่อคืน</span>
-                          {discount > 0 ? <div className="flex w-full flex-col items-start lg:items-end"><div className="flex items-baseline gap-1.5"><span className="text-sm font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{finalPrice.toLocaleString()}</span></div><span className="mt-1 rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">ประหยัด ฿{discount.toLocaleString()}</span></div> : <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
+                          <span className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ราคาต่อคืน</span>
+                          {discount > 0 ? <div className="flex w-full flex-col items-start lg:items-end"><div className="flex items-baseline gap-1.5"><span className="text-sm font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-2xl font-extrabold leading-none text-forest-900">฿{finalPrice.toLocaleString()}</span></div><span className="mt-1 rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">ประหยัด ฿{discount.toLocaleString()}</span></div> : <span className="font-sans text-2xl font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
                         </div>
                         <div className="flex flex-row gap-2.5 lg:w-full lg:flex-col">
-                          <Link href={`/rooms/${room.id}?${searchParams.toString()}`} className="flex-1 rounded-xl border border-stone-200 bg-white py-3 text-center text-[13px] font-bold text-forest-800 shadow-sm transition-colors hover:bg-stone-50 lg:w-full">ดูรายละเอียด</Link>
-                          {isAvailable && searchedRange && <button type="button" onClick={() => handleAddToCart(room)} className="flex-1 rounded-xl bg-forest-900 py-3 text-[13px] font-bold text-white shadow-md transition-all hover:bg-forest-800 hover:shadow-lg active:scale-[0.98] lg:w-full">จองที่พัก</button>}
+                          <Link href={`/rooms/${room.id}?${searchParams.toString()}`} className="flex-1 rounded-xl border border-stone-200 bg-white py-3 text-center text-sm font-bold text-forest-800 shadow-sm transition-colors hover:bg-stone-50 lg:w-full">ดูรายละเอียด</Link>
+                          {isAvailable && searchedRange && <Link href={`/rooms/${room.id}?${searchParams.toString()}#room-picker`} className="flex-1 rounded-xl bg-forest-900 py-3 text-center text-sm font-bold text-white shadow-md transition-all hover:bg-forest-800 hover:shadow-lg active:scale-[0.98] lg:w-full">จองที่พัก</Link>}
                         </div>
                       </div>
                     </article>
@@ -463,19 +443,5 @@ function RoomsPageContent(): React.ReactElement {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function RoomsPage(): React.ReactElement {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-[100dvh] bg-cream-50 px-4 py-24">
-          <div className="mx-auto h-56 max-w-7xl animate-pulse rounded-2xl bg-white" />
-        </div>
-      }
-    >
-      <RoomsPageContent />
-    </Suspense>
   );
 }

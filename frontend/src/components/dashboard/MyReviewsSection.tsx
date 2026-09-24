@@ -5,9 +5,11 @@ import { Star, MessageSquare, PenLine, Trash2, X, Check } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
+import { toastConfirm } from '@/lib/toastConfirm';
 
 interface ReviewableBooking {
   room_booking_id: number;
+  room_type_id: number;
   room_name: string;
   type_name: string;
   room_image: string;
@@ -18,6 +20,7 @@ interface ReviewableBooking {
 interface MyReview {
   review_id: number;
   room_booking_id: number;
+  room_type_id: number;
   rating: number;
   comment: string;
   review_date: string;
@@ -103,6 +106,7 @@ export default function MyReviewsSection(): React.ReactElement {
     try {
       await api.post('/reviews', {
         room_booking_id: creating!.room_booking_id,
+        room_type_id: creating!.room_type_id,
         rating: form.rating,
         comment: form.comment,
       });
@@ -137,15 +141,20 @@ export default function MyReviewsSection(): React.ReactElement {
     }
   };
 
-  const handleDelete = async (reviewId: number) => {
-    if (!confirm('ต้องการลบรีวิวนี้หรือไม่?')) return;
-    try {
-      await api.delete(`/reviews/${reviewId}`);
-      toast.success('ลบรีวิวสำเร็จ');
-      fetchAll();
-    } catch {
-      toast.error('ลบรีวิวไม่สำเร็จ');
-    }
+  const handleDelete = (reviewId: number) => {
+    toastConfirm({
+      title: 'ต้องการลบรีวิวนี้หรือไม่?',
+      confirmText: 'ลบรีวิว',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/reviews/${reviewId}`);
+          toast.success('ลบรีวิวสำเร็จ');
+          fetchAll();
+        } catch {
+          toast.error('ลบรีวิวไม่สำเร็จ');
+        }
+      }
+    });
   };
 
   const ratingLabel = (r: number) => ['', 'แย่มาก', 'แย่', 'พอใช้', 'ดี', 'ดีมาก'][r] || '';
@@ -155,16 +164,16 @@ export default function MyReviewsSection(): React.ReactElement {
       <div className="mb-4 flex w-fit gap-1 rounded-xl bg-stone-100 p-1">
         <button
           onClick={() => setTab('pending')}
-          className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-[12.5px] font-semibold transition-colors ${tab === 'pending' ? 'bg-white text-forest-900 shadow-sm' : 'text-charcoal-500 hover:text-forest-800'}`}
+          className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${tab === 'pending' ? 'bg-white text-forest-900 shadow-sm' : 'text-charcoal-500 hover:text-forest-800'}`}
         >
           รอรีวิว
           {reviewable.length > 0 && (
-            <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{reviewable.length}</span>
+            <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-bold text-white">{reviewable.length}</span>
           )}
         </button>
         <button
           onClick={() => setTab('done')}
-          className={`rounded-lg px-4 py-2 text-[12.5px] font-semibold transition-colors ${tab === 'done' ? 'bg-white text-forest-900 shadow-sm' : 'text-charcoal-500 hover:text-forest-800'}`}
+          className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${tab === 'done' ? 'bg-white text-forest-900 shadow-sm' : 'text-charcoal-500 hover:text-forest-800'}`}
         >
           รีวิวแล้ว ({myReviews.length})
         </button>
@@ -178,13 +187,13 @@ export default function MyReviewsSection(): React.ReactElement {
         reviewable.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-stone-200 py-16 text-center">
             <Check size={40} className="mx-auto mb-3 text-stone-300" />
-            <p className="text-[13px] font-medium text-charcoal-500">ไม่มีรายการรอรีวิว</p>
-            <p className="mt-1 text-[12px] text-charcoal-400">การจองที่ผ่านมาถูกรีวิวครบแล้ว</p>
+            <p className="text-sm font-medium text-charcoal-500">ไม่มีรายการรอรีวิว</p>
+            <p className="mt-1 text-xs text-charcoal-400">การจองที่ผ่านมาถูกรีวิวครบแล้ว</p>
           </div>
         ) : (
           <div className="space-y-3">
             {reviewable.map((booking) => (
-              <div key={booking.room_booking_id} className="flex flex-col gap-3 rounded-2xl border border-stone-200/80 bg-white p-4 sm:flex-row">
+              <div key={`${booking.room_booking_id}-${booking.room_type_id}`} className="flex flex-col gap-3 rounded-2xl border border-stone-200/80 bg-white p-4 sm:flex-row">
                 <div className="h-32 w-full shrink-0 overflow-hidden rounded-xl bg-stone-100 sm:h-20 sm:w-24">
                   {booking.room_image ? (
                     <img src={resolveMediaUrl(booking.room_image)} alt={booking.room_name} className="h-full w-full object-cover" />
@@ -193,13 +202,13 @@ export default function MyReviewsSection(): React.ReactElement {
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="text-[13.5px] font-bold text-forest-900">{booking.room_name} {booking.type_name ? `(${booking.type_name})` : ''}</p>
-                  <p className="mt-0.5 text-[12px] text-charcoal-400">
+                  <p className="text-sm font-bold text-forest-900">{booking.room_name} {booking.type_name ? `(${booking.type_name})` : ''}</p>
+                  <p className="mt-0.5 text-xs text-charcoal-400">
                     เช็คอิน {formatDate(booking.check_in)} — เช็คเอาต์ {formatDate(booking.check_out)}
                   </p>
                   <button
                     onClick={() => openCreate(booking)}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-forest-900 px-4 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-forest-800"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-forest-900 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-forest-800"
                   >
                     <Star size={13} /> เขียนรีวิว
                   </button>
@@ -211,8 +220,8 @@ export default function MyReviewsSection(): React.ReactElement {
       ) : myReviews.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-200 py-16 text-center">
           <MessageSquare size={40} className="mx-auto mb-3 text-stone-300" />
-          <p className="text-[13px] font-medium text-charcoal-500">ยังไม่มีรีวิว</p>
-          <p className="mt-1 text-[12px] text-charcoal-400">รีวิวการพักของคุณจะแสดงที่นี่</p>
+          <p className="text-sm font-medium text-charcoal-500">ยังไม่มีรีวิว</p>
+          <p className="mt-1 text-xs text-charcoal-400">รีวิวการพักของคุณจะแสดงที่นี่</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -228,7 +237,7 @@ export default function MyReviewsSection(): React.ReactElement {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="truncate text-[13px] font-bold text-forest-900">{review.room_name} {review.type_name ? `(${review.type_name})` : ''}</p>
+                    <p className="truncate text-sm font-bold text-forest-900">{review.room_name} {review.type_name ? `(${review.type_name})` : ''}</p>
                     <div className="flex shrink-0 gap-1">
                       <button onClick={() => openEdit(review)} className="rounded-lg p-1.5 text-charcoal-400 transition-colors hover:bg-stone-50 hover:text-forest-700">
                         <PenLine size={14} />
@@ -238,17 +247,17 @@ export default function MyReviewsSection(): React.ReactElement {
                       </button>
                     </div>
                   </div>
-                  <p className="mb-2 text-[11px] text-charcoal-400">
+                  <p className="mb-2 text-xs text-charcoal-400">
                     {formatDate(review.check_in)} — {formatDate(review.check_out)}
                   </p>
                   <div className="mb-2 flex items-center gap-2">
                     <StarRating value={review.rating} readonly />
-                    <span className="text-[11.5px] font-semibold text-bamboo-600">{ratingLabel(review.rating)}</span>
+                    <span className="text-xs font-semibold text-bamboo-600">{ratingLabel(review.rating)}</span>
                   </div>
                   {review.comment && (
-                    <p className="rounded-lg bg-stone-50 px-3 py-2 text-[12.5px] leading-relaxed text-charcoal-600">{review.comment}</p>
+                    <p className="rounded-lg bg-stone-50 px-3 py-2 text-xs leading-relaxed text-charcoal-600">{review.comment}</p>
                   )}
-                  <p className="mt-2 text-[11px] text-charcoal-400">รีวิวเมื่อ {formatDate(review.review_date)}</p>
+                  <p className="mt-2 text-xs text-charcoal-400">รีวิวเมื่อ {formatDate(review.review_date)}</p>
                 </div>
               </div>
             </div>
@@ -261,25 +270,25 @@ export default function MyReviewsSection(): React.ReactElement {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-sm" onClick={() => setCreating(null)}>
           <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-stone-100 bg-stone-50 px-6 py-4">
-              <h3 className="font-sans text-[16px] font-bold text-forest-900">เขียนรีวิว</h3>
+              <h3 className="font-sans text-base font-bold text-forest-900">เขียนรีวิว</h3>
               <button onClick={() => setCreating(null)} className="rounded-full p-1 transition-colors hover:bg-stone-200">
                 <X size={18} className="text-charcoal-400" />
               </button>
             </div>
             <div className="px-6 pb-2 pt-4">
-              <p className="text-[13px] font-semibold text-charcoal-700">{creating.room_name} {creating.type_name ? `(${creating.type_name})` : ''}</p>
-              <p className="text-[12px] text-charcoal-400">{formatDate(creating.check_in)} — {formatDate(creating.check_out)}</p>
+              <p className="text-sm font-semibold text-charcoal-700">{creating.room_name} {creating.type_name ? `(${creating.type_name})` : ''}</p>
+              <p className="text-xs text-charcoal-400">{formatDate(creating.check_in)} — {formatDate(creating.check_out)}</p>
             </div>
             <form onSubmit={handleCreate} className="space-y-4 p-6 pt-3">
               <div>
-                <label className="mb-2 block text-[12.5px] font-semibold text-charcoal-600">คะแนน <span className="text-red-500">*</span></label>
+                <label className="mb-2 block text-xs font-semibold text-charcoal-600">คะแนน <span className="text-red-500">*</span></label>
                 <div className="flex items-center gap-3">
                   <StarRating value={form.rating} onChange={(v) => setForm({ ...form, rating: v })} />
-                  {form.rating > 0 && <span className="text-[12.5px] font-semibold text-bamboo-600">{ratingLabel(form.rating)}</span>}
+                  {form.rating > 0 && <span className="text-xs font-semibold text-bamboo-600">{ratingLabel(form.rating)}</span>}
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-[12.5px] font-semibold text-charcoal-600">ความคิดเห็น (ถ้ามี)</label>
+                <label className="mb-1 block text-xs font-semibold text-charcoal-600">ความคิดเห็น (ถ้ามี)</label>
                 <textarea
                   className="input-field resize-none"
                   rows={4}
@@ -289,7 +298,7 @@ export default function MyReviewsSection(): React.ReactElement {
                 />
               </div>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setCreating(null)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-[13px] font-bold text-charcoal-600 transition-colors hover:bg-stone-50">ยกเลิก</button>
+                <button type="button" onClick={() => setCreating(null)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-sm font-bold text-charcoal-600 transition-colors hover:bg-stone-50">ยกเลิก</button>
                 <button type="submit" disabled={submitting || form.rating === 0} className="btn-primary flex-1 disabled:cursor-not-allowed disabled:opacity-60">
                   {submitting ? 'กำลังบันทึก...' : 'ส่งรีวิว'}
                 </button>
@@ -304,25 +313,25 @@ export default function MyReviewsSection(): React.ReactElement {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-sm" onClick={() => setEditing(null)}>
           <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-stone-100 bg-stone-50 px-6 py-4">
-              <h3 className="font-sans text-[16px] font-bold text-forest-900">แก้ไขรีวิว</h3>
+              <h3 className="font-sans text-base font-bold text-forest-900">แก้ไขรีวิว</h3>
               <button onClick={() => setEditing(null)} className="rounded-full p-1 transition-colors hover:bg-stone-200">
                 <X size={18} className="text-charcoal-400" />
               </button>
             </div>
             <div className="px-6 pb-2 pt-4">
-              <p className="text-[13px] font-semibold text-charcoal-700">{editing.room_name} {editing.type_name ? `(${editing.type_name})` : ''}</p>
-              <p className="text-[12px] text-charcoal-400">{formatDate(editing.check_in)} — {formatDate(editing.check_out)}</p>
+              <p className="text-sm font-semibold text-charcoal-700">{editing.room_name} {editing.type_name ? `(${editing.type_name})` : ''}</p>
+              <p className="text-xs text-charcoal-400">{formatDate(editing.check_in)} — {formatDate(editing.check_out)}</p>
             </div>
             <form onSubmit={handleEdit} className="space-y-4 p-6 pt-3">
               <div>
-                <label className="mb-2 block text-[12.5px] font-semibold text-charcoal-600">คะแนน <span className="text-red-500">*</span></label>
+                <label className="mb-2 block text-xs font-semibold text-charcoal-600">คะแนน <span className="text-red-500">*</span></label>
                 <div className="flex items-center gap-3">
                   <StarRating value={editForm.rating} onChange={(v) => setEditForm({ ...editForm, rating: v })} />
-                  {editForm.rating > 0 && <span className="text-[12.5px] font-semibold text-bamboo-600">{ratingLabel(editForm.rating)}</span>}
+                  {editForm.rating > 0 && <span className="text-xs font-semibold text-bamboo-600">{ratingLabel(editForm.rating)}</span>}
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-[12.5px] font-semibold text-charcoal-600">ความคิดเห็น</label>
+                <label className="mb-1 block text-xs font-semibold text-charcoal-600">ความคิดเห็น</label>
                 <textarea
                   className="input-field resize-none"
                   rows={4}
@@ -332,7 +341,7 @@ export default function MyReviewsSection(): React.ReactElement {
                 />
               </div>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setEditing(null)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-[13px] font-bold text-charcoal-600 transition-colors hover:bg-stone-50">ยกเลิก</button>
+                <button type="button" onClick={() => setEditing(null)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-sm font-bold text-charcoal-600 transition-colors hover:bg-stone-50">ยกเลิก</button>
                 <button type="submit" disabled={editSubmitting || editForm.rating === 0} className="btn-primary flex-1 disabled:cursor-not-allowed disabled:opacity-60">
                   {editSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
                 </button>

@@ -27,6 +27,7 @@ import {
   LogOut,
   ChevronDown,
   MapPin,
+  LogIn,
 } from "lucide-react";
 
 interface MenuItem {
@@ -48,6 +49,7 @@ const roomStaffAllowedPaths = [
   "/admin/reviews",
   "/admin/rooms/single",
   "/admin/rooms/amenities",
+  "/admin/checkin",
 ];
 
 const boatStaffAllowedPaths = [
@@ -110,6 +112,11 @@ const menuGroups: MenuGroup[] = [
         label: "แดชบอร์ดจองห้อง",
         path: "/admin/rooms",
         icon: <CreditCard size={16} />,
+      },
+      {
+        label: "เช็คอิน-เช็คเอาต์",
+        path: "/admin/checkin",
+        icon: <LogIn size={16} />,
       },
       {
         label: "จัดการรายห้อง",
@@ -214,11 +221,13 @@ export default function AdminSidebar() {
     })
     .filter((group) => group.items.length > 0);
 
+  // เปิดเฉพาะหมวดที่ตรงกับหน้าปัจจุบันเท่านั้น — ถ้าอยู่หน้าที่ไม่ได้อยู่ในหมวดไหนเลย (เช่น "ภาพรวม")
+  // ให้ทุกหมวดยุบไว้หมด แทนที่จะกางหมวดใดหมวดหนึ่งขึ้นมาแบบเดาสุ่ม
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     const activeGroup = filteredMenuGroups.find((g) =>
       g.items.some((item) => item.path === pathname),
     );
-    return activeGroup ? [activeGroup.title] : ["ห้องพัก"];
+    return activeGroup ? [activeGroup.title] : [];
   });
 
   const toggleGroup = (title: string) => {
@@ -241,7 +250,7 @@ export default function AdminSidebar() {
         <h2 className="font-display font-semibold text-base text-forest-800">
           สวนวลัยรุกขเวช
         </h2>
-        <p className="text-[11px] text-charcoal-400">{getRoleTitle()}</p>
+        <p className="text-xs text-charcoal-400">{getRoleTitle()}</p>
       </div>
 
       {/* Nav Links */}
@@ -369,7 +378,7 @@ export default function AdminSidebar() {
               <p className="text-xs font-bold text-forest-800 truncate">
                 {user?.first_name ? `${user.first_name}` : "ผู้ใช้ระบบ"}
               </p>
-              <p className="text-[10px] text-charcoal-400 truncate">
+              <p className="text-xs text-charcoal-400 truncate">
                 {user?.email || "user@walai.com"}
               </p>
             </div>
@@ -379,7 +388,7 @@ export default function AdminSidebar() {
             <Link
               href={profileHref}
               onClick={() => setMobileOpen(false)}
-              className="flex items-center justify-center gap-1 py-1 text-[11px] font-medium text-charcoal-600 hover:text-forest-800 hover:bg-stone-100 rounded-lg transition-colors"
+              className="flex items-center justify-center gap-1 py-1 text-xs font-medium text-charcoal-600 hover:text-forest-800 hover:bg-stone-100 rounded-lg transition-colors"
             >
               <User size={13} />
               <span>โปรไฟล์</span>
@@ -391,7 +400,7 @@ export default function AdminSidebar() {
                 setMobileOpen(false);
                 logout?.();
               }}
-              className="flex items-center justify-center gap-1 py-1 text-[11px] font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+              className="flex items-center justify-center gap-1 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
             >
               <LogOut size={13} />
               <span>ออกระบบ</span>

@@ -188,7 +188,7 @@ const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
               <Sparkles size={18} />
             </div>
             <div>
-              <span className="text-[10px] font-semibold text-stone-400 block leading-tight">
+              <span className="text-xs font-semibold text-stone-400 block leading-tight">
                 รายการทั้งหมด
               </span>
               <span className="text-xs font-bold text-[#0b3b2c]">
@@ -225,7 +225,7 @@ const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
             <button
               type="button"
               onClick={handleResetForm}
-              className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
+              className="text-xs font-semibold text-rose-600 hover:underline cursor-pointer"
             >
               ยกเลิกการแก้ไข
             </button>
@@ -234,7 +234,7 @@ const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <div className="md:col-span-7">
-            <label className="block text-[11px] font-bold text-stone-700 mb-1">
+            <label className="block text-xs font-bold text-stone-700 mb-1">
               ชื่อสิ่งอำนวยความสะดวก <span className="text-rose-500">*</span>
             </label>
             <input
@@ -346,7 +346,7 @@ const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
               <Sparkles size={16} className="text-[#0b3b2c]" />
               ตารางสิ่งอำนวยความสะดวก
             </h3>
-            <span className="px-2.5 py-0.5 bg-stone-200/70 text-stone-700 rounded-full text-[11px] font-bold">
+            <span className="px-2.5 py-0.5 bg-stone-200/70 text-stone-700 rounded-full text-xs font-bold">
               {filteredAmenities.length} รายการ
             </span>
           </div>
@@ -382,7 +382,7 @@ const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
                     <button
                       type="button"
                       onClick={() => handleToggleStatus(am)}
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1 transition-all cursor-pointer ${
+                      className={`px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 transition-all cursor-pointer ${
                         am.status
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60 hover:bg-emerald-100"
                           : "bg-rose-50 text-rose-700 border border-rose-200/60 hover:bg-rose-100"

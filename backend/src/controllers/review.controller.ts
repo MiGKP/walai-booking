@@ -12,9 +12,7 @@ export const getPublicReviews = async (req: Request, res: Response): Promise<voi
               rt.room_name, rt.type_name
        FROM reviews rv
        JOIN members m ON m.member_id = rv.member_id
-       JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
-       JOIN rooms r ON r.room_id = rb.room_id
-       JOIN room_types rt ON rt.id = r.room_type_id
+       JOIN room_types rt ON rt.id = rv.room_type_id
        WHERE rv.comment IS NOT NULL AND TRIM(rv.comment) <> ''
        ORDER BY rv.review_date DESC
        LIMIT $1`,
@@ -38,9 +36,7 @@ export const getReviewsByRoomType = async (req: Request, res: Response): Promise
        FROM reviews rv
        JOIN members m ON m.member_id = rv.member_id
        JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
-       JOIN rooms r ON r.room_id = rb.room_id
-       JOIN room_types rt ON rt.id = r.room_type_id
-       WHERE rt.id = $1
+       WHERE rv.room_type_id = $1
        ORDER BY rv.review_date DESC`,
       [room_type_id]
     );
@@ -59,18 +55,12 @@ export const getMyReviews = async (req: Request, res: Response): Promise<void> =
   try {
     const user = req.user as AuthPayload;
     const result = await pool.query(
-      `SELECT rv.review_id, rv.rating, rv.comment, rv.review_date, rv.room_booking_id,
+      `SELECT rv.review_id, rv.rating, rv.comment, rv.review_date, rv.room_booking_id, rv.room_type_id,
               rt.room_name, rt.type_name, rt.room_image,
               rb.check_in, rb.check_out
        FROM reviews rv
        JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
-       JOIN LATERAL (
-         SELECT room_id FROM booking_room
-         WHERE room_booking_id = rb.room_booking_id
-         ORDER BY booking_room_id LIMIT 1
-       ) br ON true
-       JOIN rooms r ON r.room_id = br.room_id
-       JOIN room_types rt ON rt.id = r.room_type_id
+       JOIN room_types rt ON rt.id = rv.room_type_id
        WHERE rv.member_id = $1
        ORDER BY rv.review_date DESC`,
       [user.id]
@@ -86,15 +76,13 @@ export const getMyReviews = async (req: Request, res: Response): Promise<void> =
 export const getReviewableBookings = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
+    // หนึ่งแถวต่อ "ประเภทห้อง" ที่มีอยู่ในบิลนั้น (ไม่ใช่ต่อบิล) เพื่อให้รีวิวแยกตามประเภทห้องได้
+    // เมื่อจองหลายประเภทห้องรวมกันในบิลเดียว (เช่น 1 Standard + 1 Deluxe)
     const result = await pool.query(
-      `SELECT rb.room_booking_id, rb.check_in, rb.check_out,
-              rt.room_name, rt.type_name, rt.room_image
+      `SELECT DISTINCT rb.room_booking_id, rt.id AS room_type_id, rt.room_name, rt.type_name, rt.room_image,
+              rb.check_in, rb.check_out
        FROM room_bookings rb
-       JOIN LATERAL (
-         SELECT room_id FROM booking_room
-         WHERE room_booking_id = rb.room_booking_id
-         ORDER BY booking_room_id LIMIT 1
-       ) br ON true
+       JOIN booking_room br ON br.room_booking_id = rb.room_booking_id
        JOIN rooms r ON r.room_id = br.room_id
        JOIN room_types rt ON rt.id = r.room_type_id
        WHERE rb.member_id = $1
@@ -103,8 +91,9 @@ export const getReviewableBookings = async (req: Request, res: Response): Promis
            SELECT 1 FROM booking_room x
            WHERE x.room_booking_id = rb.room_booking_id AND x.status <> 'checked_out'
          )
-         AND rb.room_booking_id NOT IN (
-           SELECT room_booking_id FROM reviews WHERE member_id = $1
+         AND NOT EXISTS (
+           SELECT 1 FROM reviews rv
+           WHERE rv.room_booking_id = rb.room_booking_id AND rv.member_id = $1 AND rv.room_type_id = rt.id
          )
        ORDER BY rb.check_out DESC`,
       [user.id]
@@ -124,7 +113,7 @@ export const getAllReviews = async (req: Request, res: Response): Promise<void> 
     const params: any[] = [];
     let idx = 1;
     if (room_type_id) {
-      whereClause += ` AND rt.id = $${idx++}`;
+      whereClause += ` AND rv.room_type_id = $${idx++}`;
       params.push(Number(room_type_id));
     }
     if (min_rating) {
@@ -136,7 +125,6 @@ export const getAllReviews = async (req: Request, res: Response): Promise<void> 
       params.push(Number(max_rating));
     }
 
-    // 🔧 เพิ่ม JOIN rooms r ON r.room_id = rb.room_id และเปลี่ยน JOIN room_types เป็น rt.id = r.room_type_id
     const result = await pool.query(
       `SELECT rv.review_id, rv.rating, rv.comment, rv.review_date,
               m.first_name, m.last_name, m.image_profile, m.email,
@@ -145,8 +133,7 @@ export const getAllReviews = async (req: Request, res: Response): Promise<void> 
        FROM reviews rv
        JOIN members m ON m.member_id = rv.member_id
        JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
-       JOIN rooms r ON r.room_id = rb.room_id
-       JOIN room_types rt ON rt.id = r.room_type_id
+       JOIN room_types rt ON rt.id = rv.room_type_id
        ${whereClause}
        ORDER BY rv.review_date DESC`,
       params
@@ -189,10 +176,10 @@ export const adminDeleteReview = async (req: Request, res: Response): Promise<vo
 export const createReview = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
-    const { room_booking_id, rating, comment } = req.body;
+    const { room_booking_id, room_type_id, rating, comment } = req.body;
 
-    if (!room_booking_id || !rating) {
-      res.status(400).json({ success: false, message: 'room_booking_id และ rating จำเป็นต้องระบุ' });
+    if (!room_booking_id || !room_type_id || !rating) {
+      res.status(400).json({ success: false, message: 'room_booking_id, room_type_id และ rating จำเป็นต้องระบุ' });
       return;
     }
     if (Number(rating) < 1 || Number(rating) > 5) {
@@ -200,31 +187,35 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // ตรวจสอบว่า booking เป็นของ member และ status เหมาะสม
+    // ตรวจสอบว่า booking เป็นของ member, status เหมาะสม, และมีห้องประเภทนี้อยู่ในบิลจริง
+    // (จองหลายประเภทห้องในบิลเดียวกันได้ จึงต้องเช็คว่า room_type_id ที่ส่งมาตรงกับห้องเส้นใดเส้นหนึ่งในบิลนี้จริง)
     const bookingCheck = await pool.query(
-      `SELECT rb.room_booking_id FROM room_bookings rb
-       WHERE rb.room_booking_id = $1 AND rb.member_id = $2 AND rb.status = 'approved'`,
-      [room_booking_id, user.id]
+      `SELECT 1 FROM room_bookings rb
+       JOIN booking_room br ON br.room_booking_id = rb.room_booking_id
+       JOIN rooms r ON r.room_id = br.room_id
+       WHERE rb.room_booking_id = $1 AND rb.member_id = $2 AND rb.status = 'approved' AND r.room_type_id = $3
+       LIMIT 1`,
+      [room_booking_id, user.id, room_type_id]
     );
     if (bookingCheck.rows.length === 0) {
-      res.status(403).json({ success: false, message: 'ไม่พบการจองหรือไม่มีสิทธิ์รีวิว' });
+      res.status(403).json({ success: false, message: 'ไม่พบห้องประเภทนี้ในการจอง หรือไม่มีสิทธิ์รีวิว' });
       return;
     }
 
-    // ตรวจสอบว่ายังไม่เคยรีวิว booking นี้
+    // ตรวจสอบว่ายังไม่เคยรีวิวห้องประเภทนี้ในบิลนี้ (ประเภทอื่นในบิลเดียวกันยังรีวิวแยกได้)
     const existing = await pool.query(
-      'SELECT review_id FROM reviews WHERE room_booking_id = $1 AND member_id = $2',
-      [room_booking_id, user.id]
+      'SELECT review_id FROM reviews WHERE room_booking_id = $1 AND member_id = $2 AND room_type_id = $3',
+      [room_booking_id, user.id, room_type_id]
     );
     if (existing.rows.length > 0) {
-      res.status(409).json({ success: false, message: 'คุณได้รีวิวการจองนี้ไปแล้ว' });
+      res.status(409).json({ success: false, message: 'คุณได้รีวิวห้องประเภทนี้ในการจองนี้ไปแล้ว' });
       return;
     }
 
     const result = await pool.query(
-      `INSERT INTO reviews (member_id, room_booking_id, rating, comment, review_date)
-       VALUES ($1, $2, $3, $4, NOW()) RETURNING *`,
-      [user.id, room_booking_id, Number(rating), comment || null]
+      `INSERT INTO reviews (member_id, room_booking_id, room_type_id, rating, comment, review_date)
+       VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *`,
+      [user.id, room_booking_id, room_type_id, Number(rating), comment || null]
     );
     res.status(201).json({ success: true, message: 'รีวิวสำเร็จ', data: result.rows[0] });
   } catch (error) {

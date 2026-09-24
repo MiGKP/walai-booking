@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { Calendar, Tag, Plus, Minus, X, CheckCircle2, CreditCard, Trash2, AlertTriangle } from 'lucide-react';
+import { Calendar, Tag, Plus, Minus, X, CheckCircle2, CreditCard, Trash2, AlertTriangle, Baby, ChevronDown, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatThaiDate, nightsBetween, todayISO, addDaysISO, monthCursorFromISO, MonthCursor } from '@/lib/date';
 import { RoomCartItem } from '@/lib/room-cart';
@@ -26,6 +26,7 @@ interface Promotion {
   discount_type?: 'percent' | 'fixed';
   min_nights?: number;
   max_discount?: number;
+  stackable?: boolean;
 }
 
 interface RoomType {
@@ -44,14 +45,32 @@ interface BookingSummaryCardProps {
 }
 
 export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCardProps) {
+  const { user } = useAuth();
+  const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const checkIn = searchParams.get('check_in') || todayISO();
+  const defaultCheckIn = isAdminOrStaff ? todayISO() : addDaysISO(todayISO(), 1);
+  const checkIn = searchParams.get('check_in') || defaultCheckIn;
   const checkOut = searchParams.get('check_out') || addDaysISO(checkIn, 1);
   const adults = parseInt(searchParams.get('adults') || '1', 10);
   const children = parseInt(searchParams.get('children') || '0', 10);
+  // อายุเด็กแต่ละคน ณ วันเข้าพัก (0-17 ปี) — เก็บเป็น comma-separated ใน URL คู่กับ children เพื่อให้ state คงอยู่ตามหน้าเหมือนตัวอื่นๆ
+  // ช่องที่ยังไม่เลือกอายุแทนด้วยสตริงว่าง (เช่น "5,,10") เพื่อบังคับให้ลูกค้าเลือกครบก่อนยืนยันการจองได้
+  const childAges: Array<number | null> = useMemo(() => {
+    const raw = (searchParams.get('child_ages') || '').split(',').map((s) => {
+      const n = parseInt(s, 10);
+      return Number.isInteger(n) && n >= 0 && n <= 17 ? n : null;
+    });
+    // กันเคส URL ไม่ตรงกับจำนวนเด็กปัจจุบัน (เช่น ผู้ใช้แก้ URL เอง หรือ query ยังไม่ sync) เติม/ตัดให้ยาวเท่ากับ children เสมอ
+    const normalized = raw.length && (searchParams.get('child_ages') ?? '') !== '' ? raw : [];
+    if (normalized.length === children) return normalized;
+    if (normalized.length > children) return normalized.slice(0, children);
+    return [...normalized, ...Array(children - normalized.length).fill(null)];
+  }, [searchParams, children]);
+
+  const allChildAgesSet = childAges.every((age) => age !== null);
   // รองรับใช้หลายโค้ดพร้อมกัน (คั่นด้วย comma ใน URL) — 1 ประเภทห้องในตะกร้าใช้ได้ 1 โค้ด
   const promoCodes = useMemo(
     () => (searchParams.get('promo_code') || '').split(',').map((c) => c.trim().toUpperCase()).filter(Boolean),
@@ -59,6 +78,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
   );
 
   const [promoInput, setPromoInput] = useState('');
+  const [specialRequest, setSpecialRequest] = useState('');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [roomsData, setRoomsData] = useState<RoomType[]>([]);
   const [cursor, setCursor] = useState<MonthCursor>(() => monthCursorFromISO(checkIn));
@@ -156,7 +176,10 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
   // ความจุรวมของห้องที่เลือกไว้ (แต่ละห้องรับได้ตาม capacity ของประเภทห้องนั้น ไม่ว่าจะเป็นผู้ใหญ่หรือเด็ก)
   const totalCapacity = cartItems.reduce((sum, item) => sum + item.capacity * item.qty, 0);
   const totalGuests = adults + children;
-  const overCapacity = cartItems.length > 0 && totalGuests > totalCapacity;
+  // จำนวนเด็กที่ถูกนับรวมในความจุ (อายุ 6 ปีขึ้นไป) — เด็ก 0-5 ขวบเข้าพักฟรี ไม่นับรวมความจุ (สอดคล้องกับ backend)
+  const countableChildren = childAges.filter((age) => age !== null && age > 5).length;
+  const totalCapacityGuests = adults + countableChildren;
+  const overCapacity = cartItems.length > 0 && totalCapacityGuests > totalCapacity;
 
   // แจ้งเตือนทันทีเมื่อ re-validate แล้วพบว่ามีห้องไม่ว่างแล้ว (เช่น หลังเปลี่ยนวันที่) ไม่ใช่แค่ทำสีแดงรอให้สังเกตเอง
   const wasUnavailableRef = useRef(false);
@@ -203,11 +226,28 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
   const handleGuestChange = (type: 'adults' | 'children', delta: number) => {
     const val = type === 'adults' ? adults : children;
     const next = Math.max(type === 'adults' ? 1 : 0, val + delta);
-    if (delta > 0 && totalCapacity > 0 && next + (type === 'adults' ? children : adults) > totalCapacity) {
-      toast.error(`ผู้เข้าพักรวมได้ไม่เกิน ${totalCapacity} คน ตามความจุห้องที่เลือกไว้`);
+    if (type === 'adults') {
+      if (delta > 0 && totalCapacity > 0 && next + countableChildren > totalCapacity) {
+        toast.error(`ผู้เข้าพักรวมได้ไม่เกิน ${totalCapacity} คน ตามความจุห้องที่เลือกไว้`);
+        return;
+      }
+      updateUrl({ adults: next });
       return;
     }
-    updateUrl({ [type]: next });
+    // เพิ่ม/ลดจำนวนเด็กแล้วปรับ array อายุให้ยาวเท่ากันเสมอ (เพิ่มใหม่ = ยังไม่เลือกอายุ ต้องเลือกก่อนจองได้, ลด = ตัดคนสุดท้ายออก)
+    const nextChildAges: Array<number | null> = delta > 0 ? [...childAges, null] : childAges.slice(0, -1);
+    const serialized = nextChildAges.map((a) => (a === null ? '' : String(a))).join(',');
+    updateUrl({ children: next, child_ages: serialized || null });
+  };
+
+  const handleChildAgeChange = (index: number, age: number) => {
+    const nextChildAges = childAges.map((a, i) => (i === index ? age : a));
+    const nextCountable = nextChildAges.filter((a): a is number => a !== null && a >= 2).length;
+    if (totalCapacity > 0 && adults + nextCountable > totalCapacity) {
+      toast.error(`ผู้เข้าพักรวมได้ไม่เกิน ${totalCapacity} คน ตามความจุห้องที่เลือกไว้ (เด็กอายุต่ำกว่า 2 ขวบไม่นับความจุ)`);
+      return;
+    }
+    updateUrl({ child_ages: nextChildAges.join(',') });
   };
 
   const handleRoomQtyChange = (typeId: number, roomId: number, delta: number) => {
@@ -281,20 +321,42 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
     }
 
     if (overCapacity) {
-      toast.error(`ผู้เข้าพักรวม ${totalGuests} คน เกินความจุห้องที่เลือก (${totalCapacity} คน) กรุณาเพิ่มห้องหรือลดจำนวนผู้เข้าพัก`);
+      toast.error(`ผู้เข้าพักรวม ${totalCapacityGuests} คน เกินความจุห้องที่เลือก (${totalCapacity} คน) กรุณาเพิ่มห้องหรือลดจำนวนผู้เข้าพัก`);
       return;
     }
 
-    // backend เลือกห้องจริงให้อัตโนมัติตามประเภท ไม่รองรับการระบุเลขห้องเจาะจง จึงรวมจำนวนตามประเภทห้องก่อนส่ง
+    if (!allChildAgesSet) {
+      toast.error('กรุณาเลือกอายุของเด็กแต่ละคนให้ครบก่อนยืนยันการจอง');
+      return;
+    }
+
+    // ห้องที่ลูกค้าเลือกเลขห้องเจาะจงไว้ (roomId ไม่ใช่ 0) ส่งเป็นรายการแยกพร้อม room_id เพื่อให้ backend
+    // จองห้องนั้นจริง — ส่วนที่ไม่ได้เลือกเลขห้องเจาะจงค่อยรวมจำนวนตามประเภทห้องแล้วให้ backend เลือกห้องว่างให้เอง
     // แต่ละประเภทห้องแนบโปรโมชั่นของตัวเองไปด้วย (ถ้ามีโค้ดที่ใช้ได้กับประเภทนั้น)
-    const quantityByType = new Map<number, number>();
-    cartItems.forEach((item) => {
-      quantityByType.set(item.typeId, (quantityByType.get(item.typeId) || 0) + item.qty);
-    });
     const promotionByType = new Map<number, number>();
     promoAssignments.forEach((a) => {
       if (a.valid && a.typeId != null && a.promotion) promotionByType.set(a.typeId, a.promotion.id);
     });
+
+    const genericQuantityByType = new Map<number, number>();
+    const specificItems: Array<{ room_type_id: number; quantity: number; room_id: number; promotion_id?: number }> = [];
+    cartItems.forEach((item) => {
+      if (item.roomId) {
+        specificItems.push({
+          room_type_id: item.typeId,
+          quantity: item.qty,
+          room_id: item.roomId,
+          promotion_id: promotionByType.get(item.typeId) ?? undefined,
+        });
+      } else {
+        genericQuantityByType.set(item.typeId, (genericQuantityByType.get(item.typeId) || 0) + item.qty);
+      }
+    });
+    const genericItems = Array.from(genericQuantityByType.entries()).map(([room_type_id, quantity]) => ({
+      room_type_id,
+      quantity,
+      promotion_id: promotionByType.get(room_type_id) ?? undefined,
+    }));
 
     setIsBooking(true);
     try {
@@ -303,21 +365,15 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
         check_out_date: checkOut,
         adults,
         children,
-        items: Array.from(quantityByType.entries()).map(([room_type_id, quantity]) => ({
-          room_type_id,
-          quantity,
-          promotion_id: promotionByType.get(room_type_id) ?? undefined,
-        })),
+        child_ages: childAges,
+        special_requests: specialRequest.trim() || undefined,
+        items: [...specificItems, ...genericItems],
       });
 
       const bookingId = res.data?.data?.room_booking_id;
       if (!bookingId) throw new Error('ไม่ได้รับหมายเลขการจองจากระบบ');
 
-      const boatTicketsGranted = Number(res.data?.data?.boat_tickets_granted || 0);
-      if (boatTicketsGranted > 0) {
-        toast.success(`ได้รับบัตรพายเรือฟรี ${boatTicketsGranted} ใบ! ไปใช้ได้ที่หน้าจองเรือ`, { duration: 5000 });
-      }
-
+      setSpecialRequest('');
       clearCartEverywhere();
       router.push(`/payment?booking_type=room&booking_id=${bookingId}`);
     } catch (err) {
@@ -410,6 +466,48 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
       toast.error('ใช้โค้ดนี้ไปแล้ว');
       return;
     }
+    if (promoCodes.length >= 3) {
+      toast.error('ใช้โค้ดได้สูงสุด 3 โค้ดเท่านั้น');
+      return;
+    }
+
+    // Check stackability
+    // Get the promotion object for the new code
+    let newPromo: Promotion | undefined;
+    for (const r of allRooms) {
+      const found = r.available_promotions?.find(p => p.code === code);
+      if (found) {
+        newPromo = found;
+        break;
+      }
+    }
+
+    if (!newPromo) {
+      toast.error('โค้ดไม่ถูกต้องหรือหมดอายุ');
+      return;
+    }
+
+    if (promoCodes.length > 0) {
+      // If we already have codes, they ALL must be stackable, including the new one
+      if (!newPromo.stackable) {
+        toast.error('โค้ดนี้ไม่สามารถใช้ร่วมกับโค้ดอื่นได้');
+        return;
+      }
+
+      // Check existing codes
+      for (const existingCode of promoCodes) {
+        let p: Promotion | undefined;
+        for (const r of allRooms) {
+          const found = r.available_promotions?.find(x => x.code === existingCode);
+          if (found) { p = found; break; }
+        }
+        if (p && !p.stackable) {
+          toast.error(`โค้ด ${existingCode} ที่ใช้อยู่ ไม่สามารถใช้ร่วมกับโค้ดอื่นได้ กรุณาลบออกก่อน`);
+          return;
+        }
+      }
+    }
+
     updateUrl({ promo_code: [...promoCodes, code].join(',') });
     setPromoInput('');
   };
@@ -428,10 +526,10 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
       <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4 bg-white rounded-t-2xl">
         <div className="flex items-center gap-2.5">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700"><CreditCard size={16} /></span>
-          <h3 className="font-sans text-[16px] font-semibold text-forest-900">สรุปการจอง</h3>
+          <h3 className="font-sans text-base font-semibold text-forest-900">สรุปการจอง</h3>
         </div>
         {cartItems.length > 0 && (
-          <button type="button" onClick={handleClearAll} className="text-[11px] font-semibold text-stone-400 transition-colors hover:text-red-600">
+          <button type="button" onClick={handleClearAll} className="text-xs font-semibold text-stone-400 transition-colors hover:text-red-600">
             ล้างทั้งหมด
           </button>
         )}
@@ -440,7 +538,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
       <div className="space-y-6 px-5 py-5">
         {/* DATES */}
         <div>
-          <span className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[#0A2E1F]">วันเข้าพัก</span>
+          <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">วันเข้าพัก</span>
           <div className="relative" ref={dateFieldRef}>
             <button
               onClick={() => setIsCalendarOpen(!isCalendarOpen)}
@@ -448,11 +546,11 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
             >
               <div className="flex items-center gap-3">
                 <Calendar size={18} className="text-[#0A2E1F]" />
-                <span className="text-[13px] font-medium text-stone-700">
+                <span className="text-sm font-medium text-stone-700">
                   {formatThaiDate(checkIn)} – {formatThaiDate(checkOut)}
                 </span>
               </div>
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-[#0A2E1F]">
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-[#0A2E1F]">
                 {nights} คืน
               </span>
             </button>
@@ -473,7 +571,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
                         setIsCalendarOpen(false);
                       }
                     }}
-                    minISO={todayISO()}
+                    minISO={isAdminOrStaff ? todayISO() : addDaysISO(todayISO(), 1)}
                   />
                 </div>
               </>
@@ -483,46 +581,89 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
 
         {/* GUESTS */}
         <div>
-          <span className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[#0A2E1F]">ผู้เข้าพัก</span>
+          <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">ผู้เข้าพัก</span>
           <div className="divide-y divide-stone-100 rounded-xl border border-stone-200">
             <div className="flex items-center justify-between px-4 py-3">
               <div>
-                <p className="text-[13px] font-medium text-stone-700">ผู้ใหญ่</p>
-                <p className="text-[10.5px] text-stone-400">อายุ 12 ปีขึ้นไป</p>
+                <p className="text-sm font-medium text-stone-700">ผู้ใหญ่</p>
+                <p className="text-xs text-stone-400">อายุ 18 ปีขึ้นไป</p>
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={() => handleGuestChange('adults', -1)} disabled={adults <= 1} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
                 <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{adults}</span>
-                <button onClick={() => handleGuestChange('adults', 1)} disabled={totalCapacity > 0 && totalGuests >= totalCapacity} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
+                <button onClick={() => handleGuestChange('adults', 1)} disabled={totalCapacity > 0 && totalCapacityGuests >= totalCapacity} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
               </div>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
               <div>
-                <p className="text-[13px] font-medium text-stone-700">เด็ก</p>
-                <p className="text-[10.5px] text-stone-400">อายุ 2–11 ปี</p>
+                <p className="text-sm font-medium text-stone-700">เด็ก</p>
+                <p className="text-xs text-stone-400">อายุ 0–17 ปี</p>
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={() => handleGuestChange('children', -1)} disabled={children <= 0} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
                 <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{children}</span>
-                <button onClick={() => handleGuestChange('children', 1)} disabled={totalCapacity > 0 && totalGuests >= totalCapacity} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
+                <button onClick={() => handleGuestChange('children', 1)} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
               </div>
             </div>
+            {children > 0 && (
+              <div className="space-y-2.5 border-t border-dashed border-stone-200 bg-emerald-50/30 px-4 py-3.5">
+                <div className="flex items-center gap-1.5">
+                  <Baby size={14} className="text-[#0A2E1F]" />
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#0A2E1F]">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {childAges.map((age, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-center gap-2 rounded-xl border bg-white px-3 py-2 shadow-sm transition-colors ${
+                        age === null ? 'border-amber-300 ring-1 ring-amber-100' : 'border-stone-200'
+                      }`}
+                    >
+                      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#0A2E1F]/10 text-xs font-extrabold text-[#0A2E1F]">
+                        {index + 1}
+                      </span>
+                      <div className="relative min-w-0 flex-1">
+                        <select
+                          value={age ?? ''}
+                          onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
+                          className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-none ${
+                            age === null ? 'text-amber-600' : 'text-[#0A2E1F]'
+                          }`}
+                        >
+                          <option value="" disabled>เลือกอายุ</option>
+                          {Array.from({ length: 18 }, (_, a) => a).map((a) => (
+                            <option key={a} value={a}>{a} ปี</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={12} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-stone-400" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {!allChildAgesSet && (
+                  <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-600">
+                    <AlertTriangle size={12} className="shrink-0" /> กรุณาเลือกอายุเด็กให้ครบก่อนยืนยันการจอง
+                  </p>
+                )}
+                <p className="text-xs text-stone-400">เด็กอายุต่ำกว่า 2 ขวบไม่นับรวมความจุห้อง</p>
+              </div>
+            )}
           </div>
           {overCapacity && (
-            <p className="mt-2 flex items-center gap-1.5 text-[11.5px] font-semibold text-red-500">
-              <AlertTriangle size={13} /> ผู้เข้าพักรวม {totalGuests} คน เกินความจุห้องที่เลือก ({totalCapacity} คน) — เพิ่มห้องหรือลดจำนวนผู้เข้าพัก
+            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-red-500">
+              <AlertTriangle size={13} /> ผู้เข้าพักรวม {totalCapacityGuests} คน เกินความจุห้องที่เลือก ({totalCapacity} คน) — เพิ่มห้องหรือลดจำนวนผู้เข้าพัก
             </p>
           )}
         </div>
 
         {/* ROOM LIST */}
         <div>
-          <span className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[#0A2E1F]">ห้องพักที่เลือก</span>
+          <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">ห้องพักที่เลือก</span>
 
           {currentRoomType && !isCurrentRoomInCart && (
             <button
               onClick={handleAddCurrentRoom}
-              className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#0A2E1F] bg-emerald-50/50 py-2.5 text-[12px] font-bold text-[#0A2E1F] transition-colors hover:bg-emerald-100/50"
+              className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#0A2E1F] bg-emerald-50/50 py-2.5 text-xs font-bold text-[#0A2E1F] transition-colors hover:bg-emerald-100/50"
             >
               <Plus size={14} /> เพิ่ม {currentRoomType.room_name} ลงในการจอง
             </button>
@@ -533,29 +674,36 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
               <div key={item.rawToken} className={`rounded-xl p-3 ${item.unavailable ? 'border border-red-200 bg-red-50' : 'bg-stone-50/60'}`}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className={`truncate text-[13px] font-bold ${item.unavailable ? 'text-red-700' : 'text-[#0A2E1F]'}`}>{item.name}</p>
-                    <p className={`text-[11px] ${item.unavailable ? 'text-red-500' : 'text-stone-500'}`}>฿{item.price.toLocaleString()} / คืน · จุ {item.capacity} ท่าน</p>
+                    <p className={`truncate text-sm font-bold ${item.unavailable ? 'text-red-700' : 'text-[#0A2E1F]'}`}>{item.name}</p>
+                    <p className={`text-xs ${item.unavailable ? 'text-red-500' : 'text-stone-500'}`}>฿{item.price.toLocaleString()} / คืน · จุ {item.capacity} ท่าน</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, -1)} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
-                    <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{item.qty}</span>
-                    <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, 1)} disabled={item.unavailable} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
-                  </div>
+                  {item.roomId ? (
+                    // เลือกห้องเจาะจงไว้แล้ว (มีเลขห้องเดียว) เพิ่ม/ลดจำนวนไม่ได้ เพราะมีห้องนั้นห้องเดียว มีแค่ปุ่มลบออก
+                    <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, -1)} className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-red-500 transition-colors hover:border-red-300 hover:bg-red-50">
+                      <Trash2 size={13} />
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, -1)} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
+                      <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{item.qty}</span>
+                      <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, 1)} disabled={item.unavailable} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
+                    </div>
+                  )}
                 </div>
                 {item.unavailable && (
-                  <p className="mt-1.5 text-[11px] font-semibold text-red-600">ไม่ว่างแล้วสำหรับวันที่นี้ กรุณาลบออกหรือเปลี่ยนวันที่</p>
+                  <p className="mt-1.5 text-xs font-semibold text-red-600">ไม่ว่างแล้วสำหรับวันที่นี้ กรุณาลบออกหรือเปลี่ยนวันที่</p>
                 )}
               </div>
             )) : (
-              <div className="rounded-xl border border-dashed border-stone-200 py-6 text-center text-[12px] text-stone-400 italic">ยังไม่ได้เลือกห้องพัก</div>
+              <div className="rounded-xl border border-dashed border-stone-200 py-6 text-center text-xs text-stone-400 italic">ยังไม่ได้เลือกห้องพัก</div>
             )}
           </div>
         </div>
 
         {/* PROMO CODE */}
         <div>
-          <span className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[#0A2E1F]">โค้ดส่วนลด</span>
-          <p className="mb-2 text-[10.5px] text-stone-400">ใช้ได้หลายโค้ดพร้อมกัน หากจองห้องหลายประเภท (1 ประเภทห้องต่อ 1 โค้ด)</p>
+          <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">โค้ดส่วนลด</span>
+          <p className="mb-2 text-xs text-stone-400">ใช้ได้หลายโค้ดพร้อมกัน หากจองห้องหลายประเภท (1 ประเภทห้องต่อ 1 โค้ด)</p>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -564,10 +712,10 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
                 onChange={(e) => setPromoInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPromoCode(promoInput); } }}
                 placeholder="กรอกโค้ด"
-                className="w-full rounded-xl border border-stone-200 py-2.5 pl-9 pr-3 text-[13px] focus:border-[#0A2E1F] focus:outline-none"
+                className="w-full rounded-xl border border-stone-200 py-2.5 pl-9 pr-3 text-sm focus:border-[#0A2E1F] focus:outline-none"
               />
             </div>
-            <button onClick={() => addPromoCode(promoInput)} className="rounded-xl bg-[#0A2E1F] px-4 text-[12px] font-bold text-white transition-colors hover:bg-emerald-900">ใช้โค้ด</button>
+            <button onClick={() => addPromoCode(promoInput)} className="rounded-xl bg-[#0A2E1F] px-4 text-xs font-bold text-white transition-colors hover:bg-emerald-900">ใช้โค้ด</button>
           </div>
           {promoAssignments.length > 0 && (
             <div className="mt-2 space-y-1.5">
@@ -575,7 +723,7 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
                 <div key={a.code} className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${a.valid ? 'border-emerald-100 bg-emerald-50' : 'border-red-100 bg-red-50'}`}>
                   <div className="flex min-w-0 items-center gap-2">
                     {a.valid ? <CheckCircle2 size={14} className="shrink-0 text-emerald-600" /> : <X size={14} className="shrink-0 text-red-500" />}
-                    <span className={`truncate text-[12px] font-bold ${a.valid ? 'text-emerald-800' : 'text-red-600'}`}>
+                    <span className={`truncate text-xs font-bold ${a.valid ? 'text-emerald-800' : 'text-red-600'}`}>
                       {a.code}{a.valid ? ` · ${a.promotion?.name}${a.typeLabel ? ` (${a.typeLabel})` : ''}` : ` · ${a.reason}`}
                     </span>
                   </div>
@@ -585,45 +733,66 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
             </div>
           )}
         </div>
+
+        {/* SPECIAL REQUEST */}
+        <div>
+          <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">คำขอพิเศษ</span>
+          <p className="mb-2 text-xs text-stone-400">ไม่บังคับ — ทางที่พักจะพยายามจัดให้ตามคำขอ แต่ไม่การันตี</p>
+          <textarea
+            value={specialRequest}
+            onChange={(e) => setSpecialRequest(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder="เช่น ต้องการเตียงเสริม, ห้องชั้นสูง, แพ้อาหารทะเล"
+            className="w-full resize-none rounded-xl border border-stone-200 p-3 text-sm focus:border-[#0A2E1F] focus:outline-none"
+          />
+        </div>
       </div>
 
       {/* FOOTER */}
       <div className="border-t border-stone-100 bg-stone-50/50 px-5 py-5 rounded-b-2xl">
         <div className="space-y-2">
-          <div className="flex justify-between text-[13px] text-stone-500">
+          <div className="flex justify-between text-sm text-stone-500">
             <span>ราคาห้องพัก × {nights} คืน</span>
             <span>฿{subtotal.toLocaleString()}</span>
           </div>
           {promoAssignments.filter((a) => a.valid).map((a) => (
-            <div key={a.code} className="flex justify-between text-[13px] font-semibold text-emerald-600">
+            <div key={a.code} className="flex justify-between text-sm font-semibold text-emerald-600">
               <span>ส่วนลด ({a.code})</span>
               <span>-฿{a.discount.toLocaleString()}</span>
             </div>
           ))}
           <div className="my-3 h-px bg-stone-200" />
           <div className="flex items-baseline justify-between">
-            <span className="text-[14px] font-bold text-[#0A2E1F]">ยอดชำระสุทธิ</span>
-            <span className="text-[24px] font-extrabold text-[#0A2E1F]">฿{total.toLocaleString()}</span>
+            <span className="text-sm font-bold text-[#0A2E1F]">ยอดชำระสุทธิ</span>
+            <span className="text-2xl font-extrabold text-[#0A2E1F]">฿{total.toLocaleString()}</span>
           </div>
         </div>
         {hasUnavailableItems && (
           <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold text-red-600"><AlertTriangle size={13} className="shrink-0" />กรุณาลบห้องที่ไม่ว่างแล้วออกก่อนยืนยันการจอง</p>
-            <button type="button" onClick={handleRemoveUnavailable} className="shrink-0 text-[11px] font-bold text-red-700 underline hover:text-red-900">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-red-600"><AlertTriangle size={13} className="shrink-0" />กรุณาลบห้องที่ไม่ว่างแล้วออกก่อนยืนยันการจอง</p>
+            <button type="button" onClick={handleRemoveUnavailable} className="shrink-0 text-xs font-bold text-red-700 underline hover:text-red-900">
               ลบออกทั้งหมด
             </button>
           </div>
         )}
-        <button onClick={handleConfirmBooking} disabled={cartItems.length === 0 || isBooking || hasUnavailableItems || overCapacity} className="mt-3 w-full rounded-xl bg-[#0A2E1F] py-4 text-[15px] font-bold text-white shadow-lg transition-all hover:bg-emerald-900 active:scale-[0.98] disabled:bg-stone-300">
+
+        <div className="mt-4 mb-2 flex items-start gap-2 rounded-lg bg-stone-100/50 p-2 text-xs leading-relaxed text-charcoal-400">
+          <Clock size={12} className="mt-0.5 shrink-0 text-charcoal-500" />
+          <p>
+            <span className="font-semibold text-charcoal-600">นโยบาย:</span> เช็คอิน 14:00 - 23:00 น. | เช็คเอาต์ ก่อน 12:00 น.
+          </p>
+        </div>
+        <button onClick={handleConfirmBooking} disabled={cartItems.length === 0 || isBooking || hasUnavailableItems || overCapacity || !allChildAgesSet} className="mt-3 w-full rounded-xl bg-[#0A2E1F] py-4 text-base font-bold text-white shadow-lg transition-all hover:bg-emerald-900 active:scale-[0.98] disabled:bg-stone-300">
           {isBooking ? 'กำลังสร้างการจอง...' : 'ยืนยันการจอง'}
         </button>
         {showLoginNotice && !isAuthenticated && cartItems.length > 0 && (
           <div className="mt-3 flex flex-col items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-center">
-            <p className="text-[11.5px] font-semibold text-amber-700">ต้องเข้าสู่ระบบก่อนจึงจะยืนยันการจองได้</p>
+            <p className="text-xs font-semibold text-amber-700">ต้องเข้าสู่ระบบก่อนจึงจะยืนยันการจองได้</p>
             <button
               type="button"
               onClick={() => router.push(buildLoginRedirectUrl(pathname, searchParams.toString()))}
-              className="w-full rounded-lg bg-amber-500 py-2 text-[12.5px] font-bold text-white transition-colors hover:bg-amber-600"
+              className="w-full rounded-lg bg-amber-500 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-600"
             >
               เข้าสู่ระบบ
             </button>
@@ -639,13 +808,13 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
         style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
       >
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-charcoal-400">ยอดชำระสุทธิ</p>
-          <p className="truncate text-[18px] font-extrabold text-[#0A2E1F]">฿{total.toLocaleString()}</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ยอดชำระสุทธิ</p>
+          <p className="truncate text-lg font-extrabold text-[#0A2E1F]">฿{total.toLocaleString()}</p>
         </div>
         <button
           type="button"
           onClick={() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          className="shrink-0 rounded-xl bg-[#0A2E1F] px-5 py-3 text-[13px] font-bold text-white shadow-md transition-colors hover:bg-emerald-900"
+          className="shrink-0 rounded-xl bg-[#0A2E1F] px-5 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-emerald-900"
         >
           ดูสรุปการจอง
         </button>
@@ -659,15 +828,15 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
           <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-500">
             <Trash2 size={22} />
           </div>
-          <h3 className="font-sans text-center text-[16px] font-bold text-forest-900">ล้างรายการห้องพักทั้งหมด?</h3>
-          <p className="mt-1.5 text-center text-[13px] leading-relaxed text-stone-500">
+          <h3 className="font-sans text-center text-base font-bold text-forest-900">ล้างรายการห้องพักทั้งหมด?</h3>
+          <p className="mt-1.5 text-center text-sm leading-relaxed text-stone-500">
             ห้องพักและโค้ดส่วนลดที่เลือกไว้ทั้งหมดจะถูกลบออก และไม่สามารถกู้คืนได้
           </p>
           <div className="mt-5 flex gap-3">
-            <button type="button" onClick={() => setShowClearConfirm(false)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-[13px] font-bold text-stone-600 transition-colors hover:bg-stone-50">
+            <button type="button" onClick={() => setShowClearConfirm(false)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-sm font-bold text-stone-600 transition-colors hover:bg-stone-50">
               ยกเลิก
             </button>
-            <button type="button" onClick={confirmClearAll} className="flex-1 rounded-xl bg-red-600 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-red-700">
+            <button type="button" onClick={confirmClearAll} className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700">
               ล้างทั้งหมด
             </button>
           </div>

@@ -394,6 +394,7 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
       min_nights, min_price, max_discount, start_date, end_date,
       usage_limit, is_active, room_type_id, room_count, boat_ticket_count,
       usage_limit_per_member, is_collectible, stackable, applies_to,
+      boat_addon_mode, boat_addon_price,
     } = req.body;
 
     const existing = await pool.query('SELECT id FROM promotions WHERE UPPER(code) = UPPER($1)', [code]);
@@ -406,8 +407,9 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
       `INSERT INTO promotions (code, name, description, discount_type, discount_value,
                                min_nights, min_price, max_discount, start_date, end_date,
                                usage_limit, is_active, room_type_id, room_count, boat_ticket_count,
-                               usage_limit_per_member, is_collectible, stackable, applies_to)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+                               usage_limit_per_member, is_collectible, stackable, applies_to,
+                               boat_addon_mode, boat_addon_price)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
        RETURNING *`,
       [
         code.toUpperCase().trim(), name, description || null,
@@ -420,6 +422,8 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
         is_collectible === true,
         stackable === true,
         parseAppliesTo(applies_to),
+        boat_addon_mode === 'paid' ? 'paid' : 'free',
+        boat_addon_price || null,
       ]
     );
 
@@ -438,6 +442,7 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
       min_nights, min_price, max_discount, start_date, end_date,
       usage_limit, is_active, room_type_id, room_count, boat_ticket_count,
       usage_limit_per_member, is_collectible, stackable, applies_to,
+      boat_addon_mode, boat_addon_price,
     } = req.body;
 
     if (code) {
@@ -472,8 +477,10 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
            is_collectible = COALESCE($17, is_collectible),
            stackable = COALESCE($18, stackable),
            applies_to = COALESCE($19, applies_to),
+           boat_addon_mode = COALESCE($20, boat_addon_mode),
+           boat_addon_price = $21,
            updated_at = NOW()
-       WHERE id = $20
+       WHERE id = $22
        RETURNING *`,
       [
         code?.toUpperCase().trim() || null,
@@ -497,6 +504,8 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
         applies_to === undefined || applies_to === null || applies_to === ''
           ? null
           : parseAppliesTo(applies_to),
+        boat_addon_mode === 'paid' ? 'paid' : boat_addon_mode === 'free' ? 'free' : null,
+        boat_addon_price ?? null,
         id,
       ]
     );

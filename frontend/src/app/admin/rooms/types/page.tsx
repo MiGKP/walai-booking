@@ -247,7 +247,7 @@ export default function RoomTypesPage() {
     const numericPrice = Number(form.price);
     // ตรวจสอบราคาบังคับ
     if (!form.price || Number.isNaN(numericPrice) || numericPrice <= 0) {
-      alert("กรุณาระบุราคาห้องพักให้ถูกต้อง");
+      toast.error("กรุณาระบุราคาห้องพักให้ถูกต้อง");
       return;
     }
 
@@ -458,7 +458,7 @@ export default function RoomTypesPage() {
               <Layers size={18} />
             </div>
             <div>
-              <span className="text-[10px] font-semibold text-stone-400 block leading-tight">
+              <span className="text-xs font-semibold text-stone-400 block leading-tight">
                 ประเภทห้องทั้งหมด
               </span>
               <span className="text-xs font-bold text-[#0b3b2c]">
@@ -510,7 +510,7 @@ export default function RoomTypesPage() {
         {/* Table Area */}
         <div className="flex-1 overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead className="bg-stone-100/70 border-b border-stone-200/80 text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+            <thead className="bg-stone-100/70 border-b border-stone-200/80 text-xs font-bold text-stone-500 uppercase tracking-wider">
               <tr>
                 <th className="px-5 py-3.5">ประเภทห้อง</th>
                 <th className="px-4 py-3.5">ความจุ</th>
@@ -583,7 +583,7 @@ export default function RoomTypesPage() {
                           <div className="font-bold text-stone-900 text-sm truncate">
                             {rt.type_name}
                           </div>
-                          <div className="text-[11px] text-stone-400 truncate max-w-xs font-normal mt-0.5">
+                          <div className="text-xs text-stone-400 truncate max-w-xs font-normal mt-0.5">
                             {rt.description || "ไม่มีรายละเอียดเพิ่มเติม"}
                           </div>
                         </div>
@@ -615,13 +615,13 @@ export default function RoomTypesPage() {
                           rt.amenities.map((am: any) => (
                             <span
                               key={am.id}
-                              className="px-2 py-0.5 bg-stone-100 text-stone-700 border border-stone-200 rounded-md text-[10px] font-medium"
+                              className="px-2 py-0.5 bg-stone-100 text-stone-700 border border-stone-200 rounded-md text-xs font-medium"
                             >
                               {am.name}
                             </span>
                           ))
                         ) : (
-                          <span className="text-[10px] text-stone-400 font-normal">
+                          <span className="text-xs text-stone-400 font-normal">
                             ไม่ได้ระบุ
                           </span>
                         )}
@@ -636,7 +636,7 @@ export default function RoomTypesPage() {
                       <button
                         type="button"
                         onClick={() => handleToggleStatus(rt.id, rt.status)}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                           rt.status
                             ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
                             : "bg-stone-200 text-stone-600 hover:bg-stone-300"
@@ -850,7 +850,7 @@ export default function RoomTypesPage() {
                         .map((a) => (
                           <span
                             key={a.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-[#0b3b2c] text-[11px] font-semibold rounded-lg border border-emerald-100"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-[#0b3b2c] text-xs font-semibold rounded-lg border border-emerald-100"
                           >
                             {a.name}
                             <button
@@ -929,7 +929,7 @@ export default function RoomTypesPage() {
                     <label className="block text-xs font-semibold text-slate-700">
                       รูปภาพห้องพัก <span className="text-rose-500">*</span>
                     </label>
-                    <span className="text-[11px] font-medium text-slate-400">
+                    <span className="text-xs font-medium text-slate-400">
                       รูปปก + รูปประกอบ ({galleryPreviews.length}/
                       {MAX_GALLERY_COUNT})
                     </span>
@@ -946,7 +946,7 @@ export default function RoomTypesPage() {
                             alt="Cover Preview"
                             className="w-full h-full object-cover"
                           />
-                          <span className="absolute top-2 left-2 bg-slate-900/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                          <span className="absolute top-2 left-2 bg-slate-900/70 text-white text-xs font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
                             รูปปกหลัก
                           </span>
                           <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -982,7 +982,7 @@ export default function RoomTypesPage() {
                           <p className="text-xs font-semibold text-slate-700">
                             อัปโหลดรูปปกหลัก
                           </p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
+                          <p className="text-xs text-slate-400 mt-0.5">
                             ลากไฟล์มาวาง หรือคลิกที่นี่
                           </p>
                           <input
@@ -1035,7 +1035,7 @@ export default function RoomTypesPage() {
                               className="flex flex-col items-center justify-center w-full h-full border border-dashed border-slate-300 hover:border-[#0b3b2c] rounded-xl bg-slate-50/50 hover:bg-emerald-50/30 cursor-pointer text-slate-500 hover:text-[#0b3b2c] transition-all"
                             >
                               <PlusCircle size={18} />
-                              <span className="text-[10px] font-semibold mt-1">
+                              <span className="text-xs font-semibold mt-1">
                                 เพิ่มรูป
                               </span>
                               <input
@@ -1090,7 +1090,7 @@ export default function RoomTypesPage() {
                       {galleryPreviews.length < MAX_GALLERY_COUNT && (
                         <label className="flex flex-col items-center justify-center h-20 border border-dashed border-slate-300 hover:border-[#0b3b2c] rounded-xl bg-slate-50/50 hover:bg-emerald-50/30 cursor-pointer text-slate-500 hover:text-[#0b3b2c] transition-all">
                           <PlusCircle size={18} />
-                          <span className="text-[10px] font-semibold mt-1">
+                          <span className="text-xs font-semibold mt-1">
                             เพิ่มรูป
                           </span>
                           <input
@@ -1289,7 +1289,7 @@ export default function RoomTypesPage() {
                     <label className="block text-xs font-semibold text-slate-700 cursor-pointer">
                       สถานะการใช้งาน
                     </label>
-                    <p className="text-[11px] font-medium text-slate-400 mt-0.5">
+                    <p className="text-xs font-medium text-slate-400 mt-0.5">
                       {editingRoom.status
                         ? "เปิดใช้งาน (ลูกค้าเห็นและจองได้)"
                         : "ปิดใช้งาน (ซ่อนจากหน้าแสดงผลฝั่งลูกค้า)"}
@@ -1368,7 +1368,7 @@ export default function RoomTypesPage() {
                         .map((a: any) => (
                           <span
                             key={a.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-[#0b3b2c] text-[11px] font-semibold rounded-lg border border-emerald-100"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-[#0b3b2c] text-xs font-semibold rounded-lg border border-emerald-100"
                           >
                             {a.name}
                             <button
@@ -1429,7 +1429,7 @@ export default function RoomTypesPage() {
                     <label className="block text-xs font-semibold text-slate-700">
                       รูปภาพห้องพัก <span className="text-rose-500">*</span>
                     </label>
-                    <span className="text-[11px] font-medium text-slate-400">
+                    <span className="text-xs font-medium text-slate-400">
                       รูปปก + รูปประกอบ (
                       {(editingRoom.existing_gallery?.length || 0) +
                         editGalleryPreviews.length}
@@ -1450,7 +1450,7 @@ export default function RoomTypesPage() {
                             alt="Cover Preview"
                             className="w-full h-full object-cover"
                           />
-                          <span className="absolute top-2 left-2 bg-slate-900/70 text-white text-[10px] font-semibold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                          <span className="absolute top-2 left-2 bg-slate-900/70 text-white text-xs font-semibold px-2 py-0.5 rounded-md backdrop-blur-xs">
                             {editCoverPreview ? "รูปปกใหม่" : "รูปปกปัจจุบัน"}
                           </span>
                           <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -1477,7 +1477,7 @@ export default function RoomTypesPage() {
                           <p className="text-xs font-semibold text-slate-700">
                             อัปโหลดรูปปกหลัก
                           </p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
+                          <p className="text-xs text-slate-400 mt-0.5">
                             ลากไฟล์มาวาง หรือคลิกที่นี่
                           </p>
                           <input
@@ -1562,7 +1562,7 @@ export default function RoomTypesPage() {
                                     size={18}
                                     className="text-slate-400"
                                   />
-                                  <span className="text-[10px] font-medium text-slate-600 mt-0.5">
+                                  <span className="text-xs font-medium text-slate-600 mt-0.5">
                                     เพิ่มรูป
                                   </span>
                                   <input
@@ -1649,7 +1649,7 @@ export default function RoomTypesPage() {
                         {combinedGallery.length < (MAX_GALLERY_COUNT || 5) && (
                           <label className="flex flex-col items-center justify-center h-20 border border-dashed border-slate-200 hover:border-[#0b3b2c] rounded-xl bg-[#f8fafc] hover:bg-emerald-50/20 cursor-pointer text-slate-500 hover:text-[#0b3b2c] transition-all">
                             <PlusCircle size={18} className="text-slate-400" />
-                            <span className="text-[10px] font-medium text-slate-600 mt-0.5">
+                            <span className="text-xs font-medium text-slate-600 mt-0.5">
                               เพิ่มรูป
                             </span>
                             <input

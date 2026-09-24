@@ -28,7 +28,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
     let booking: any;
     if (booking_type === 'room') {
       const result = await pool.query(
-        'SELECT total_price, payment_status, payment_slip FROM room_bookings WHERE room_booking_id = $1 AND member_id = $2',
+        'SELECT total_price, payment_status, payment_slip, status, reject_reason FROM room_bookings WHERE room_booking_id = $1 AND member_id = $2',
         [booking_id, user.id]
       );
       if (result.rows.length === 0) {
@@ -38,7 +38,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       booking = result.rows[0];
     } else if (booking_type === 'kayak') {
       const result = await pool.query(
-        'SELECT total_price, payment_status, payment_slip FROM boat_bookings WHERE boat_booking_id = $1 AND member_id = $2',
+        'SELECT total_price, payment_status, payment_slip, status FROM boat_bookings WHERE boat_booking_id = $1 AND member_id = $2',
         [booking_id, user.id]
       );
       if (result.rows.length === 0) {
@@ -63,6 +63,10 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
         booking_id,
         amount: booking.total_price,
         status: booking.payment_status,
+        // สถานะจริงของการจอง (pending/paid/approved/rejected/cancelled/checked_out) — ต้องใช้ตัวนี้แยกกรณีถูกปฏิเสธ/ยกเลิก
+        // เพราะ payment_status จะค้างเป็น 'paid' ตลอดหลังอัปโหลดสลิป ไม่ว่าเจ้าหน้าที่จะอนุมัติหรือปฏิเสธในภายหลัง
+        booking_status: booking.status,
+        reject_reason: booking.reject_reason ?? null,
         slip_image: booking.payment_slip,
         qr_code_url: qrCodeDataUrl,
         bank_info: bankInfo,
@@ -141,7 +145,8 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     try {
       if (bType === 'room') {
         await pool.query(
-          `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE room_booking_id = $2 AND member_id = $3`,
+          `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid', payment_submitted_at = NOW()
+           WHERE room_booking_id = $2 AND member_id = $3`,
           [uploadedSlip.url, bId, user.id]
         );
         await pool.query(
@@ -213,7 +218,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
   try {
     const { id } = req.params;
     const authUser = req.user as AuthPayload;
-    
+
     const [bType, bId] = id.split('_');
 
     if (bType === 'room') {
@@ -230,7 +235,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
         return;
       }
       await pool.query(
-        `UPDATE room_bookings 
+        `UPDATE room_bookings
          SET payment_status = 'paid', status = 'approved', payment_date = NOW(), verify_by_staff_id = $1
          WHERE room_booking_id = $2`,
         [authUser.id, bId]
@@ -254,7 +259,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
         return;
       }
       await pool.query(
-        `UPDATE boat_bookings 
+        `UPDATE boat_bookings
          SET payment_status = 'paid', status = 'approved'
          WHERE boat_booking_id = $1`,
         [bId]
@@ -286,14 +291,14 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
     let payment;
     if (bType === 'room') {
       const result = await pool.query(
-        `SELECT room_booking_id as booking_id, total_price as amount, payment_status as status, payment_slip as slip_image 
+        `SELECT room_booking_id as booking_id, total_price as amount, payment_status as status, payment_slip as slip_image, (SELECT COUNT(*) > 0 FROM member_boat_tickets WHERE room_booking_id = $1) as has_boat_tickets
          FROM room_bookings WHERE room_booking_id = $1 AND (member_id = $2 OR $3 = 'admin')`,
         [bId, user.id, user.role]
       );
       payment = result.rows[0];
     } else {
       const result = await pool.query(
-        `SELECT boat_booking_id as booking_id, total_price as amount, payment_status as status, payment_slip as slip_image 
+        `SELECT boat_booking_id as booking_id, total_price as amount, payment_status as status, payment_slip as slip_image
          FROM boat_bookings WHERE boat_booking_id = $1 AND (member_id = $2 OR $3 = 'admin')`,
         [bId, user.id, user.role]
       );
@@ -346,8 +351,8 @@ export const getUserPayments = async (req: Request, res: Response): Promise<void
 export const getAllPayments = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(
-      `SELECT 
-         'room_' || rb.room_booking_id as id, 
+      `SELECT
+         'room_' || rb.room_booking_id as id,
          'room' as booking_type,
          m.first_name || ' ' || m.last_name as user_name,
          m.email as user_email,
@@ -355,12 +360,12 @@ export const getAllPayments = async (req: Request, res: Response): Promise<void>
          rb.payment_status as status,
          rb.payment_slip as slip_image,
          rb.created_at
-       FROM room_bookings rb 
+       FROM room_bookings rb
        JOIN members m ON rb.member_id = m.member_id
        WHERE rb.payment_slip IS NOT NULL
        UNION ALL
-       SELECT 
-         'kayak_' || bb.boat_booking_id as id, 
+       SELECT
+         'kayak_' || bb.boat_booking_id as id,
          'kayak' as booking_type,
          m.first_name || ' ' || m.last_name as user_name,
          m.email as user_email,
@@ -368,7 +373,7 @@ export const getAllPayments = async (req: Request, res: Response): Promise<void>
          bb.payment_status as status,
          bb.payment_slip as slip_image,
          bb.created_at
-       FROM boat_bookings bb 
+       FROM boat_bookings bb
        JOIN members m ON bb.member_id = m.member_id
        WHERE bb.payment_slip IS NOT NULL
        ORDER BY created_at DESC`
