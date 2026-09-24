@@ -18,6 +18,7 @@ import {
   Sailboat,
   Tag,
   CheckCircle2,
+  Search,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import api, { getApiErrorMessage } from "@/lib/api";
@@ -233,6 +234,10 @@ function RoomsPageContent(): React.ReactElement {
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
+  const handleSearchSubmit = () => {
+    setOpenPanel(null);
+  };
+
   // การกดจองที่พักจากหน้ารายการจะพาไปเลือกเลขห้องที่หน้ารายละเอียดแทน (ดู Link "จองที่พัก" ด้านล่าง)
   // เพื่อให้ลูกค้าเลือกห้องเจาะจงเองเสมอ แทนที่จะให้ระบบสุ่ม/auto-assign ห้องแรกที่ว่างให้แบบเดิม
 
@@ -328,7 +333,7 @@ function RoomsPageContent(): React.ReactElement {
                 )}
               </div>
               <div className="relative flex-[1.4]">
-                <button type="button" onClick={() => setOpenPanel((v) => (v === "calendar" ? null : "calendar"))} className={`flex h-full w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-200 lg:rounded-r-full ${openPanel === "calendar" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
+                <button type="button" onClick={() => setOpenPanel((v) => (v === "calendar" ? null : "calendar"))} className={`flex h-full w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-200 ${openPanel === "calendar" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
                   <Calendar size={16} className="shrink-0 text-forest-700" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">วันเข้าพัก – วันออก</span>
@@ -349,12 +354,22 @@ function RoomsPageContent(): React.ReactElement {
                   </div>
                 )}
               </div>
+              <div className="flex items-center p-2 lg:p-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleSearchSubmit}
+                  className="w-full lg:w-auto inline-flex items-center justify-center gap-2 rounded-2xl lg:rounded-full bg-forest-800 hover:bg-forest-900 active:scale-95 text-cream-100 px-6 py-3 text-sm font-bold shadow-md shadow-forest-900/15 transition-all duration-200"
+                >
+                  <Search size={16} className="text-bamboo-400 shrink-0" />
+                  <span className="tracking-wide">ค้นหาห้องว่าง</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 lg:py-2">
+      <div id="rooms-list" className="container mx-auto px-4 lg:py-2">
         <div className="flex flex-col gap-8 lg:flex-row">
           <section className="flex-1">
             {loading && rooms.length === 0 ? (
