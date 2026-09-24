@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: "/", label: "หน้าแรก" },
   { href: "/rooms", label: "ห้องพัก" },
   { href: "/kayaks", label: "เรือคายัค" },
+  { href: "/promotions", label: "โปรโมชั่น" },
 ];
 
 // เส้นระลอกน้ำบางๆ แทนเส้นขอบล่างธรรมดา — ให้ความรู้สึก "ลอยน้ำ"
