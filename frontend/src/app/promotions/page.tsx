@@ -67,7 +67,7 @@ export default function PromotionsPage(): React.ReactElement {
         </div>
       </header>
 
-      <div className="container mx-auto max-w-3xl px-4 py-8">
+      <div className="container mx-auto max-w-5xl px-4 py-8">
         {loading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((key) => (
@@ -80,43 +80,54 @@ export default function PromotionsPage(): React.ReactElement {
             <p className="mt-4 text-charcoal-500">ยังไม่มีโปรโมชั่นที่เก็บได้ในตอนนี้</p>
           </div>
         ) : (
-          <ul className="space-y-4">
-            {promos.map((promo) => (
-              <li key={promo.id}>
-                <PromoVoucher
-                  code={promo.code}
-                  name={promo.name}
-                  description={promo.description}
-                  discountType={promo.discount_type}
-                  discountValue={promo.discount_value}
-                  startDate={promo.start_date}
-                  endDate={promo.end_date}
-                  stackable={Boolean(promo.stackable)}
-                  appliesTo={promo.applies_to}
-                  minNights={promo.min_nights}
-                  maxDiscount={promo.max_discount}
-                  boatTicketCount={promo.boat_ticket_count}
-                  boatAddonMode={promo.boat_addon_mode}
-                  badge={promo.is_collectible ? 'ต้องเก็บก่อนใช้' : 'พิมพ์ตอนจอง'}
-                  footer={
-                    <PromoCollectAction
-                      code={promo.code}
-                      loading={collectingId === promo.id}
-                      status={promo.wallet_status}
-                      isCollectible={Boolean(promo.is_collectible)}
-                      isCustomer={user?.role === 'customer'}
-                      isAuthenticated={isAuthenticated}
-                      appliesTo={promo.applies_to}
-                      onCollect={() => {
-                        void handleCollect(promo.id);
-                      }}
-                      onLogin={goLogin}
-                    />
-                  }
-                />
-              </li>
+          <div className="space-y-12">
+            {[
+              { title: 'ส่วนลดห้องพัก', promos: promos.filter(p => p.applies_to === 'room') },
+              { title: 'ส่วนลดเรือคายัค', promos: promos.filter(p => p.applies_to === 'kayak') },
+              { title: 'โปรโมชั่นพิเศษ (ใช้ได้ทั้งคู่)', promos: promos.filter(p => !p.applies_to || p.applies_to === 'both') }
+            ].map(group => group.promos.length > 0 && (
+              <div key={group.title}>
+                <h2 className="font-display text-xl font-semibold text-forest-800 mb-4 pb-2 border-b border-stone-200">
+                  {group.title}
+                </h2>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+                  {group.promos.map((promo) => (
+                    <li key={promo.id}>
+                      <PromoVoucher
+                        code={promo.code}
+                        name={promo.name}
+                        description={promo.description}
+                        discountType={promo.discount_type}
+                        discountValue={promo.discount_value}
+                        startDate={promo.start_date}
+                        endDate={promo.end_date}
+                        stackable={Boolean(promo.stackable)}
+                        appliesTo={promo.applies_to}
+                        minNights={promo.min_nights}
+                        maxDiscount={promo.max_discount}
+                        boatTicketCount={promo.boat_ticket_count}
+                        boatAddonMode={promo.boat_addon_mode}
+                        badge={promo.is_collectible ? 'ต้องเก็บก่อนใช้' : 'พิมพ์ตอนจอง'}
+                        footer={
+                          <PromoCollectAction
+                            code={promo.code}
+                            loading={collectingId === promo.id}
+                            status={promo.wallet_status}
+                            isCollectible={promo.is_collectible}
+                            isCustomer={Boolean(user && user.role === 'customer')}
+                            isAuthenticated={isAuthenticated}
+                            appliesTo={promo.applies_to}
+                            onCollect={() => void handleCollect(promo.id)}
+                            onLogin={goLogin}
+                          />
+                        }
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </div>

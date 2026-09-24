@@ -104,49 +104,65 @@ export default function MyCouponsSection(): React.ReactElement {
           {filter === 'saved' && <Link href="/promotions" className="btn-primary">ไปเก็บโปรโมชั่น</Link>}
         </div>
       ) : (
-        <ul className="space-y-3">
-          {visible.map((item) => (
-            <li key={item.promotion_id}>
-              <PromoVoucher
-                code={item.code}
-                name={item.name}
-                description={item.description}
-                discountType={item.discount_type}
-                discountValue={item.discount_value}
-                startDate={item.start_date}
-                endDate={item.end_date}
-                stackable={Boolean(item.stackable)}
-                appliesTo={item.applies_to}
-                  minNights={item.min_nights}
-                  maxDiscount={item.max_discount}
-                  boatTicketCount={item.boat_ticket_count}
-                  boatAddonMode={item.boat_addon_mode}
-                muted={item.status !== 'saved'}
-                badge={walletStatusLabel(item.status)}
-                footer={
-                  item.status === 'saved' ? (
-                    <>
-                      <PromoBookingLinks code={item.code} appliesTo={item.applies_to} roomLabel="ใช้กับห้องพัก" kayakLabel="ใช้กับเรือ" />
-                      <button
-                        type="button"
-                        className="text-xs font-medium text-charcoal-400 hover:text-red-600"
-                        disabled={removingId === item.promotion_id}
-                        onClick={() => void handleRemove(item.promotion_id)}
-                      >
-                        เอาออก
-                      </button>
-                      {item.remaining != null && (
-                        <span className="ml-auto text-xs text-charcoal-400">เหลือ {item.remaining} ครั้ง</span>
-                      )}
-                    </>
-                  ) : (
-                    <Link href="/promotions" className="text-sm font-medium text-forest-800">ดูโปรโมชั่นอื่น</Link>
-                  )
-                }
-              />
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-10">
+            {[
+              { title: 'ส่วนลดห้องพัก', items: visible.filter(p => p.applies_to === 'room') },
+              { title: 'ส่วนลดเรือคายัค', items: visible.filter(p => p.applies_to === 'kayak') },
+              { title: 'โปรโมชั่นพิเศษ', items: visible.filter(p => !p.applies_to || p.applies_to === 'both') }
+            ].map(group => group.items.length > 0 && (
+              <div key={group.title}>
+                <h3 className="text-sm font-semibold text-stone-500 mb-3 px-1">{group.title}</h3>
+                <ul className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  {group.items.map((item) => (
+                    <li key={item.promotion_id}>
+                      <PromoVoucher
+                        code={item.code}
+                        name={item.name}
+                        description={item.description}
+                        discountType={item.discount_type}
+                        discountValue={item.discount_value}
+                        startDate={item.start_date}
+                        endDate={item.end_date}
+                        stackable={Boolean(item.stackable)}
+                        appliesTo={item.applies_to}
+                        minNights={item.min_nights}
+                        maxDiscount={item.max_discount}
+                        boatTicketCount={item.boat_ticket_count}
+                        boatAddonMode={item.boat_addon_mode}
+                        muted={item.status !== 'saved'}
+                        badge={walletStatusLabel(item.status)}
+                        footer={
+                          item.status === 'saved' ? (
+                            <>
+                              <PromoBookingLinks 
+                                code={item.code} 
+                                appliesTo={item.applies_to}
+                                roomLabel="ใช้จองห้องพัก"
+                                kayakLabel="ใช้จองเรือ"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => void handleRemove(item.promotion_id)}
+                                disabled={removingId === item.promotion_id}
+                                className="ml-auto text-xs font-semibold text-red-500 hover:text-red-700 disabled:opacity-50"
+                              >
+                                ลบคูปองออก
+                              </button>
+                              {item.remaining != null && (
+                                <span className="ml-auto text-xs text-charcoal-400">เหลือ {item.remaining} สิทธิ์</span>
+                              )}
+                            </>
+                          ) : (
+                            <Link href="/promotions" className="text-sm font-medium text-forest-800">หาโปรโมชั่นใหม่</Link>
+                          )
+                        }
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
       )}
     </div>
   );
