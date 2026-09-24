@@ -487,12 +487,7 @@ function KayaksPageContent(): React.ReactElement {
   return (
     <div className="min-h-screen bg-cream-100 pb-24 pt-4">
       <div className="container mx-auto px-4 pt-16 sm:pt-20">
-        <div className="mb-6 flex items-center gap-2.5">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">
-            <Anchor size={18} />
-          </span>
-          <h1 className="font-sans text-2xl font-semibold leading-tight text-forest-900 sm:text-3xl">จองเรือคายัค</h1>
-        </div>
+        
 
         {pastCutoffToday && (
           <div className="mb-6 flex items-start gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-xs font-medium text-bamboo-800">

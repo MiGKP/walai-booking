@@ -78,9 +78,9 @@ export function formatPromoWindow(start: string | null, end: string | null): str
 
 export function bookingPromoHref(scope: BookingPromoScope, code: string): string {
   if (scope === 'kayak') {
-    return `/kayaks?promo=${encodeURIComponent(code)}`;
+    return `/kayaks?promo_code=${encodeURIComponent(code)}`;
   }
-  return `/rooms?promo=${encodeURIComponent(code)}`;
+  return `/rooms?promo_code=${encodeURIComponent(code)}`;
 }
 
 export function parseAppliesTo(val?: string | null): PromoAppliesTo {

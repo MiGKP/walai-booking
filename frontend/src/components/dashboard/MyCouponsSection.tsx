@@ -130,7 +130,6 @@ export default function MyCouponsSection(): React.ReactElement {
                         boatTicketCount={item.boat_ticket_count}
                         boatAddonMode={item.boat_addon_mode}
                         muted={item.status !== 'saved'}
-                        badge={walletStatusLabel(item.status)}
                         footer={
                           item.status === 'saved' ? (
                             <>
