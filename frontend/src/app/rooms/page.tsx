@@ -18,7 +18,7 @@ import {
   Sailboat,
   Tag,
   CheckCircle2,
-  Search,
+  Search, ShoppingCart,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import api, { getApiErrorMessage } from "@/lib/api";
@@ -29,6 +29,7 @@ import BookingCalendar, {
   DayStatus,
 } from "@/components/booking/BookingCalendar";
 import BookingSummaryCard from "@/components/booking/BookingSummaryCard";
+import { useRoomCart } from "@/lib/room-cart-store";
 import { fetchRoomCalendar, toRoomDayStatus } from "@/lib/booking-calendar";
 import {
   MonthCursor,
@@ -148,6 +149,8 @@ function RoomsPageContent(): React.ReactElement {
   const { user } = useAuth();
   const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
   const router = useRouter();
+  const cart = useRoomCart();
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const today = todayISO();
@@ -204,18 +207,23 @@ function RoomsPageContent(): React.ReactElement {
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
-  const handleSelectPromo = (code: string): void => {
-    const params = new URLSearchParams(searchParams.toString());
-    let nextCodes: string[];
-    if (selectedPromoCodes.includes(code)) {
-      nextCodes = selectedPromoCodes.filter((c) => c !== code);
-    } else {
-      nextCodes = [...selectedPromoCodes, code];
-      
+  const handleCollectPromo = async (promoId: number): Promise<void> => {
+    if (!user) {
+      toast.error('กรุณาเข้าสู่ระบบก่อนเก็บโปรโมชั่น');
+      router.push('/auth/login');
+      return;
     }
-    if (nextCodes.length > 0) params.set("promo_code", nextCodes.join(","));
-    else params.delete("promo_code");
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    try {
+      await api.post(`/promotions/${promoId}/collect`);
+      toast.success('เก็บโปรโมชั่นสำเร็จ! 🎉 อย่าลืมกดใช้ในหน้าชำระเงินนะ', { duration: 4000 });
+    } catch (err: any) {
+      const msg = getApiErrorMessage(err);
+      if (msg.includes('เก็บโปรโมชั่นนี้ไปแล้ว') || msg.includes('already collected') || msg.includes('ซ้ำ')) {
+         toast('คุณมีโปรโมชั่นนี้ในกระเป๋าแล้วครับ 🎒', { icon: '✨' });
+      } else {
+         toast.error(msg || 'ไม่สามารถเก็บโปรโมชั่นได้');
+      }
+    }
   };
 
   const handleClearFilters = () => {
@@ -398,17 +406,23 @@ function RoomsPageContent(): React.ReactElement {
                         )
                       : Math.min(Number(activePromotion.discount_value), unitPrice)
                     : 0;
+                  const bestPromo = room.available_promotions?.reduce((best: any, p: any) => {
+                    const d = p.discount_type === 'percent' ? (unitPrice * Number(p.discount_value) / 100) : Number(p.discount_value);
+                    const bestD = best ? (best.discount_type === 'percent' ? (unitPrice * Number(best.discount_value) / 100) : Number(best.discount_value)) : 0;
+                    return d > bestD ? p : best;
+                  }, null);
+                  const potentialDiscount = bestPromo ? (bestPromo.discount_type === 'percent' ? Math.min(Math.round(unitPrice * Number(bestPromo.discount_value) / 100), bestPromo.max_discount || Infinity, unitPrice) : Math.min(Number(bestPromo.discount_value), unitPrice)) : 0;
                   const finalPrice = unitPrice - discount;
 
                   return (
-                    <article key={room.id} style={{ animationDelay: `${idx * 100}ms` }} className={`animate-reveal-up group relative grid grid-cols-1 overflow-hidden rounded-2xl border bg-white transition-all duration-300 lg:grid-cols-[320px_1fr_280px] ${isAvailable ? "border-stone-200/80 hover:border-forest-300 hover:shadow-md" : "border-stone-100 bg-stone-50/50 opacity-60"}`}>
+                    <article key={room.id} style={{ animationDelay: `${idx * 100}ms` }} className={`animate-reveal-up group relative grid grid-cols-1 overflow-hidden rounded-2xl border bg-white transition-all duration-300 lg:grid-cols-[380px_1fr_300px] ${isAvailable ? "border-stone-200/80 hover:border-forest-300 hover:shadow-md" : "border-stone-100 bg-stone-50/50 opacity-60"}`}>
                       <div className="relative h-48 w-full overflow-hidden lg:h-full">
                         {room.main_image ? <Image src={resolveMediaUrl(room.main_image)} alt={room.room_name} fill sizes="(max-width: 1024px) 100vw, 320px" className="object-cover transition-transform duration-1000 group-hover:scale-105" priority={idx < 2} /> : <div className="h-full w-full bg-stone-50" />}
                       </div>
                       <div className="flex flex-col justify-between border-b border-stone-100 p-5 lg:border-b-0 lg:border-r lg:border-stone-100 lg:p-6">
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded bg-bamboo-50 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-bamboo-600">{room.type_name}</span>
+                            
                             <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${isAvailable ? "bg-forest-50 text-forest-700" : "bg-stone-200 text-stone-600"}`}>
                               {isAvailable ? `ว่าง ${availableCount} ห้อง` : !isCapacityEnough ? "ความจุไม่พอ" : "เต็ม"}
                             </span>
@@ -427,25 +441,38 @@ function RoomsPageContent(): React.ReactElement {
                               <button
                                 key={promo.id}
                                 type="button"
-                                onClick={() => handleSelectPromo(promo.code)}
-                                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold transition-colors ${selectedPromoCodes.includes(promo.code) ? "border-emerald-600 bg-emerald-600 text-white" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-400"}`}
+                                onClick={() => handleCollectPromo(promo.id)}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-bamboo-300 bg-bamboo-50 px-2.5 py-1 text-[11px] font-bold text-bamboo-700 transition-colors hover:border-bamboo-400 hover:bg-bamboo-100"
                               >
-                                <Tag size={11} />
-                                {promo.name}
+                                <Tag size={12} className="text-bamboo-500" />
+                                เก็บโปรโมชั่น {promo.name}
                               </button>
                             ))}
                           </div>
                         )}
                       </div>
                       <div className="flex flex-col justify-between bg-stone-50/40 p-5 lg:bg-white lg:p-6">
-                        <div className="mb-4 lg:text-right">{room.today_bookings > 0 ? <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-100 bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-700"><span className="h-1.5 w-1.5 rounded-full bg-orange-500" />ยอดจองวันนี้ {room.today_bookings} ครั้ง</span> : <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-50 px-2.5 py-1 text-xs font-medium text-stone-500">ยังไม่มีการจองวันนี้</span>}</div>
+                        <div className="mb-4 flex flex-col items-start gap-1.5 lg:items-end">
+                          {isAvailable && searchedRange && availableCount <= 2 && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-700 shadow-sm whitespace-nowrap">
+                              <span className="flex h-1.5 w-1.5 animate-pulse rounded-full bg-orange-500" />
+                              🔥 เหลือเพียง {availableCount} ห้องสุดท้ายสำหรับวันหยุดนี้
+                            </span>
+                          )}
+                          {room.today_bookings > 0 && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 shadow-sm whitespace-nowrap">
+                              <Star size={11} className="fill-amber-400 text-amber-500" />ฮิต! จองไปแล้ว {room.today_bookings} ครั้งวันนี้
+                            </span>
+                          )}
+                        </div>
                         <div className="mb-6 flex flex-col items-start gap-1 lg:items-end">
                           <span className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ราคาต่อคืน</span>
-                          {discount > 0 ? <div className="flex w-full flex-col items-start lg:items-end"><div className="flex items-baseline gap-1.5"><span className="text-sm font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-2xl font-extrabold leading-none text-forest-900">฿{finalPrice.toLocaleString()}</span></div><span className="mt-1 rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">ประหยัด ฿{discount.toLocaleString()}</span></div> : <span className="font-sans text-2xl font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
+                          {potentialDiscount > 0 ? <div className="flex w-full flex-col items-start lg:items-end"><div className="flex items-baseline gap-1.5"><span className="text-[13px] font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{(unitPrice - potentialDiscount).toLocaleString()}</span></div><span className="mt-1 rounded bg-bamboo-50 border border-bamboo-200 px-2 py-0.5 text-[11px] font-bold text-bamboo-700 shadow-sm">ประหยัด ฿{potentialDiscount.toLocaleString()} เมื่อใช้โปรโมชั่น</span></div> : <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
                         </div>
-                        <div className="flex flex-row gap-2.5 lg:w-full lg:flex-col">
-                          <Link href={`/rooms/${room.id}?${searchParams.toString()}`} className="flex-1 rounded-xl border border-stone-200 bg-white py-3 text-center text-sm font-bold text-forest-800 shadow-sm transition-colors hover:bg-stone-50 lg:w-full">ดูรายละเอียด</Link>
-                          {isAvailable && searchedRange && <Link href={`/rooms/${room.id}?${searchParams.toString()}#room-picker`} className="flex-1 rounded-xl bg-forest-900 py-3 text-center text-sm font-bold text-white shadow-md transition-all hover:bg-forest-800 hover:shadow-lg active:scale-[0.98] lg:w-full">จองที่พัก</Link>}
+                        <div className="flex flex-col mt-auto w-full lg:w-full">
+                          <Link href={`/rooms/${room.id}?${searchParams.toString()}`} className="w-full rounded-xl bg-bamboo-600 py-3.5 text-center text-[14px] font-bold text-white shadow-md transition-all hover:bg-bamboo-700 hover:shadow-lg active:scale-[0.98]">
+                            เช็คห้องว่าง
+                          </Link>
                         </div>
                       </div>
                     </article>
@@ -454,9 +481,51 @@ function RoomsPageContent(): React.ReactElement {
               </div>
             )}
           </section>
-          <aside className="lg:w-[360px]"><div className="lg:sticky lg:top-24"><BookingSummaryCard /></div></aside>
+          
         </div>
       </div>
+
+      {/* Floating Cart Button */}
+      {cart && cart.items && cart.items.length > 0 && (
+        <button
+          onClick={() => setIsCartDrawerOpen(true)}
+          className="fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-[#0A2E1F] text-white shadow-2xl transition-transform hover:scale-105 active:scale-95"
+        >
+          <div className="relative">
+            <ShoppingCart size={24} />
+            <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-[#0A2E1F]">
+              {cart.items.length}
+            </span>
+          </div>
+        </button>
+      )}
+
+      {/* Slide-over Drawer for Cart */}
+      {isCartDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsCartDrawerOpen(false)}
+          />
+          
+          {/* Drawer Panel */}
+          <div className="relative w-full max-w-md h-full bg-white shadow-2xl animate-in slide-in-from-right duration-300 overflow-y-auto">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-100 bg-white/80 px-6 py-4 backdrop-blur-md">
+              <h2 className="text-lg font-display font-bold text-[#0A2E1F]">ตะกร้าห้องพัก</h2>
+              <button
+                onClick={() => setIsCartDrawerOpen(false)}
+                className="rounded-full p-2 text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <BookingSummaryCard />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

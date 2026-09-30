@@ -10,7 +10,7 @@ import { resolveAvatarUrl } from "@/lib/avatar";
 import toast from "react-hot-toast";
 import MyBookingsPanel from "@/components/dashboard/MyBookingsPanel";
 import MyReviewsSection from "@/components/dashboard/MyReviewsSection";
-import MyCouponsSection from "@/components/dashboard/MyCouponsSection";
+import MyPromotionsSection from "@/components/dashboard/MyPromotionsSection";
 
 const CARD = "rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)] p-5 sm:p-6";
 
@@ -323,7 +323,7 @@ export default function DashboardPage() {
             {activeTab === "coupons" && (
               <section className={CARD}>
                 <h1 className="mb-5 font-sans text-lg font-semibold text-forest-900 border-b border-stone-100 pb-4">โปรโมชั่นของฉัน</h1>
-                <MyCouponsSection />
+                <MyPromotionsSection />
               </section>
             )}
 

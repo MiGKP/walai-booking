@@ -10,7 +10,7 @@ import { walletStatusLabel, type WalletPromo, type WalletStatus } from '@/lib/pr
 
 type FilterTab = 'saved' | 'used' | 'expired';
 
-// แท็บ "โปรโมชั่นของฉัน" แบบฝังในหน้า dashboard เดียวกัน ไม่ต้องสลับไปหน้า /dashboard/coupons
+// แท็บ "โปรโมชั่นของฉัน" แบบฝังในหน้า dashboard เดียวกัน ไม่ต้องสลับไปหน้า /dashboard/promotions
 export default function MyCouponsSection(): React.ReactElement {
   const [wallet, setWallet] = useState<WalletPromo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,7 +145,7 @@ export default function MyCouponsSection(): React.ReactElement {
                                 disabled={removingId === item.promotion_id}
                                 className="ml-auto text-xs font-semibold text-red-500 hover:text-red-700 disabled:opacity-50"
                               >
-                                ลบคูปองออก
+                                ลบโปรโมชั่นออก
                               </button>
                               {item.remaining != null && (
                                 <span className="ml-auto text-xs text-charcoal-400">เหลือ {item.remaining} สิทธิ์</span>

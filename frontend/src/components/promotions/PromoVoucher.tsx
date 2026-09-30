@@ -304,7 +304,7 @@ export function PromoCollectAction({
       onClick={onCollect}
       disabled={loading}
     >
-      {loading ? <Loader2 size={14} className="inline animate-spin" /> : 'เก็บคูปอง'}
+      {loading ? <Loader2 size={14} className="inline animate-spin" /> : 'เก็บโปรโมชั่น'}
     </button>
   );
 }

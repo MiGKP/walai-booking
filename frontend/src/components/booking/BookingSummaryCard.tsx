@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { buildLoginRedirectUrl } from '@/lib/auth-redirect';
 import api, { getApiErrorMessage } from '@/lib/api';
 import BookingCalendar from '@/components/booking/BookingCalendar';
+import PromotionDrawer from '@/components/booking/PromotionDrawer';
 
 interface PhysicalRoom {
   room_id: number;
@@ -702,23 +703,37 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
 
         {/* PROMO CODE */}
         <div>
-          <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">โค้ดส่วนลด</span>
-          <p className="mb-2 text-xs text-stone-400">ใช้ได้หลายโค้ดพร้อมกัน หากจองห้องหลายประเภท (1 ประเภทห้องต่อ 1 โค้ด)</p>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-              <input
-                value={promoInput}
-                onChange={(e) => setPromoInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPromoCode(promoInput); } }}
-                placeholder="กรอกโค้ด"
-                className="w-full rounded-xl border border-stone-200 py-2.5 pl-9 pr-3 text-sm focus:border-[#0A2E1F] focus:outline-none"
-              />
-            </div>
-            <button onClick={() => addPromoCode(promoInput)} className="rounded-xl bg-[#0A2E1F] px-4 text-xs font-bold text-white transition-colors hover:bg-emerald-900">ใช้โค้ด</button>
-          </div>
+          <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">โปรโมชั่น</span>
+          <p className="mb-3 text-xs text-stone-400">ใช้โปรโมชั่นที่คุณเก็บไว้ หรือกรอกโค้ดเพิ่มเติม (1 ประเภทห้องใช้ได้ 1 โปรโมชั่น)</p>
+          
+          <PromotionDrawer
+            selectedCodes={promoCodes}
+            onApply={(code) => addPromoCode(code)}
+            onRemove={(code) => removePromoCode(code)}
+            cartSubtotal={subtotal}
+            trigger={
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-stone-50"
+              >
+                <div className="flex items-center gap-2">
+                  <Tag size={16} className="text-[#0A2E1F]" />
+                  <span className="text-sm font-semibold text-[#0A2E1F]">เลือกใช้โปรโมชั่นของคุณ</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {promoAssignments.filter(a => a.valid).length > 0 && (
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">
+                      ใช้แล้ว {promoAssignments.filter(a => a.valid).length}
+                    </span>
+                  )}
+                  <Plus size={16} className="text-stone-400" />
+                </div>
+              </button>
+            }
+          />
+          
           {promoAssignments.length > 0 && (
-            <div className="mt-2 space-y-1.5">
+            <div className="mt-3 space-y-1.5">
               {promoAssignments.map((a) => (
                 <div key={a.code} className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${a.valid ? 'border-emerald-100 bg-emerald-50' : 'border-red-100 bg-red-50'}`}>
                   <div className="flex min-w-0 items-center gap-2">
@@ -757,8 +772,8 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
             <span>฿{subtotal.toLocaleString()}</span>
           </div>
           {promoAssignments.filter((a) => a.valid).map((a) => (
-            <div key={a.code} className="flex justify-between text-sm font-semibold text-emerald-600">
-              <span>ส่วนลด ({a.code})</span>
+            <div key={a.code} className="flex justify-between rounded-lg border border-amber-200/50 bg-gradient-to-r from-amber-50 to-orange-50 px-3 py-2 text-[13px] font-bold text-amber-700 shadow-sm">
+              <span className="flex items-center gap-1.5"><Tag size={12} className="text-amber-500" /> โปรโมชั่น ({a.code})</span>
               <span>-฿{a.discount.toLocaleString()}</span>
             </div>
           ))}
