@@ -128,6 +128,7 @@ export default function RoomDetailPage(): React.ReactElement {
   const today = todayISO();
 
   const [room, setRoom] = useState<RoomDetail | null>(null);
+  const [resortInfo, setResortInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const checkIn = searchParams.get('check_in') || addDaysISO(today, 1);
@@ -172,6 +173,7 @@ export default function RoomDetailPage(): React.ReactElement {
     if (!id) return;
     setLoading(true);
     api.get(`/rooms/${id}`, { params: { check_in: range.start, check_out: range.end } }).then((res) => setRoom(res.data?.data ?? null)).catch(() => toast.error('ไม่พบห้องพัก')).finally(() => setLoading(false));
+    api.get('/settings/resort-info?id=4').then((res) => setResortInfo(res.data?.data ?? null)).catch(() => undefined);
     api.get(`/reviews/room-type/${id}`).then((res) => {
       setReviews(Array.isArray(res.data?.data) ? res.data.data : []);
       setAvgRating(res.data?.avg_rating ?? null);
