@@ -72,6 +72,30 @@ export const fetchKayakRounds = async (params: {
   return Array.isArray(rounds) ? (rounds as KayakRound[]) : [];
 };
 
+/** รอบเวลาทั้งหมดที่เปิดบริการ (ไม่ต้องการ booking_date) — ใช้แสดง shell ก่อนเลือกวัน */
+export interface KayakScheduleSlot {
+  boat_round_id: number;
+  start_time: string;
+  end_time: string;
+}
+
+export const fetchKayakSchedule = async (): Promise<KayakScheduleSlot[]> => {
+  const res = await api.get('/kayaks/schedule');
+  const data: unknown = res.data?.data;
+  if (!Array.isArray(data)) return [];
+  // deduplicate by start_time+end_time
+  const seen = new Set<string>();
+  const result: KayakScheduleSlot[] = [];
+  for (const row of data as KayakScheduleSlot[]) {
+    const key = `${row.start_time}|${row.end_time}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push({ boat_round_id: row.boat_round_id, start_time: row.start_time, end_time: row.end_time });
+    }
+  }
+  return result.sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
+};
+
 export const toRoomDayStatus = (days: RoomCalendarDay[]): Record<string, DayStatus> => {
   const status: Record<string, DayStatus> = {};
   days.forEach((day) => {

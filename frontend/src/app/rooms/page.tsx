@@ -18,7 +18,7 @@ import {
   Sailboat,
   Tag,
   CheckCircle2,
-  Search, ShoppingCart,
+  Search, ShoppingCart, Loader2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import api, { getApiErrorMessage } from "@/lib/api";
@@ -172,6 +172,8 @@ function RoomsPageContent(): React.ReactElement {
   const [guests, setGuests] = useState({ adults, children });
   const [typeFilter, setTypeFilter] = useState("all");
   const selectedPromoCodes = (searchParams.get("promo_code") || "").split(",").map((c) => c.trim().toUpperCase()).filter(Boolean);
+  
+  const [expandedPromoId, setExpandedPromoId] = useState<number | null>(null);
 
   const pickerRef = useRef<HTMLDivElement>(null);
   const nights = range ? nightsBetween(range.start, range.end) : 0;
@@ -213,16 +215,21 @@ function RoomsPageContent(): React.ReactElement {
       router.push('/auth/login');
       return;
     }
+    setCollectingId(promoId);
     try {
       await api.post(`/promotions/${promoId}/collect`);
+      setCollectedPromos((prev) => new Set(prev).add(promoId));
       toast.success('เก็บโปรโมชั่นสำเร็จ! 🎉 อย่าลืมกดใช้ในหน้าชำระเงินนะ', { duration: 4000 });
     } catch (err: any) {
-      const msg = getApiErrorMessage(err);
+      const msg = getApiErrorMessage(err, 'ไม่สามารถเก็บโปรโมชั่นได้');
       if (msg.includes('เก็บโปรโมชั่นนี้ไปแล้ว') || msg.includes('already collected') || msg.includes('ซ้ำ')) {
+         setCollectedPromos((prev) => new Set(prev).add(promoId));
          toast('คุณมีโปรโมชั่นนี้ในกระเป๋าแล้วครับ 🎒', { icon: '✨' });
       } else {
          toast.error(msg || 'ไม่สามารถเก็บโปรโมชั่นได้');
       }
+    } finally {
+      setCollectingId(null);
     }
   };
 
@@ -436,17 +443,50 @@ function RoomsPageContent(): React.ReactElement {
                           {room.bed_size && <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><BedDouble size={14} className="text-forest-400" /><span>{room.bed_size}</span></div>}
                         </div>
                         {room.available_promotions && room.available_promotions.length > 0 && (
-                          <div className="mt-3 flex flex-wrap gap-1.5">
+                          <div className="mt-3 flex flex-col gap-2">
+                            <div className="flex flex-wrap gap-1.5">
+                              {room.available_promotions.map((promo) => (
+                                <button
+                                  key={promo.id}
+                                  onClick={() => setExpandedPromoId(expandedPromoId === promo.id ? null : promo.id)}
+                                  type="button"
+                                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                                    expandedPromoId === promo.id 
+                                      ? 'border-forest-300 bg-forest-50 text-forest-700' 
+                                      : 'border-bamboo-200 bg-bamboo-50/50 text-bamboo-700 hover:bg-bamboo-100 hover:border-bamboo-300 active:scale-95'
+                                  }`}
+                                >
+                                  <Tag size={12} className={expandedPromoId === promo.id ? 'text-forest-500' : 'text-bamboo-500'} />
+                                  มีโปรโมชั่น {promo.name}
+                                </button>
+                              ))}
+                            </div>
+                            
                             {room.available_promotions.map((promo) => (
-                              <button
-                                key={promo.id}
-                                type="button"
-                                onClick={() => handleCollectPromo(promo.id)}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-bamboo-300 bg-bamboo-50 px-2.5 py-1 text-[11px] font-bold text-bamboo-700 transition-colors hover:border-bamboo-400 hover:bg-bamboo-100"
-                              >
-                                <Tag size={12} className="text-bamboo-500" />
-                                เก็บโปรโมชั่น {promo.name}
-                              </button>
+                              expandedPromoId === promo.id && (
+                                <div key={`details-${promo.id}`} className="mt-1 flex flex-wrap items-center justify-between gap-3 animate-in slide-in-from-top-2 fade-in duration-200 rounded-lg border border-stone-200 bg-stone-50 p-2.5 text-[12px] text-stone-600">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-semibold text-forest-800">
+                                      {promo.discount_type === 'percent' ? `ลด ${promo.discount_value}%` : `ลด ฿${Number(promo.discount_value).toLocaleString()}`}
+                                    </span>
+                                    {promo.min_nights && (
+                                      <span className="text-stone-500">
+                                        (ขั้นต่ำ {promo.min_nights} คืน)
+                                      </span>
+                                    )}
+                                    <span className="flex items-center gap-1 text-stone-500">
+                                      <span className="mx-1 h-3 w-px bg-stone-300"></span>
+                                      ใช้โค้ด: <span className="font-bold text-stone-700">{promo.code}</span>
+                                    </span>
+                                  </div>
+                                  <Link
+                                    href={`/rooms/${room.id}?${searchParams.toString()}#promotions`}
+                                    className="inline-flex shrink-0 items-center gap-1 font-bold text-forest-600 hover:text-forest-700 whitespace-nowrap"
+                                  >
+                                    ดูห้องพัก <ChevronDown size={14} className="-rotate-90" />
+                                  </Link>
+                                </div>
+                              )
                             ))}
                           </div>
                         )}

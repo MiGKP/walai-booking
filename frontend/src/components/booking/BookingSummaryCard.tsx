@@ -48,6 +48,7 @@ interface BookingSummaryCardProps {
 export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCardProps) {
   const { user } = useAuth();
   const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
+  const [isPromoDrawerOpen, setIsPromoDrawerOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -705,32 +706,33 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
         <div>
           <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">โปรโมชั่น</span>
           <p className="mb-3 text-xs text-stone-400">ใช้โปรโมชั่นที่คุณเก็บไว้ หรือกรอกโค้ดเพิ่มเติม (1 ประเภทห้องใช้ได้ 1 โปรโมชั่น)</p>
+          <button
+            type="button"
+            onClick={() => setIsPromoDrawerOpen(true)}
+            className="flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-stone-50"
+          >
+            <div className="flex items-center gap-2">
+              <Tag size={16} className="text-[#0A2E1F]" />
+              <span className="text-sm font-semibold text-[#0A2E1F]">เลือกใช้โปรโมชั่นของคุณ</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {promoAssignments.filter(a => a.valid).length > 0 && (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">
+                  ใช้แล้ว {promoAssignments.filter(a => a.valid).length} โค้ด
+                </span>
+              )}
+              <ChevronDown size={16} className="text-stone-400" />
+            </div>
+          </button>
           
           <PromotionDrawer
-            selectedCodes={promoCodes}
+            isOpen={isPromoDrawerOpen}
+            onClose={() => setIsPromoDrawerOpen(false)}
+            currentPromoCode={promoCodes[0] || null} // Assuming it takes one for now, or we might need to adapt it
             onApply={(code) => addPromoCode(code)}
-            onRemove={(code) => removePromoCode(code)}
-            cartSubtotal={subtotal}
-            trigger={
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-stone-50"
-              >
-                <div className="flex items-center gap-2">
-                  <Tag size={16} className="text-[#0A2E1F]" />
-                  <span className="text-sm font-semibold text-[#0A2E1F]">เลือกใช้โปรโมชั่นของคุณ</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {promoAssignments.filter(a => a.valid).length > 0 && (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">
-                      ใช้แล้ว {promoAssignments.filter(a => a.valid).length}
-                    </span>
-                  )}
-                  <Plus size={16} className="text-stone-400" />
-                </div>
-              </button>
-            }
+            scope="room"
           />
+
           
           {promoAssignments.length > 0 && (
             <div className="mt-3 space-y-1.5">

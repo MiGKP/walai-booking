@@ -127,7 +127,7 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       'name', 'address', 'coordinates', 'phone', 'email', 'facebook', 'line_id',
       'operating_days', 'operating_hours', 'additional_terms', 'payment_due_days',
       'promptpay_id', 'bank_account_no', 'bank_account_name',
-      'checkin_time_from', 'checkin_time_to',
+      'checkin_time_from', 'checkin_time_to', 'checkout_time', 'important_info', 'kids_policy', 'parking_info',
     ];
 
     const updates: { col: string; val: any }[] = [];
@@ -192,21 +192,24 @@ export const getBoatHours = async (req: Request, res: Response): Promise<void> =
 
 export const upsertBoatHours = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { day_of_week, open_time, close_time, is_open } = req.body;
+    const { day_of_week, open_time, close_time, is_open, advance_booking_minutes } = req.body;
+    const advanceMin = advance_booking_minutes != null ? Number(advance_booking_minutes) : 60;
     const existing = await pool.query(
       `SELECT id FROM boat_operating_hours WHERE day_of_week = $1`, [day_of_week]
     );
     let result;
     if (existing.rows.length > 0) {
       result = await pool.query(
-        `UPDATE boat_operating_hours SET open_time=$1, close_time=$2, is_open=$3 WHERE day_of_week=$4 RETURNING *`,
-        [open_time, close_time, is_open ?? true, day_of_week]
+        `UPDATE boat_operating_hours
+         SET open_time=$1, close_time=$2, is_open=$3, advance_booking_minutes=$4
+         WHERE day_of_week=$5 RETURNING *`,
+        [open_time, close_time, is_open ?? true, advanceMin, day_of_week]
       );
     } else {
       result = await pool.query(
-        `INSERT INTO boat_operating_hours (day_of_week, open_time, close_time, is_open)
-         VALUES ($1, $2, $3, $4) RETURNING *`,
-        [day_of_week, open_time, close_time, is_open ?? true]
+        `INSERT INTO boat_operating_hours (day_of_week, open_time, close_time, is_open, advance_booking_minutes)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [day_of_week, open_time, close_time, is_open ?? true, advanceMin]
       );
     }
     res.json({ success: true, data: result.rows[0] });

@@ -15,10 +15,17 @@ interface DayHour {
   open_time: string;
   close_time: string;
   is_open: boolean;
+  advance_booking_minutes: number;
 }
 
 const defaultHours = (): DayHour[] =>
-  Array.from({ length: 7 }, (_, i) => ({ day_of_week: i, open_time: '08:00', close_time: '18:00', is_open: true }));
+  Array.from({ length: 7 }, (_, i) => ({
+    day_of_week: i,
+    open_time: '08:00',
+    close_time: '18:00',
+    is_open: true,
+    advance_booking_minutes: 60,
+  }));
 
 export default function BoatHoursPage() {
   const { ready, user } = useAuthGuard({ allowedRoles: ['admin', 'boat_staff'] });
@@ -39,6 +46,7 @@ export default function BoatHoursPage() {
             ...found,
             open_time: String(found.open_time).slice(0, 5),
             close_time: String(found.close_time).slice(0, 5),
+            advance_booking_minutes: found.advance_booking_minutes ?? 60,
           } : def;
         });
         setHours(merged);
@@ -59,6 +67,7 @@ export default function BoatHoursPage() {
           open_time: h.open_time,
           close_time: h.close_time,
           is_open: h.is_open,
+          advance_booking_minutes: h.advance_booking_minutes,
         }))
       );
       toast.success('บันทึกเวลาทำการสำเร็จ');
@@ -77,7 +86,7 @@ export default function BoatHoursPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">เวลาทำการบริการเรือ</h1>
-            <p className="text-gray-500 mt-0.5">กำหนดเวลาเปิด-ปิดบริการเรือแต่ละวัน</p>
+            <p className="text-gray-500 mt-0.5">กำหนดเวลาเปิด-ปิดและระยะเวลาจองล่วงหน้าขั้นต่ำ</p>
           </div>
         </div>
 
@@ -91,28 +100,47 @@ export default function BoatHoursPage() {
           <div className="card overflow-hidden">
             <div className="divide-y divide-gray-100">
               {hours.map(h => (
-                <div key={h.day_of_week} className="flex items-center gap-4 px-5 py-4">
+                <div key={h.day_of_week} className="flex flex-wrap items-center gap-3 px-5 py-4">
+                  {/* ชื่อวัน */}
                   <div className="w-24 shrink-0">
                     <span className={`text-sm font-semibold ${h.is_open ? 'text-gray-900' : 'text-gray-400'}`}>
                       {DAY_NAMES[h.day_of_week]}
                     </span>
                   </div>
-                  <div className={`flex items-center gap-3 flex-1 transition-opacity ${!h.is_open ? 'opacity-40 pointer-events-none' : ''}`}>
+
+                  {/* เวลาเปิด-ปิด */}
+                  <div className={`flex items-center gap-2 transition-opacity ${!h.is_open ? 'opacity-40 pointer-events-none' : ''}`}>
                     <input
                       type="time"
-                      className="input-field text-sm py-1.5 w-32"
+                      className="input-field text-sm py-1.5 w-28"
                       value={h.open_time}
                       onChange={e => updateDay(h.day_of_week, 'open_time', e.target.value)}
                     />
                     <span className="text-gray-400 text-sm">–</span>
                     <input
                       type="time"
-                      className="input-field text-sm py-1.5 w-32"
+                      className="input-field text-sm py-1.5 w-28"
                       value={h.close_time}
                       onChange={e => updateDay(h.day_of_week, 'close_time', e.target.value)}
                     />
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+
+                  {/* จองล่วงหน้า (นาที) */}
+                  <div className={`flex items-center gap-1.5 transition-opacity ${!h.is_open ? 'opacity-40 pointer-events-none' : ''}`}>
+                    <input
+                      type="number"
+                      min={0}
+                      max={480}
+                      step={15}
+                      className="input-field text-sm py-1.5 w-20 text-center"
+                      value={h.advance_booking_minutes}
+                      onChange={e => updateDay(h.day_of_week, 'advance_booking_minutes', Number(e.target.value))}
+                    />
+                    <span className="text-xs text-gray-400 whitespace-nowrap">นาทีล่วงหน้า</span>
+                  </div>
+
+                  {/* Toggle เปิด/ปิด */}
+                  <div className="flex items-center gap-2 ml-auto shrink-0">
                     <span className={`text-xs font-medium ${h.is_open ? 'text-green-600' : 'text-gray-400'}`}>
                       {h.is_open ? 'เปิด' : 'ปิด'}
                     </span>
@@ -141,3 +169,4 @@ export default function BoatHoursPage() {
     </div>
   );
 }
+

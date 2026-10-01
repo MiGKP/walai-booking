@@ -19,6 +19,7 @@ import {
   Users,
   X,
   CheckCircle2,
+  Car,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
@@ -367,46 +368,103 @@ export default function RoomDetailPage(): React.ReactElement {
         )}
       </div>
 
+      
+      {/* Sticky Navigation Bar */}
+      <div className="sticky top-0 z-40 hidden border-b border-stone-200 bg-white/90 backdrop-blur-md shadow-sm sm:block">
+        <div className="mx-auto max-w-7xl px-4">
+          <div className="flex h-16 items-center justify-between">
+            <nav className="flex items-center gap-6 overflow-x-auto text-sm font-bold text-stone-600 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <a href="#overview" className="whitespace-nowrap py-4 hover:text-forest-700">ข้อมูลห้องพัก</a>
+              {room.amenities && room.amenities.length > 0 && <a href="#amenities" className="whitespace-nowrap py-4 hover:text-forest-700">สิ่งอำนวยความสะดวก</a>}
+              {room.available_promotions && room.available_promotions.length > 0 && <a href="#promotions" className="whitespace-nowrap py-4 hover:text-forest-700">โปรโมชั่น</a>}
+              <a href="#room-picker" className="whitespace-nowrap py-4 hover:text-forest-700">เลือกห้องพัก</a>
+              <a href="#reviews" className="whitespace-nowrap py-4 hover:text-forest-700">รีวิว</a>
+              <a href="#policies" className="whitespace-nowrap py-4 hover:text-forest-700">นโยบาย</a>
+            </nav>
+            <div className="flex shrink-0 items-center gap-4 pl-4">
+               <span className="hidden lg:inline-flex items-baseline gap-1">
+                 <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">เริ่มต้น</span>
+                 <span className="font-sans text-xl font-extrabold text-forest-900">฿{Number(room.price_per_night).toLocaleString()}</span>
+               </span>
+               <a href="#room-picker" className="rounded-full bg-forest-800 px-5 py-2 text-[13px] font-bold text-white shadow-sm transition-colors hover:bg-forest-900 active:scale-95">
+                 ดูห้องว่าง
+               </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ===== Main Content Area ===== */}
       <div className="mx-auto mt-8 max-w-7xl px-4">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
           {/* ---- ฝั่งซ้าย: รายละเอียดห้อง ---- */}
           <div className="space-y-6 lg:col-span-8">
             {/* Header Details */}
-            <section className={`${CARD} p-5 sm:p-6`}>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="mb-2.5 flex flex-wrap items-center gap-2">
-                    {room.type_name && <span className="rounded bg-bamboo-50 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-bamboo-600">{room.type_name}</span>}
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${availableCount > 0 ? 'bg-forest-50 text-forest-700' : 'bg-stone-200 text-stone-600'}`}>{availableCount > 0 ? `ว่าง ${availableCount} ห้อง` : 'เต็ม'}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h1 className="font-sans text-2xl font-semibold leading-tight text-forest-900 sm:text-4xl">{room.room_name}</h1>
+            <section id="overview" className={`${CARD} p-5 sm:p-7 scroll-mt-24`}>
+              <div className="flex flex-col-reverse gap-6 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 flex-1 flex-col">
+                  {/* Title & Ratings */}
+                  <h1 className="font-sans text-3xl font-bold tracking-tight text-forest-950 sm:text-[34px] lg:text-[40px] leading-[1.1]">{room.room_name}</h1>
+                  
+                  <div className="mt-4 flex flex-wrap items-center gap-y-2 gap-x-4 text-[15px] text-stone-600">
                     {avgRating !== null && (
-                      <div className="flex items-center gap-2">
-                        <span className="grid h-9 min-w-9 place-items-center rounded-lg bg-forest-900 px-1.5 text-base font-extrabold text-white">{avgRating.toFixed(1)}</span>
-                        <div className="leading-tight">
-                          <p className="text-xs font-bold text-forest-900">{ratingLabel(avgRating)}</p>
-                          <p className="text-xs text-stone-500">{reviews.length} รีวิว</p>
+                      <div className="flex items-center gap-2 border-r border-stone-200 pr-4">
+                        <div className="flex items-center gap-1">
+                          <Star size={18} className="fill-amber-400 text-amber-500" />
+                          <span className="font-bold text-stone-900">{avgRating.toFixed(1)}</span>
                         </div>
+                        <span className="text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-700 cursor-pointer">{reviews.length} รีวิว</span>
                       </div>
                     )}
+                    <div className="flex items-center gap-2 font-medium text-stone-700">
+                      <Users size={18} className="text-stone-400" />
+                      <span>พักได้สูงสุด {room.capacity} ท่าน</span>
+                    </div>
                   </div>
-                  <p className="mt-2 text-sm leading-[1.85] text-charcoal-500">{room.description}</p>
+
+                  {/* Description */}
+                  {room.description && (
+                    <p className="mt-5 text-sm leading-[1.8] text-stone-500 max-w-2xl">
+                      {room.description}
+                    </p>
+                  )}
                 </div>
-                <div className="flex shrink-0 items-baseline gap-1 sm:flex-col sm:items-end sm:gap-0.5">
-                  <span className="font-sans text-2xl font-extrabold leading-none text-forest-900">฿{Number(room.price_per_night).toLocaleString()}</span>
-                  <span className="text-xs font-medium text-charcoal-400">/ คืน</span>
+
+                {/* Price & Availability (Desktop Right / Mobile Top) */}
+                <div className="flex shrink-0 flex-col items-start sm:items-end sm:pl-6 sm:border-l sm:border-stone-100">
+                  <span className="mb-1 text-[12px] font-bold uppercase tracking-widest text-stone-400">ราคาเริ่มต้น</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="font-sans text-3xl font-extrabold text-forest-900">฿{Number(room.price_per_night).toLocaleString()}</span>
+                    <span className="text-sm font-medium text-stone-500">/ คืน</span>
+                  </div>
+                  
+                  {/* Availability Badge */}
+                  <div className="mt-3">
+                    <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-bold ${
+                      availableCount > 0 
+                        ? 'bg-forest-50/80 text-forest-700 border border-forest-200/60' 
+                        : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}>
+                      {availableCount > 0 ? (
+                        <>
+                          <CheckCircle2 size={16} className="text-forest-600" />
+                          มีห้องว่าง ({availableCount} ห้อง)
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle size={16} className="text-red-600" />
+                          เต็มแล้ว
+                        </>
+                      )}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2.5 border-t border-stone-100 pt-4">
-                <span className="flex items-center gap-1.5 rounded-full bg-stone-50 px-3 py-1.5 text-xs font-semibold text-charcoal-600"><Users size={13} className="text-forest-500" />ความจุ {room.capacity} ท่าน</span>
               </div>
             </section>
 
             {/* Amenities */}
             {room.amenities && room.amenities.length > 0 && (
-              <section className={`${CARD} p-5 sm:p-6`}>
+              <section id="amenities" className={`${CARD} p-5 sm:p-6 scroll-mt-24`}>
                 <SectionHeading icon={<Sparkles size={16} />} title="สิ่งอำนวยความสะดวก" />
                 <ul className="mt-4 columns-2 gap-x-8 text-sm text-charcoal-600">
                   {room.amenities.map((amenity, index) => (
@@ -421,9 +479,9 @@ export default function RoomDetailPage(): React.ReactElement {
 
             {/* Special Offers */}
             {room.available_promotions && room.available_promotions.length > 0 && (
-              <section className={`${CARD} p-5 sm:p-6`}>
+              <section id="promotions" className={`${CARD} p-5 sm:p-6 scroll-mt-24`}>
                 <SectionHeading icon={<Tag size={16} />} title="โปรโมชั่นพิเศษ" />
-                <div className="mt-4 grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+                <div className="mt-5 grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
                   {room.available_promotions.map((promo) => {
                     const isSelected = selectedPromoCodes.includes(promo.code);
                     const isExpanded = expandedPromoId === promo.id;
@@ -431,38 +489,74 @@ export default function RoomDetailPage(): React.ReactElement {
                     return (
                       <div
                         key={promo.id}
-                        className={`overflow-hidden rounded-xl border transition-colors ${isSelected ? 'border-amber-500 bg-amber-400' : 'border-amber-200 bg-white hover:border-amber-400'}`}
+                        className={`relative flex flex-col rounded-xl border transition-all duration-300 ${
+                          isSelected 
+                            ? 'border-forest-600 bg-forest-50/40 shadow-sm' 
+                            : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
+                        }`}
                       >
-                        <button type="button" onClick={() => handleSelectPromo(promo.code)} className="flex w-full items-center gap-3 p-4 text-left">
-                          <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${isSelected ? 'bg-white/25 text-white' : 'bg-amber-50 text-amber-600'}`}>
-                            <Tag size={18} />
+                        <div className="flex flex-col p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-1 flex-col">
+                              <div className="flex items-center gap-2">
+                                <span className={`flex h-6 w-6 items-center justify-center rounded-full ${isSelected ? 'bg-forest-600 text-white' : 'bg-stone-100 text-stone-500'}`}>
+                                  <Tag size={12} />
+                                </span>
+                                <h4 className={`font-bold ${isSelected ? 'text-forest-900' : 'text-charcoal-700'}`}>{promo.name}</h4>
+                              </div>
+                              <div className="ml-8 mt-1">
+                                <span className={`text-lg font-extrabold ${isSelected ? 'text-forest-700' : 'text-forest-600'}`}>
+                                  {discountText}
+                                </span>
+                                {promo.min_nights && (
+                                  <span className="ml-1 text-[11px] font-medium text-stone-500">
+                                    (ขั้นต่ำ {promo.min_nights} คืน)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <button
+                              type="button"
+                              onClick={() => handleSelectPromo(promo.code)}
+                              className={`shrink-0 rounded-full px-4 py-1.5 text-[11px] font-bold transition-all ${
+                                isSelected 
+                                  ? 'bg-forest-600 text-white shadow-sm hover:bg-forest-700' 
+                                  : 'bg-white border border-stone-200 text-charcoal-600 hover:bg-stone-50 hover:border-stone-300'
+                              }`}
+                            >
+                              {isSelected ? 'เลือกใช้แล้ว' : 'เลือกใช้'}
+                            </button>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className={`truncate text-sm font-bold ${isSelected ? 'text-white' : 'text-amber-800'}`}>{promo.name}</p>
-                            <p className={`text-xs ${isSelected ? 'text-white/90' : 'text-amber-600'}`}>
-                              โค้ด {promo.code} · {discountText}
-                              {promo.min_nights ? ` (ขั้นต่ำ ${promo.min_nights} คืน)` : ''}
-                            </p>
+                          
+                          <div className="ml-8 mt-3 flex items-center gap-2">
+                             <div className="rounded border border-dashed border-stone-300 bg-stone-50 px-2 py-0.5 text-[11px] font-mono font-bold tracking-wide text-stone-600">
+                               {promo.code}
+                             </div>
+                             <button
+                               type="button"
+                               onClick={() => setExpandedPromoId(isExpanded ? null : promo.id)}
+                               className="ml-auto text-[11px] font-medium text-stone-400 hover:text-stone-600 flex items-center gap-0.5 transition-colors"
+                             >
+                               รายละเอียด <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                             </button>
                           </div>
-                          {isSelected && <CheckCircle2 size={18} className="shrink-0 text-white" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setExpandedPromoId(isExpanded ? null : promo.id)}
-                          className={`flex w-full items-center justify-center gap-1 border-t py-2 text-xs font-bold transition-colors ${isSelected ? 'border-white/25 text-white/90 hover:text-white' : 'border-amber-100 text-amber-700 hover:text-amber-900'}`}
-                        >
-                          {isExpanded ? 'ซ่อนรายละเอียด' : 'ดูเพิ่มเติม'}
-                          <ChevronDown size={13} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                        </button>
-                        {isExpanded && (
-                          <div className={`px-4 pb-4 text-xs leading-relaxed ${isSelected ? 'text-white/95' : 'text-amber-800'}`}>
-                            <p>{promo.description || 'ไม่มีรายละเอียดเพิ่มเติมสำหรับโปรโมชั่นนี้'}</p>
-                            <ul className="mt-2 space-y-1 font-medium">
-                              <li>• {discountText}{promo.discount_type === 'percent' && promo.max_discount != null ? ` (สูงสุด ฿${Number(promo.max_discount).toLocaleString()})` : ''}</li>
-                              {promo.min_nights ? <li>• พักขั้นต่ำ {promo.min_nights} คืน</li> : null}
+                        </div>
+
+                        {/* Expanded Details */}
+                        <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-40 border-t border-dashed border-stone-200' : 'max-h-0'}`}>
+                          <div className="p-4 pt-3 text-[12px] text-stone-600">
+                            <p className="mb-2 text-stone-700">{promo.description || 'ไม่มีรายละเอียดเพิ่มเติมสำหรับโปรโมชั่นนี้'}</p>
+                            <ul className="space-y-1">
+                              {promo.discount_type === 'percent' && promo.max_discount && (
+                                <li className="flex gap-2"><span className="text-stone-400">•</span> ลดสูงสุด ฿{Number(promo.max_discount).toLocaleString()}</li>
+                              )}
+                              {promo.stackable && (
+                                <li className="flex gap-2"><span className="text-stone-400">•</span> สามารถใช้ร่วมกับโปรโมชั่นอื่นได้</li>
+                              )}
                             </ul>
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   })}
@@ -508,7 +602,7 @@ export default function RoomDetailPage(): React.ReactElement {
             </section>
 
             {/* Reviews */}
-            <section className={`${CARD} p-5 sm:p-6`}>
+            <section id="reviews" className={`${CARD} p-5 sm:p-6 scroll-mt-24`}>
               <SectionHeading icon={<Star size={16} />} title="รีวิวจากผู้เข้าพัก" />
               <div className="mt-4 flex flex-col gap-6 sm:flex-row">
                 <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 sm:w-32 sm:border-r sm:border-stone-100">
@@ -533,26 +627,61 @@ export default function RoomDetailPage(): React.ReactElement {
               </div>
             </section>
 
-            {/* Policies */}
-            <section className={`${CARD} p-5 sm:p-6 bg-stone-50/50 border-none`}>
-              <SectionHeading icon={<Clock size={16} />} title="นโยบายการเข้าพัก" />
+            {/* Policies & Useful Info (Dynamic from Database) */}
+            <section id="policies" className={`${CARD} p-5 sm:p-6 bg-stone-50/50 border-none scroll-mt-24`}>
+              <SectionHeading icon={<AlertCircle size={16} />} title="ข้อมูลที่เป็นประโยชน์และนโยบาย" />
+              
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-charcoal-600">
-                <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm">
-                  <p className="font-bold text-forest-900 mb-1">เวลาเช็คอิน (Check-in)</p>
-                  <p>ตั้งแต่ 14:00 น. ถึง 23:00 น.</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm">
-                  <p className="font-bold text-forest-900 mb-1">เวลาเช็คเอาต์ (Check-out)</p>
-                  <p>ก่อน 12:00 น.</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm sm:col-span-2">
-                  <p className="font-bold text-forest-900 mb-1">นโยบายเด็กและเตียงเสริม</p>
-                  <ul className="list-disc list-inside mt-1 space-y-0.5">
-                    <li>เด็กอายุ 0-5 ปี: เข้าพักฟรี (ไม่มีค่าใช้จ่าย)</li>
-                    <li>เด็กอายุ 6-11 ปี: คิดราคาเด็ก / เตียงเสริม</li>
-                    <li>ผู้เข้าพักอายุ 12 ปีขึ้นไป: คิดราคาผู้ใหญ่</li>
+                
+                {/* Check-in / Check-out */}
+                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
+                  <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Clock size={16} className="text-forest-600" />เวลาเช็คอิน / เช็คเอาต์</p>
+                  <ul className="space-y-1.5">
+                    <li className="flex justify-between">
+                      <span className="text-stone-500">เวลาเช็คอิน:</span> 
+                      <span className="font-medium text-stone-800">
+                        {resortInfo?.checkin_time_from || '14:00'} - {resortInfo?.checkin_time_to || '23:00'} น.
+                      </span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span className="text-stone-500">เวลาเช็คเอาต์:</span> 
+                      <span className="font-medium text-stone-800">ก่อน {resortInfo?.checkout_time || '12:00'} น.</span>
+                    </li>
                   </ul>
                 </div>
+
+                {/* Important Details */}
+                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
+                  <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><AlertCircle size={16} className="text-forest-600" />ข้อมูลสำคัญที่พัก</p>
+                  <ul className="list-disc list-outside ml-4 space-y-1.5 text-stone-500">
+                    {(resortInfo?.important_info || 'รวมอาหารเช้าสำหรับทุกการจอง\nไม่อนุญาตให้นำสัตว์เลี้ยงเข้าพัก\nระมัดระวังเด็กเล็ก เนื่องจากที่พักอยู่บนแพ').split('\n').map((line: string, i: number) => (
+                      <li key={i}>{line.trim()}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Kids & Extra Beds */}
+                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
+                  <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Users size={16} className="text-forest-600" />นโยบายเด็กและเตียงเสริม</p>
+                  <ul className="list-disc list-outside ml-4 space-y-1.5 text-stone-500">
+                    {(resortInfo?.kids_policy || 'เด็ก 0-5 ปี: เข้าพักฟรี (ใช้เตียงที่มีอยู่)\nเด็ก 6-11 ปี: คิดราคาเด็ก / เตียงเสริม\n12 ปีขึ้นไป: คิดราคาผู้ใหญ่').split('\n').map((line: string, i: number) => {
+                      const [title, ...rest] = line.split(':');
+                      if (rest.length === 0) return <li key={i}>{line.trim()}</li>;
+                      return (
+                        <li key={i}><span className="font-medium text-stone-700">{title.trim()}:</span> {rest.join(':').trim()}</li>
+                      );
+                    })}
+                  </ul>
+                </div>
+
+                {/* Getting there & Parking */}
+                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
+                  <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Car size={16} className="text-forest-600" />การเดินทางและที่จอดรถ</p>
+                  <p className="text-stone-500 leading-relaxed whitespace-pre-line">
+                    {resortInfo?.parking_info || 'มีลานจอดรถส่วนตัวให้บริการฟรีในบริเวณสวนวลัยรุกขเวช (ไม่ต้องจองล่วงหน้า) แขกผู้เข้าพักสามารถขับรถมาจอดและเดินไปยังจุดลงแพหรือท่าเทียบเรือได้โดยตรง'}
+                  </p>
+                </div>
+
               </div>
             </section>
           </div>
