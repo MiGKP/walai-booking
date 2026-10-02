@@ -80,6 +80,7 @@ const ROOMS_JSON_SQL = `COALESCE((
   SELECT json_agg(json_build_object(
     'booking_room_id', br.booking_room_id,
     'room_id', br.room_id,
+    'room_type_id', r.room_type_id,
     'room_number', r.room_number,
     'room_name', rt.room_name,
     'type_name', rt.type_name,
@@ -631,7 +632,7 @@ export const getUserRoomBookings = async (
                     ORDER BY br.booking_room_id
                     LIMIT 1
                   )
-                ) AS room_images
+                ) AS room_images, (SELECT COUNT(*) > 0 FROM member_boat_tickets mbt WHERE mbt.room_booking_id = rb.room_booking_id AND mbt.used_tickets < mbt.total_tickets) AS has_unused_boat_tickets
          FROM room_bookings rb
          WHERE rb.member_id = $1
          ORDER BY rb.created_at DESC`,
@@ -657,7 +658,8 @@ export const getRoomBookingById = async (
 
     const result = await pool.query(
       `SELECT rb.room_booking_id as id, rb.room_booking_id,
-              rb.check_in as check_in_date, rb.check_out as check_out_date,
+              to_char(rb.check_in, 'YYYY-MM-DD') as check_in_date,
+              to_char(rb.check_out, 'YYYY-MM-DD') as check_out_date,
               rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
               rb.total_price, rb.status, rb.special_request, rb.created_at,
               ${ROOMS_JSON_SQL} AS rooms
@@ -694,16 +696,20 @@ export const getRoomBookingById = async (
 
     // โปรโมชั่นที่ใช้จริงในการจองนี้ (อาจมีมากกว่า 1 อัน ถ้าจองหลายประเภทห้อง)
     const promoResult = await pool.query(
-      `SELECT p.name, p.code, brp.discount_amount
+      `SELECT p.name, p.code, brp.discount_amount, brp.room_type_id, rt.type_name
        FROM booking_room_promotions brp
        JOIN promotions p ON p.id = brp.promotion_id
-       WHERE brp.room_booking_id = $1`,
+       LEFT JOIN room_types rt ON rt.id = brp.room_type_id
+       WHERE brp.room_booking_id = $1
+       ORDER BY brp.room_type_id`,
       [id]
     );
     const promotions = promoResult.rows.map((r) => ({
       name: r.name,
       code: r.code,
       discount_amount: Number(r.discount_amount),
+      room_type_id: r.room_type_id,
+      type_name: r.type_name,
     }));
 
     res.json({ success: true, data: { ...booking, amenities, promotions } });

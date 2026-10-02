@@ -29,7 +29,7 @@ import BookingCalendar, {
   DayStatus,
 } from "@/components/booking/BookingCalendar";
 import BookingSummaryCard from "@/components/booking/BookingSummaryCard";
-import { useRoomCart } from "@/lib/room-cart-store";
+import { useRoomCart, setRoomCart } from "@/lib/room-cart-store";
 import { fetchRoomCalendar, toRoomDayStatus } from "@/lib/booking-calendar";
 import {
   MonthCursor,
@@ -216,6 +216,9 @@ function RoomsPageContent(): React.ReactElement {
   const handleRangeSelect = (next: DateRange | null): void => {
     setRange(next);
     if (next && nightsBetween(next.start, next.end) > 0) {
+      if (cart && cart.items.length > 0 && (cart.check_in !== next.start || cart.check_out !== next.end)) {
+        setRoomCart(null);
+      }
       const params = new URLSearchParams(searchParams.toString());
       params.set("check_in", next.start);
       params.set("check_out", next.end);
@@ -269,6 +272,9 @@ function RoomsPageContent(): React.ReactElement {
     if (selectedPromoCodes.length > 0) {
       params.set("promo_code", selectedPromoCodes.join(","));
     }
+    if (cart && cart.items.length > 0 && (cart.check_in !== t || cart.check_out !== tm)) {
+      setRoomCart(null);
+    }
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
@@ -319,7 +325,7 @@ function RoomsPageContent(): React.ReactElement {
 
   return (
     <div className="min-h-screen bg-cream-100 pb-20 pt-4">
-      <header className="relative z-30 mb-8 mt-16 sm:mt-20">
+      <header className="sticky top-0 sm:top-16 z-40 -mt-4 mb-8 bg-cream-100/95 pb-4 pt-4 shadow-sm backdrop-blur-md transition-all">
         <div className="container mx-auto px-4">
           <div className="mx-auto w-full max-w-4xl" ref={pickerRef}>
             <div className="flex w-full flex-col divide-y divide-stone-100 rounded-3xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.1)] transition-all duration-500 hover:shadow-[0_1px_2px_rgba(18,60,48,0.02),0_12px_32px_-8px_rgba(18,60,48,0.15)] lg:flex-row lg:divide-x lg:divide-y-0 lg:rounded-full">
@@ -346,7 +352,7 @@ function RoomsPageContent(): React.ReactElement {
                   <Users size={16} className="shrink-0 text-forest-700" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">ผู้เข้าพัก</span>
-                    <span className="block truncate text-sm font-semibold text-forest-900">{guests.adults + guests.children} ท่าน</span>
+                    <span className="block truncate text-sm font-semibold text-forest-900">ผู้ใหญ่ {guests.adults} • เด็ก {guests.children}</span>
                   </span>
                   <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "guests" ? "rotate(180deg)" : "rotate(0deg)" }} />
                 </button>
@@ -574,14 +580,22 @@ function RoomsPageContent(): React.ReactElement {
             )}
           </section>
           
+          {/* Desktop Booking Summary Sidebar */}
+          {cart && cart.items && cart.items.length > 0 && (
+            <aside className="hidden lg:block lg:w-[380px] shrink-0">
+              <div className="sticky top-[160px]">
+                <BookingSummaryCard />
+              </div>
+            </aside>
+          )}
         </div>
       </div>
 
-      {/* Floating Cart Button */}
+      {/* Floating Cart Button (Mobile Only) */}
       {cart && cart.items && cart.items.length > 0 && (
         <button
           onClick={() => setIsCartDrawerOpen(true)}
-          className="fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-[#0A2E1F] text-white shadow-2xl transition-transform hover:scale-105 active:scale-95"
+          className="lg:hidden fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-[#0A2E1F] text-white shadow-2xl transition-transform hover:scale-105 active:scale-95"
         >
           <div className="relative">
             <ShoppingCart size={24} />

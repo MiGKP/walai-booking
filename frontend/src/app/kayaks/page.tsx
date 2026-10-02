@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users } from 'lucide-react';
+import { AlertCircle, Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users, X, ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveMediaUrl } from '@/lib/avatar';
@@ -115,6 +115,7 @@ interface BoatType {
   capacity: number;
   price_per_hour: number;
   image?: string | null;
+  images?: string[];
   is_available: boolean;
 }
 
@@ -133,6 +134,83 @@ const TYPE_LABELS: Record<string, string> = {
   double: 'เรือคู่',
   tandem: 'เรือครอบครัว',
 };
+
+function ImageModal({ images, initialIndex, onClose }: { images: string[]; initialIndex: number; onClose: () => void }) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  if (images.length === 0) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md transition-opacity duration-300" 
+      onClick={onClose}
+    >
+      {/* Header / Top Bar */}
+      <div className="absolute left-0 top-0 z-[101] flex w-full items-center justify-between bg-gradient-to-b from-black/80 to-transparent p-4 sm:p-6 pb-12 pointer-events-none">
+        <div className="text-sm font-semibold tracking-widest text-white/80">
+          {currentIndex + 1} / {images.length}
+        </div>
+        <button 
+          className="pointer-events-auto rounded-full bg-white/10 p-2.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95" 
+          onClick={onClose} 
+          aria-label="Close gallery"
+        >
+          <X size={24} />
+        </button>
+      </div>
+      
+      {/* Previous Button */}
+      {images.length > 1 && (
+        <button 
+          className="absolute left-3 sm:left-8 top-1/2 z-[101] -translate-y-1/2 rounded-full bg-white/10 p-3.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
+          onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1)); }}
+          aria-label="Previous image"
+        >
+          <ChevronLeft size={28} />
+        </button>
+      )}
+
+      {/* Main Image Container */}
+      <div 
+        className="relative flex max-h-[85vh] max-w-[90vw] items-center justify-center lg:max-w-5xl"
+        onClick={(e) => e.stopPropagation()} // Click on the image itself won't close
+      >
+        <img 
+          src={resolveMediaUrl(images[currentIndex])} 
+          alt={`Gallery image ${currentIndex + 1}`} 
+          className="max-h-[85vh] w-auto rounded-xl object-contain shadow-2xl ring-1 ring-white/10 select-none animate-in fade-in duration-300" 
+        />
+      </div>
+
+      {/* Next Button */}
+      {images.length > 1 && (
+        <button 
+          className="absolute right-3 sm:right-8 top-1/2 z-[101] -translate-y-1/2 rounded-full bg-white/10 p-3.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
+          onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0)); }}
+          aria-label="Next image"
+        >
+          <ChevronRight size={28} />
+        </button>
+      )}
+
+      {/* Thumbnails / Pagination */}
+      {images.length > 1 && (
+        <div 
+          className="absolute bottom-8 left-1/2 z-[101] flex -translate-x-1/2 gap-2.5 rounded-full bg-black/60 px-5 py-3 backdrop-blur-md ring-1 ring-white/15"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {images.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentIndex(idx)}
+              className={`h-2 rounded-full transition-all duration-300 ${idx === currentIndex ? 'w-8 bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'w-2 bg-white/40 hover:bg-white/80'}`}
+              aria-label={`Go to image ${idx + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function mergeDayStatus(dayMaps: Array<Record<string, DayStatus>>): Record<string, DayStatus> {
   const merged: Record<string, DayStatus> = {};
@@ -189,7 +267,7 @@ function mergeSharedSlots(
   return Array.from(byKey.entries())
     .map(([key, value]) => {
       const remainings = Object.values(value.remainingByType);
-      const remaining = remainings.length ? Math.min(...remainings) : 0;
+      const remaining = remainings.length ? Math.max(...remainings) : 0;
       return {
         key,
         start_time: value.start_time,
@@ -271,6 +349,7 @@ function KayaksPageContent(): React.ReactElement {
   const [boats, setBoats] = useState<BoatType[]>([]);
   const [boatsLoading, setBoatsLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [galleryBoat, setGalleryBoat] = useState<BoatType | null>(null);
 
   // รอบเวลา shell (ไม่ต้องการ booking_date) — แสดงก่อนเลือกวัน
   const [scheduleSlots, setScheduleSlots] = useState<KayakScheduleSlot[]>([]);
@@ -548,6 +627,13 @@ function KayaksPageContent(): React.ReactElement {
 
   return (
     <div className="min-h-screen bg-cream-100 pb-24 pt-4">
+      {galleryBoat && (
+        <ImageModal 
+          images={galleryBoat.images?.length ? galleryBoat.images : (galleryBoat.image ? [galleryBoat.image] : [])} 
+          initialIndex={0} 
+          onClose={() => setGalleryBoat(null)} 
+        />
+      )}
       <div className="container mx-auto px-4 pt-16 sm:pt-20">
         
 
@@ -635,8 +721,8 @@ function KayaksPageContent(): React.ReactElement {
                                 <span className={`block text-xs font-semibold tabular-nums ${isSelected ? (fits ? 'text-cream-100' : 'text-rose-700') : 'text-forest-900'}`}>
                                   {formatTimeRange(slot.start_time, slot.end_time)}
                                 </span>
-                                <span className={`block text-xs ${isSelected ? (fits ? 'text-cream-200' : 'text-rose-600') : fits ? 'text-charcoal-400' : 'text-stone-400 line-through'}`}>
-                                  {fits ? `เหลือ ${slot.remaining} ลำ` : !slot.available ? 'เต็ม' : 'เรือไม่พอ'}
+                                <span className={`block text-[11px] font-medium mt-0.5 ${isSelected ? (fits ? 'text-cream-200' : 'text-rose-200') : fits ? 'text-emerald-600' : 'text-stone-400'}`}>
+                                  {fits ? 'ว่าง' : !slot.available ? 'เต็ม' : 'เรือไม่พอ'}
                                 </span>
                               </button>
                             );
@@ -722,50 +808,89 @@ function KayaksPageContent(): React.ReactElement {
                         return (
                           <div
                             key={boat.id}
-                            className={`overflow-hidden rounded-xl border transition-colors ${
-                              isFull || (!hasRound && !noDateYet) ? 'border-stone-100 bg-stone-50/50 opacity-60' : 'border-stone-200/80 bg-white'
+                            className={`group relative overflow-hidden rounded-2xl border transition-all ${
+                              isFull || (!hasRound && !noDateYet) 
+                                ? 'border-stone-100 bg-stone-50/40 opacity-75' 
+                                : 'border-stone-200/80 bg-white hover:border-forest-300 hover:shadow-sm'
                             }`}
                           >
-                            <div className="flex flex-wrap gap-3 p-3">
-                              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-lagoon-50">
-                                {boat.image ? (
-                                  <img src={resolveMediaUrl(boat.image)} alt={boat.name} className="h-full w-full object-cover" />
-                                ) : (
-                                  <div className="grid h-full w-full place-items-center text-lagoon-600">
-                                    <Sailboat size={22} />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <span className="mb-1 inline-block rounded-full bg-lagoon-50 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-lagoon-700">
-                                  {TYPE_LABELS[boat.type] || 'อื่นๆ'}
-                                </span>
-                                <p className="truncate text-sm font-semibold text-forest-900">{boat.name}</p>
-                                {boat.description && (
-                                  <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-charcoal-400">{boat.description}</p>
-                                )}
-                                <p className="mt-1 flex items-center gap-1 text-xs text-charcoal-500">
-                                  <Users size={12} className="text-forest-400" />
-                                  นั่งได้สูงสุด {boat.capacity} คน/ลำ · ฿{Number(boat.price_per_hour).toLocaleString()}/ลำ
-                                  {availHint && (
-                                    <span className={`ml-1 font-medium ${isFull || !hasRound ? '' : 'text-forest-600'}`}>
-                                      · {availHint}
-                                    </span>
+                            <div className="flex flex-col sm:flex-row sm:items-stretch">
+                              {/* Image Section */}
+                              <div className="relative h-40 w-full shrink-0 overflow-hidden bg-stone-100 sm:w-48 sm:h-auto">
+                                <div className="absolute inset-0">
+                                  {boat.image ? (
+                                    <>
+                                      <img src={resolveMediaUrl(boat.image)} alt={boat.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60 pointer-events-none" />
+                                      
+                                      {boat.images && boat.images.length > 0 && (
+                                        <button 
+                                          type="button"
+                                          onClick={() => setGalleryBoat(boat)}
+                                          className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg bg-black/50 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur-md transition hover:bg-black/70 hover:scale-105 active:scale-95"
+                                          aria-label="ดูรูปทั้งหมด"
+                                        >
+                                          <ImageIcon size={14} />
+                                          {boat.images.length > 1 && <span>1/{boat.images.length}</span>}
+                                        </button>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <div className="grid h-full w-full place-items-center text-stone-300">
+                                      <Sailboat size={32} />
+                                    </div>
                                   )}
-                                </p>
+                                </div>
                               </div>
-
-                              {/* Stepper — แสดงเสมอ ไม่ต้องรอเลือกวัน */}
-                              <div className="ml-auto flex shrink-0 flex-col items-end gap-2 text-right">
-                                <div>
-                                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-charcoal-300">จำนวนลำ</p>
-                                  <Stepper
-                                    value={boatCount}
-                                    min={0}
-                                    max={stepperMax}
-                                    ariaLabel={`จำนวนลำ ${boat.name}`}
-                                    onChange={(v) => handleBoatCountChange(boat.id, v)}
-                                  />
+                              
+                              {/* Content Section */}
+                              <div className="flex flex-1 flex-col p-4 sm:p-5">
+                                <div className="mb-1 flex items-start justify-between gap-2">
+                                  <div>
+                                    <span className="mb-1.5 inline-block rounded-full bg-forest-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-forest-700 ring-1 ring-inset ring-forest-200/50">
+                                      {TYPE_LABELS[boat.type] || 'อื่นๆ'}
+                                    </span>
+                                    <h3 className="text-base font-bold text-forest-900">{boat.name}</h3>
+                                  </div>
+                                  
+                                  {/* Mobile Stepper / Price (if we wanted to move it, but keeping it simple) */}
+                                </div>
+                                
+                                {boat.description && (
+                                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-charcoal-400">{boat.description}</p>
+                                )}
+                                
+                                <div className="mt-4 flex flex-wrap items-end justify-between gap-4 border-t border-stone-100 pt-4 sm:mt-auto">
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center gap-1.5 text-xs font-medium text-charcoal-500">
+                                      <Users size={14} className="text-forest-500" />
+                                      <span>นั่งได้สูงสุด {boat.capacity} คน/ลำ</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-1.5">
+                                      <span className="text-lg font-extrabold tracking-tight text-forest-900">
+                                        ฿{Number(boat.price_per_hour).toLocaleString()}
+                                      </span>
+                                      <span className="text-xs font-medium text-charcoal-500">/ลำ</span>
+                                      {availHint && (
+                                        <div className="ml-2 flex items-center gap-1.5 border-l border-stone-200 pl-3">
+                                          <span className={`text-xs font-bold ${isFull || !hasRound ? 'text-rose-500' : 'text-emerald-600'}`}>
+                                            {availHint}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex flex-col items-end gap-1.5">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-charcoal-300">ระบุจำนวน</p>
+                                    <Stepper
+                                      value={boatCount}
+                                      min={0}
+                                      max={stepperMax}
+                                      ariaLabel={`จำนวนลำ ${boat.name}`}
+                                      onChange={(v) => handleBoatCountChange(boat.id, v)}
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             </div>

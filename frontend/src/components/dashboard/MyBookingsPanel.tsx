@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { toastConfirm } from '@/lib/toastConfirm';
 import Link from 'next/link';
+import { toISODate } from '@/lib/date';
 
 type BookingType = 'room' | 'kayak';
 type TabKey = 'all' | BookingType;
@@ -316,6 +317,19 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
               </div>
               );
             })()}
+          </div>
+        )}
+
+                {b.has_unused_boat_tickets && b.status !== 'cancelled' && b.status !== 'rejected' && (
+          <div className="mt-4 border-t border-stone-100 pt-4">
+             <div className="rounded-xl border border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 text-center shadow-sm relative overflow-hidden">
+               <h3 className="font-sans text-sm font-bold text-emerald-900 relative z-10 flex items-center justify-center gap-1.5 mb-2">
+                 <span className="text-emerald-500">✨</span> คุณมีสิทธิ์จองเรือคายัคฟรี (จากโปรโมชั่นที่ใช้) <span className="text-emerald-500">✨</span>
+               </h3>
+               <Link href={`/kayaks?room_booking_id=${bid}${b.check_in_date ? `&check_in=${toISODate(new Date(b.check_in_date))}` : ''}${b.check_out_date ? `&check_out=${toISODate(new Date(b.check_out_date))}` : ''}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-forest-900 px-6 py-2.5 text-xs font-bold text-white transition-colors hover:bg-forest-800 shadow-sm w-full">
+                 จองคิวเรือคายัคตอนนี้
+               </Link>
+             </div>
           </div>
         )}
 

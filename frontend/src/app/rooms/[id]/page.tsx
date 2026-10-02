@@ -20,7 +20,13 @@ import {
   X,
   CheckCircle2,
   Car,
+  Calendar,
+  Baby,
+  Search,
+  Plus,
+  Minus,
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import { maskReviewerName } from '@/lib/format';
@@ -40,7 +46,7 @@ import {
 } from '@/lib/date';
 
 import { RoomCartItem } from '@/lib/room-cart';
-import { useRoomCart } from '@/lib/room-cart-store';
+import { useRoomCart, setRoomCart } from '@/lib/room-cart-store';
 import { useCartSync } from '@/hooks/useCartSync';
 
 type RoomAmenity = string | { id: number; name: string };
@@ -120,6 +126,42 @@ function Stars({ value, size = 12 }: { value: number; size?: number }): React.Re
   );
 }
 
+
+function Stepper({ value, min = 0, max = 99, editable = true, onChange, ariaLabel }: { value: number; min?: number; max?: number; editable?: boolean; onChange: (next: number) => void; ariaLabel: string; }): React.ReactElement {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => { setDraft(String(value)); }, [value]);
+  const commit = (raw: string): void => {
+    const parsed = parseInt(raw, 10);
+    const safe = isNaN(parsed) ? min : Math.min(max, Math.max(min, parsed));
+    setDraft(String(safe));
+    onChange(safe);
+  };
+  const btn = "grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-forest-800 transition-colors hover:border-forest-300 hover:bg-forest-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 disabled:border-stone-100 disabled:text-stone-300 disabled:hover:bg-white";
+  return (
+    <div className="flex items-center gap-2">
+      <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} aria-label={`ลด${ariaLabel}`} className={btn}><Minus size={13} /></button>
+      {editable ? (
+        <input type="text" inputMode="numeric" value={draft} onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ""))} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} onFocus={(e) => e.currentTarget.select()} aria-label={ariaLabel} className="h-7 w-9 rounded-md border border-transparent bg-transparent text-center text-sm font-bold tabular-nums text-forest-900 transition-colors hover:border-stone-200 focus:border-forest-400 focus:bg-[#FFFFFF] focus:outline-none" />
+      ) : (
+        <span className="w-9 text-center text-sm font-bold tabular-nums text-forest-900">{value}</span>
+      )}
+      <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`เพิ่ม${ariaLabel}`} className={btn}><Plus size={13} /></button>
+    </div>
+  );
+}
+
+function GuestRow({ label, hint, value, min, max = 20, onChange }: { label: string; hint: string; value: number; min: number; max?: number; onChange: (next: number) => void; }): React.ReactElement {
+  return (
+    <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-charcoal-700">{label}</p>
+        <p className="text-xs text-stone-400">{hint}</p>
+      </div>
+      <Stepper value={value} min={min} max={max} ariaLabel={label} onChange={onChange} />
+    </div>
+  );
+}
+
 export default function RoomDetailPage(): React.ReactElement {
   const routeParams = useParams<{ id: string }>();
   const id = routeParams.id;
@@ -148,10 +190,62 @@ export default function RoomDetailPage(): React.ReactElement {
   const [avgRating, setAvgRating] = useState<number | null>(null);
 
   const nights = nightsBetween(range.start, range.end);
+  const { user } = useAuth();
+  const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
+
+  const childAges: Array<number | null> = useMemo(() => {
+    const children = parseInt(searchParams.get('children') || '0', 10);
+    const raw = (searchParams.get('child_ages') || '').split(',').map((s) => {
+      const n = parseInt(s, 10);
+      return Number.isInteger(n) && n >= 0 && n <= 17 ? n : null;
+    });
+    const normalized = raw.length && (searchParams.get('child_ages') ?? '') !== '' ? raw : [];
+    if (normalized.length === children) return normalized;
+    if (normalized.length > children) return normalized.slice(0, children);
+    return [...normalized, ...Array(children - normalized.length).fill(null)];
+  }, [searchParams]);
+
+  const handleChildAgeChange = (index: number, age: number) => {
+    const nextChildAges = [...childAges];
+    nextChildAges[index] = age;
+    const serialized = nextChildAges.map((a) => (a === null ? '' : String(a))).join(',');
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('child_ages', serialized);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
 
   const cart = useRoomCart();
+  const [openPanel, setOpenPanel] = useState<"guests" | "calendar" | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
-  // รีเซ็ตสถานะ "ดูเพิ่มเติม" ของโปรโมชั่นเวลาสลับไปดูห้องอื่น (Next.js reuse component instance ตัวเดิม)
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => { if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setOpenPanel(null); };
+    if (openPanel) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openPanel]);
+
+  const handleRangeSelect = (next: DateRange | null): void => {
+    
+    if (next && nightsBetween(next.start, next.end) > 0) {
+      if (cart && cart.items.length > 0 && (cart.check_in !== next.start || cart.check_out !== next.end)) {
+        setRoomCart(null);
+      }
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("check_in", next.start);
+      params.set("check_out", next.end);
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      setOpenPanel(null);
+    }
+  };
+
+  const handleGuestsChange = (next: { adults: number; children: number; }): void => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("adults", String(next.adults));
+    params.set("children", String(next.children));
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+  // รีเซ็ตสถานะ "ดูเพิ่มเติม" ของโปรโมชั่นเวลาสลับไปดูห้องอื่น
   useEffect(() => {
     setExpandedPromoId(null);
   }, [id]);
@@ -210,20 +304,6 @@ export default function RoomDetailPage(): React.ReactElement {
     return [room.main_image, ...(Array.isArray(room.images) ? room.images.filter((img) => img !== room.main_image) : [])].filter((img): img is string => Boolean(img));
   }, [room]);
 
-  const selectedPromoCodes = (searchParams.get('promo_code') || '').split(',').map((c) => c.trim().toUpperCase()).filter(Boolean);
-  const handleSelectPromo = (code: string): void => {
-    const params = new URLSearchParams(searchParams.toString());
-    let nextCodes: string[];
-    if (selectedPromoCodes.includes(code)) {
-      nextCodes = selectedPromoCodes.filter((c) => c !== code);
-    } else {
-      nextCodes = [...selectedPromoCodes, code];
-      
-    }
-    if (nextCodes.length > 0) params.set('promo_code', nextCodes.join(','));
-    else params.delete('promo_code');
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  };
 
   const scrollToImage = (index: number): void => {
     const el = galleryScrollRef.current;
@@ -264,6 +344,13 @@ export default function RoomDetailPage(): React.ReactElement {
     const items = cart?.items ?? [];
     const isSelecting = !selectedRoomIds.includes(roomId);
 
+    if (isSelecting && items.length > 0 && cart) {
+      if (cart.check_in !== range.start || cart.check_out !== range.end) {
+        toast.error('ไม่สามารถเลือกห้องพักคนละวันในรายการเดียวกันได้ กรุณาเปลี่ยนวันที่ให้ตรงกับตะกร้า หรือล้างรายการทั้งหมดก่อน', { duration: 5000 });
+        return;
+      }
+    }
+
     const nextItems: RoomCartItem[] = isSelecting
       ? [
           ...items,
@@ -282,10 +369,7 @@ export default function RoomDetailPage(): React.ReactElement {
       : items.filter((item) => item.room_id !== roomId);
 
     commitCart(nextItems);
-    // เตือนว่ายังกลับไปเลือกห้องพักประเภทอื่นเพิ่มในบิลเดียวกันได้ เพราะตะกร้าคงอยู่ข้ามหน้า
-    if (isSelecting) {
-      toast.success(`เพิ่มห้อง ${physicalRoom.room_number} ลงตะกร้าแล้ว — ต้องการห้องพักประเภทอื่นเพิ่ม กด "ห้องพักทั้งหมด" ด้านบนได้เลย`, { duration: 4500 });
-    }
+
   };
 
   if (loading) return <div className="min-h-screen bg-cream-100 pb-20 pt-24"><div className="container mx-auto max-w-6xl px-4"><div className="mb-6 h-9 w-40 animate-pulse rounded-full bg-white" /><div className="mb-6 space-y-3"><div className="h-5 w-48 animate-pulse rounded-full bg-white" /><div className="h-9 w-2/3 animate-pulse rounded-xl bg-white" /></div><div className="grid gap-8 lg:grid-cols-[1fr_360px]"><div className="space-y-6"><div className="h-[300px] animate-pulse rounded-2xl bg-white sm:h-[420px]" /><div className="h-56 animate-pulse rounded-2xl bg-white" /><div className="h-72 animate-pulse rounded-2xl bg-white" /></div><div className="h-[540px] animate-pulse rounded-2xl bg-white" /></div></div></div>;
@@ -479,95 +563,98 @@ export default function RoomDetailPage(): React.ReactElement {
               </section>
             )}
 
-            {/* Special Offers */}
-            {room.available_promotions && room.available_promotions.length > 0 && (
-              <section id="promotions" className={`${CARD} p-5 sm:p-6 scroll-mt-24`}>
-                <SectionHeading icon={<Tag size={16} />} title="โปรโมชั่นพิเศษ" />
-                <div className="mt-5 grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
-                  {room.available_promotions.map((promo) => {
-                    const isSelected = selectedPromoCodes.includes(promo.code);
-                    const isExpanded = expandedPromoId === promo.id;
-                    const discountText = promo.discount_type === 'percent' ? `ลด ${promo.discount_value}%` : `ลด ฿${Number(promo.discount_value).toLocaleString()}`;
-                    return (
-                      <div
-                        key={promo.id}
-                        className={`relative flex flex-col rounded-xl border transition-all duration-300 ${
-                          isSelected 
-                            ? 'border-forest-600 bg-forest-50/40 shadow-sm' 
-                            : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
-                        }`}
-                      >
-                        <div className="flex flex-col p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex flex-1 flex-col">
-                              <div className="flex items-center gap-2">
-                                <span className={`flex h-6 w-6 items-center justify-center rounded-full ${isSelected ? 'bg-forest-600 text-white' : 'bg-stone-100 text-stone-500'}`}>
-                                  <Tag size={12} />
-                                </span>
-                                <h4 className={`font-bold ${isSelected ? 'text-forest-900' : 'text-charcoal-700'}`}>{promo.name}</h4>
-                              </div>
-                              <div className="ml-8 mt-1">
-                                <span className={`text-lg font-extrabold ${isSelected ? 'text-forest-700' : 'text-forest-600'}`}>
-                                  {discountText}
-                                </span>
-                                {promo.min_nights && (
-                                  <span className="ml-1 text-[11px] font-medium text-stone-500">
-                                    (ขั้นต่ำ {promo.min_nights} คืน)
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <button
-                              type="button"
-                              onClick={() => handleSelectPromo(promo.code)}
-                              className={`shrink-0 rounded-full px-4 py-1.5 text-[11px] font-bold transition-all ${
-                                isSelected 
-                                  ? 'bg-forest-600 text-white shadow-sm hover:bg-forest-700' 
-                                  : 'bg-white border border-stone-200 text-charcoal-600 hover:bg-stone-50 hover:border-stone-300'
-                              }`}
-                            >
-                              {isSelected ? 'เลือกใช้แล้ว' : 'เลือกใช้'}
-                            </button>
-                          </div>
-                          
-                          <div className="ml-8 mt-3 flex items-center gap-2">
-                             <div className="rounded border border-dashed border-stone-300 bg-stone-50 px-2 py-0.5 text-[11px] font-mono font-bold tracking-wide text-stone-600">
-                               {promo.code}
-                             </div>
-                             <button
-                               type="button"
-                               onClick={() => setExpandedPromoId(isExpanded ? null : promo.id)}
-                               className="ml-auto text-[11px] font-medium text-stone-400 hover:text-stone-600 flex items-center gap-0.5 transition-colors"
-                             >
-                               รายละเอียด <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                             </button>
-                          </div>
-                        </div>
 
-                        {/* Expanded Details */}
-                        <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-40 border-t border-dashed border-stone-200' : 'max-h-0'}`}>
-                          <div className="p-4 pt-3 text-[12px] text-stone-600">
-                            <p className="mb-2 text-stone-700">{promo.description || 'ไม่มีรายละเอียดเพิ่มเติมสำหรับโปรโมชั่นนี้'}</p>
-                            <ul className="space-y-1">
-                              {promo.discount_type === 'percent' && promo.max_discount && (
-                                <li className="flex gap-2"><span className="text-stone-400">•</span> ลดสูงสุด ฿{Number(promo.max_discount).toLocaleString()}</li>
-                              )}
-                              {promo.stackable && (
-                                <li className="flex gap-2"><span className="text-stone-400">•</span> สามารถใช้ร่วมกับโปรโมชั่นอื่นได้</li>
-                              )}
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
 
             {/* Room Selection Grid */}
             <section id="room-picker" className={`${CARD} scroll-mt-24 p-5 sm:p-6`}>
+              {/* Sticky Dates & Guests Search Bar */}
+              <div className="sticky top-20 z-30 mb-8 w-full shadow-sm rounded-3xl" ref={pickerRef}>
+                <div className="flex w-full flex-col divide-y divide-stone-100 rounded-3xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.1)] transition-all duration-500 lg:flex-row lg:divide-x lg:divide-y-0 lg:rounded-full">
+                  
+                  <div className="relative flex-[1.4]">
+                    <button type="button" onClick={() => setOpenPanel((v) => (v === "calendar" ? null : "calendar"))} className={`flex h-full w-full items-center gap-3 px-5 py-3 text-left transition-colors duration-200 lg:rounded-l-full ${openPanel === "calendar" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
+                      <Calendar size={16} className="shrink-0 text-forest-700" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">เข้าพัก – เช็คเอาต์</span>
+                        <span className="block truncate text-sm font-semibold text-forest-900">{range ? `${formatThaiDate(range.start)} – ${formatThaiDate(range.end)}` : "เลือกวันเข้าพัก"}</span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {nights > 0 && <span className="rounded-full bg-forest-100 px-2 py-0.5 text-[11px] font-bold text-forest-800">{nights} คืน</span>}
+                        <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "calendar" ? "rotate(180deg)" : "rotate(0deg)" }} />
+                      </div>
+                    </button>
+                    {openPanel === "calendar" && (
+                      <div className="animate-dropdown absolute left-0 top-full z-40 mt-2 w-[min(600px,calc(100vw-2rem))] rounded-3xl border border-stone-200 bg-white p-5 shadow-2xl">
+                        <div className="mb-4 flex items-center justify-between px-2">
+                          <h3 className="font-display text-base font-medium text-forest-900">เลือกช่วงวันเข้าพัก</h3>
+                          <button type="button" onClick={() => setOpenPanel(null)} className="text-charcoal-300 hover:text-charcoal-500"><X size={18} /></button>
+                        </div>
+                        <BookingCalendar mode="range" value={range} onSelect={handleRangeSelect} cursor={cursor} onCursorChange={setCursor} dayStatus={dayStatus} loading={calendarLoading} minISO={isAdminOrStaff ? today : addDaysISO(today, 1)} />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative flex-1">
+                    <button type="button" onClick={() => setOpenPanel((v) => (v === "guests" ? null : "guests"))} className={`flex h-full w-full items-center gap-3 px-5 py-3 text-left transition-colors duration-200 lg:rounded-r-full ${openPanel === "guests" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
+                      <Users size={16} className="shrink-0 text-forest-700" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">ผู้เข้าพัก</span>
+                        <span className="block truncate text-sm font-semibold text-forest-900">ผู้ใหญ่ {parseInt(searchParams.get('adults') || '1', 10)} • เด็ก {parseInt(searchParams.get('children') || '0', 10)}</span>
+                      </span>
+                      <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "guests" ? "rotate(180deg)" : "rotate(0deg)" }} />
+                    </button>
+                    {openPanel === "guests" && (
+                      <div className="animate-dropdown absolute right-0 top-full z-40 mt-2 w-[320px] rounded-2xl border border-stone-200 bg-white p-2 shadow-xl">
+                        <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={parseInt(searchParams.get('adults') || '1', 10)} min={1} onChange={(v) => handleGuestsChange({ adults: v, children: parseInt(searchParams.get('children') || '0', 10) })} />
+                        <GuestRow label="เด็ก" hint="อายุ 0–11 ปี" value={parseInt(searchParams.get('children') || '0', 10)} min={0} onChange={(v) => handleGuestsChange({ adults: parseInt(searchParams.get('adults') || '1', 10), children: v })} />
+                        {parseInt(searchParams.get('children') || '0', 10) > 0 && (
+                          <div className="mx-2 my-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 space-y-2">
+                            <div className="flex items-center gap-1.5">
+                              <Baby size={13} className="text-forest-700 shrink-0" />
+                              <p className="text-xs font-bold uppercase tracking-wide text-forest-800">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
+                            </div>
+                            <div className="space-y-1.5">
+                              {childAges.map((age, index) => (
+                                <div key={index} className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 ${age === null ? "border-amber-300" : "border-stone-200"}`}>
+                                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-forest-800/10 text-xs font-extrabold text-forest-800">{index + 1}</span>
+                                  <div className="relative flex-1">
+                                    <select
+                                      value={age ?? ""}
+                                      onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
+                                      className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-none ${age === null ? "text-amber-600" : "text-forest-800"}`}
+                                    >
+                                      <option value="" disabled>เลือกอายุ</option>
+                                      {Array.from({ length: 18 }, (_, a) => a).map((a) => (
+                                        <option key={a} value={a}>{a} ปี</option>
+                                      ))}
+                                    </select>
+                                    <ChevronDown size={11} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-stone-400" />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div className="px-3 py-2 bg-stone-50 rounded-xl mt-1 mb-2">
+                          <p className="text-xs text-charcoal-400 leading-relaxed">
+                            <span className="font-bold text-forest-700">นโยบายเด็ก:</span> 0-5 ปี ฟรี, 6-11 ปี ราคาเด็ก, 12 ปีขึ้นไป ราคาผู้ใหญ่
+                          </p>
+                        </div>
+                        <div className="border-t border-stone-100 p-2">
+                          <button
+                            type="button"
+                            onClick={() => setOpenPanel(null)}
+                            className="w-full rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800"
+                          >
+                            ตกลง
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <SectionHeading
                 icon={<BedDouble size={16} />}
                 title="เลือกหมายเลขห้องพักที่ต้องการ"
@@ -602,6 +689,66 @@ export default function RoomDetailPage(): React.ReactElement {
                 })}
               </div>
             </section>
+
+            {/* Special Offers (Advertisement) */}
+            {room.available_promotions && room.available_promotions.length > 0 && (
+              <div className="mt-4 rounded-2xl bg-stone-50/50 border border-stone-100 p-4">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <Tag size={14} className="text-emerald-600" />
+                  <h4 className="text-xs font-bold text-stone-600 uppercase tracking-wide">มีโปรโมชั่นพิเศษสำหรับห้องนี้</h4>
+                </div>
+                {/* 
+                  ซ่อน Scrollbar แบบกำหนดเองผ่าน style ย่อย หรืออาศัยคลาสจาก Tailwind (ถ้ามี) 
+                  ที่นี่ใช้ overflow-x-auto ร่วมกับ Flex
+                */}
+                <div className="flex overflow-x-auto gap-3 pb-2 snap-x -mx-2 px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  <style dangerouslySetInnerHTML={{__html: `::-webkit-scrollbar { display: none; }`}} />
+                  
+                  {room.available_promotions.map((promo) => {
+                    const discountText = promo.discount_type === 'percent' ? `ลด ${promo.discount_value}%` : `ลด ฿${Number(promo.discount_value).toLocaleString()}`;
+                    const isExpanded = expandedPromoId === promo.id;
+                    
+                    return (
+                      <div key={promo.id} className="flex flex-col bg-white rounded-lg border border-stone-100 shadow-sm shrink-0 w-[280px] sm:w-[320px] snap-start">
+                        <div 
+                          className="flex items-center justify-between gap-1.5 px-3 py-2.5 cursor-pointer hover:bg-stone-50/50 transition-colors"
+                          onClick={() => setExpandedPromoId(isExpanded ? null : promo.id)}
+                        >
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[12px] font-bold text-forest-800">{promo.name}</span>
+                            <span className="text-[11px] text-stone-400 hidden sm:inline">|</span>
+                            <span className="text-[12px] font-bold text-emerald-600">{discountText}</span>
+                          </div>
+                          <button type="button" className="text-[11px] font-medium text-stone-400 hover:text-stone-600 flex items-center gap-0.5 shrink-0 whitespace-nowrap ml-1">
+                            รายละเอียด <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                          </button>
+                        </div>
+                        
+                        <div className={`transition-all duration-300 overflow-hidden ${isExpanded ? 'max-h-40 border-t border-stone-100' : 'max-h-0'}`}>
+                          <div className="p-3 bg-stone-50/30 text-[11px] text-stone-500">
+                            <p className="mb-1.5 text-stone-600 font-medium whitespace-normal">{promo.description || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
+                            <ul className="space-y-1">
+                              {promo.min_nights && (
+                                <li className="flex gap-2"><span className="text-stone-300">•</span> ขั้นต่ำ {promo.min_nights} คืน</li>
+                              )}
+                              {promo.discount_type === 'percent' && promo.max_discount && (
+                                <li className="flex gap-2"><span className="text-stone-300">•</span> ลดสูงสุด ฿{Number(promo.max_discount).toLocaleString()}</li>
+                              )}
+                              {promo.stackable && (
+                                <li className="flex gap-2"><span className="text-stone-300">•</span> สามารถใช้ร่วมกับโปรโมชั่นอื่นได้</li>
+                              )}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[10px] text-stone-400 font-medium">
+                  * ส่วนลดจะถูกเลือกโดยอัตโนมัติในหน้าสรุปการจอง
+                </p>
+              </div>
+            )}
 
             {/* Reviews */}
             <section id="reviews" className={`${CARD} p-5 sm:p-6 scroll-mt-24`}>
@@ -691,7 +838,7 @@ export default function RoomDetailPage(): React.ReactElement {
           {/* ---- ฝั่งขวา: การ์ดสรุปการจอง ---- */}
           <aside className="lg:col-span-4">
             <div className="mb-8 lg:sticky lg:top-[96px]">
-              <BookingSummaryCard currentRoomType={room} />
+              <BookingSummaryCard  />
             </div>
           </aside>
         </div>

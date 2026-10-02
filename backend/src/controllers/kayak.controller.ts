@@ -272,7 +272,8 @@ export const getAllKayaks = async (
     const result = await pool.query(`
       SELECT bt.boat_type_id as id, bt.type_name as name, bt.description, 
              bt.seat_count as capacity, bt.price as price_per_hour, bt.quantity, bt.is_active,
-             (SELECT image_path FROM boat_images bi WHERE bi.boat_type_id = bt.boat_type_id LIMIT 1) as image
+             (SELECT image_path FROM boat_images bi WHERE bi.boat_type_id = bt.boat_type_id LIMIT 1) as image,
+             (SELECT coalesce(json_agg(image_path), '[]'::json) FROM boat_images bi WHERE bi.boat_type_id = bt.boat_type_id) as images
       FROM boat_types bt 
       WHERE bt.is_active = true
       ORDER BY bt.price ASC
