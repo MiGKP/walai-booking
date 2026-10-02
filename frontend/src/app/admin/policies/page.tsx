@@ -37,12 +37,12 @@ export default function PoliciesSettingsPage() {
       const info = pickResortInfo(data.data, "room"); // 4 is room
       if (info) {
         setForm({
-          checkin_time_from: info.checkin_time_from || "14:00",
-          checkin_time_to: info.checkin_time_to || "23:00",
-          checkout_time: info.checkout_time || "12:00",
-          important_info: info.important_info || "",
-          kids_policy: info.kids_policy || "",
-          parking_info: info.parking_info || "",
+          checkin_time_from: (info.checkin_time_from as string) || "14:00",
+          checkin_time_to: (info.checkin_time_to as string) || "23:00",
+          checkout_time: (info.checkout_time as string) || "12:00",
+          important_info: (info.important_info as string) || "",
+          kids_policy: (info.kids_policy as string) || "",
+          parking_info: (info.parking_info as string) || "",
         });
       }
     } catch (error) {

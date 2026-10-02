@@ -551,12 +551,7 @@ function KayaksPageContent(): React.ReactElement {
       <div className="container mx-auto px-4 pt-16 sm:pt-20">
         
 
-        {pastCutoffToday && (
-          <div className="mb-6 flex items-start gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-xs font-medium text-bamboo-800">
-            <Clock3 size={16} className="mt-0.5 shrink-0" />
-            <p>วันนี้{closedTodayHint.replace('ปิดรับจองแล้ว ', '')} — กรุณาเลือกวันถัดไปในปฏิทิน</p>
-          </div>
-        )}
+
 
 
         <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:items-start">

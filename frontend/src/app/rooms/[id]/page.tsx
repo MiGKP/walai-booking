@@ -61,6 +61,7 @@ interface Promotion {
   discount_type?: 'percent' | 'fixed';
   min_nights?: number;
   max_discount?: number;
+  stackable?: boolean;
 }
 
 interface RoomDetail {
@@ -372,18 +373,17 @@ export default function RoomDetailPage(): React.ReactElement {
 
       
       {/* Sticky Navigation Bar */}
-      <div className="sticky top-0 z-40 hidden border-b border-stone-200 bg-white/90 backdrop-blur-md shadow-sm sm:block">
+      <div className="hidden border-b border-stone-200 bg-white/90 shadow-sm sm:block">
         <div className="mx-auto max-w-7xl px-4">
           <div className="flex h-16 items-center justify-between">
             <nav className="flex items-center gap-6 overflow-x-auto text-sm font-bold text-stone-600 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <a href="#overview" className="whitespace-nowrap py-4 hover:text-forest-700">ข้อมูลห้องพัก</a>
               {room.amenities && room.amenities.length > 0 && <a href="#amenities" className="whitespace-nowrap py-4 hover:text-forest-700">สิ่งอำนวยความสะดวก</a>}
               {room.available_promotions && room.available_promotions.length > 0 && <a href="#promotions" className="whitespace-nowrap py-4 hover:text-forest-700">โปรโมชั่น</a>}
-              <a href="#room-picker" className="whitespace-nowrap py-4 hover:text-forest-700">เลือกห้องพัก</a>
               <a href="#reviews" className="whitespace-nowrap py-4 hover:text-forest-700">รีวิว</a>
               <a href="#policies" className="whitespace-nowrap py-4 hover:text-forest-700">นโยบาย</a>
             </nav>
-            <div className="flex shrink-0 items-center gap-4 pl-4">
+            <div className="flex shrink-0 items-center gap-4 pl-4 lg:hidden">
                <span className="hidden lg:inline-flex items-baseline gap-1">
                  <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">เริ่มต้น</span>
                  <span className="font-sans text-xl font-extrabold text-forest-900">฿{Number(room.price_per_night).toLocaleString()}</span>
@@ -656,7 +656,7 @@ export default function RoomDetailPage(): React.ReactElement {
                 <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
                   <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><AlertCircle size={16} className="text-forest-600" />ข้อมูลสำคัญที่พัก</p>
                   <ul className="list-disc list-outside ml-4 space-y-1.5 text-stone-500">
-                    {(resortInfo?.important_info || 'รวมอาหารเช้าสำหรับทุกการจอง\nไม่อนุญาตให้นำสัตว์เลี้ยงเข้าพัก\nระมัดระวังเด็กเล็ก เนื่องจากที่พักอยู่บนแพ').split('\n').map((line: string, i: number) => (
+                    {(resortInfo?.important_info || 'รวมอาหารเช้าสำหรับทุกการจอง\nไม่อนุญาตให้นำสัตว์เลี้ยงเข้าพัก\nระมัดระวังเด็กเล็ก เนื่องจากห้องพักตั้งอยู่บนน้ำ').split('\n').map((line: string, i: number) => (
                       <li key={i}>{line.trim()}</li>
                     ))}
                   </ul>
@@ -680,7 +680,7 @@ export default function RoomDetailPage(): React.ReactElement {
                 <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
                   <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Car size={16} className="text-forest-600" />การเดินทางและที่จอดรถ</p>
                   <p className="text-stone-500 leading-relaxed whitespace-pre-line">
-                    {resortInfo?.parking_info || 'มีลานจอดรถส่วนตัวให้บริการฟรีในบริเวณสวนวลัยรุกขเวช (ไม่ต้องจองล่วงหน้า) แขกผู้เข้าพักสามารถขับรถมาจอดและเดินไปยังจุดลงแพหรือท่าเทียบเรือได้โดยตรง'}
+                    {resortInfo?.parking_info || 'มีลานจอดรถส่วนตัวให้บริการฟรีในบริเวณสวนวลัยรุกขเวช (ไม่ต้องจองล่วงหน้า) แขกผู้เข้าพักสามารถขับรถมาจอดและเดินไปยังห้องพักได้โดยตรง'}
                   </p>
                 </div>
 
@@ -690,7 +690,7 @@ export default function RoomDetailPage(): React.ReactElement {
 
           {/* ---- ฝั่งขวา: การ์ดสรุปการจอง ---- */}
           <aside className="lg:col-span-4">
-            <div className="mb-8 lg:sticky lg:top-8">
+            <div className="mb-8 lg:sticky lg:top-[96px]">
               <BookingSummaryCard currentRoomType={room} />
             </div>
           </aside>

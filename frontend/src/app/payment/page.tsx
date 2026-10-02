@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { CreditCard, Upload, CheckCircle, ArrowLeft, XCircle, Receipt, Landmark, QrCode, Info } from 'lucide-react';
+import { CreditCard, Upload, CheckCircle, ArrowLeft, XCircle, Receipt, Landmark, QrCode, Info, MessageSquare } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { formatThaiDate, formatTimeRange, nightsBetween } from '@/lib/date';
@@ -41,6 +41,7 @@ function PaymentContent() {
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
+  const [specialRequest, setSpecialRequest] = useState('');
 
   useEffect(() => {
     if (!ready) return;
@@ -91,6 +92,9 @@ function PaymentContent() {
     try {
       const formData = new FormData();
       formData.append('slip', slip);
+      if (specialRequest.trim()) {
+        formData.append('special_request', specialRequest.trim());
+      }
       await api.post(`/payments/${payment.id}/slip`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -433,6 +437,20 @@ function PaymentContent() {
                       </div>
                     </div>
 
+
+                    {/* SPECIAL REQUEST */}
+                    <div className="mt-6 border-t border-stone-100 pt-6">
+                      <SectionHeading icon={<MessageSquare size={16} />} title="คำขอพิเศษ (ไม่บังคับ)" />
+                      <p className="mt-2 mb-3 text-xs text-charcoal-400">ทางที่พักจะพยายามจัดให้ตามคำขอ แต่ไม่การันตี</p>
+                      <textarea
+                        value={specialRequest}
+                        onChange={(e) => setSpecialRequest(e.target.value)}
+                        maxLength={500}
+                        rows={3}
+                        placeholder="เช่น ต้องการเตียงเสริม, ห้องชั้นสูง, แพ้อาหารทะเล"
+                        className="w-full resize-none rounded-xl border border-stone-200 p-3 text-sm focus:border-forest-800 focus:outline-none"
+                      />
+                    </div>
                     <button
                       onClick={() => setStep(2)}
                       className="btn-primary w-full mt-6 text-center shadow-lg shadow-forest-900/20 py-3 text-sm"

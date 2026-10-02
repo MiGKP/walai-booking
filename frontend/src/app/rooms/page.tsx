@@ -18,7 +18,7 @@ import {
   Sailboat,
   Tag,
   CheckCircle2,
-  Search, ShoppingCart, Loader2,
+  Search, ShoppingCart, Loader2, Baby,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import api, { getApiErrorMessage } from "@/lib/api";
@@ -174,15 +174,38 @@ function RoomsPageContent(): React.ReactElement {
   const selectedPromoCodes = (searchParams.get("promo_code") || "").split(",").map((c) => c.trim().toUpperCase()).filter(Boolean);
   
   const [expandedPromoId, setExpandedPromoId] = useState<number | null>(null);
+  const [collectedPromos, setCollectedPromos] = useState<Set<number>>(new Set());
+  const [collectingId, setCollectingId] = useState<number | null>(null);
 
   const pickerRef = useRef<HTMLDivElement>(null);
   const nights = range ? nightsBetween(range.start, range.end) : 0;
+
+  const childAges: Array<number | null> = useMemo(() => {
+    const children = parseInt(searchParams.get('children') || '0', 10);
+    const raw = (searchParams.get('child_ages') || '').split(',').map((s) => {
+      const n = parseInt(s, 10);
+      return Number.isInteger(n) && n >= 0 && n <= 17 ? n : null;
+    });
+    const normalized = raw.length && (searchParams.get('child_ages') ?? '') !== '' ? raw : [];
+    if (normalized.length === children) return normalized;
+    if (normalized.length > children) return normalized.slice(0, children);
+    return [...normalized, ...Array(children - normalized.length).fill(null)];
+  }, [searchParams]);
 
   useEffect(() => {
     const adults = parseInt(searchParams.get("adults") || "1", 10);
     const children = parseInt(searchParams.get("children") || "0", 10);
     setGuests({ adults, children });
   }, [searchParams]);
+
+  const handleChildAgeChange = (index: number, age: number) => {
+    const nextChildAges = [...childAges];
+    nextChildAges[index] = age;
+    const serialized = nextChildAges.map((a) => (a === null ? '' : String(a))).join(',');
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('child_ages', serialized);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => { if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setOpenPanel(null); };
@@ -289,7 +312,8 @@ function RoomsPageContent(): React.ReactElement {
 
   const roomTypeOptions = useMemo(() => Array.from(new Set(rooms.map((room) => room.type_name).filter(Boolean))), [rooms]);
   const roomsByType = useMemo(() => typeFilter === "all" ? rooms : rooms.filter((room) => room.type_name === typeFilter), [rooms, typeFilter]);
-  const totalGuests = guests.adults + guests.children;
+  const countableChildren = childAges.filter((age) => age !== null && age > 5).length;
+  const totalGuests = guests.adults + countableChildren;
   const availableRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) > 0 && (Number(room.capacity) * Number(room.available_count)) >= totalGuests), [roomsByType, totalGuests]);
   const fullRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) <= 0 || (Number(room.capacity) * Number(room.available_count)) < totalGuests), [roomsByType, totalGuests]);
 
@@ -330,6 +354,34 @@ function RoomsPageContent(): React.ReactElement {
                   <div className="animate-dropdown absolute left-1/2 top-full z-40 mt-2 w-[320px] -translate-x-1/2 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl lg:left-0 lg:translate-x-0">
                     <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={guests.adults} min={1} onChange={(v) => handleGuestsChange({ ...guests, adults: v })} />
                     <GuestRow label="เด็ก" hint="อายุ 0–11 ปี" value={guests.children} min={0} onChange={(v) => handleGuestsChange({ ...guests, children: v })} />
+                    {guests.children > 0 && (
+                      <div className="mx-2 my-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <Baby size={13} className="text-forest-700 shrink-0" />
+                          <p className="text-xs font-bold uppercase tracking-wide text-forest-800">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          {childAges.map((age, index) => (
+                            <div key={index} className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 ${age === null ? "border-amber-300" : "border-stone-200"}`}>
+                              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-forest-800/10 text-xs font-extrabold text-forest-800">{index + 1}</span>
+                              <div className="relative flex-1">
+                                <select
+                                  value={age ?? ""}
+                                  onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
+                                  className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-none ${age === null ? "text-amber-600" : "text-forest-800"}`}
+                                >
+                                  <option value="" disabled>เลือกอายุ</option>
+                                  {Array.from({ length: 18 }, (_, a) => a).map((a) => (
+                                    <option key={a} value={a}>{a} ปี</option>
+                                  ))}
+                                </select>
+                                <ChevronDown size={11} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-stone-400" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="px-3 py-2 bg-stone-50 rounded-xl mt-1 mb-2">
                       <p className="text-xs text-charcoal-400 leading-relaxed">
                         <span className="font-bold text-forest-700">นโยบายเด็ก:</span> 0-5 ปี เข้าพักฟรีไม่มีค่าใช้จ่าย, 6-11 ปี คิดราคาเด็ก (เตียงเสริม), 12 ปีขึ้นไป คิดราคาผู้ใหญ่
