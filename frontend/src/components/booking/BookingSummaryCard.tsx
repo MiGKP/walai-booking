@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { Calendar, Tag, Plus, Minus, X, CheckCircle2, CreditCard, Trash2, AlertTriangle, Baby, ChevronDown, Clock } from 'lucide-react';
+import { Calendar, Plus, Minus, X, CheckCircle2, CreditCard, Trash2, AlertTriangle, Baby, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatThaiDate, nightsBetween, todayISO, addDaysISO, monthCursorFromISO, MonthCursor } from '@/lib/date';
 import { RoomCartItem } from '@/lib/room-cart';
@@ -523,293 +523,154 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
 
   return (
     <>
-    <div ref={cardRef} className="rounded-2xl border border-stone-200 bg-white shadow-[0_4px_20px_-4px_rgba(18,60,48,0.08)]">
+    <div ref={cardRef} className="rounded-3xl border border-stone-200/80 bg-white/95 backdrop-blur-xl shadow-xl shadow-stone-200/40 flex flex-col max-h-[calc(100vh-2rem)]">
       {/* HEADER */}
-      <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4 bg-white rounded-t-2xl">
-        <div className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700"><CreditCard size={16} /></span>
-          <h3 className="font-sans text-base font-semibold text-forest-900">สรุปการจอง</h3>
+      <div className="flex items-center justify-between border-b border-stone-100/80 px-6 py-5 bg-stone-50/40 rounded-t-3xl shrink-0">
+        <div className="flex items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest-900 text-white shadow-sm">
+            <CreditCard size={18} />
+          </span>
+          <div>
+            <h3 className="font-display text-lg font-semibold text-forest-900 tracking-tight">รายละเอียดและการชำระเงิน</h3>
+          </div>
         </div>
         {cartItems.length > 0 && (
-          <button type="button" onClick={handleClearAll} className="text-xs font-semibold text-stone-400 transition-colors hover:text-red-600">
-            ล้างทั้งหมด
+          <button type="button" onClick={handleClearAll} className="text-[11px] font-bold uppercase tracking-wider text-stone-400 transition-colors hover:text-red-600 underline underline-offset-2">
+            ล้างตะกร้า
           </button>
         )}
       </div>
 
-      <div className="space-y-6 px-5 py-5">
-        {/* DATES */}
-        <div>
-          <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">วันเข้าพัก</span>
-          <div className="relative" ref={dateFieldRef}>
-            <button
-              onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-              className="flex w-full items-center justify-between gap-3 rounded-xl border border-stone-200 px-4 py-3 text-left transition-colors hover:border-[#0A2E1F]"
-            >
-              <div className="flex items-center gap-3">
-                <Calendar size={18} className="text-[#0A2E1F]" />
-                <span className="text-sm font-medium text-stone-700">
-                  {formatThaiDate(checkIn)} – {formatThaiDate(checkOut)}
-                </span>
+      <div className="space-y-6 px-6 py-6 overflow-y-auto custom-scrollbar">
+        {/* RESERVATION TICKET (Dates + Guests) */}
+        <div className="rounded-2xl border border-stone-100 bg-stone-50/50 p-1">
+          <div className="flex flex-col rounded-xl bg-white p-4 shadow-sm ring-1 ring-stone-950/5">
+            <div className="flex items-start justify-between pb-4 border-b border-stone-100 border-dashed">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">เข้าพัก – เช็คเอาต์</span>
+                <span className="text-sm font-semibold text-forest-900">{formatThaiDate(checkIn)} – {formatThaiDate(checkOut)}</span>
               </div>
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-[#0A2E1F]">
+              <span className="flex shrink-0 items-center justify-center rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-forest-700 ring-1 ring-emerald-500/20">
                 {nights} คืน
               </span>
-            </button>
-
-            {isCalendarOpen && (
-              <>
-                <div className="fixed inset-0 z-40 bg-black/5 sm:bg-transparent" onClick={() => setIsCalendarOpen(false)} />
-                <div className="absolute top-full right-0 mt-2 z-50 rounded-2xl border border-stone-200 bg-white p-4 shadow-2xl w-[640px] max-w-[calc(100vw-2rem)] overflow-hidden sm:p-6" onClick={(e) => e.stopPropagation()}>
-                  <BookingCalendar
-                    mode="range"
-                    value={{ start: checkIn, end: checkOut }}
-                    cursor={cursor}
-                    onCursorChange={setCursor}
-                    visibleMonths={isWideEnoughForTwoMonths ? 2 : 1}
-                    onSelect={(range) => {
-                      if (range?.start && range?.end) {
-                        updateUrl({ check_in: range.start, check_out: range.end });
-                        setIsCalendarOpen(false);
-                      }
-                    }}
-                    minISO={isAdminOrStaff ? todayISO() : addDaysISO(todayISO(), 1)}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* GUESTS */}
-        <div>
-          <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">ผู้เข้าพัก</span>
-          <div className="divide-y divide-stone-100 rounded-xl border border-stone-200">
-            <div className="flex items-center justify-between px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-stone-700">ผู้ใหญ่</p>
-                <p className="text-xs text-stone-400">อายุ 18 ปีขึ้นไป</p>
+            </div>
+            
+            <div className="flex items-start gap-6 pt-4">
+              <div className="flex flex-col gap-1 flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">ผู้ใหญ่</span>
+                <span className="text-sm font-semibold text-forest-900">{adults} ท่าน</span>
               </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => handleGuestChange('adults', -1)} disabled={adults <= 1} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
-                <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{adults}</span>
-                <button onClick={() => handleGuestChange('adults', 1)} disabled={totalCapacity > 0 && totalCapacityGuests >= totalCapacity} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
+              <div className="flex flex-col gap-1 flex-1">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">เด็ก</span>
+                <span className="text-sm font-semibold text-forest-900">{children > 0 ? `${children} ท่าน` : '-'}</span>
               </div>
             </div>
-            <div className="flex items-center justify-between px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-stone-700">เด็ก</p>
-                <p className="text-xs text-stone-400">อายุ 0–17 ปี</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => handleGuestChange('children', -1)} disabled={children <= 0} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
-                <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{children}</span>
-                <button onClick={() => handleGuestChange('children', 1)} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
-              </div>
-            </div>
+            
             {children > 0 && (
-              <div className="space-y-2.5 border-t border-dashed border-stone-200 bg-emerald-50/30 px-4 py-3.5">
-                <div className="flex items-center gap-1.5">
-                  <Baby size={14} className="text-[#0A2E1F]" />
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#0A2E1F]">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {childAges.map((age, index) => (
-                    <div
-                      key={index}
-                      className={`flex items-center gap-2 rounded-xl border bg-white px-3 py-2 shadow-sm transition-colors ${
-                        age === null ? 'border-amber-300 ring-1 ring-amber-100' : 'border-stone-200'
-                      }`}
-                    >
-                      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#0A2E1F]/10 text-xs font-extrabold text-[#0A2E1F]">
-                        {index + 1}
-                      </span>
-                      <div className="relative min-w-0 flex-1">
-                        <select
-                          value={age ?? ''}
-                          onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
-                          className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-none ${
-                            age === null ? 'text-amber-600' : 'text-[#0A2E1F]'
-                          }`}
-                        >
-                          <option value="" disabled>เลือกอายุ</option>
-                          {Array.from({ length: 18 }, (_, a) => a).map((a) => (
-                            <option key={a} value={a}>{a} ปี</option>
-                          ))}
-                        </select>
-                        <ChevronDown size={12} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-stone-400" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="mt-4 rounded-lg bg-stone-50 px-3 py-2.5 ring-1 ring-stone-200/50">
+                <p className="text-[11px] text-stone-600 leading-relaxed">
+                  <span className="font-semibold text-stone-800">อายุเด็ก:</span>{' '}
+                  {childAges.map((a, i) => (a !== null ? `${a} ปี` : '(ยังไม่ระบุ)')).join(' · ')}
+                </p>
                 {!allChildAgesSet && (
-                  <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-600">
-                    <AlertTriangle size={12} className="shrink-0" /> กรุณาเลือกอายุเด็กให้ครบก่อนยืนยันการจอง
+                  <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-amber-600">
+                    <AlertTriangle size={12} className="shrink-0" /> กรุณาระบุอายุเด็กที่ช่องค้นหา
                   </p>
                 )}
-                <p className="text-xs text-stone-400">เด็กอายุต่ำกว่า 2 ขวบไม่นับรวมความจุห้อง</p>
               </div>
             )}
           </div>
-          {overCapacity && (
-            <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-red-500">
-              <AlertTriangle size={13} /> ผู้เข้าพักรวม {totalCapacityGuests} คน เกินความจุห้องที่เลือก ({totalCapacity} คน) — เพิ่มห้องหรือลดจำนวนผู้เข้าพัก
-            </p>
-          )}
         </div>
+
+        {overCapacity && (
+          <p className="flex items-center gap-1.5 rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-600 ring-1 ring-red-500/20">
+            <AlertTriangle size={14} className="shrink-0" /> ผู้เข้าพัก {totalCapacityGuests} คน เกินความจุห้อง ({totalCapacity} คน)
+          </p>
+        )}
 
         {/* ROOM LIST */}
         <div>
-          <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">ห้องพักที่เลือก</span>
+          <div className="mb-3 flex items-center justify-between">
+             <span className="text-xs font-bold uppercase tracking-wider text-forest-900">ห้องพักที่เลือก</span>
+             <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-500">{cartItems.length} รายการ</span>
+          </div>
 
-          {currentRoomType && !isCurrentRoomInCart && (
-            <button
-              onClick={handleAddCurrentRoom}
-              className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#0A2E1F] bg-emerald-50/50 py-2.5 text-xs font-bold text-[#0A2E1F] transition-colors hover:bg-emerald-100/50"
-            >
-              <Plus size={14} /> เพิ่ม {currentRoomType.room_name} ลงในการจอง
-            </button>
-          )}
-
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {cartItems.length > 0 ? cartItems.map(item => (
-              <div key={item.rawToken} className={`rounded-xl p-3 ${item.unavailable ? 'border border-red-200 bg-red-50' : 'bg-stone-50/60'}`}>
-                <div className="flex items-center justify-between gap-3">
+              <div key={item.rawToken} className={`relative overflow-hidden rounded-xl p-3.5 ring-1 ${item.unavailable ? 'bg-red-50 ring-red-200' : 'bg-white ring-stone-200/80 shadow-sm'}`}>
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className={`truncate text-sm font-bold ${item.unavailable ? 'text-red-700' : 'text-[#0A2E1F]'}`}>{item.name}</p>
-                    <p className={`text-xs ${item.unavailable ? 'text-red-500' : 'text-stone-500'}`}>฿{item.price.toLocaleString()} / คืน · จุ {item.capacity} ท่าน</p>
+                    <p className={`truncate text-sm font-bold ${item.unavailable ? 'text-red-700' : 'text-forest-900'}`}>{item.name}</p>
+                    <p className={`mt-0.5 text-[11px] ${item.unavailable ? 'text-red-500' : 'text-stone-500'}`}>฿{item.price.toLocaleString()} / คืน · จุ {item.capacity} ท่าน</p>
                   </div>
                   {item.roomId ? (
-                    // เลือกห้องเจาะจงไว้แล้ว (มีเลขห้องเดียว) เพิ่ม/ลดจำนวนไม่ได้ เพราะมีห้องนั้นห้องเดียว มีแค่ปุ่มลบออก
                     <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, -1)} className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-red-500 transition-colors hover:border-red-300 hover:bg-red-50">
                       <Trash2 size={13} />
                     </button>
                   ) : (
-                    <div className="flex items-center gap-3">
-                      <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, -1)} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Minus size={13} /></button>
-                      <span className="w-6 text-center text-sm font-bold text-[#0A2E1F]">{item.qty}</span>
-                      <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, 1)} disabled={item.unavailable} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-[#0A2E1F] transition-colors hover:border-[#0A2E1F] hover:bg-emerald-50 disabled:opacity-30"><Plus size={13} /></button>
+                    <div className="flex items-center gap-2.5">
+                      <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, -1)} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-forest-900 transition-colors hover:border-forest-900 hover:bg-forest-50 disabled:opacity-30"><Minus size={13} /></button>
+                      <span className="w-5 text-center text-sm font-bold text-forest-900">{item.qty}</span>
+                      <button onClick={() => handleRoomQtyChange(item.typeId, item.roomId, 1)} disabled={item.unavailable} className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-forest-900 transition-colors hover:border-forest-900 hover:bg-forest-50 disabled:opacity-30"><Plus size={13} /></button>
                     </div>
                   )}
                 </div>
                 {item.unavailable && (
-                  <p className="mt-1.5 text-xs font-semibold text-red-600">ไม่ว่างแล้วสำหรับวันที่นี้ กรุณาลบออกหรือเปลี่ยนวันที่</p>
+                  <p className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-red-600"><AlertTriangle size={12}/> ไม่ว่างแล้ว กรุณาลบออก</p>
                 )}
               </div>
             )) : (
-              <div className="rounded-xl border border-dashed border-stone-200 py-6 text-center text-xs text-stone-400 italic">ยังไม่ได้เลือกห้องพัก</div>
+              <div className="rounded-xl border border-dashed border-stone-200 bg-stone-50/50 py-8 text-center text-[13px] font-medium text-stone-400">ยังไม่ได้เลือกห้องพัก</div>
             )}
           </div>
-        </div>
-
-        {/* PROMO CODE */}
-        <div>
-          <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">โปรโมชั่น</span>
-          <p className="mb-3 text-xs text-stone-400">ใช้โปรโมชั่นที่คุณเก็บไว้ หรือกรอกโค้ดเพิ่มเติม (1 ประเภทห้องใช้ได้ 1 โปรโมชั่น)</p>
-          <button
-            type="button"
-            onClick={() => setIsPromoDrawerOpen(true)}
-            className="flex w-full items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-stone-50"
-          >
-            <div className="flex items-center gap-2">
-              <Tag size={16} className="text-[#0A2E1F]" />
-              <span className="text-sm font-semibold text-[#0A2E1F]">เลือกใช้โปรโมชั่นของคุณ</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {promoAssignments.filter(a => a.valid).length > 0 && (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">
-                  ใช้แล้ว {promoAssignments.filter(a => a.valid).length} โค้ด
-                </span>
-              )}
-              <ChevronDown size={16} className="text-stone-400" />
-            </div>
-          </button>
-          
-          <PromotionDrawer
-            isOpen={isPromoDrawerOpen}
-            onClose={() => setIsPromoDrawerOpen(false)}
-            currentPromoCode={promoCodes[0] || null} // Assuming it takes one for now, or we might need to adapt it
-            onApply={(code) => addPromoCode(code)}
-            scope="room"
-          />
-
-          
-          {promoAssignments.length > 0 && (
-            <div className="mt-3 space-y-1.5">
-              {promoAssignments.map((a) => (
-                <div key={a.code} className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${a.valid ? 'border-emerald-100 bg-emerald-50' : 'border-red-100 bg-red-50'}`}>
-                  <div className="flex min-w-0 items-center gap-2">
-                    {a.valid ? <CheckCircle2 size={14} className="shrink-0 text-emerald-600" /> : <X size={14} className="shrink-0 text-red-500" />}
-                    <span className={`truncate text-xs font-bold ${a.valid ? 'text-emerald-800' : 'text-red-600'}`}>
-                      {a.code}{a.valid ? ` · ${a.promotion?.name}${a.typeLabel ? ` (${a.typeLabel})` : ''}` : ` · ${a.reason}`}
-                    </span>
-                  </div>
-                  <button onClick={() => removePromoCode(a.code)} className="shrink-0"><X size={14} className={a.valid ? 'text-emerald-600' : 'text-red-500'} /></button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* SPECIAL REQUEST */}
-        <div>
-          <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#0A2E1F]">คำขอพิเศษ</span>
-          <p className="mb-2 text-xs text-stone-400">ไม่บังคับ — ทางที่พักจะพยายามจัดให้ตามคำขอ แต่ไม่การันตี</p>
-          <textarea
-            value={specialRequest}
-            onChange={(e) => setSpecialRequest(e.target.value)}
-            maxLength={500}
-            rows={3}
-            placeholder="เช่น ต้องการเตียงเสริม, ห้องชั้นสูง, แพ้อาหารทะเล"
-            className="w-full resize-none rounded-xl border border-stone-200 p-3 text-sm focus:border-[#0A2E1F] focus:outline-none"
-          />
         </div>
       </div>
 
       {/* FOOTER */}
-      <div className="border-t border-stone-100 bg-stone-50/50 px-5 py-5 rounded-b-2xl">
-        <div className="space-y-2">
+      <div className="border-t border-stone-100 bg-stone-50/50 p-6 rounded-b-3xl shrink-0">
+        <div className="space-y-2.5 mb-5">
           <div className="flex justify-between text-sm text-stone-500">
             <span>ราคาห้องพัก × {nights} คืน</span>
-            <span>฿{subtotal.toLocaleString()}</span>
+            <span className="font-medium">฿{subtotal.toLocaleString()}</span>
           </div>
-          {promoAssignments.filter((a) => a.valid).map((a) => (
-            <div key={a.code} className="flex justify-between rounded-lg border border-amber-200/50 bg-gradient-to-r from-amber-50 to-orange-50 px-3 py-2 text-[13px] font-bold text-amber-700 shadow-sm">
-              <span className="flex items-center gap-1.5"><Tag size={12} className="text-amber-500" /> โปรโมชั่น ({a.code})</span>
-              <span>-฿{a.discount.toLocaleString()}</span>
-            </div>
-          ))}
-          <div className="my-3 h-px bg-stone-200" />
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm font-bold text-[#0A2E1F]">ยอดชำระสุทธิ</span>
-            <span className="text-2xl font-extrabold text-[#0A2E1F]">฿{total.toLocaleString()}</span>
+          <div className="my-3 border-b border-stone-200 border-dashed"></div>
+          <div className="flex items-end justify-between">
+            <span className="text-sm font-bold text-forest-900">ยอดชำระสุทธิ</span>
+            <span className="text-[26px] font-extrabold tracking-tight text-forest-900 leading-none">฿{subtotal.toLocaleString()}</span>
           </div>
         </div>
+
         {hasUnavailableItems && (
-          <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-red-600"><AlertTriangle size={13} className="shrink-0" />กรุณาลบห้องที่ไม่ว่างแล้วออกก่อนยืนยันการจอง</p>
-            <button type="button" onClick={handleRemoveUnavailable} className="shrink-0 text-xs font-bold text-red-700 underline hover:text-red-900">
+          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 shadow-sm">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-red-600"><AlertTriangle size={14} className="shrink-0" />กรุณาลบห้องที่ไม่ว่างออก</p>
+            <button type="button" onClick={handleRemoveUnavailable} className="self-start text-[11px] font-bold text-red-700 underline hover:text-red-900">
               ลบออกทั้งหมด
             </button>
           </div>
         )}
         
-        <div className="mt-4 mb-2 flex items-start gap-2 rounded-lg bg-stone-100/50 p-2 text-xs leading-relaxed text-charcoal-400">
-          <Clock size={12} className="mt-0.5 shrink-0 text-charcoal-500" />
+        <div className="mb-4 flex items-start gap-2.5 rounded-xl bg-stone-100/70 p-3 text-[11px] leading-relaxed text-stone-500 ring-1 ring-stone-200/50">
+          <Clock size={14} className="mt-0.5 shrink-0 text-stone-400" />
           <p>
-            <span className="font-semibold text-charcoal-600">นโยบาย:</span> เช็คอิน 14:00 - 23:00 น. | เช็คเอาต์ ก่อน 12:00 น.
+            <span className="font-bold text-stone-600">นโยบาย:</span> เช็คอิน 14:00 - 23:00 น. | เช็คเอาต์ ก่อน 12:00 น.
           </p>
         </div>
-        <button onClick={handleConfirmBooking} disabled={cartItems.length === 0 || isBooking || hasUnavailableItems || overCapacity || !allChildAgesSet} className="mt-3 w-full rounded-xl bg-[#0A2E1F] py-4 text-base font-bold text-white shadow-lg transition-all hover:bg-emerald-900 active:scale-[0.98] disabled:bg-stone-300">
+        
+        <button 
+          onClick={handleConfirmBooking} 
+          disabled={cartItems.length === 0 || isBooking || hasUnavailableItems || overCapacity || !allChildAgesSet} 
+          className="relative w-full overflow-hidden rounded-xl bg-forest-900 py-4 text-sm font-bold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800 hover:shadow-xl hover:shadow-forest-900/30 active:scale-[0.98] disabled:bg-stone-300 disabled:shadow-none"
+        >
           {isBooking ? 'กำลังสร้างการจอง...' : 'ยืนยันการจอง'}
         </button>
+
         {showLoginNotice && !isAuthenticated && cartItems.length > 0 && (
-          <div className="mt-3 flex flex-col items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-center">
-            <p className="text-xs font-semibold text-amber-700">ต้องเข้าสู่ระบบก่อนจึงจะยืนยันการจองได้</p>
+          <div className="mt-3 flex flex-col items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center shadow-sm">
+            <p className="text-[11px] font-semibold text-amber-700">ต้องเข้าสู่ระบบก่อนจึงจะยืนยันการจองได้</p>
             <button
               type="button"
               onClick={() => router.push(buildLoginRedirectUrl(pathname, searchParams.toString()))}
-              className="w-full rounded-lg bg-amber-500 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-600"
+              className="w-full rounded-lg bg-amber-500 py-2.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-amber-600"
             >
               เข้าสู่ระบบ
             </button>
@@ -818,20 +679,20 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
       </div>
     </div>
 
-    {/* MOBILE STICKY PRICE BAR: การ์ดสรุปมักอยู่ล่างสุดของหน้ายาว จึงมีแถบราคาลอยไว้กดเลื่อนขึ้นไปดู */}
+    {/* MOBILE STICKY PRICE BAR */}
     {cartItems.length > 0 && (
       <div
-        className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t border-stone-200 bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(18,60,48,0.1)] lg:hidden"
-        style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
+        className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-3 border-t border-stone-200/80 bg-white/95 px-5 py-4 shadow-[0_-8px_30px_rgba(18,60,48,0.12)] backdrop-blur-xl lg:hidden"
+        style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
       >
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ยอดชำระสุทธิ</p>
-          <p className="truncate text-lg font-extrabold text-[#0A2E1F]">฿{total.toLocaleString()}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">ยอดชำระสุทธิ</p>
+          <p className="truncate text-xl font-extrabold tracking-tight text-forest-900">฿{subtotal.toLocaleString()}</p>
         </div>
         <button
           type="button"
           onClick={() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          className="shrink-0 rounded-xl bg-[#0A2E1F] px-5 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-emerald-900"
+          className="shrink-0 rounded-xl bg-forest-900 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800 active:scale-95"
         >
           ดูสรุปการจอง
         </button>
@@ -841,19 +702,19 @@ export default function BookingSummaryCard({ currentRoomType }: BookingSummaryCa
     {/* CONFIRM DIALOG: ล้างตะกร้า */}
     {showClearConfirm && (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-sm" onClick={() => setShowClearConfirm(false)}>
-        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-500">
+        <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-500 ring-4 ring-red-50/50">
             <Trash2 size={22} />
           </div>
-          <h3 className="font-sans text-center text-base font-bold text-forest-900">ล้างรายการห้องพักทั้งหมด?</h3>
-          <p className="mt-1.5 text-center text-sm leading-relaxed text-stone-500">
-            ห้องพักและโค้ดส่วนลดที่เลือกไว้ทั้งหมดจะถูกลบออก และไม่สามารถกู้คืนได้
+          <h3 className="font-display text-center text-lg font-bold text-forest-900">ล้างรายการจองทั้งหมด?</h3>
+          <p className="mt-2 text-center text-[13px] leading-relaxed text-stone-500">
+            ห้องพักที่เลือกไว้จะถูกลบออก และไม่สามารถกู้คืนได้
           </p>
-          <div className="mt-5 flex gap-3">
-            <button type="button" onClick={() => setShowClearConfirm(false)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-sm font-bold text-stone-600 transition-colors hover:bg-stone-50">
+          <div className="mt-6 flex gap-3">
+            <button type="button" onClick={() => setShowClearConfirm(false)} className="flex-1 rounded-xl border border-stone-200 py-3 text-sm font-bold text-stone-600 transition-colors hover:bg-stone-50">
               ยกเลิก
             </button>
-            <button type="button" onClick={confirmClearAll} className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700">
+            <button type="button" onClick={confirmClearAll} className="flex-1 rounded-xl bg-red-600 py-3 text-sm font-bold text-white shadow-sm shadow-red-600/20 transition-all hover:bg-red-700">
               ล้างทั้งหมด
             </button>
           </div>
