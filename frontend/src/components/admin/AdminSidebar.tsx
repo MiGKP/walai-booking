@@ -21,7 +21,6 @@ import {
   LayoutDashboard,
   Calendar,
   Menu,
-  X,
   ExternalLink,
   User,
   LogOut,
@@ -136,7 +135,7 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
-    title: "เรือคายัค",
+    title: "เรือ",
     icon: <Anchor size={18} />,
     items: [
       {
@@ -160,7 +159,6 @@ const menuGroups: MenuGroup[] = [
 
 export default function AdminSidebar() {
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
 
   // ฟังก์ชันแปลง Path จาก /admin เป็น /staff/... ตาม Role
@@ -243,44 +241,59 @@ export default function AdminSidebar() {
     return "ระบบจัดการผู้ดูแลระบบ";
   };
 
-  const navContent = (
-    <div className="flex flex-col h-full py-5 px-3.5">
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const renderNavContent = (collapsed: boolean, isMobile: boolean = false) => (
+    <div className={`flex flex-col h-full py-5 ${collapsed ? "px-2" : "px-3.5"}`}>
       {/* Brand / Logo */}
-      <div className="px-3 mb-5">
-        <h2 className="font-display font-semibold text-base text-forest-800">
-          สวนวลัยรุกขเวช
-        </h2>
-        <p className="text-xs text-charcoal-400">{getRoleTitle()}</p>
+      <div className={`mb-5 flex items-center ${collapsed ? "justify-center px-0" : "justify-between px-3"}`}>
+        {!collapsed && (
+          <div className="min-w-0 pr-2">
+            <h2 className="font-display font-semibold text-base text-forest-800 truncate">
+              สวนวลัยรุกขเวช
+            </h2>
+            <p className="text-xs text-charcoal-400 truncate">{getRoleTitle()}</p>
+          </div>
+        )}
+        {!isMobile && (
+          <button
+            onClick={() => setIsCollapsed(!collapsed)}
+            className={`p-1.5 rounded-lg text-charcoal-500 hover:bg-stone-200/50 hover:text-forest-800 transition-colors shrink-0 ${collapsed ? '' : '-mr-2'}`}
+            title={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
+          >
+            <Menu size={18} />
+          </button>
+        )}
       </div>
 
       {/* Nav Links */}
-      <nav className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+      <nav className={`flex-1 overflow-y-auto space-y-1.5 custom-scrollbar ${collapsed ? "" : "pr-1"}`}>
         {/* Dashboard Main Link */}
         <Link
           href={dashboardHref}
-          onClick={() => setMobileOpen(false)}
-          className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+          title={collapsed ? "ภาพรวม (Dashboard)" : undefined}
+          className={`flex items-center ${collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"} rounded-xl text-xs font-semibold transition-all ${
             pathname === dashboardHref
               ? "bg-forest-800 text-cream-100 shadow-sm"
               : "text-charcoal-600 hover:bg-stone-200/50"
           }`}
         >
-          <LayoutDashboard size={18} />
-          <span>ภาพรวม (Dashboard)</span>
+          <LayoutDashboard size={18} className="shrink-0" />
+          {!collapsed && <span>ภาพรวม (Dashboard)</span>}
         </Link>
 
         {/* Calendar Link */}
         <Link
           href={calendarHref}
-          onClick={() => setMobileOpen(false)}
-          className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+          title={collapsed ? "ปฏิทินการจอง" : undefined}
+          className={`flex items-center ${collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"} rounded-xl text-xs font-semibold transition-all ${
             pathname === calendarHref
               ? "bg-forest-800 text-cream-100 shadow-sm"
               : "text-charcoal-600 hover:bg-stone-200/50"
           }`}
         >
-          <Calendar size={18} />
-          <span>ปฏิทินการจอง</span>
+          <Calendar size={18} className="shrink-0" />
+          {!collapsed && <span>ปฏิทินการจอง</span>}
         </Link>
 
         {/* Accordion Groups */}
@@ -298,55 +311,61 @@ export default function AdminSidebar() {
               {/* Header เมนูหลัก (กดเพื่อพับ/กาง) */}
               <button
                 type="button"
-                onClick={() => toggleGroup(group.title)}
-                className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-all ${
+                onClick={() => {
+                  if (collapsed) {
+                    setIsCollapsed(false);
+                    if (!isOpen) toggleGroup(group.title);
+                  } else {
+                    toggleGroup(group.title);
+                  }
+                }}
+                title={collapsed ? group.title : undefined}
+                className={`w-full flex items-center ${collapsed ? "justify-center px-0 py-2.5" : "justify-between px-3 py-2"} text-xs font-semibold rounded-xl transition-all ${
                   hasActiveChild
                     ? "text-forest-800 bg-forest-800/5"
                     : "text-charcoal-600 hover:bg-stone-200/50"
                 }`}
               >
-                <div className="flex items-center gap-2.5">
+                <div className={`flex items-center ${collapsed ? "" : "gap-2.5"}`}>
                   <span
-                    className={
-                      hasActiveChild ? "text-forest-800" : "text-charcoal-400"
-                    }
+                    className={`shrink-0 ${hasActiveChild ? "text-forest-800" : "text-charcoal-400"}`}
                   >
                     {group.icon}
                   </span>
-                  <span>{group.title}</span>
+                  {!collapsed && <span>{group.title}</span>}
                 </div>
-                <ChevronDown
-                  size={15}
-                  className={`text-charcoal-400 transition-transform duration-200 ${
-                    isOpen ? "rotate-180" : ""
-                  }`}
-                />
+                {!collapsed && (
+                  <ChevronDown
+                    size={15}
+                    className={`text-charcoal-400 transition-transform duration-200 shrink-0 ${
+                      isOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                )}
               </button>
 
               {/* Sub-items (เมนูย่อย) */}
               {isOpen && (
-                <div className="pl-4 pr-1 py-1 space-y-0.5 border-l-2 border-stone-200 ml-5 my-1">
+                <div className={collapsed ? "py-1 space-y-1 my-1 flex flex-col items-center" : "pl-4 pr-1 py-1 space-y-0.5 border-l-2 border-stone-200 ml-5 my-1"}>
                   {group.items.map((item) => {
                     const isActive = pathname === item.path;
                     return (
                       <Link
                         key={item.path}
                         href={item.path}
-                        onClick={() => setMobileOpen(false)}
-                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-all ${
+                                      title={collapsed ? item.label : undefined}
+                        className={`flex items-center ${collapsed ? "justify-center p-2 rounded-xl" : "gap-2 px-2.5 py-1.5 rounded-lg"} text-xs transition-all ${
                           isActive
                             ? "bg-forest-800/10 text-forest-800 font-bold"
                             : "text-charcoal-500 hover:text-forest-800 hover:bg-stone-100"
                         }`}
                       >
                         <span
-                          className={
-                            isActive ? "text-forest-800" : "text-charcoal-400"
-                          }
+                          className={`shrink-0 ${isActive ? "text-forest-800" : "text-charcoal-400"}`}
                         >
                           {item.icon}
                         </span>
-                        <span>{item.label}</span>
+                        {!collapsed && <span>{item.label}</span>}
                       </Link>
                     );
                   })}
@@ -358,52 +377,53 @@ export default function AdminSidebar() {
       </nav>
 
       {/* ส่วนท้าย Sidebar */}
-      <div className="pt-3 border-t border-stone-200/80 space-y-2 mt-2">
+      <div className={`pt-3 border-t border-stone-200/80 space-y-2 mt-2 ${collapsed ? "flex flex-col items-center" : ""}`}>
         <a
           href="/"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium text-charcoal-600 hover:bg-stone-200/50 border border-stone-200 bg-white/40"
+          title={collapsed ? "ดูหน้าเว็บจริง (Live Site)" : undefined}
+          className={`flex items-center ${collapsed ? "justify-center p-2" : "gap-2 px-3 py-1.5"} rounded-xl text-xs font-medium text-charcoal-600 hover:bg-stone-200/50 border border-stone-200 bg-white/40 w-full`}
         >
-          <ExternalLink size={15} />
-          <span>ดูหน้าเว็บจริง (Live Site)</span>
+          <ExternalLink size={15} className="shrink-0" />
+          {!collapsed && <span>ดูหน้าเว็บจริง</span>}
         </a>
 
-        <div className="bg-white/80 border border-stone-200/80 rounded-xl p-2.5 shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-full bg-forest-800 text-cream-100 flex items-center justify-center font-bold text-xs shrink-0">
+        <div className={`bg-white/80 border border-stone-200/80 rounded-xl shadow-sm ${collapsed ? "p-1.5 w-full flex flex-col items-center" : "p-2.5 w-full"}`}>
+          <div className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} mb-2`}>
+            <div className="w-7 h-7 rounded-full bg-forest-800 text-cream-100 flex items-center justify-center font-bold text-xs shrink-0" title={collapsed ? user?.first_name || "ผู้ใช้ระบบ" : undefined}>
               {user?.first_name?.[0]?.toUpperCase()}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-forest-800 truncate">
-                {user?.first_name ? `${user.first_name}` : "ผู้ใช้ระบบ"}
-              </p>
-              <p className="text-xs text-charcoal-400 truncate">
-                {user?.email || "user@walai.com"}
-              </p>
-            </div>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-forest-800 truncate">
+                  {user?.first_name ? `${user.first_name}` : "ผู้ใช้ระบบ"}
+                </p>
+                <p className="text-xs text-charcoal-400 truncate">
+                  {user?.email || "user@walai.com"}
+                </p>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-1 pt-1.5 border-t border-stone-100">
+          <div className={`${collapsed ? "flex flex-col gap-1 w-full" : "grid grid-cols-2 gap-1"} pt-1.5 border-t border-stone-100`}>
             <Link
               href={profileHref}
-              onClick={() => setMobileOpen(false)}
-              className="flex items-center justify-center gap-1 py-1 text-xs font-medium text-charcoal-600 hover:text-forest-800 hover:bg-stone-100 rounded-lg transition-colors"
+                  title={collapsed ? "โปรไฟล์" : undefined}
+              className={`flex items-center justify-center ${collapsed ? "p-1.5" : "gap-1 py-1"} text-xs font-medium text-charcoal-600 hover:text-forest-800 hover:bg-stone-100 rounded-lg transition-colors`}
             >
-              <User size={13} />
-              <span>โปรไฟล์</span>
+              <User size={13} className="shrink-0" />
+              {!collapsed && <span>โปรไฟล์</span>}
             </Link>
 
             <button
               type="button"
-              onClick={() => {
-                setMobileOpen(false);
-                logout?.();
-              }}
-              className="flex items-center justify-center gap-1 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+              onClick={() => logout?.()}
+              title={collapsed ? "ออกระบบ" : undefined}
+              className={`flex items-center justify-center ${collapsed ? "p-1.5" : "gap-1 py-1"} text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-lg transition-colors`}
             >
-              <LogOut size={13} />
-              <span>ออกระบบ</span>
+              <LogOut size={13} className="shrink-0" />
+              {!collapsed && <span>ออกระบบ</span>}
             </button>
           </div>
         </div>
@@ -412,32 +432,10 @@ export default function AdminSidebar() {
   );
 
   return (
-    <>
-      <div className="lg:hidden fixed top-3 left-3 z-40">
-        <button
-          type="button"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="p-2 rounded-xl bg-cream-100 border border-stone-200 shadow-sm text-forest-800"
-        >
-          {mobileOpen ? <X size={18} /> : <Menu size={18} />}
-        </button>
-      </div>
-
-      <aside className="hidden lg:block w-60 bg-cream-100 border-r border-stone-200/80 h-screen sticky top-0 shrink-0">
-        {navContent}
-      </aside>
-
-      {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-30 flex">
-          <div
-            className="fixed inset-0 bg-forest-900/40 backdrop-blur-sm"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="relative w-60 max-w-[80%] bg-cream-100 h-full shadow-2xl z-40">
-            {navContent}
-          </aside>
-        </div>
-      )}
-    </>
+    <aside
+      className={`block bg-white border-r border-charcoal-100 h-screen sticky top-0 shrink-0 transition-all duration-300 ease-in-out ${isCollapsed ? "w-20" : "w-60"}`}
+    >
+      {renderNavContent(isCollapsed, false)}
+    </aside>
   );
 }

@@ -1,20 +1,20 @@
 import './globals.css';
 import AppShell from '@/components/layout/AppShell';
-import { Pridi, Sarabun } from 'next/font/google';
+import { Prompt, Noto_Sans_Thai } from 'next/font/google';
 
-// โหลด Pridi (display/heading) + Sarabun (body) ผ่าน next/font
+// โหลด Prompt (หัวข้อ) + Noto Sans Thai (เนื้อหา) ผ่าน next/font
 // เพื่อได้ font preloading อัตโนมัติ ลด FOUT และปรับปรุง LCP
-const pridi = Pridi({
+const prompt = Prompt({
   subsets: ['thai', 'latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-pridi',
+  variable: '--font-prompt',
   display: 'swap',
 });
 
-const sarabun = Sarabun({
+const notoSansThai = Noto_Sans_Thai({
   subsets: ['thai', 'latin'],
   weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-sarabun',
+  variable: '--font-noto-thai',
   display: 'swap',
 });
 
@@ -24,12 +24,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <html lang="th" className={`${pridi.variable} ${sarabun.variable}`}>
+    <html lang="th" className={`${prompt.variable} ${notoSansThai.variable}`}>
       <head>
         <title>สวนวลัยรุกขเวช — ที่พักลอยน้ำ</title>
         <meta
           name="description"
-          content="สวนวลัยรุกขเวช ที่พักลอยน้ำสุดพิเศษท่ามกลางธรรมชาติ พร้อมกิจกรรมเรือคายัค จ.มหาสารคาม"
+          content="สวนวลัยรุกขเวช ที่พักลอยน้ำสุดพิเศษท่ามกลางธรรมชาติ พร้อมกิจกรรมเรือ จ.มหาสารคาม"
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
