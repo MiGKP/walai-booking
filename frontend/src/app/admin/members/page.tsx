@@ -114,6 +114,36 @@ export default function AdminMembersPage() {
     fetchMembers();
   }, [fetchMembers]);
 
+  const handleConfirmToggle = async () => {
+    if (!confirmModal.memberId) return;
+
+    try {
+      const newStatus = !confirmModal.currentStatus;
+      await api.put(`/auth/members/${confirmModal.memberId}/status`, {
+        is_active: newStatus,
+      });
+
+      setMembers((prev) =>
+        prev.map((m) =>
+          (m.member_id ?? m.id) === confirmModal.memberId
+            ? { ...m, is_active: newStatus }
+            : m
+        )
+      );
+
+      notify.success(
+        `เปลี่ยนสถานะ ${confirmModal.memberName} เป็น ${
+          newStatus ? "เปิดการใช้งาน" : "ปิดการใช้งาน"
+        } สำเร็จ`
+      );
+    } catch (error) {
+      console.error("Toggle status error:", error);
+      notify.error("ไม่สามารถเปลี่ยนสถานะได้");
+    } finally {
+      setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+    }
+  };
+
   // 🔹 Reset หน้า Pagination เมื่อเปลี่ยนคำค้นหาหรือตัวกรอง
   useEffect(() => {
     setCurrentPage(1);
@@ -148,7 +178,19 @@ export default function AdminMembersPage() {
       const email = (m.email || "").toLowerCase();
       const phone = (m.phone || "").toLowerCase();
 
-      return (
+      return fullName.includes(query) || email.includes(query) || phone.includes(query);
+    });
+  }, [members, search, statusFilter]);
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentMembers = filteredMembers.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
+
+  if (!ready) return null;
+
+  return (
     <div className="space-y-6 pb-12">
       <PageHeader
         title="จัดการสมาชิก"
@@ -371,7 +413,7 @@ export default function AdminMembersPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => openToggleModal(memberId, isActive, fullName)}
+                            onClick={() => setConfirmModal({ isOpen: true, memberId, currentStatus: isActive, memberName: fullName })}
                             title={isActive ? "ปิดการใช้งาน" : "เปิดการใช้งาน"}
                             className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-forest-600/20 ${
                               isActive ? "bg-forest-600" : "bg-charcoal-300"

@@ -317,7 +317,6 @@ export default function AdminReviewsPage() {
           ) : filtered.length === 0 ? (
             <div className="p-16 text-center">
               <EmptyState
-                icon={<MessageSquare className="h-8 w-8 text-charcoal-300" />}
                 title="ไม่มีรีวิว"
                 description="ไม่พบรีวิวในขณะนี้"
               />

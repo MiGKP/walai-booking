@@ -861,10 +861,10 @@ function RoomStaffDashboardContent() {
 
       {/* Summary Cards */}
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-5 print:hidden">
-        <StatCard label="รอตรวจสอบสลิป" value={counts.has_slip} icon={<FileCheck2 />} tone="info" />
-        <StatCard label="ยังไม่ชำระเงิน" value={counts.pending} icon={<Clock />} tone="neutral" />
-        <StatCard label="อนุมัติแล้ว (รอเช็คเอาต์)" value={counts.approved} icon={<ShieldCheck />} tone="success" />
-        <StatCard label="เช็คเอาต์แล้ว" value={counts.checked_out} icon={<LogOut />} tone="warning" />
+        <StatCard label="รอตรวจสอบสลิป" value={counts.has_slip} icon={<FileCheck2 />} tone="lagoon" />
+        <StatCard label="ยังไม่ชำระเงิน" value={counts.pending} icon={<Clock />} tone="charcoal" />
+        <StatCard label="อนุมัติแล้ว (รอเช็คเอาต์)" value={counts.approved} icon={<ShieldCheck />} tone="forest" />
+        <StatCard label="เช็คเอาต์แล้ว" value={counts.checked_out} icon={<LogOut />} tone="bamboo" />
         <StatCard 
           label="รายได้ที่ยืนยันแล้ว" 
           value={`฿${counts.totalRevenue.toLocaleString()}`} 
@@ -873,31 +873,7 @@ function RoomStaffDashboardContent() {
           tone="forest" 
         />
       </section>
-            </button>
-          );
-        })}
 
-        <div className="bg-gradient-to-br from-[#0b3b2c] to-[#0f4a37] p-2.5 pl-3 rounded-xl border border-[#0b3b2c] shadow-xs relative overflow-hidden col-span-2 sm:col-span-1">
-          <div className="flex items-center justify-between gap-2 relative">
-            <div className="min-w-0">
-              <span className="text-xs font-medium text-emerald-100/80 leading-tight block truncate">
-                รายได้ยืนยันแล้ว
-              </span>
-              <p className="text-lg font-extrabold text-white tracking-tight font-mono leading-tight">
-                ฿{counts.totalRevenue.toLocaleString()}
-              </p>
-              {counts.pendingRevenue > 0 && (
-                <p className="text-xs text-emerald-200/90 font-medium truncate">
-                  รอตรวจสอบ ฿{counts.pendingRevenue.toLocaleString()}
-                </p>
-              )}
-            </div>
-            <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center text-emerald-100 shrink-0">
-              <Wallet size={15} />
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Control Bar */}
       <Panel className="print:hidden">
@@ -1141,7 +1117,6 @@ function RoomStaffDashboardContent() {
                 <tr>
                   <td colSpan={8} className="py-16">
                     <EmptyState 
-                      icon={<BedDouble size={40}/>} 
                       title="ไม่พบรายการจอง" 
                       description="ลองปรับเปลี่ยนข้อความค้นหาหรือเงื่อนไขการกรอง" 
                     />
@@ -1465,7 +1440,7 @@ function RoomStaffDashboardContent() {
             </div>
           </div>
         )}
-      </div>
+      </Panel>
 
       {/* Slip Modal */}
       <Modal 

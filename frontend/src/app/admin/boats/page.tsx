@@ -834,17 +834,14 @@ function BoatStaffDashboardContent() {
       <PageHeader
         title="จัดการรายการจองเรือและคายัค"
         description="ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจองเรือ และรับคืนเรือ"
-        actions={
-          
-        }
       />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5 print:hidden">
-        <StatCard label="รอตรวจสอบสลิป" value={counts.has_slip} icon={<FileCheck2 />} tone="info" />
-        <StatCard label="ยังไม่ชำระเงิน" value={counts.pending} icon={<Clock />} tone="neutral" />
-        <StatCard label="อนุมัติแล้ว (รอลงเรือ)" value={counts.approved} icon={<ShieldCheck />} tone="success" />
-        <StatCard label="คืนเรือแล้ว" value={counts.checked_out} icon={<Anchor />} tone="warning" />
+        <StatCard label="รอตรวจสอบสลิป" value={counts.has_slip} icon={<FileCheck2 />} tone="lagoon" />
+        <StatCard label="ยังไม่ชำระเงิน" value={counts.pending} icon={<Clock />} tone="charcoal" />
+        <StatCard label="อนุมัติแล้ว (รอลงเรือ)" value={counts.approved} icon={<ShieldCheck />} tone="forest" />
+        <StatCard label="คืนเรือแล้ว" value={counts.checked_out} icon={<Anchor />} tone="bamboo" />
         <StatCard 
           label="รายได้ที่ยืนยันแล้ว" 
           value={`฿${counts.totalRevenue.toLocaleString()}`} 
@@ -966,7 +963,7 @@ function BoatStaffDashboardContent() {
 
           
         </div>
-      </Panel>
+      </div>
 
       {/* Bookings Table Card */}
       <Panel title="รายการจองเรือและคายัค" className="print:hidden p-0 overflow-hidden">
