@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Search, Loader2, Navigation, MapPin } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { notify } from "@/lib/admin-notify";
 
 const customIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -96,10 +96,10 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
         const lon = parseFloat(data[0].lon);
         setPosition([lat, lon]);
       } else {
-        toast.error('ไม่พบสถานที่ดังกล่าว ลองพิมพ์ชื่ออำเภอ/จังหวัด');
+        notify.error('ไม่พบสถานที่ดังกล่าว ลองพิมพ์ชื่ออำเภอ/จังหวัด');
       }
     } catch {
-      toast.error('เกิดข้อผิดพลาดในการค้นหา');
+      notify.error('เกิดข้อผิดพลาดในการค้นหา');
     } finally {
       setSearching(false);
     }
@@ -111,7 +111,7 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
         (pos) => {
           setPosition([pos.coords.latitude, pos.coords.longitude]);
         },
-        () => toast.error('ไม่สามารถดึงตำแหน่งปัจจุบันของคุณได้')
+        () => notify.error('ไม่สามารถดึงตำแหน่งปัจจุบันของคุณได้')
       );
     }
   };

@@ -66,7 +66,7 @@ export default function MyCouponsSection(): React.ReactElement {
       {boatTicketBalance > 0 && (
         <div className="mb-4 flex items-center gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-xs font-medium text-bamboo-800">
           <Ticket size={16} className="shrink-0" />
-          <p>คุณมีโปรโมชั่นพายเรือฟรี {boatTicketBalance} ใบ — ใช้ได้ตอนจองเรือที่หน้า <Link href="/kayaks" className="font-bold underline">จองเรือคายัค</Link></p>
+          <p>คุณมีโปรโมชั่นพายเรือฟรี {boatTicketBalance} ใบ — ใช้ได้ตอนจองเรือที่หน้า <Link href="/kayaks" className="font-bold underline">จองเรือ</Link></p>
         </div>
       )}
 
@@ -107,7 +107,7 @@ export default function MyCouponsSection(): React.ReactElement {
         <div className="space-y-10">
             {[
               { title: 'ส่วนลดห้องพัก', items: visible.filter(p => p.applies_to === 'room') },
-              { title: 'ส่วนลดเรือคายัค', items: visible.filter(p => p.applies_to === 'kayak') },
+              { title: 'ส่วนลดเรือ', items: visible.filter(p => p.applies_to === 'kayak') },
               { title: 'โปรโมชั่นพิเศษ', items: visible.filter(p => !p.applies_to || p.applies_to === 'both') }
             ].map(group => group.items.length > 0 && (
               <div key={group.title}>

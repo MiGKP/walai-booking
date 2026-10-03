@@ -136,7 +136,7 @@ export default function LoginPage(): React.ReactElement | null {
               กลางสายน้ำ
             </h1>
             <p className="mt-3 max-w-md text-sm leading-6 text-cream-100/80 sm:text-base">
-              จัดการการจองที่พักลอยน้ำและเรือคายัคของคุณ
+              จัดการการจองที่พักลอยน้ำและเรือของคุณ
               ในบรรยากาศธรรมชาติของวลัยรุกขเวช
             </p>
           </div>

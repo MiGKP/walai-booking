@@ -80,7 +80,7 @@ export default function Footer() {
             </Link>
             <p className="text-sm leading-relaxed text-cream-400 max-w-[260px]">
               ที่พักลอยน้ำสุดพิเศษ ท่ามกลางธรรมชาติอันงดงาม
-              พร้อมกิจกรรมเรือคายัคสนุกสนาน
+              พร้อมกิจกรรมเรือสนุกสนาน
             </p>
             {facebookLink && (
               <a
@@ -102,7 +102,7 @@ export default function Footer() {
             <span className="block w-8 h-[2px] rounded-full bg-bamboo-400 mb-4" />
             <ul className="space-y-2.5 text-sm">
               <li><FooterLink href="/rooms">ห้องพักลอยน้ำ</FooterLink></li>
-              <li><FooterLink href="/kayaks">เรือคายัค</FooterLink></li>
+              <li><FooterLink href="/kayaks">เรือ</FooterLink></li>
               <li><FooterLink href="/dashboard">การจองของฉัน</FooterLink></li>
             </ul>
           </div>

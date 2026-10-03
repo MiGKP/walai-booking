@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast, { Toaster } from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 
 interface RoomLine {
   booking_room_id: number;
@@ -151,7 +151,7 @@ function AdminCheckinContent() {
       const res = await api.get("/bookings");
       setBookings(res.data?.data || []);
     } catch {
-      toast.error("ไม่สามารถโหลดข้อมูลการจองได้");
+      notify.error("ไม่สามารถโหลดข้อมูลการจองได้");
     } finally {
       setLoading(false);
     }
@@ -185,9 +185,9 @@ function AdminCheckinContent() {
       setCheckinFrom(settingsDraft.from);
       setCheckinTo(settingsDraft.to);
       setSettingsOpen(false);
-      toast.success("บันทึกช่วงเวลาเช็คอินแล้ว");
+      notify.success("บันทึกช่วงเวลาเช็คอินแล้ว");
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "บันทึกไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "บันทึกไม่สำเร็จ");
     } finally {
       setSavingSettings(false);
     }
@@ -292,10 +292,10 @@ function AdminCheckinContent() {
       onConfirm: async () => {
         try {
           await api.put(`/bookings/booking-rooms/${line.booking_room_id}/checkin`);
-          toast.success("เช็คอินสำเร็จ");
+          notify.success("เช็คอินสำเร็จ");
           fetchBookings();
         } catch (err: any) {
-          toast.error(err.response?.data?.message || "เช็คอินไม่สำเร็จ");
+          notify.error(err.response?.data?.message || "เช็คอินไม่สำเร็จ");
         }
       },
     });
@@ -311,20 +311,20 @@ function AdminCheckinContent() {
       onConfirm: async () => {
         try {
           await api.put(`/bookings/booking-rooms/${line.booking_room_id}/checkout`);
-          toast.success("เช็คเอาต์สำเร็จ");
+          notify.success("เช็คเอาต์สำเร็จ");
           fetchBookings();
         } catch (err: any) {
-          toast.error(err.response?.data?.message || "เช็คเอาต์ไม่สำเร็จ");
+          notify.error(err.response?.data?.message || "เช็คเอาต์ไม่สำเร็จ");
         }
       },
     });
   };
 
-  // พิมพ์บัตรเสริมเรือคายัคเป็นสลิปกระดาษให้ลูกค้า (มีรอบวันที่/เวลาระบุชัดเจน)
+  // พิมพ์บัตรเสริมเรือเป็นสลิปกระดาษให้ลูกค้า (มีรอบวันที่/เวลาระบุชัดเจน)
   const printAddonTicket = (addon: BoatAddon, line: FlatLine) => {
     const w = window.open("", "_blank", "width=420,height=640");
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>บัตรเสริมเรือคายัค</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>บัตรเสริมเรือ</title>
       <meta charset="utf-8" />
       <style>
         body { font-family: 'Sarabun', 'Segoe UI', sans-serif; padding: 28px; color: #1c1c1c; }
@@ -337,7 +337,7 @@ function AdminCheckinContent() {
         .footer { margin-top: 18px; font-size: 10.5px; color: #999; text-align: center; }
       </style>
       </head><body>
-        <h1>บัตรเสริมเรือคายัค</h1>
+        <h1>บัตรเสริมเรือ</h1>
         <p class="sub">สวนลัยรุกเวช — โปรดนำบัตรนี้มาแสดงที่ท่าเรือ</p>
         <div class="box">
           <div class="row"><div class="label">ลูกค้า</div><div class="value">${line.user_name || "-"}</div></div>
@@ -371,10 +371,10 @@ function AdminCheckinContent() {
     printAddonTicket(addon, line);
     try {
       await api.put(`/kayaks/room-addon/${addon.boat_booking_id}/hand-out`);
-      toast.success("มอบบัตรเสริมเรือแล้ว");
+      notify.success("มอบบัตรเสริมเรือแล้ว");
       fetchBookings();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "บันทึกการมอบบัตรไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "บันทึกการมอบบัตรไม่สำเร็จ");
     }
   };
 
@@ -415,7 +415,6 @@ function AdminCheckinContent() {
 
   return (
     <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
-      <Toaster position="top-right" />
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-stone-200/60">

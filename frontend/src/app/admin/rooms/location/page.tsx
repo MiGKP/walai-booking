@@ -19,10 +19,12 @@ import {
   CheckCircle2,
   AlertCircle,
   XCircle,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 import MapPickerModal from "@/components/admin/MapPickerModal";
 
 // รายการวันทั้งหมดในสัปดาห์
@@ -53,7 +55,22 @@ export default function RoomLocationPage() {
     coordinates: "",
     operating_days: "",
     operating_hours: "",
+    additional_terms: "",
   });
+  const [termsList, setTermsList] = useState<string[]>([""]);
+
+  const handleTermChange = (index: number, value: string) => {
+    const updated = [...termsList];
+    updated[index] = value;
+    setTermsList(updated);
+  };
+  const handleAddTerm = () => {
+    setTermsList([...termsList, ""]);
+  };
+  const handleRemoveTerm = (index: number) => {
+    const updated = termsList.filter((_, i) => i !== index);
+    setTermsList(updated.length > 0 ? updated : [""]);
+  };
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -183,14 +200,23 @@ export default function RoomLocationPage() {
               coordinates: d.coordinates || "",
               operating_days: daysStr,
               operating_hours: d.operating_hours || "",
+              additional_terms: d.additional_terms || "",
             });
             setSelectedDays(parseDaysStringToArray(daysStr));
+            const termsStr = d.additional_terms || "";
+            const parsedTerms = termsStr
+              ? termsStr
+                  .split("\n")
+                  .map((item: string) => item.trim())
+                  .filter(Boolean)
+              : [""];
+            setTermsList(parsedTerms.length > 0 ? parsedTerms : [""]);
           }
         }
       })
       .catch((err) => {
         console.error(err);
-        toast.error("โหลดข้อมูลจุดบริการห้องพักไม่สำเร็จ");
+        notify.error("โหลดข้อมูลจุดบริการห้องพักไม่สำเร็จ");
       })
       .finally(() => setLoading(false));
   }, [ready]);
@@ -231,6 +257,7 @@ export default function RoomLocationPage() {
     try {
       await api.put("/settings/resort", {
         ...form,
+        additional_terms: termsList.filter(Boolean).join("\n"),
         id: recordId || 4,
       });
 
@@ -676,6 +703,53 @@ export default function RoomLocationPage() {
                     placeholder="16.219313, 103.329219"
                   />
                 </div>
+              </div>
+            </div>
+            
+            {/* เงื่อนไขและข้อกำหนดเพิ่มเติม (ห้องพัก) */}
+            <div className="p-5 md:p-6 bg-white rounded-2xl border border-stone-200/80 shadow-2xs space-y-4 lg:col-span-2">
+              <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+                <div className="flex items-center gap-2 text-[#064e3b] font-bold text-sm">
+                  <div className="p-1.5 bg-emerald-100/70 text-[#064e3b] rounded-lg">
+                    <AlertCircle size={18} />
+                  </div>
+                  <h2 className="text-base font-bold">
+                    เงื่อนไขและข้อกำหนดเพิ่มเติม (ห้องพัก)
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddTerm}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#064e3b] hover:text-emerald-700 transition-colors cursor-pointer"
+                >
+                  <Plus size={14} />
+                  <span>เพิ่มข้อกำหนด</span>
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {termsList.map((term, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-stone-400 w-5 text-center shrink-0">
+                      {index + 1}.
+                    </span>
+                    <input
+                      type="text"
+                      className="flex-1 px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-800/20 focus:border-[#064e3b] transition-all"
+                      placeholder={`ข้อกำหนดที่ ${index + 1} (เช่น ห้ามส่งเสียงดังหลัง 22:00 น.)`}
+                      value={term}
+                      onChange={(e) => handleTermChange(index, e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTerm(index)}
+                      className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all shrink-0 cursor-pointer"
+                      title="ลบข้อนี้"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

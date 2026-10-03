@@ -98,8 +98,8 @@ export function promoAllowsScope(
 
 export function appliesToLabel(appliesTo: PromoAppliesTo): string {
   if (appliesTo === 'room') return 'ห้องพักเท่านั้น';
-  if (appliesTo === 'kayak') return 'เรือคายัคเท่านั้น';
-  return 'ห้องพักและเรือคายัค';
+  if (appliesTo === 'kayak') return 'เรือเท่านั้น';
+  return 'ห้องพักและเรือ';
 }
 
 export function walletStatusLabel(status: WalletStatus): string {

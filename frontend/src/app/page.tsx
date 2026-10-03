@@ -786,7 +786,7 @@ export default function HomePage() {
                   className="inline-flex items-center justify-center gap-3 font-medium px-8 py-4 rounded-full bg-transparent text-forest-900 border-2 border-forest-900/20 hover:border-forest-900/50 hover:bg-forest-50 active:scale-[0.98] transition-all duration-300 w-full sm:w-auto"
                 >
                   <Anchor size={18} />
-                  บริการเรือคายัค
+                  บริการเรือ
                 </Link>
               </div>
             </div>
@@ -1122,7 +1122,7 @@ export default function HomePage() {
             พร้อมพักผ่อนกลางสายน้ำหรือยัง?
           </h2>
           <p className="text-cream-100/70 max-w-xl mx-auto mb-10 text-lg font-light">
-            จองห้องพักวันนี้ พร้อมกิจกรรมพายเรือคายัคชมทัศนียภาพอันร่มรื่นกลางผืนน้ำ
+            จองห้องพักวันนี้ พร้อมกิจกรรมพายเรือชมทัศนียภาพอันร่มรื่นกลางผืนน้ำ
           </p>
           <Link
             href="/rooms"

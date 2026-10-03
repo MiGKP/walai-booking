@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast, { Toaster } from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 
 export interface BoatType {
   boat_type_id?: number;
@@ -301,7 +301,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
       setRounds(formattedRounds);
     } catch (error: unknown) {
       console.error("Fetch data error:", error);
-      toast.error(getApiErrorMessage(error, "ไม่สามารถดึงข้อมูลได้"));
+      notify.error(getApiErrorMessage(error, "ไม่สามารถดึงข้อมูลได้"));
     } finally {
       setLoading(false);
     }
@@ -357,7 +357,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     const selectedBoatEntries = Object.entries(selectedBoatsMap);
 
     if (selectedBoatEntries.length === 0) {
-      toast.error("กรุณาเลือกประเภทเรืออย่างน้อย 1 ประเภท");
+      notify.error("กรุณาเลือกประเภทเรืออย่างน้อย 1 ประเภท");
       return;
     }
 
@@ -377,15 +377,15 @@ export default function BoatRoundsPage(): React.ReactElement | null {
 
       if (editingRoundId) {
         await api.put(`/kayaks/rounds/${editingRoundId}`, payload);
-        toast.success("อัปเดตรอบเวลาเรียบร้อย");
+        notify.success("อัปเดตรอบเวลาเรียบร้อย");
       } else {
         await api.post("/kayaks/rounds", payload);
-        toast.success("เพิ่มรอบเวลาสำเร็จ");
+        notify.success("เพิ่มรอบเวลาสำเร็จ");
       }
       handleResetForm();
       await fetchData();
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, "เกิดข้อผิดพลาดในการบันทึก"));
+      notify.error(getApiErrorMessage(error, "เกิดข้อผิดพลาดในการบันทึก"));
     }
   };
 
@@ -472,11 +472,11 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     if (!deleteRoundId) return;
     try {
       await api.delete(`/kayaks/rounds/${deleteRoundId}`);
-      toast.success("ลบรอบเวลาเรียบร้อยแล้ว");
+      notify.success("ลบรอบเวลาเรียบร้อยแล้ว");
       setDeleteRoundId(null);
       await fetchData();
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, "เกิดข้อผิดพลาดในการลบ"));
+      notify.error(getApiErrorMessage(error, "เกิดข้อผิดพลาดในการลบ"));
     }
   };
 
@@ -484,7 +484,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
 
   return (
     <div className="w-full min-h-screen flex flex-col font-sans space-y-6 pb-12 text-stone-800">
-      <Toaster position="top-center" />
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-stone-200/80">

@@ -764,7 +764,7 @@ export default function Scene3D(): React.ReactElement {
     <div
       ref={mountRef}
       className="login-scene-shell cursor-grab active:cursor-grabbing select-none"
-      aria-label="ภาพจำลองสามมิติของบ้านลอยน้ำ เรือคายัค และเกาะต้นไม้"
+      aria-label="ภาพจำลองสามมิติของบ้านลอยน้ำ เรือ และเกาะต้นไม้"
       role="img"
     >
       <div className="login-scene-glow" aria-hidden="true" />

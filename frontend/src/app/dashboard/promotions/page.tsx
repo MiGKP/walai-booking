@@ -76,7 +76,7 @@ export default function CouponsPage(): React.ReactElement | null {
         <div className="mb-8">
           <h1 className="font-display text-2xl font-medium text-forest-900">โปรโมชั่นของฉัน</h1>
           <p className="mt-1 text-sm text-charcoal-500">
-            โปรโมชั่นที่เก็บไว้ ใช้ตอนจองห้องพักหรือเรือคายัค
+            โปรโมชั่นที่เก็บไว้ ใช้ตอนจองห้องพักหรือเรือ
           </p>
         </div>
 

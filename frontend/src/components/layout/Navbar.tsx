@@ -11,7 +11,7 @@ import Image from "next/image";
 const NAV_LINKS = [
   { href: "/", label: "หน้าแรก" },
   { href: "/rooms", label: "ห้องพัก" },
-  { href: "/kayaks", label: "เรือคายัค" },
+  { href: "/kayaks", label: "เรือ" },
   { href: "/promotions", label: "โปรโมชั่น" },
 ];
 

@@ -26,7 +26,7 @@ import {
 import api from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 import Link from "next/link";
 
 const VALID_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -101,7 +101,7 @@ export default function RoomTypesPage() {
       setRoomTypes(rtRes.data?.data || []);
       setAmenities(amRes.data?.data || []);
     } catch {
-      toast.error("ไม่สามารถโหลดข้อมูลได้");
+      notify.error("ไม่สามารถโหลดข้อมูลได้");
     } finally {
       setLoading(false);
     }
@@ -110,22 +110,22 @@ export default function RoomTypesPage() {
   const handleToggleStatus = async (id: number, currentStatus: boolean) => {
     try {
       await api.patch(`/rooms/${id}/status`, { status: !currentStatus });
-      toast.success(
+      notify.success(
         `เปลี่ยนสถานะเป็น ${!currentStatus ? "เปิดใช้งาน" : "ปิดใช้งาน"} เรียบร้อย`,
       );
       fetchData();
     } catch {
-      toast.error("เปลี่ยนสถานะไม่สำเร็จ");
+      notify.error("เปลี่ยนสถานะไม่สำเร็จ");
     }
   };
 
   const validateFile = (file: File) => {
     if (!VALID_IMAGE_TYPES.includes(file.type)) {
-      toast.error(`ไฟล์ ${file.name} ต้องเป็น JPG, PNG หรือ WEBP เท่านั้น`);
+      notify.error(`ไฟล์ ${file.name} ต้องเป็น JPG, PNG หรือ WEBP เท่านั้น`);
       return false;
     }
     if (file.size > MAX_FILE_SIZE) {
-      toast.error(`ไฟล์ ${file.name} มีขนาดเกิน 5MB`);
+      notify.error(`ไฟล์ ${file.name} มีขนาดเกิน 5MB`);
       return false;
     }
     return true;
@@ -174,7 +174,7 @@ export default function RoomTypesPage() {
   const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (galleryFiles.length + selectedFiles.length > MAX_GALLERY_COUNT) {
-      toast.error(
+      notify.error(
         `เพิ่มรูป Gallery ได้สูงสุด ${MAX_GALLERY_COUNT} รูปเท่านั้น`,
       );
       return;
@@ -240,14 +240,14 @@ export default function RoomTypesPage() {
     e.preventDefault();
 
     if (!coverFile) {
-      toast.error("กรุณาเลือกรูปปกห้องพัก");
+      notify.error("กรุณาเลือกรูปปกห้องพัก");
       return;
     }
 
     const numericPrice = Number(form.price);
     // ตรวจสอบราคาบังคับ
     if (!form.price || Number.isNaN(numericPrice) || numericPrice <= 0) {
-      toast.error("กรุณาระบุราคาห้องพักให้ถูกต้อง");
+      notify.error("กรุณาระบุราคาห้องพักให้ถูกต้อง");
       return;
     }
 
@@ -266,12 +266,12 @@ export default function RoomTypesPage() {
         gallery_images: galleryImages,
       });
 
-      toast.success("สร้างประเภทห้องพักสำเร็จ");
+      notify.success("สร้างประเภทห้องพักสำเร็จ");
       resetCreateForm();
       setShowCreateModal(false);
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "สร้างประเภทห้องพักไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "สร้างประเภทห้องพักไม่สำเร็จ");
     } finally {
       setSubmitting(false);
     }
@@ -285,10 +285,10 @@ export default function RoomTypesPage() {
     if (!deleteTargetId) return;
     try {
       await api.delete(`/rooms/${deleteTargetId}`);
-      toast.success("ลบประเภทห้องพักสำเร็จ");
+      notify.success("ลบประเภทห้องพักสำเร็จ");
       fetchData();
     } catch {
-      toast.error("ลบไม่สำเร็จ กรุณาตรวจสอบว่ามีห้องพักย่อยผูกอยู่หรือไม่");
+      notify.error("ลบไม่สำเร็จ กรุณาตรวจสอบว่ามีห้องพักย่อยผูกอยู่หรือไม่");
     } finally {
       setDeleteTargetId(null);
     }
@@ -332,7 +332,7 @@ export default function RoomTypesPage() {
       selectedFiles.length;
 
     if (currentTotal > MAX_GALLERY_COUNT) {
-      toast.error(
+      notify.error(
         `รวมรูปเดิมและรูปใหม่แล้วไม่สามารถเกิน ${MAX_GALLERY_COUNT} รูปได้`,
       );
       return;
@@ -395,7 +395,7 @@ export default function RoomTypesPage() {
         gallery_images: finalGallery,
         status: editingRoom.status,
       });
-      toast.success("แก้ไขประเภทห้องพักสำเร็จ");
+      notify.success("แก้ไขประเภทห้องพักสำเร็จ");
 
       if (editCoverPreview) URL.revokeObjectURL(editCoverPreview);
       editGalleryPreviews.forEach((url) => URL.revokeObjectURL(url));
@@ -408,7 +408,7 @@ export default function RoomTypesPage() {
       setEditGalleryPreviews([]);
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "แก้ไขไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "แก้ไขไม่สำเร็จ");
     } finally {
       setEditUploading(false);
     }

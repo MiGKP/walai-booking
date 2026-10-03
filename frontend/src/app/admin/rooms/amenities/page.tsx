@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast, { Toaster } from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 import Link from "next/link";
 
 export interface Amenity {
@@ -56,7 +56,7 @@ const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
       const res = await api.get("/rooms/amenities/all");
       setAmenities(res.data?.data || []);
     } catch {
-      toast.error("ไม่สามารถโหลดข้อมูลสิ่งอำนวยความสะดวกได้");
+      notify.error("ไม่สามารถโหลดข้อมูลสิ่งอำนวยความสะดวกได้");
     } finally {
       setLoading(false);
     }
@@ -78,7 +78,7 @@ const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nameInput.trim()) {
-      toast.error("กรุณากรอกชื่อสิ่งอำนวยความสะดวก");
+      notify.error("กรุณากรอกชื่อสิ่งอำนวยความสะดวก");
       return;
     }
 
@@ -89,18 +89,18 @@ const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
           name: nameInput.trim(),
           status: statusInput,
         });
-        toast.success("อัปเดตสิ่งอำนวยความสะดวกเรียบร้อย");
+        notify.success("อัปเดตสิ่งอำนวยความสะดวกเรียบร้อย");
       } else {
         await api.post("/rooms/amenity", {
           name: nameInput.trim(),
           status: statusInput,
         });
-        toast.success("เพิ่มสิ่งอำนวยความสะดวกสำเร็จ");
+        notify.success("เพิ่มสิ่งอำนวยความสะดวกสำเร็จ");
       }
       handleResetForm();
       fetchAmenities();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "ทำรายการไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "ทำรายการไม่สำเร็จ");
     } finally {
       setSubmitting(false);
     }
@@ -121,12 +121,12 @@ const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
         prev.map((a) => (a.id === item.id ? { ...a, status: newStatus } : a)),
       );
 
-      toast.success(
+      notify.success(
         `เปลี่ยนสถานะเป็น ${newStatus ? "เปิด" : "ปิด"} ใช้งานเรียบร้อย`,
       );
     } catch (err: any) {
       console.error("Toggle error:", err);
-      toast.error(err.response?.data?.message || "ไม่สามารถเปลี่ยนสถานะได้");
+      notify.error(err.response?.data?.message || "ไม่สามารถเปลี่ยนสถานะได้");
       // รีโหลดข้อมูลใหม่หากเกิดข้อผิดพลาดเพื่อคืนค่าเดิม
       fetchAmenities();
     }
@@ -136,11 +136,11 @@ const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff'] });
     if (!deleteTarget) return;
     try {
       await api.delete(`/rooms/amenity/${deleteTarget.id}`);
-      toast.success("ลบสิ่งอำนวยความสะดวกเรียบร้อยแล้ว");
+      notify.success("ลบสิ่งอำนวยความสะดวกเรียบร้อยแล้ว");
       setDeleteTarget(null);
       fetchAmenities();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "ลบไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "ลบไม่สำเร็จ");
     }
   };
 

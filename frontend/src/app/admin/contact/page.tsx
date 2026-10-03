@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Phone, Mail, MessageCircle, MapPin, Clock } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import toast from 'react-hot-toast';
+import { notify } from "@/lib/admin-notify";
 import Link from 'next/link';
 import { pickResortInfo } from '@/lib/resort-info';
 
@@ -31,7 +31,7 @@ export default function ContactInfoPage() {
           operating_hours: d.operating_hours || '',
         });
       }
-    }).catch(() => toast.error('โหลดข้อมูลไม่สำเร็จ')).finally(() => setLoading(false));
+    }).catch(() => notify.error('โหลดข้อมูลไม่สำเร็จ')).finally(() => setLoading(false));
   }, [ready]);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -39,9 +39,9 @@ export default function ContactInfoPage() {
     setSaving(true);
     try {
       await api.put('/settings/resort', { id: 3, ...form });
-      toast.success('บันทึกข้อมูลติดต่อสำเร็จ');
+      notify.success('บันทึกข้อมูลติดต่อสำเร็จ');
     } catch (err: unknown) {
-      toast.error(
+      notify.error(
         err && typeof err === 'object' && 'response' in err
           ? String((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'บันทึกไม่สำเร็จ')
           : 'บันทึกไม่สำเร็จ'

@@ -192,7 +192,7 @@ export function PromoVoucher({
                 {boatTicketCount && boatTicketCount > 0 ? (
                   <li className="flex items-start gap-2 text-xs font-semibold text-bamboo-200">
                     <Sailboat size={12} className="shrink-0 text-bamboo-300" />
-                    <span>แถมตั๋วเรือคายัคฟรี {boatTicketCount} ใบ</span>
+                    <span>แถมตั๋วเรือฟรี {boatTicketCount} ใบ</span>
                   </li>
                 ) : null}
                 <li className="flex items-start gap-2 text-xs text-cream-100/70">

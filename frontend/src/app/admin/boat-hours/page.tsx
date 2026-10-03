@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Save } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import toast from 'react-hot-toast';
+import { notify } from "@/lib/admin-notify";
 import Link from 'next/link';
 
 const DAY_NAMES = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
@@ -35,8 +35,15 @@ export default function BoatHoursPage() {
 
   const backPath = user?.role === 'admin' ? '/admin' : '/staff/boats/dashboard';
 
+  const updateDay = (day: number, field: keyof DayHour, value: any) => {
+    setHours(prev => prev.map(h => h.day_of_week === day ? { ...h, [field]: value } : h));
+  };
+
+  const [boatTerms, setBoatTerms] = useState('');
+
   useEffect(() => {
     if (!ready) return;
+    // Fetch boat hours
     api.get('/settings/boat-hours').then(res => {
       const data: DayHour[] = res.data?.data || [];
       if (data.length > 0) {
@@ -51,27 +58,34 @@ export default function BoatHoursPage() {
         });
         setHours(merged);
       }
-    }).catch(() => toast.error('โหลดข้อมูลไม่สำเร็จ')).finally(() => setLoading(false));
-  }, [ready]);
+    }).catch(() => notify.error('โหลดข้อมูลเวลาไม่สำเร็จ')).finally(() => setLoading(false));
 
-  const updateDay = (day: number, field: keyof DayHour, value: any) => {
-    setHours(prev => prev.map(h => h.day_of_week === day ? { ...h, [field]: value } : h));
-  };
+    // Fetch boat terms
+    api.get('/settings/resort?id=5').then(res => {
+      if (res.data?.data?.additional_terms) {
+        setBoatTerms(res.data.data.additional_terms);
+      }
+    }).catch(() => {});
+  }, [ready]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await Promise.all(
-        hours.map(h => api.put('/settings/boat-hours', {
+      await Promise.all([
+        ...hours.map(h => api.put('/settings/boat-hours', {
           day_of_week: h.day_of_week,
           open_time: h.open_time,
           close_time: h.close_time,
           is_open: h.is_open,
           advance_booking_minutes: h.advance_booking_minutes,
-        }))
-      );
-      toast.success('บันทึกเวลาทำการสำเร็จ');
-    } catch { toast.error('บันทึกไม่สำเร็จ'); }
+        })),
+        api.put('/settings/resort', {
+          id: 5,
+          additional_terms: boatTerms
+        })
+      ]);
+      notify.success('บันทึกข้อมูลสำเร็จ');
+    } catch { notify.error('บันทึกไม่สำเร็จ'); }
     finally { setSaving(false); }
   };
 
@@ -158,12 +172,24 @@ export default function BoatHoursPage() {
           </div>
         )}
 
+        <div className="card overflow-hidden mt-6">
+          <div className="px-5 py-4 bg-white">
+            <h2 className="text-sm font-semibold text-gray-900 mb-2">ข้อกำหนดการจองเรือ (แสดงในหน้าจอง)</h2>
+            <textarea
+              className="input-field w-full h-32 py-2 px-3 text-sm resize-none"
+              placeholder="กรอกข้อกำหนด กฎระเบียบ หรือสิ่งที่ลูกค้าควรทราบเกี่ยวกับการจองเรือ..."
+              value={boatTerms}
+              onChange={(e) => setBoatTerms(e.target.value)}
+            />
+          </div>
+        </div>
+
         <button
           onClick={handleSave}
           disabled={saving || loading}
           className="btn-primary w-full mt-6 flex items-center justify-center gap-2"
         >
-          <Save size={16} /> {saving ? 'กำลังบันทึก...' : 'บันทึกเวลาทำการ'}
+          <Save size={16} /> {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
         </button>
       </div>
     </div>

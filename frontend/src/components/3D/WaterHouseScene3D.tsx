@@ -987,7 +987,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
     <div
       ref={mountRef}
       className="relative w-full h-full cursor-grab active:cursor-grabbing select-none"
-      aria-label="ภาพจำลองสามมิติของบ้านลอยน้ำ เรือคายัค และเกาะต้นไม้"
+      aria-label="ภาพจำลองสามมิติของบ้านลอยน้ำ เรือ และเกาะต้นไม้"
       role="img"
     >
       {/* <div className="absolute inset-0 bg-gradient-to-tr from-lagoon-400/10 via-bamboo-300/10 to-transparent blur-3xl pointer-events-none" /> */}

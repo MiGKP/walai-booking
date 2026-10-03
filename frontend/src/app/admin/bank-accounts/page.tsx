@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Edit2, Trash2, X, Star, CreditCard } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import toast from 'react-hot-toast';
+import { notify } from "@/lib/admin-notify";
 import { toastConfirm } from '@/lib/toastConfirm';
 import Link from 'next/link';
 
@@ -39,7 +39,7 @@ export default function BankAccountsPage() {
       const res = await api.get('/settings/bank-accounts');
       setAccounts(res.data?.data || []);
     } catch {
-      toast.error('ไม่สามารถโหลดข้อมูลบัญชีธนาคารได้');
+      notify.error('ไม่สามารถโหลดข้อมูลบัญชีธนาคารได้');
     } finally {
       setLoading(false);
     }
@@ -66,22 +66,22 @@ export default function BankAccountsPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.bank_name || !form.account_number || !form.account_name) {
-      toast.error('กรุณากรอกข้อมูลให้ครบ');
+      notify.error('กรุณากรอกข้อมูลให้ครบ');
       return;
     }
     setSaving(true);
     try {
       if (editing) {
         await api.put(`/settings/bank-accounts/${editing.bank_account_id}`, form);
-        toast.success('แก้ไขบัญชีธนาคารสำเร็จ');
+        notify.success('แก้ไขบัญชีธนาคารสำเร็จ');
       } else {
         await api.post('/settings/bank-accounts', form);
-        toast.success('เพิ่มบัญชีธนาคารสำเร็จ');
+        notify.success('เพิ่มบัญชีธนาคารสำเร็จ');
       }
       setModalOpen(false);
       fetchAccounts();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'บันทึกไม่สำเร็จ');
+      notify.error(err.response?.data?.message || 'บันทึกไม่สำเร็จ');
     } finally {
       setSaving(false);
     }
@@ -94,10 +94,10 @@ export default function BankAccountsPage() {
       onConfirm: async () => {
         try {
           await api.delete(`/settings/bank-accounts/${id}`);
-          toast.success('ลบบัญชีธนาคารสำเร็จ');
+          notify.success('ลบบัญชีธนาคารสำเร็จ');
           fetchAccounts();
         } catch {
-          toast.error('ลบไม่สำเร็จ');
+          notify.error('ลบไม่สำเร็จ');
         }
       }
     });

@@ -22,8 +22,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast from "react-hot-toast";
-import { Toaster } from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 
 // 🌟 Component Custom Dropdown
 function CustomSelect({
@@ -159,7 +158,7 @@ export default function StaffManagementPage() {
       const res = await api.get("/auth/staff");
       setStaffList(res.data?.data || []);
     } catch {
-      toast.error("ไม่สามารถโหลดข้อมูลพนักงานได้");
+      notify.error("ไม่สามารถโหลดข้อมูลพนักงานได้");
     } finally {
       setLoading(false);
     }
@@ -169,7 +168,7 @@ export default function StaffManagementPage() {
     e.preventDefault();
     try {
       await api.post("/auth/staff", staffForm);
-      toast.success("สร้างบัญชีพนักงานสำเร็จ");
+      notify.success("สร้างบัญชีพนักงานสำเร็จ");
       setStaffForm({
         name: "",
         email: "",
@@ -184,23 +183,23 @@ export default function StaffManagementPage() {
       });
       fetchStaff();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "สร้างพนักงานไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "สร้างพนักงานไม่สำเร็จ");
     }
   };
 
   const handleToggleStatus = async (id: number, currentStatus: boolean) => {
     if (user?.id === id) {
-      toast.error("ไม่สามารถเปลี่ยนสถานะตัวเองได้");
+      notify.error("ไม่สามารถเปลี่ยนสถานะตัวเองได้");
       return;
     }
     try {
       await api.put(`/auth/staff/${id}/status`, { status: !currentStatus });
-      toast.success(
+      notify.success(
         currentStatus ? "ระงับบัญชีสำเร็จ" : "เปิดใช้งานบัญชีสำเร็จ",
       );
       fetchStaff();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "เปลี่ยนสถานะไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "เปลี่ยนสถานะไม่สำเร็จ");
     }
   };
 
@@ -247,12 +246,12 @@ export default function StaffManagementPage() {
     if (!editingStaff) return;
     try {
       await api.put(`/auth/staff/${editingStaff.id}`, editingStaff);
-      toast.success("แก้ไขข้อมูลพนักงานสำเร็จ");
+      notify.success("แก้ไขข้อมูลพนักงานสำเร็จ");
       setIsEditModalOpen(false);
       setEditingStaff(null);
       fetchStaff();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "แก้ไขข้อมูลไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "แก้ไขข้อมูลไม่สำเร็จ");
     }
   };
 
@@ -625,7 +624,7 @@ export default function StaffManagementPage() {
                 }`}
               >
                 <Ship size={13} />
-                เรือคายัค (
+                เรือ (
                 {staffList.filter((s) => s.role === "boat_staff").length})
               </button>
               <button
@@ -1042,37 +1041,6 @@ export default function StaffManagementPage() {
           </div>
         </div>
       )}
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 3500,
-          style: {
-            background: "#0b3b2c",
-            color: "#ffffff",
-            borderRadius: "14px",
-            fontSize: "13px",
-            fontWeight: "600",
-            padding: "12px 16px",
-            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.15)",
-          },
-          success: {
-            iconTheme: {
-              primary: "#34d399", // สีเขียวสว่าง
-              secondary: "#0b3b2c",
-            },
-          },
-          error: {
-            style: {
-              background: "#881337", // โทนสีแดงเข้ม
-              color: "#ffffff",
-            },
-            iconTheme: {
-              primary: "#fb7185",
-              secondary: "#881337",
-            },
-          },
-        }}
-      />
     </div>
   );
 }

@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -188,7 +188,7 @@ function SingleRoomsPageContent() {
       setRoomTypes(rtRes.data?.data || []);
       setSingleRooms(srRes.data?.data || []);
     } catch {
-      toast.error("ไม่สามารถโหลดข้อมูลได้");
+      notify.error("ไม่สามารถโหลดข้อมูลได้");
     } finally {
       setLoading(false);
     }
@@ -255,7 +255,7 @@ function SingleRoomsPageContent() {
 
   const handleGenerateDrafts = () => {
     if (!roomTypeIdInput) {
-      toast.error("กรุณาเลือกประเภทห้องหลัก");
+      notify.error("กรุณาเลือกประเภทห้องหลัก");
       return;
     }
 
@@ -276,7 +276,7 @@ function SingleRoomsPageContent() {
     );
 
     if (duplicates.length > 0) {
-      toast.error(`มีหมายเลขห้องซ้ำในระบบ: ${duplicates.join(", ")}`);
+      notify.error(`มีหมายเลขห้องซ้ำในระบบ: ${duplicates.join(", ")}`);
       return;
     }
 
@@ -286,7 +286,7 @@ function SingleRoomsPageContent() {
     }));
 
     setDraftRooms(generatedDrafts);
-    toast.success(`สร้างผังห้องพักตัวอย่างสำเร็จ ${qty} ห้อง`);
+    notify.success(`สร้างผังห้องพักตัวอย่างสำเร็จ ${qty} ห้อง`);
   };
 
   const handleUpdateDraftType = (roomNumber: string, newTypeId: number) => {
@@ -305,11 +305,11 @@ function SingleRoomsPageContent() {
     setSubmitting(true);
     try {
       await api.post("/rooms/single/batch", { rooms: draftRooms });
-      toast.success(`บันทึกห้องพักทั้งหมด ${draftRooms.length} ห้อง สำเร็จ`);
+      notify.success(`บันทึกห้องพักทั้งหมด ${draftRooms.length} ห้อง สำเร็จ`);
       handleResetForm();
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "บันทึกไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "บันทึกไม่สำเร็จ");
     } finally {
       setSubmitting(false);
     }
@@ -323,13 +323,13 @@ function SingleRoomsPageContent() {
       try {
         const trimmedNum = roomNumberInput.trim();
         if (!trimmedNum) {
-          toast.error("กรุณาระบุหมายเลขห้องพัก");
+          notify.error("กรุณาระบุหมายเลขห้องพัก");
           setSubmitting(false);
           return;
         }
 
         if (!roomTypeIdInput) {
-          toast.error("กรุณาเลือกประเภทห้องพัก");
+          notify.error("กรุณาเลือกประเภทห้องพัก");
           setSubmitting(false);
           return;
         }
@@ -341,7 +341,7 @@ function SingleRoomsPageContent() {
         );
 
         if (isDuplicate) {
-          toast.error(`หมายเลขห้อง "${trimmedNum}" มีอยู่ในระบบแล้ว`);
+          notify.error(`หมายเลขห้อง "${trimmedNum}" มีอยู่ในระบบแล้ว`);
           setSubmitting(false);
           return;
         }
@@ -351,11 +351,11 @@ function SingleRoomsPageContent() {
           room_type_id: Number(roomTypeIdInput),
           status: statusInput,
         });
-        toast.success("แก้ไขห้องพักสำเร็จ");
+        notify.success("แก้ไขห้องพักสำเร็จ");
         handleResetForm();
         fetchData();
       } catch (err: any) {
-        toast.error(err.response?.data?.message || "ทำรายการไม่สำเร็จ");
+        notify.error(err.response?.data?.message || "ทำรายการไม่สำเร็จ");
       } finally {
         setSubmitting(false);
       }
@@ -368,11 +368,11 @@ function SingleRoomsPageContent() {
     if (!deleteTarget) return;
     try {
       await api.delete(`/rooms/single/${deleteTarget.id}`);
-      toast.success("ลบห้องพักสำเร็จ");
+      notify.success("ลบห้องพักสำเร็จ");
       setDeleteTarget(null);
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "ลบไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "ลบไม่สำเร็จ");
     }
   };
 

@@ -325,9 +325,9 @@ function RoomsPageContent(): React.ReactElement {
 
   return (
     <div className="min-h-screen bg-cream-100 pb-20 pt-4">
-      <header className="sticky top-0 sm:top-16 z-40 -mt-4 mb-8 bg-cream-100/95 pb-4 pt-4 shadow-sm backdrop-blur-md transition-all">
+      <header className="sticky top-0 sm:top-16 z-40 -mt-4 mb-12 pb-4 pt-4 transition-all pointer-events-none">
         <div className="container mx-auto px-4">
-          <div className="mx-auto w-full max-w-4xl" ref={pickerRef}>
+          <div className="mx-auto w-full max-w-4xl pointer-events-auto" ref={pickerRef}>
             <div className="flex w-full flex-col divide-y divide-stone-100 rounded-3xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.1)] transition-all duration-500 hover:shadow-[0_1px_2px_rgba(18,60,48,0.02),0_12px_32px_-8px_rgba(18,60,48,0.15)] lg:flex-row lg:divide-x lg:divide-y-0 lg:rounded-full">
               <div className="relative flex-1">
                 <button type="button" onClick={() => setOpenPanel((v) => (v === "type" ? null : "type"))} className={`flex h-full w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-200 lg:rounded-l-full ${openPanel === "type" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>

@@ -81,7 +81,7 @@ export default function PromotionsPage(): React.ReactElement {
           {([
             { id: 'all', label: 'ทั้งหมด', icon: Star },
             { id: 'room', label: 'ห้องพัก', icon: Home },
-            { id: 'kayak', label: 'เรือคายัค', icon: Sailboat },
+            { id: 'kayak', label: 'เรือ', icon: Sailboat },
             { id: 'both', label: 'ห้องพักและเรือ', icon: Star },
           ] as const).map(({ id, label, icon: Icon }) => (
             <button

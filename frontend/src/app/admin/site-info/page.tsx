@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 import MapPickerModal from "@/components/admin/MapPickerModal";
 import { pickResortInfo } from "@/lib/resort-info";
 
@@ -190,7 +190,7 @@ export default function GeneralSettingsPage() {
       })
       .catch((err) => {
         console.error("Error fetching settings:", err);
-        toast.error("โหลดข้อมูลไม่สำเร็จ", { position: "bottom-center" });
+        notify.error("โหลดข้อมูลไม่สำเร็จ");
       })
       .finally(() => setLoading(false));
   }, [ready]);
@@ -267,10 +267,7 @@ export default function GeneralSettingsPage() {
       // เปิด Pop-up แจ้งเตือนสำเร็จ
       setIsSuccessOpen(true);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "บันทึกข้อมูลไม่สำเร็จ", {
-        position: "bottom-center",
-        duration: 4000,
-      });
+      notify.error(err.response?.data?.message || "บันทึกข้อมูลไม่สำเร็จ");
     } finally {
       setSaving(false);
     }

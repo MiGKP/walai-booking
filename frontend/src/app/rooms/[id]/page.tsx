@@ -268,7 +268,7 @@ export default function RoomDetailPage(): React.ReactElement {
     if (!id) return;
     setLoading(true);
     api.get(`/rooms/${id}`, { params: { check_in: range.start, check_out: range.end } }).then((res) => setRoom(res.data?.data ?? null)).catch(() => toast.error('ไม่พบห้องพัก')).finally(() => setLoading(false));
-    api.get('/settings/resort-info?id=4').then((res) => setResortInfo(res.data?.data ?? null)).catch(() => undefined);
+    api.get('/settings/resort?id=4').then((res) => setResortInfo(res.data?.data ?? null)).catch(() => undefined);
     api.get(`/reviews/room-type/${id}`).then((res) => {
       setReviews(Array.isArray(res.data?.data) ? res.data.data : []);
       setAvgRating(res.data?.avg_rating ?? null);

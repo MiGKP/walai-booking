@@ -25,7 +25,7 @@ import {
 import api from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast, { Toaster } from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 import Link from "next/link";
 
 // Constants & Validation Rules
@@ -103,7 +103,7 @@ export default function BoatTypesPage() {
       const res = await api.get("/kayaks/admin/types");
       setBoatTypes(res.data?.data || []);
     } catch {
-      toast.error("ไม่สามารถโหลดข้อมูลเรือได้");
+      notify.error("ไม่สามารถโหลดข้อมูลเรือได้");
     } finally {
       setLoading(false);
     }
@@ -112,11 +112,11 @@ export default function BoatTypesPage() {
   // Helper Validation
   const validateFile = (file: File) => {
     if (!VALID_IMAGE_TYPES.includes(file.type)) {
-      toast.error(`ไฟล์ ${file.name} ต้องเป็น JPG, PNG หรือ WEBP เท่านั้น`);
+      notify.error(`ไฟล์ ${file.name} ต้องเป็น JPG, PNG หรือ WEBP เท่านั้น`);
       return false;
     }
     if (file.size > MAX_FILE_SIZE) {
-      toast.error(`ไฟล์ ${file.name} มีขนาดเกิน 5MB`);
+      notify.error(`ไฟล์ ${file.name} มีขนาดเกิน 5MB`);
       return false;
     }
     return true;
@@ -158,7 +158,7 @@ export default function BoatTypesPage() {
     const selectedFiles = Array.from(e.target.files || []);
 
     if (galleryFiles.length + selectedFiles.length > MAX_GALLERY_COUNT) {
-      toast.error(
+      notify.error(
         `เพิ่มรูป Gallery ได้สูงสุด ${MAX_GALLERY_COUNT} รูปเท่านั้น`,
       );
       return;
@@ -230,13 +230,13 @@ export default function BoatTypesPage() {
         gallery_images: galleryImages,
       });
 
-      toast.success("สร้างประเภทเรือสำเร็จ");
+      notify.success("สร้างประเภทเรือสำเร็จ");
 
       resetCreateForm();
       setShowCreateModal(false);
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "สร้างประเภทเรือไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "สร้างประเภทเรือไม่สำเร็จ");
     } finally {
       setSubmitting(false);
     }
@@ -250,10 +250,10 @@ export default function BoatTypesPage() {
     if (!deleteTargetId) return;
     try {
       await api.delete(`/kayaks/${deleteTargetId}`);
-      toast.success("ลบประเภทเรือสำเร็จ");
+      notify.success("ลบประเภทเรือสำเร็จ");
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "ลบไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "ลบไม่สำเร็จ");
     } finally {
       setDeleteTargetId(null);
     }
@@ -302,7 +302,7 @@ export default function BoatTypesPage() {
       selectedFiles.length;
 
     if (currentTotal > MAX_GALLERY_COUNT) {
-      toast.error(
+      notify.error(
         `รวมรูปเดิมและรูปใหม่แล้วไม่สามารถเกิน ${MAX_GALLERY_COUNT} รูปได้`,
       );
       return;
@@ -352,7 +352,7 @@ export default function BoatTypesPage() {
         boat_image: boatImage,
         gallery_images: finalGallery,
       });
-      toast.success("แก้ไขประเภทเรือสำเร็จ");
+      notify.success("แก้ไขประเภทเรือสำเร็จ");
 
       if (editCoverPreview) URL.revokeObjectURL(editCoverPreview);
       editGalleryPreviews.forEach((url) => URL.revokeObjectURL(url));
@@ -365,7 +365,7 @@ export default function BoatTypesPage() {
       setEditGalleryPreviews([]);
       fetchData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "แก้ไขไม่สำเร็จ");
+      notify.error(err.response?.data?.message || "แก้ไขไม่สำเร็จ");
     } finally {
       setEditUploading(false);
     }
@@ -386,38 +386,6 @@ export default function BoatTypesPage() {
 
   return (
     <div className="w-full min-h-screen flex flex-col font-sans space-y-6 pb-12 text-stone-800">
-      {/* 🔔 Custom Styled Toaster */}
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 3500,
-          style: {
-            background: "#0b3b2c",
-            color: "#ffffff",
-            borderRadius: "14px",
-            fontSize: "13px",
-            fontWeight: "600",
-            padding: "12px 16px",
-            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.15)",
-          },
-          success: {
-            iconTheme: {
-              primary: "#34d399",
-              secondary: "#0b3b2c",
-            },
-          },
-          error: {
-            style: {
-              background: "#881337",
-              color: "#ffffff",
-            },
-            iconTheme: {
-              primary: "#fb7185",
-              secondary: "#881337",
-            },
-          },
-        }}
-      />
 
       {/* Header & Page Title */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-stone-200/80">
@@ -672,7 +640,7 @@ export default function BoatTypesPage() {
                   <input
                     type="text"
                     required
-                    placeholder="เช่น เรือคายัค 2 ที่นั่ง, เรือปั่น VIP"
+                    placeholder="เช่น เรือ 2 ที่นั่ง, เรือปั่น VIP"
                     className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -1016,7 +984,7 @@ export default function BoatTypesPage() {
                   <input
                     type="text"
                     required
-                    placeholder="เช่น เรือคายัค 2 ที่นั่ง"
+                    placeholder="เช่น เรือ 2 ที่นั่ง"
                     className="w-full px-3 py-2 bg-stone-50/50 border border-stone-200 rounded-lg text-xs font-medium text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
                     value={editingBoat.name}
                     onChange={(e) =>

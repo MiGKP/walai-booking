@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 import {
   appliesToLabel,
   parseAppliesTo,
@@ -236,7 +236,7 @@ export default function PromotionsPage() {
     fetchRoomTypes();
 
     return () => {
-      toast.dismiss();
+      notify.dismiss();
     };
   }, [ready]);
 
@@ -246,7 +246,7 @@ export default function PromotionsPage() {
       const res = await api.get("/promotions");
       setPromotions(res.data?.data || []);
     } catch {
-      toast.error("โหลดข้อมูลโปรโมชั่นไม่สำเร็จ");
+      notify.error("โหลดข้อมูลโปรโมชั่นไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
@@ -340,15 +340,15 @@ export default function PromotionsPage() {
 
       if (editingId) {
         await api.put(`/promotions/${editingId}`, payload);
-        toast.success("แก้ไขโปรโมชั่นสำเร็จ");
+        notify.success("แก้ไขโปรโมชั่นสำเร็จ");
       } else {
         await api.post("/promotions", payload);
-        toast.success("เพิ่มโปรโมชั่นสำเร็จ");
+        notify.success("เพิ่มโปรโมชั่นสำเร็จ");
       }
       setShowModal(false);
       fetchPromotions();
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, "บันทึกไม่สำเร็จ"));
+      notify.error(getApiErrorMessage(err, "บันทึกไม่สำเร็จ"));
     } finally {
       setSaving(false);
     }
@@ -357,10 +357,10 @@ export default function PromotionsPage() {
   const handleToggle = async (p: Promotion) => {
     try {
       await api.put(`/promotions/${p.id}/toggle`);
-      toast.success(p.is_active ? "ปิดโปรโมชั่นแล้ว" : "เปิดโปรโมชั่นแล้ว");
+      notify.success(p.is_active ? "ปิดโปรโมชั่นแล้ว" : "เปิดโปรโมชั่นแล้ว");
       fetchPromotions();
     } catch {
-      toast.error("เปลี่ยนสถานะไม่สำเร็จ");
+      notify.error("เปลี่ยนสถานะไม่สำเร็จ");
     }
   };
 
@@ -371,7 +371,7 @@ export default function PromotionsPage() {
       const res = await api.get(`/promotions/${p.id}/redemptions`);
       setRedemptions(res.data.data);
     } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, "โหลดประวัติไม่สำเร็จ"));
+      notify.error(getApiErrorMessage(err, "โหลดประวัติไม่สำเร็จ"));
       setRedemptionPromo(null);
       setRedemptions(null);
     } finally {
@@ -385,12 +385,12 @@ export default function PromotionsPage() {
     setDeleting(true);
     try {
       await api.delete(`/promotions/${deletingPromotion.id}`);
-      toast.success("ลบโปรโมชั่นสำเร็จ");
+      notify.success("ลบโปรโมชั่นสำเร็จ");
       fetchPromotions();
       setDeletingPromotion(null);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
-      toast.error(error.response?.data?.message || "ลบไม่สำเร็จ");
+      notify.error(error.response?.data?.message || "ลบไม่สำเร็จ");
     } finally {
       setDeleting(false);
     }
@@ -589,7 +589,7 @@ export default function PromotionsPage() {
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(p.code);
-                              toast.success("คัดลอกโค้ดเรียบร้อย");
+                              notify.success("คัดลอกโค้ดเรียบร้อย");
                             }}
                             className="text-stone-400 hover:text-stone-700 p-1 rounded-md hover:bg-stone-100 transition-colors cursor-pointer"
                             title="คัดลอกโค้ด"
@@ -910,7 +910,7 @@ export default function PromotionsPage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, description: e.target.value }))
                   }
-                  placeholder="เช่น รวมโปรโมชั่นพายเรือคายัค 1 ชั่วโมงฟรี..."
+                  placeholder="เช่น รวมโปรโมชั่นพายเรือ 1 ชั่วโมงฟรี..."
                 />
               </div>
 
@@ -1210,7 +1210,7 @@ export default function PromotionsPage() {
                   options={[
                     { value: "both", label: "ได้ทั้งสอง" },
                     { value: "room", label: "ห้องพักเท่านั้น" },
-                    { value: "kayak", label: "เรือคายัคเท่านั้น" },
+                    { value: "kayak", label: "เรือเท่านั้น" },
                   ]}
                   value={form.applies_to}
                   onChange={(val) =>

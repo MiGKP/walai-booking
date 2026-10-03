@@ -348,7 +348,7 @@ export default function LoginScene3D(): React.ReactElement {
         lanternLight.position.copy(lantern.position);
         bungalowGroup.add(lanternLight);
 
-        // ───────────────────────── เรือคายัค ─────────────────────────
+        // ───────────────────────── เรือ ─────────────────────────
         const kayakGroup = new THREE.Group();
         kayakGroup.position.set(4.0, -0.12, 1.5);
         kayakGroup.rotation.y = -0.52;
@@ -679,7 +679,7 @@ export default function LoginScene3D(): React.ReactElement {
     <div
       ref={mountRef}
       className="login-scene-shell"
-      aria-label="ภาพจำลองสามมิติของที่พักลอยน้ำและเรือคายัค"
+      aria-label="ภาพจำลองสามมิติของที่พักลอยน้ำและเรือ"
       role="img"
     >
       <div className="login-scene-glow" aria-hidden="true" />

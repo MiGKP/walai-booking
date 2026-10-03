@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Save, AlertCircle, Loader2, Clock, Users, Car } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 import { pickResortInfo } from "@/lib/resort-info";
 
 export default function PoliciesSettingsPage() {
@@ -33,7 +33,7 @@ export default function PoliciesSettingsPage() {
   const fetchPolicies = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get("/settings/resort-info");
+      const { data } = await api.get("/settings/resort");
       const info = pickResortInfo(data.data, "room"); // 4 is room
       if (info) {
         setForm({
@@ -47,7 +47,7 @@ export default function PoliciesSettingsPage() {
       }
     } catch (error) {
       console.error("Failed to load policies", error);
-      toast.error("ไม่สามารถโหลดข้อมูลนโยบายได้");
+      notify.error("ไม่สามารถโหลดข้อมูลนโยบายได้");
     } finally {
       setLoading(false);
     }
@@ -56,7 +56,7 @@ export default function PoliciesSettingsPage() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      await api.post("/settings/resort-info", {
+      await api.put("/settings/resort", {
         id: 4, // ID for Room 
         checkin_time_from: form.checkin_time_from,
         checkin_time_to: form.checkin_time_to,
@@ -65,10 +65,10 @@ export default function PoliciesSettingsPage() {
         kids_policy: form.kids_policy,
         parking_info: form.parking_info,
       });
-      toast.success("บันทึกนโยบายสำเร็จ");
+      notify.success("บันทึกนโยบายสำเร็จ");
     } catch (error) {
       console.error("Failed to save policies", error);
-      toast.error("บันทึกไม่สำเร็จ โปรดลองอีกครั้ง");
+      notify.error("บันทึกไม่สำเร็จ โปรดลองอีกครั้ง");
     } finally {
       setSaving(false);
     }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users, X, ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react';
+import { AlertCircle, Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users, X, ChevronLeft, ChevronRight, ChevronDown, ImageIcon } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveMediaUrl } from '@/lib/avatar';
@@ -325,11 +325,19 @@ function KayaksPageContent(): React.ReactElement {
 
   // ดึงเวลาทำการเรือจาก boat_operating_hours (public API)
   const [boatHours, setBoatHours] = useState<DayHour[]>([]);
+  const [boatTerms, setBoatTerms] = useState<string>('');
+
   useEffect(() => {
     api.get('/settings/boat-hours').then(res => {
       const data: DayHour[] = res.data?.data || [];
       if (data.length > 0) setBoatHours(data);
     }).catch(() => { /* ใช้ fallback 18:00 */ });
+
+    api.get('/settings/resort?id=5').then(res => {
+      if (res.data?.data?.additional_terms) {
+        setBoatTerms(res.data.data.additional_terms);
+      }
+    }).catch(() => {});
   }, []);
 
   // คำนวณ cutoff วันนี้จากข้อมูลจริง (fallback 18:00 ถ้ายังไม่มีข้อมูล)
@@ -646,24 +654,34 @@ function KayaksPageContent(): React.ReactElement {
             <section className={CARD}>
               <SectionHeading
                 icon={<Anchor size={16} />}
-                title="เลือกวันที่ รอบเวลา และจำนวนผู้โดยสาร"
-                hint={!selectedDate ? 'เลือกวันที่ต้องการพายเรือ' : formatThaiDateLong(selectedDate)}
+                title="บริการเรือ และข้อกำหนดการจอง"
               />
 
               <div className="mt-5 flex flex-col gap-5 lg:flex-row">
-                <div className="w-full shrink-0 rounded-xl border border-stone-200 p-3 lg:w-[300px] lg:p-4">
-                  <BookingCalendar
-                    mode="single"
-                    value={selectedDate}
-                    onSelect={handleSelectDate}
-                    cursor={cursor}
-                    onCursorChange={setCursor}
-                    dayStatus={dayStatus}
-                    loading={calendarLoading || boatsLoading}
-                    minISO={minAllowedISO}
-                    maxISO={maxAllowedISO}
-                    visibleMonths={1}
-                  />
+                <div className="w-full shrink-0 flex flex-col gap-4 lg:w-[300px]">
+                  <div className="rounded-xl border border-stone-200 p-3 lg:p-4">
+                    <BookingCalendar
+                      mode="single"
+                      value={selectedDate}
+                      onSelect={handleSelectDate}
+                      cursor={cursor}
+                      onCursorChange={setCursor}
+                      dayStatus={dayStatus}
+                      loading={calendarLoading || boatsLoading}
+                      minISO={minAllowedISO}
+                      maxISO={maxAllowedISO}
+                      visibleMonths={1}
+                    />
+                  </div>
+                  
+                  <div className="rounded-xl bg-forest-50/50 p-4 text-sm text-forest-900/80 border border-forest-100">
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>ต้องจองล่วงหน้าอย่างน้อย {boatHours[0] ? ((boatHours[0].advance_booking_minutes ?? 60) % 60 === 0 ? `${(boatHours[0].advance_booking_minutes ?? 60) / 60} ชั่วโมง` : `${boatHours[0].advance_booking_minutes ?? 60} นาที`) : '1 ชั่วโมง'}</li>
+                      {boatTerms && (
+                        <li className="whitespace-pre-wrap">{boatTerms}</li>
+                      )}
+                    </ul>
+                  </div>
                 </div>
 
                 <div className="min-w-0 flex-1 space-y-5">
@@ -736,32 +754,22 @@ function KayaksPageContent(): React.ReactElement {
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-300">จำนวนผู้โดยสารต่อประเภทเรือ</p>
                     {typeOptions.length > 1 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setTypeFilter('all')}
-                          className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                            typeFilter === 'all'
-                              ? 'border-forest-800 bg-forest-800 text-cream-100'
-                              : 'border-stone-200 text-charcoal-500 hover:border-forest-300 hover:bg-forest-50'
-                          }`}
+                      <div className="relative w-36">
+                        <select
+                          value={typeFilter}
+                          onChange={(e) => setTypeFilter(e.target.value)}
+                          className="w-full appearance-none rounded-xl border border-stone-200 bg-white px-3 py-1.5 pr-8 text-xs font-semibold text-charcoal-500 outline-none transition-colors hover:border-forest-300 focus:border-forest-500 focus:ring-2 focus:ring-forest-500/20"
                         >
-                          ทุกประเภท
-                        </button>
-                        {typeOptions.map((type) => (
-                          <button
-                            key={type}
-                            type="button"
-                            onClick={() => setTypeFilter(type)}
-                            className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                              typeFilter === type
-                                ? 'border-forest-800 bg-forest-800 text-cream-100'
-                                : 'border-stone-200 text-charcoal-500 hover:border-forest-300 hover:bg-forest-50'
-                            }`}
-                          >
-                            {TYPE_LABELS[type] || type}
-                          </button>
-                        ))}
+                          <option value="all">ทุกประเภท</option>
+                          {typeOptions.map((type) => (
+                            <option key={type} value={type}>
+                              {TYPE_LABELS[type] || type}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400">
+                          <ChevronDown size={14} />
+                        </div>
                       </div>
                     )}
                   </div>
