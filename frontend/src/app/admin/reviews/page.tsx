@@ -14,7 +14,8 @@ import {
 import api from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast, { Toaster } from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
+import { PageHeader, Panel, Modal, EmptyState } from "@/components/admin/ui";
 
 // 🌟 Component Custom Dropdown สไตล์เดียวกับไฟล์ตัวอย่าง
 function CustomSelect({
@@ -173,7 +174,7 @@ export default function AdminReviewsPage() {
       setReviews(res.data?.data || []);
       setAvgRating(res.data?.avg_rating ?? null);
     } catch {
-      toast.error("ไม่สามารถโหลดรีวิวได้");
+      notify.error("ไม่สามารถโหลดรีวิวได้");
     } finally {
       setLoading(false);
     }
@@ -184,11 +185,11 @@ export default function AdminReviewsPage() {
     setIsDeleting(true);
     try {
       await api.delete(`/reviews/admin/${deleteTargetId}`);
-      toast.success("ลบรีวิวสำเร็จ");
+      notify.success("ลบรีวิวสำเร็จ");
       setReviews((prev) => prev.filter((r) => r.review_id !== deleteTargetId));
       setDeleteTargetId(null);
     } catch {
-      toast.error("ลบรีวิวไม่สำเร็จ");
+      notify.error("ลบรีวิวไม่สำเร็จ");
     } finally {
       setIsDeleting(false);
     }
@@ -221,43 +222,53 @@ export default function AdminReviewsPage() {
   if (!ready) return null;
 
   return (
-    <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200/80">
-        <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-            จัดการรีวิว
-          </h1>
-          <p className="text-stone-400 mt-0.5 text-xs md:text-sm">
-            ดูแลและจัดการรีวิวสำหรับการจองห้องพัก
-          </p>
-        </div>
-      </div>
+    <div className="space-y-6 pb-12">
+      <PageHeader
+        title="จัดการรีวิว"
+        description="ดูแลและจัดการรีวิวสำหรับการจองห้องพัก"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter size={15} className="text-gray-400 shrink-0 mr-1" />
+            <CustomSelect
+              options={roomTypeOptions}
+              value={filterRoomType}
+              onChange={(val) => setFilterRoomType(val)}
+              width="w-40 sm:w-48"
+            />
+            <CustomSelect
+              options={RATING_OPTIONS}
+              value={filterRating}
+              onChange={(val) => setFilterRating(val)}
+              width="w-32 sm:w-40"
+            />
+          </div>
+        }
+      />
 
       {/* Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="card p-5 col-span-2 md:col-span-1 flex flex-col items-center justify-center text-center">
-          <p className="text-4xl font-bold text-yellow-500">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Panel className="col-span-2 md:col-span-1 flex flex-col items-center justify-center text-center">
+          <p className="text-4xl font-display font-semibold text-yellow-500">
             {avgRating ?? "-"}
           </p>
-          {avgRating && <StarDisplay rating={Math.round(avgRating)} />}
-          <p className="text-xs text-gray-400 mt-1">คะแนนเฉลี่ย</p>
-        </div>
-        <div className="card p-5 flex flex-col items-center justify-center text-center">
-          <p className="text-3xl font-bold text-teal-600">{reviews.length}</p>
-          <p className="text-xs text-gray-500 mt-1">รีวิวทั้งหมด</p>
-        </div>
-        <div className="card p-5 col-span-2 flex flex-col justify-center gap-1.5">
+          {avgRating && <div className="mt-1"><StarDisplay rating={Math.round(avgRating)} /></div>}
+          <p className="text-xs text-charcoal-400 mt-2">คะแนนเฉลี่ย</p>
+        </Panel>
+        <Panel className="flex flex-col items-center justify-center text-center">
+          <p className="text-3xl font-display font-semibold text-forest-600">{reviews.length}</p>
+          <p className="text-xs text-charcoal-500 mt-2">รีวิวทั้งหมด</p>
+        </Panel>
+        <Panel className="col-span-2 flex flex-col justify-center gap-2">
           {ratingCounts.map(({ star, count }) => (
             <div key={star} className="flex items-center gap-2">
-              <span className="text-xs text-gray-500 w-4 text-right">
+              <span className="text-xs text-charcoal-500 w-4 text-right">
                 {star}
               </span>
               <Star
                 size={11}
                 className="fill-yellow-400 text-yellow-400 flex-shrink-0"
               />
-              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-charcoal-50 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-yellow-400 rounded-full transition-all"
                   style={{
@@ -268,204 +279,169 @@ export default function AdminReviewsPage() {
                   }}
                 />
               </div>
-              <span className="text-xs text-gray-400 w-5 text-right">
+              <span className="text-xs text-charcoal-400 w-5 text-right">
                 {count}
               </span>
             </div>
           ))}
-        </div>
+        </Panel>
       </div>
 
-      {/* Filters & Custom Dropdowns */}
-      <div className="card p-4 mb-6 flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-48">
-          <Search
-            size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            type="text"
-            placeholder="ค้นหาชื่อ, อีเมล, ห้อง, ความคิดเห็น..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-teal-400"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Filter size={15} className="text-gray-400 shrink-0" />
-          <CustomSelect
-            options={roomTypeOptions}
-            value={filterRoomType}
-            onChange={(val) => setFilterRoomType(val)}
-            width="w-48 sm:w-56"
-          />
-          <CustomSelect
-            options={RATING_OPTIONS}
-            value={filterRating}
-            onChange={(val) => setFilterRating(val)}
-            width="w-36 sm:w-44"
-          />
-        </div>
-        <span className="text-xs text-gray-400 ml-auto">
-          {filtered.length} รายการ
-        </span>
-      </div>
-
-      {/* Reviews List */}
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="card h-24 animate-pulse bg-gray-100" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="card p-16 text-center">
-          <MessageSquare size={40} className="text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-400">ไม่มีรีวิวในขณะนี้</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filtered.map((r: any) => (
-            <div key={r.review_id} className="card p-5">
-              <div className="flex items-start justify-between gap-4">
-                {/* Reviewer Info */}
-                <div className="flex items-start gap-3 min-w-0">
-                  {r.image_profile ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={resolveMediaUrl(r.image_profile)}
-                      alt={r.first_name}
-                      className="w-10 h-10 rounded-full object-cover flex-shrink-0 border border-gray-100"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-bold text-teal-600">
-                        {r.first_name?.[0]}
-                        {r.last_name?.[0]}
-                      </span>
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="font-semibold text-gray-900 text-sm">
-                      {r.first_name} {r.last_name}
-                    </p>
-                    <p className="text-xs text-gray-400">{r.email}</p>
-                  </div>
-                </div>
-
-                {/* Room + Rating */}
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-medium text-gray-700">
-                    {r.room_name}
-                  </p>
-                  <p className="text-xs text-gray-400">{r.type_name}</p>
-                  <div className="flex justify-end mt-1">
-                    <StarDisplay rating={Number(r.rating)} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Comment */}
-              {r.comment && (
-                <p className="mt-3 text-sm text-gray-600 bg-gray-50 rounded-xl px-4 py-3 leading-relaxed">
-                  "{r.comment}"
-                </p>
-              )}
-
-              {/* Footer */}
-              <div className="mt-3 flex items-center justify-between">
-                <div className="flex gap-4 text-xs text-gray-400">
-                  <span>
-                    เข้าพัก{" "}
-                    {r.check_in
-                      ? new Date(r.check_in).toLocaleDateString("th-TH", {
-                          day: "numeric",
-                          month: "short",
-                          year: "2-digit",
-                        })
-                      : "-"}{" "}
-                    –{" "}
-                    {r.check_out
-                      ? new Date(r.check_out).toLocaleDateString("th-TH", {
-                          day: "numeric",
-                          month: "short",
-                          year: "2-digit",
-                        })
-                      : "-"}
-                  </span>
-                  <span>
-                    รีวิวเมื่อ{" "}
-                    {new Date(r.review_date).toLocaleDateString("th-TH", {
-                      day: "numeric",
-                      month: "short",
-                      year: "2-digit",
-                    })}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setDeleteTargetId(r.review_id)}
-                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
-                >
-                  <Trash2 size={13} /> ลบ
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Pop-up ยืนยันการลบ */}
-      {deleteTargetId !== null && (
-        <div
-          className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all animate-in fade-in duration-150"
-          onClick={() => setDeleteTargetId(null)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-stone-100 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
-                <AlertTriangle size={20} />
-              </div>
-              <button
-                onClick={() => setDeleteTargetId(null)}
-                className="p-1 text-stone-400 hover:text-stone-600 rounded-lg transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-1">
-              <h3 className="text-base font-bold text-stone-800">
-                ยืนยันการลบรีวิว
-              </h3>
-              <p className="text-xs text-stone-500 leading-relaxed">
-                คุณแน่ใจหรือไม่ว่าต้องการลบรีวิวนี้?
-                การดำเนินการนี้ไม่สามารถย้อนกลับได้
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setDeleteTargetId(null)}
-                className="px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={confirmDelete}
-                disabled={isDeleting}
-                className="inline-flex items-center gap-1 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-all disabled:opacity-50 cursor-pointer"
-              >
-                {isDeleting ? "กำลังลบ..." : "ลบรีวิว"}
-              </button>
-            </div>
+      <Panel className="!p-0 overflow-hidden">
+        <div className="p-4 border-b border-charcoal-100 flex flex-wrap gap-3 items-center bg-cream-50/50">
+          <div className="relative flex-1 min-w-48">
+            <Search
+              size={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-400"
+            />
+            <input
+              type="text"
+              placeholder="ค้นหาชื่อ, อีเมล, ห้อง, ความคิดเห็น..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-charcoal-200 rounded-xl focus:outline-none focus:border-forest-400 transition-colors bg-white"
+            />
           </div>
+          <span className="text-xs text-charcoal-400 font-medium">
+            พบ {filtered.length} รายการ
+          </span>
         </div>
-      )}
+
+        <div className="divide-y divide-charcoal-50">
+          {loading ? (
+            <div className="p-6 space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-24 animate-pulse bg-charcoal-50 rounded-xl" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-16 text-center">
+              <EmptyState
+                icon={<MessageSquare className="h-8 w-8 text-charcoal-300" />}
+                title="ไม่มีรีวิว"
+                description="ไม่พบรีวิวในขณะนี้"
+              />
+            </div>
+          ) : (
+            filtered.map((r: any) => (
+              <div key={r.review_id} className="p-5 hover:bg-cream-50/50 transition-colors">
+                <div className="flex items-start justify-between gap-4">
+                  {/* Reviewer Info */}
+                  <div className="flex items-start gap-3 min-w-0">
+                    {r.image_profile ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={resolveMediaUrl(r.image_profile)}
+                        alt={r.first_name}
+                        className="w-10 h-10 rounded-full object-cover flex-shrink-0 border border-charcoal-100"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-forest-100 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-forest-700">
+                          {r.first_name?.[0]}
+                          {r.last_name?.[0]}
+                        </span>
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-medium text-charcoal-900 text-sm">
+                        {r.first_name} {r.last_name}
+                      </p>
+                      <p className="text-xs text-charcoal-400">{r.email}</p>
+                    </div>
+                  </div>
+
+                  {/* Room + Rating */}
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-medium text-charcoal-700">
+                      {r.room_name}
+                    </p>
+                    <p className="text-xs text-charcoal-400">{r.type_name}</p>
+                    <div className="flex justify-end mt-1">
+                      <StarDisplay rating={Number(r.rating)} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Comment */}
+                {r.comment && (
+                  <p className="mt-3 text-sm text-charcoal-700 bg-white rounded-xl border border-charcoal-100 px-4 py-3 leading-relaxed shadow-sm">
+                    "{r.comment}"
+                  </p>
+                )}
+
+                {/* Footer */}
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-charcoal-400">
+                    <span>
+                      เข้าพัก{" "}
+                      {r.check_in
+                        ? new Date(r.check_in).toLocaleDateString("th-TH", {
+                            day: "numeric",
+                            month: "short",
+                            year: "2-digit",
+                          })
+                        : "-"}{" "}
+                      –{" "}
+                      {r.check_out
+                        ? new Date(r.check_out).toLocaleDateString("th-TH", {
+                            day: "numeric",
+                            month: "short",
+                            year: "2-digit",
+                          })
+                        : "-"}
+                    </span>
+                    <span>
+                      รีวิวเมื่อ{" "}
+                      {new Date(r.review_date).toLocaleDateString("th-TH", {
+                        day: "numeric",
+                        month: "short",
+                        year: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setDeleteTargetId(r.review_id)}
+                    className="flex items-center gap-1.5 text-xs font-medium text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Trash2 size={14} /> ลบ
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Panel>
+
+      <Modal
+        open={deleteTargetId !== null}
+        title="ยืนยันการลบรีวิว"
+        onClose={() => setDeleteTargetId(null)}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setDeleteTargetId(null)}
+              className="px-4 py-2 text-sm font-medium text-charcoal-600 hover:bg-charcoal-50 rounded-xl transition-colors cursor-pointer"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+            >
+              {isDeleting ? "กำลังลบ..." : "ลบรีวิว"}
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-charcoal-600 leading-relaxed">
+          คุณแน่ใจหรือไม่ว่าต้องการลบรีวิวนี้? การดำเนินการนี้ไม่สามารถย้อนกลับได้
+        </p>
+      </Modal>
     </div>
   );
 }
+

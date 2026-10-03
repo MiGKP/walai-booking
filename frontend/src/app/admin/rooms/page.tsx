@@ -37,6 +37,16 @@ import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import toast, { Toaster } from "react-hot-toast";
 
+import {
+  PageHeader,
+  StatCard,
+  Panel,
+  Modal,
+  BookingStatusBadge,
+  EmptyState,
+} from "@/components/admin/ui";
+
+
 // ตัวเลือกเหตุผลในการปฏิเสธ
 const REJECT_REASONS = [
   "สลิปไม่ชัดเจน / อ่านข้อมูลไม่ได้",
@@ -807,7 +817,7 @@ function RoomStaffDashboardContent() {
   if (!ready) return null;
 
   return (
-    <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
+    <div className="space-y-6 pb-12">
       <style jsx global>{`
         @media print {
           body * {
@@ -843,98 +853,26 @@ function RoomStaffDashboardContent() {
       `}</style>
 
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-stone-200/60 print:hidden">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-              แดชบอร์ดห้องพัก
-            </h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#0b3b2c]/10 text-[#0b3b2c]">
-              Staff
-            </span>
-          </div>
-          <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจอง และเช็คเอาต์ผู้เข้าพัก
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="แดชบอร์ดห้องพัก"
+        description="ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจอง และเช็คเอาต์ผู้เข้าพัก"
+        badge="Staff"
+      />
 
-      {/* Filter Cards — เป็นทั้งตัวเลขสรุปและปุ่มกรองในตัวเดียว (ไม่ต้องมีแท็บฟิลเตอร์แยกซ้ำเลขเดิมอีกแถว) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 print:hidden">
-        {(
-          [
-            {
-              key: "all" as const,
-              label: "ทั้งหมด",
-              count: bookings.length,
-              icon: <Filter size={15} />,
-              accent: "stone",
-            },
-            {
-              key: "has_slip" as const,
-              label: "รอตรวจสอบสลิป",
-              count: counts.has_slip,
-              icon: <FileCheck2 size={15} />,
-              accent: "blue",
-            },
-            {
-              key: "pending" as const,
-              label: "ยังไม่ชำระเงิน",
-              count: counts.pending,
-              icon: <Clock size={15} />,
-              accent: "amber",
-            },
-            {
-              key: "approved" as const,
-              label: "อนุมัติแล้ว (รอเช็คเอาต์)",
-              count: counts.approved,
-              icon: <ShieldCheck size={15} />,
-              accent: "indigo",
-            },
-            {
-              key: "checked_out" as const,
-              label: "เช็คเอาต์แล้ว",
-              count: counts.checked_out,
-              icon: <LogOut size={15} />,
-              accent: "teal",
-            },
-          ] as const
-        ).map((card) => {
-          const active = filter === card.key;
-          const accentClasses: Record<
-            string,
-            { text: string; bg: string; border: string; ring: string; bar: string }
-          > = {
-            stone: { text: "text-stone-700", bg: "bg-stone-100", border: "border-stone-200", ring: "ring-stone-400", bar: "bg-stone-400" },
-            blue: { text: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100", ring: "ring-blue-400", bar: "bg-blue-500" },
-            amber: { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100", ring: "ring-amber-400", bar: "bg-amber-500" },
-            indigo: { text: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", ring: "ring-indigo-400", bar: "bg-indigo-500" },
-            teal: { text: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100", ring: "ring-teal-400", bar: "bg-teal-500" },
-          };
-          const a = accentClasses[card.accent];
-          return (
-            <button
-              key={card.key}
-              type="button"
-              onClick={() => handleFilterChange(card.key as FilterType)}
-              className={`bg-white pl-3 pr-2.5 py-2.5 rounded-xl border text-left shadow-xs hover:shadow-md transition-all relative overflow-hidden group ${
-                active ? `${a.border} ring-2 ${a.ring}` : "border-stone-200/80"
-              }`}
-            >
-              <span className={`absolute left-0 top-0 bottom-0 w-1 ${a.bar}`} />
-              <div className="flex items-center justify-between gap-2 relative pl-1">
-                <div className="min-w-0">
-                  <span className="text-xs font-medium text-stone-500 leading-tight block truncate">
-                    {card.label}
-                  </span>
-                  <p className={`text-lg font-extrabold tracking-tight font-mono leading-tight ${a.text}`}>
-                    {card.count}
-                  </p>
-                </div>
-                <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${a.bg} ${a.border} ${a.text}`}>
-                  {card.icon}
-                </div>
-              </div>
+      {/* Summary Cards */}
+      <section className="grid grid-cols-2 gap-4 lg:grid-cols-5 print:hidden">
+        <StatCard label="รอตรวจสอบสลิป" value={counts.has_slip} icon={<FileCheck2 />} tone="info" />
+        <StatCard label="ยังไม่ชำระเงิน" value={counts.pending} icon={<Clock />} tone="neutral" />
+        <StatCard label="อนุมัติแล้ว (รอเช็คเอาต์)" value={counts.approved} icon={<ShieldCheck />} tone="success" />
+        <StatCard label="เช็คเอาต์แล้ว" value={counts.checked_out} icon={<LogOut />} tone="warning" />
+        <StatCard 
+          label="รายได้ที่ยืนยันแล้ว" 
+          value={`฿${counts.totalRevenue.toLocaleString()}`} 
+          hint={counts.pendingRevenue > 0 ? `รอตรวจสอบ: ฿${counts.pendingRevenue.toLocaleString()}` : undefined}
+          icon={<Wallet />} 
+          tone="forest" 
+        />
+      </section>
             </button>
           );
         })}
@@ -962,7 +900,42 @@ function RoomStaffDashboardContent() {
       </div>
 
       {/* Control Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs space-y-4 print:hidden">
+      <Panel className="print:hidden">
+        <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5">
+          {(
+            [
+              ["all", "ทั้งหมด", bookings.length],
+              ["has_slip", "รอตรวจสอบสลิป", counts.has_slip],
+              ["pending", "ยังไม่ชำระ", counts.pending],
+              ["approved", "อนุมัติแล้ว", counts.approved],
+              ["checked_out", "เช็คเอาต์แล้ว", counts.checked_out],
+            ] as const
+          ).map(([val, label, count]) => {
+            const active = filter === val;
+            return (
+              <button
+                key={val}
+                onClick={() => handleFilterChange(val as FilterType)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
+                  active
+                    ? "bg-[#0b3b2c] text-white shadow-xs"
+                    : "bg-stone-100/80 text-stone-600 hover:bg-stone-200/70"
+                }`}
+              >
+                <span>{label}</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                    active
+                      ? "bg-white/20 text-white"
+                      : "bg-stone-200 text-stone-700"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-stone-100">
           <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
             <div className="relative flex-1 sm:w-64 min-w-[200px]">
@@ -1076,14 +1049,14 @@ function RoomStaffDashboardContent() {
             <span>รีเฟรชข้อมูล</span>
           </button>
         </div>
-      </div>
+      </Panel>
 
       {/* Bookings Table Card */}
-      <div className="bg-white rounded-2xl border border-stone-200/80 shadow-sm overflow-hidden print:hidden">
+      <Panel title="รายการจองห้องพัก" className="print:hidden p-0 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs md:text-sm">
             <thead>
-              <tr className="bg-stone-50 border-b border-stone-200/80 text-stone-500 font-bold text-xs tracking-wider uppercase">
+              <tr className="border-b border-charcoal-100 text-charcoal-400 bg-cream-50 font-bold text-xs tracking-wider uppercase">
                 <th className="px-5 py-4">
                   <button
                     type="button"
@@ -1166,18 +1139,12 @@ function RoomStaffDashboardContent() {
                 </tr>
               ) : paginatedBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-16 text-center text-stone-400">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 mb-1">
-                        <Filter size={20} />
-                      </div>
-                      <p className="font-semibold text-stone-700 text-sm">
-                        ไม่พบรายการจองห้องพัก
-                      </p>
-                      <p className="text-xs text-stone-400">
-                        ลองปรับเปลี่ยนข้อความค้นหาหรือเงื่อนไขการกรอง
-                      </p>
-                    </div>
+                  <td colSpan={8} className="py-16">
+                    <EmptyState 
+                      icon={<BedDouble size={40}/>} 
+                      title="ไม่พบรายการจอง" 
+                      description="ลองปรับเปลี่ยนข้อความค้นหาหรือเงื่อนไขการกรอง" 
+                    />
                   </td>
                 </tr>
               ) : (
@@ -1192,12 +1159,7 @@ function RoomStaffDashboardContent() {
                   };
 
                   return (
-                    <tr
-                      key={bookingId}
-                      className={`hover:bg-stone-100/80 transition-colors group ${
-                        idx % 2 === 1 ? "bg-stone-50/50" : "bg-white"
-                      }`}
-                    >
+                    <tr key={bookingId} className="hover:bg-cream-100/60 border-b border-charcoal-50 last:border-0 transition-colors group">
                       <td className="px-5 py-4 text-stone-400 font-mono text-xs font-semibold">
                         {rowNumber}
                       </td>
@@ -1312,14 +1274,7 @@ function RoomStaffDashboardContent() {
 
                       <td className="px-5 py-4 whitespace-nowrap">
                         <div className="flex flex-col items-start gap-1">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.bg}`}
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`}
-                            />
-                            {statusLabel[b.status] || b.status}
-                          </span>
+                          <BookingStatusBadge status={b.status} />
                           {b.approved_by_name &&
                             ["approved", "checked_out", "rejected"].includes(
                               b.status,
@@ -1513,39 +1468,27 @@ function RoomStaffDashboardContent() {
       </div>
 
       {/* Slip Modal */}
-      {slipModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs print:hidden">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 shadow-2xl relative space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-              <h3 className="font-bold text-stone-800 text-base flex items-center gap-2">
-                <FileCheck2 className="text-blue-600" size={18} />
-                หลักฐานการชำระเงิน ({slipModal.name})
-              </h3>
-              <button
-                onClick={() => setSlipModal({ open: false, url: "", name: "" })}
-                className="p-1.5 rounded-full text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="max-h-[70vh] overflow-y-auto flex justify-center bg-stone-50 p-2 rounded-2xl border border-stone-100">
-              <img
-                src={slipModal.url}
-                alt="สลิปการโอนเงิน"
-                className="max-w-full h-auto object-contain rounded-xl shadow-xs"
-              />
-            </div>
-            <div className="flex justify-end">
-              <button
-                onClick={() => setSlipModal({ open: false, url: "", name: "" })}
-                className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-xl transition-colors"
-              >
-                ปิดหน้าต่าง
-              </button>
-            </div>
-          </div>
+      <Modal 
+        open={slipModal.open} 
+        title={`หลักฐานการชำระเงิน (${slipModal.name})`} 
+        onClose={() => setSlipModal({ open: false, url: "", name: "" })}
+        footer={
+          <button
+            onClick={() => setSlipModal({ open: false, url: "", name: "" })}
+            className="rounded-xl bg-charcoal-100 px-4 py-2 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-charcoal-200"
+          >
+            ปิดหน้าต่าง
+          </button>
+        }
+      >
+        <div className="flex justify-center rounded-2xl border border-charcoal-100 bg-cream-50 p-2">
+          <img
+            src={slipModal.url}
+            alt="สลิปการโอนเงิน"
+            className="max-h-[60vh] rounded-xl object-contain shadow-xs"
+          />
         </div>
-      )}
+      </Modal>
 
       {/* Details Modal */}
       {detailsModal.open &&
@@ -1557,328 +1500,167 @@ function RoomStaffDashboardContent() {
           const nights = calculateNights(booking.check_in, booking.check_out);
 
           return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs printable-modal-overlay">
-              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative space-y-4 animate-in fade-in zoom-in-95 duration-200 printable-modal">
-                <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 bg-[#0b3b2c]/10 text-[#0b3b2c] rounded-xl print:hidden">
-                      <FileText size={18} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-stone-800 text-base md:text-lg">
-                        ใบยืนยันการจองห้องพัก
-                      </h3>
-                      <p className="text-stone-400 text-xs font-mono">
-                        หมายเลขอ้างอิง: #{booking.room_booking_id || booking.id}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() =>
-                      setDetailsModal({ open: false, booking: null })
-                    }
-                    className="p-1.5 rounded-full text-stone-400 hover:bg-stone-100 transition-colors print:hidden"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-
-                <div className="space-y-3 text-xs text-stone-600">
-                  <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 space-y-1.5 print:bg-white print:border-stone-200">
-                    <div className="flex items-center gap-2 font-semibold text-stone-800 text-sm mb-1">
-                      <User size={15} className="text-stone-500 print:hidden" />
-                      <span>ข้อมูลผู้จอง</span>
-                    </div>
-                    <p>
-                      <strong className="text-stone-700">ชื่อ-สกุล:</strong>{" "}
-                      {booking.user_name || "ไม่ระบุ"}
-                    </p>
-                    <p>
-                      <strong className="text-stone-700">เบอร์โทรศัพท์:</strong>{" "}
-                      <span className="font-mono text-stone-800 font-medium">
-                        {booking.user_phone || booking.phone || "-"}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 space-y-1.5 print:bg-white print:border-stone-200">
-                    <div className="flex items-center gap-2 font-semibold text-stone-800 text-sm mb-1">
-                      <BedDouble
-                        size={15}
-                        className="text-stone-500 print:hidden"
-                      />
-                      <span>รายละเอียดห้องพัก</span>
-                    </div>
-                    <p>
-                      <strong className="text-stone-700">
-                        ชื่อห้อง/ประเภท:
-                      </strong>{" "}
-                      {booking.room_name || booking.type_name}
-                    </p>
-                    <p>
-                      <strong className="text-stone-700">หมายเลขห้อง:</strong>{" "}
-                      {booking.room_number || booking.room_id}
-                    </p>
-                    <p>
-                      <strong className="text-stone-700">
-                        ระยะเวลาเข้าพัก:
-                      </strong>{" "}
-                      {booking.check_in
-                        ? new Date(booking.check_in).toLocaleDateString(
-                            "th-TH",
-                            {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                            },
-                          )
-                        : "-"}{" "}
-                      ถึง{" "}
-                      {booking.check_out
-                        ? new Date(booking.check_out).toLocaleDateString(
-                            "th-TH",
-                            {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                            },
-                          )
-                        : "-"}{" "}
-                      ({nights} คืน)
-                    </p>
-
-                    <div className="pt-2 mt-2 border-t border-stone-200/60">
-                      <div className="flex items-center gap-1.5 text-stone-700 font-semibold mb-1">
-                        <MessageSquare
-                          size={13}
-                          className="text-[#0b3b2c] print:hidden"
-                        />
-                        <span>คำขอพิเศษ (Special Request):</span>
-                      </div>
-                      <p className="text-stone-600 bg-white p-2 rounded-xl border border-stone-200/80 leading-relaxed italic print:border-stone-300">
-                        {booking.special_request ||
-                          booking.special_requests ||
-                          "ไม่มีคำขอพิเศษ"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 space-y-1.5 print:bg-white print:border-stone-200">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-stone-700">
-                        สถานะรายการ:
-                      </span>
-
-                      {isCheckedOut ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 text-xs font-bold print:border print:border-teal-300">
-                          เช็คเอาต์แล้ว (
-                          {new Date(booking.checkout_at).toLocaleTimeString(
-                            "th-TH",
-                            { hour: "2-digit", minute: "2-digit" },
-                          )}{" "}
-                          น.)
-                        </span>
-                      ) : isCheckedIn ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold print:border print:border-emerald-300">
-                          เช็คอินแล้ว (
-                          {new Date(booking.checkin_at).toLocaleTimeString(
-                            "th-TH",
-                            { hour: "2-digit", minute: "2-digit" },
-                          )}{" "}
-                          น.)
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#0b3b2c]/10 text-[#0b3b2c] text-xs font-bold print:border print:border-emerald-300">
-                          {statusLabel[booking.status] || booking.status}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {booking.status === "rejected" &&
-                    (booking.reject_reason || booking.reason) && (
-                      <div className="p-3 bg-rose-50 rounded-2xl border border-rose-200/80 space-y-1 text-rose-800 print:bg-white print:border-rose-300">
-                        <span className="font-semibold">เหตุผลที่ปฏิเสธ:</span>
-                        <p className="italic text-rose-700">
-                          {booking.reject_reason || booking.reason}
-                        </p>
-                      </div>
-                    )}
-
-                  <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 flex justify-between items-center print:bg-white print:border-stone-200">
-                    <span className="font-semibold text-stone-700">
-                      ยอดรวมสุทธิ
-                    </span>
-                    <span className="text-base font-extrabold text-[#0b3b2c] font-mono">
-                      ฿{Number(booking.total_price || 0).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 pt-2 print:hidden">
+            <Modal
+              open={detailsModal.open}
+              title="ใบยืนยันการจองห้องพัก"
+              onClose={() => setDetailsModal({ open: false, booking: null })}
+              footer={
+                <div className="flex w-full gap-2">
                   <button
                     onClick={handlePrintDetails}
-                    className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-charcoal-100 py-2.5 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-charcoal-200"
                   >
-                    <Printer size={14} />
-                    <span>พิมพ์ใบยืนยัน</span>
+                    <Printer size={14} /> พิมพ์ใบยืนยัน
                   </button>
                   <button
-                    onClick={() =>
-                      setDetailsModal({ open: false, booking: null })
-                    }
-                    className="flex-1 py-2.5 bg-[#0b3b2c] hover:bg-[#082c21] text-white text-xs font-semibold rounded-xl transition-colors shadow-xs"
+                    onClick={() => setDetailsModal({ open: false, booking: null })}
+                    className="flex-1 rounded-xl bg-[#0b3b2c] py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#082c21]"
                   >
                     ปิดหน้าต่าง
                   </button>
                 </div>
+              }
+            >
+              <div className="space-y-3 text-sm text-charcoal-600 printable-modal">
+                <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 space-y-1.5 print:bg-white print:border-charcoal-200">
+                  <div className="flex items-center gap-2 font-semibold text-charcoal-800 text-sm mb-2">
+                    <User size={15} className="text-charcoal-500 print:hidden" />
+                    <span>ข้อมูลผู้จอง</span>
+                  </div>
+                  <p><strong className="text-charcoal-700">ชื่อ-สกุล:</strong> {booking.user_name || "ไม่ระบุ"}</p>
+                  <p><strong className="text-charcoal-700">เบอร์โทรศัพท์:</strong> <span className="font-mono text-charcoal-800 font-medium">{booking.user_phone || booking.phone || "-"}</span></p>
+                  <p><strong className="text-charcoal-700">หมายเลขอ้างอิง:</strong> #{booking.room_booking_id || booking.id}</p>
+                </div>
+
+                <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 space-y-1.5 print:bg-white print:border-charcoal-200">
+                  <div className="flex items-center gap-2 font-semibold text-charcoal-800 text-sm mb-2">
+                    <BedDouble size={15} className="text-charcoal-500 print:hidden" />
+                    <span>รายละเอียดห้องพัก</span>
+                  </div>
+                  <p><strong className="text-charcoal-700">ชื่อห้อง/ประเภท:</strong> {booking.room_name || booking.type_name}</p>
+                  <p><strong className="text-charcoal-700">หมายเลขห้อง:</strong> {booking.room_number || booking.room_id}</p>
+                  <p>
+                    <strong className="text-charcoal-700">ระยะเวลาเข้าพัก:</strong>{" "}
+                    {booking.check_in ? new Date(booking.check_in).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" }) : "-"} ถึง{" "}
+                    {booking.check_out ? new Date(booking.check_out).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" }) : "-"} ({nights} คืน)
+                  </p>
+
+                  <div className="pt-2 mt-2 border-t border-charcoal-200/60">
+                    <div className="flex items-center gap-1.5 text-charcoal-700 font-semibold mb-1">
+                      <MessageSquare size={13} className="text-[#0b3b2c] print:hidden" />
+                      <span>คำขอพิเศษ (Special Request):</span>
+                    </div>
+                    <p className="text-charcoal-600 bg-white p-2 rounded-xl border border-charcoal-200/80 leading-relaxed italic print:border-charcoal-300">
+                      {booking.special_request || booking.special_requests || "ไม่มีคำขอพิเศษ"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 flex items-center justify-between print:bg-white print:border-charcoal-200">
+                  <span className="font-semibold text-charcoal-700">สถานะรายการ:</span>
+                  <BookingStatusBadge status={booking.status} />
+                </div>
+
+                {booking.status === "rejected" && (booking.reject_reason || booking.reason) && (
+                  <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 space-y-1 text-rose-800 print:bg-white print:border-rose-300">
+                    <span className="font-semibold">เหตุผลที่ปฏิเสธ:</span>
+                    <p className="italic text-rose-700">{booking.reject_reason || booking.reason}</p>
+                  </div>
+                )}
+
+                <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 flex justify-between items-center print:bg-white print:border-charcoal-200">
+                  <span className="font-semibold text-charcoal-700">ยอดรวมสุทธิ</span>
+                  <span className="text-lg font-extrabold text-[#0b3b2c] font-mono">฿{Number(booking.total_price || 0).toLocaleString()}</span>
+                </div>
               </div>
-            </div>
+            </Modal>
           );
         })()}
 
-      {/* Reject Modal (ปรับปรุงให้มี Preset ช้อยส์เลือก และแสดง textarea เมื่อเลือก "อื่นๆ") */}
-      {rejectModal.open && (
-        <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 print:hidden">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-stone-100 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center bg-rose-50 border border-rose-100 text-rose-600">
-              <AlertTriangle size={24} />
-            </div>
-
-            <div>
-              <h3 className="text-base font-bold text-stone-800">
-                ปฏิเสธรายการจองนี้?
-              </h3>
-              <p className="text-xs text-stone-500 mt-1">
-                โปรดเลือกเหตุผลในการปฏิเสธการจอง
-              </p>
-            </div>
-
-            {/* รายการตัวเลือกเหตุผล */}
-            <div className="space-y-1.5 text-left">
-              {REJECT_REASONS.map((reason) => {
-                const isSelected = rejectModal.selectedReason === reason;
-                return (
-                  <button
-                    key={reason}
-                    type="button"
-                    onClick={() =>
-                      setRejectModal((prev) => ({
-                        ...prev,
-                        selectedReason: reason,
-                      }))
-                    }
-                    className={`w-full text-left px-3.5 py-2.5 rounded-xl border text-xs font-medium transition-all flex items-center justify-between ${
-                      isSelected
-                        ? "border-rose-500 bg-rose-50/60 text-rose-900 font-bold"
-                        : "border-stone-200 bg-stone-50/50 text-stone-700 hover:bg-stone-100"
-                    }`}
-                  >
-                    <span>{reason}</span>
-                    <span
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                        isSelected
-                          ? "border-rose-600 bg-rose-600"
-                          : "border-stone-300"
-                      }`}
-                    >
-                      {isSelected && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* แสดงช่องกรอกข้อความเฉพาะเมื่อเลือก "อื่นๆ" */}
-            {rejectModal.selectedReason === "อื่นๆ" && (
-              <div className="text-left animate-in fade-in duration-150">
-                <textarea
-                  rows={2}
-                  placeholder="ระบุเหตุผลเพิ่มเติม..."
-                  value={rejectModal.customReason}
-                  onChange={(e) =>
-                    setRejectModal((prev) => ({
-                      ...prev,
-                      customReason: e.target.value,
-                    }))
-                  }
-                  className="w-full p-3 bg-stone-50 rounded-xl border border-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs text-stone-800 placeholder:text-stone-400"
-                />
-              </div>
-            )}
-
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                onClick={() =>
-                  setRejectModal({
-                    open: false,
-                    bookingId: null,
-                    selectedReason: REJECT_REASONS[0],
-                    customReason: "",
-                  })
-                }
-                className="flex-1 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-colors"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={handleRejectSubmit}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition-opacity"
-              >
-                ยืนยันปฏิเสธ
-              </button>
-            </div>
+      {/* Reject Modal */}
+      <Modal
+        open={rejectModal.open}
+        title="ปฏิเสธรายการจองนี้?"
+        onClose={() => setRejectModal({ open: false, bookingId: null, selectedReason: REJECT_REASONS[0], customReason: "" })}
+        widthClass="max-w-sm"
+        footer={
+          <div className="flex w-full gap-2">
+            <button
+              onClick={() => setRejectModal({ open: false, bookingId: null, selectedReason: REJECT_REASONS[0], customReason: "" })}
+              className="flex-1 rounded-xl bg-charcoal-100 py-2.5 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-charcoal-200"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={handleRejectSubmit}
+              className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-semibold text-white shadow-md transition-all hover:bg-rose-700 active:scale-95"
+            >
+              ยืนยันปฏิเสธ
+            </button>
           </div>
+        }
+      >
+        <p className="mb-4 text-xs text-charcoal-400">โปรดเลือกเหตุผลในการปฏิเสธการจอง</p>
+        <div className="space-y-2">
+          {REJECT_REASONS.map((reason) => {
+            const isSelected = rejectModal.selectedReason === reason;
+            return (
+              <button
+                key={reason}
+                onClick={() => setRejectModal((prev) => ({ ...prev, selectedReason: reason }))}
+                className={`flex w-full items-center justify-between rounded-xl border p-3 text-xs font-semibold transition-all ${
+                  isSelected
+                    ? "border-rose-400 bg-rose-50 text-rose-700 shadow-sm"
+                    : "border-charcoal-200 bg-cream-50 text-charcoal-600 hover:bg-cream-100"
+                }`}
+              >
+                <span>{reason}</span>
+                <div className={`flex h-4 w-4 items-center justify-center rounded-full border ${isSelected ? "border-rose-500 bg-rose-500" : "border-charcoal-300 bg-white"}`}>
+                  {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                </div>
+              </button>
+            );
+          })}
+          {rejectModal.selectedReason === "อื่นๆ" && (
+            <textarea
+              rows={2}
+              placeholder="โปรดระบุเหตุผลเพิ่มเติม..."
+              value={rejectModal.customReason}
+              onChange={(e) => setRejectModal((prev) => ({ ...prev, customReason: e.target.value }))}
+              className="w-full rounded-xl border border-charcoal-200 bg-cream-50 p-3 text-xs text-charcoal-800 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+            />
+          )}
         </div>
-      )}
+      </Modal>
 
       {/* Confirm Modal */}
-      {confirmModal.open && (
-        <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 print:hidden">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-stone-100 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center bg-stone-50 border border-stone-100 text-stone-700">
-              {confirmModal.icon === "warning" && (
-                <AlertTriangle size={24} className="text-[#0b3b2c]" />
-              )}
-              {confirmModal.icon === "info" && (
-                <Info size={24} className="text-indigo-500" />
-              )}
-              {confirmModal.icon === "question" && (
-                <HelpCircle size={24} className="text-[#0b3b2c]" />
-              )}
-            </div>
-
-            <div>
-              <h3 className="text-base font-bold text-stone-800">
-                {confirmModal.title}
-              </h3>
-              <p className="text-xs text-stone-500 mt-1">{confirmModal.text}</p>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                onClick={() =>
-                  setConfirmModal((prev) => ({ ...prev, open: false }))
-                }
-                className="flex-1 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-colors"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={() => {
-                  confirmModal.onConfirm();
-                  setConfirmModal((prev) => ({ ...prev, open: false }));
-                }}
-                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold shadow-sm hover:opacity-90 transition-opacity ${confirmModal.confirmColor}`}
-              >
-                {confirmModal.confirmText}
-              </button>
-            </div>
+      <Modal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
+        widthClass="max-w-sm"
+        footer={
+          <div className="flex w-full gap-2">
+            <button
+              onClick={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
+              className="flex-1 rounded-xl bg-charcoal-100 py-2.5 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-charcoal-200"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={() => {
+                confirmModal.onConfirm();
+                setConfirmModal((prev) => ({ ...prev, open: false }));
+              }}
+              className={`flex-1 rounded-xl py-2.5 text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 ${confirmModal.confirmColor}`}
+            >
+              {confirmModal.confirmText}
+            </button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-sm text-charcoal-600">{confirmModal.text}</p>
+      </Modal>
 
       {/* Toast Notification */}
       <Toaster
