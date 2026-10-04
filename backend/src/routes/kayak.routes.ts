@@ -53,17 +53,17 @@ router.get('/rounds-availability', getKayakDayRounds);
 router.get('/schedule', getKayakSchedule);
 
 // บัตรเสริมพายเรือ (ผูกกับห้องพักจริง — เลือกตอนชำระเงินห้องพัก, มอบ/พิมพ์ตอนเช็คอิน)
-router.get('/room-addon/:bookingRoomId', authenticate, getBoatAddonInfo);
-router.post('/room-addon/:bookingRoomId', authenticate, createBoatAddon);
+router.get('/room-addon/:bookingRoomId', authenticate, authorize('customer'), getBoatAddonInfo);
+router.post('/room-addon/:bookingRoomId', authenticate, authorize('customer'), createBoatAddon);
 router.put('/room-addon/:boatBookingId/print', authenticate, authorize('admin', 'room_staff'), printBoatAddon);
 router.put('/room-addon/:boatBookingId/hand-out', authenticate, authorize('admin', 'room_staff'), handOutBoatAddon);
 
 // Bookings routes (specific before dynamic)
-router.post('/bookings', authenticate, createKayakBookingValidator, validate, createKayakBooking);
-router.get('/bookings/my', authenticate, getUserKayakBookings);
+router.post('/bookings', authenticate, authorize('customer'), createKayakBookingValidator, validate, createKayakBooking);
+router.get('/bookings/my', authenticate, authorize('customer'), getUserKayakBookings);
 router.get('/bookings/all', authenticate, authorize('admin', 'boat_staff'), getAllKayakBookings);
 router.get('/bookings/:id', authenticate, getKayakBookingById);
-router.put('/bookings/:id/cancel', authenticate, cancelKayakBooking);
+router.put('/bookings/:id/cancel', authenticate, authorize('customer'), cancelKayakBooking);
 router.put('/bookings/:id/status', authenticate, authorize('admin', 'boat_staff'), updateKayakBookingStatusValidator, validate, updateKayakBookingStatus);
 router.put('/bookings/:id/checkout', authenticate, authorize('admin', 'boat_staff'), checkoutKayakBooking);
 

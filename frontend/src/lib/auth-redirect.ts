@@ -7,7 +7,10 @@ export function buildLoginRedirectUrl(pathname: string, searchParamsString: stri
 const STORAGE_KEY = 'walai_post_login_redirect';
 
 export function isSafeInternalPath(path: string): boolean {
-  return path.startsWith('/') && !path.startsWith('//') && !path.startsWith('/auth');
+  // ปฏิเสธ "//" และ "/\" เพราะเบราว์เซอร์มองว่าเป็น URL ภายนอก รวมถึงอักขระควบคุม
+  if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) return false;
+  if (/[\u0000-\u001f]/.test(path)) return false;
+  return !path.startsWith('/auth');
 }
 
 export function setPostLoginRedirect(path: string): void {

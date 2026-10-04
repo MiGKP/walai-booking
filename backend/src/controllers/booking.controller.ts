@@ -13,6 +13,7 @@ import {
   sumCapacity,
   sumSubtotals,
 } from '../services/booking-room.math';
+import { restoreBookingPromotions } from '../services/promotion-ledger';
 import { restoreBoatTicketRedemptions } from './kayak.controller';
 
 // ยกเลิกบัตรเสริมเรือคายัคที่ผูกกับห้องพักนี้ทั้งหมด (เรียกตอนห้องพักถูกยกเลิก/ปฏิเสธ) — คืนบัตรและปล่อยโควตารอบเรือ
@@ -299,6 +300,12 @@ export const createRoomBooking = async (
         // หน่วยแรกของแต่ละ item เท่านั้นที่ผูกกับห้องเฉพาะเจาะจงที่ลูกค้าเลือกไว้ (ถ้ามี)
         // ส่วนที่เกินมา (quantity > 1 บนห้องเดียวกัน) ให้ระบบเลือกห้องว่างประเภทเดียวกันให้อัตโนมัติ
         const requestedRoomId = i === 0 ? item.room_id : null;
+
+        // lock แถวห้องใน statement แยกก่อน แล้วค่อยตรวจการทับซ้อนใน statement ถัดไป
+        // เพราะใน READ COMMITTED subquery ของ statement เดียวกันใช้ snapshot เดิม และจะไม่เห็น booking ที่เพิ่ง commit
+        if (requestedRoomId) {
+          await client.query('SELECT room_id FROM rooms WHERE room_id = $1 FOR UPDATE', [requestedRoomId]);
+        }
 
         const roomQuery = requestedRoomId
           ? await client.query(
@@ -664,7 +671,7 @@ export const getRoomBookingById = async (
               rb.total_price, rb.status, rb.special_request, rb.created_at,
               ${ROOMS_JSON_SQL} AS rooms
        FROM room_bookings rb
-       WHERE rb.room_booking_id = $1 AND (rb.member_id = $2 OR $3 = 'admin')`,
+       WHERE rb.room_booking_id = $1 AND (($3 = 'customer' AND rb.member_id = $2) OR $3 = 'admin')`,
       [id, user.id, user.role]
     );
 
@@ -756,6 +763,8 @@ export const cancelRoomBooking = async (
        WHERE room_booking_id = $1 AND status <> 'checked_out'`,
       [id]
     );
+    // คืนโควตาโปรโมชั่นและ usage_count (สถานะเป็น pending เสมอในจุดนี้)
+    await restoreBookingPromotions(client, { previousStatus: 'pending', roomBookingId: Number(id) });
     // ยกเลิกบัตรเสริมเรือคายัค (ถ้าจองไว้แล้ว) พร้อมกับห้องพักนี้
     await cancelBoatAddonsForRoomBooking(client, Number(id));
     // เพิกถอนบัตรพายเรือฟรีที่แจกไว้จากการจองนี้ (เฉพาะที่ยังไม่ถูกใช้เลย)
@@ -837,6 +846,12 @@ export const updateRoomBookingStatus = async (
 
     await client.query('BEGIN');
 
+    const previous = await client.query(
+      'SELECT status FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE',
+      [id]
+    );
+    const previousStatus = previous.rows[0] ? String(previous.rows[0].status) : '';
+
     let query = `UPDATE room_bookings SET status = $1, updated_at = NOW()`;
     const params: Array<string | number> = [status];
 
@@ -867,6 +882,8 @@ export const updateRoomBookingStatus = async (
     );
 
     if (status === 'rejected' || status === 'cancelled') {
+      // คืนโควตาโปรโมชั่นเมื่อ header เดิมเป็น pending/paid (ตรรกะอยู่ใน restoreBookingPromotions)
+      await restoreBookingPromotions(client, { previousStatus, roomBookingId: Number(id) });
       // ยกเลิกบัตรเสริมเรือคายัคที่จองไว้แล้ว (คืนโควตารอบเรือ) พร้อมกับห้องพักนี้
       await cancelBoatAddonsForRoomBooking(client, Number(id));
       // เพิกถอนบัตรพายเรือฟรีที่แจกไว้จากการจองนี้ (เฉพาะที่ยังไม่ถูกใช้เลย)

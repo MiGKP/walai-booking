@@ -325,6 +325,14 @@ function AdminCheckinContent() {
   const printAddonTicket = (addon: BoatAddon, line: FlatLine) => {
     const w = window.open("", "_blank", "width=420,height=640");
     if (!w) return;
+    // ค่าที่มาจากผู้ใช้ต้อง escape ก่อนใส่ลงใน document.write เพื่อป้องกัน HTML injection
+    const esc = (value: unknown): string =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     w.document.write(`<!DOCTYPE html><html><head><title>บัตรเสริมเรือ</title>
       <meta charset="utf-8" />
       <style>
@@ -341,9 +349,9 @@ function AdminCheckinContent() {
         <h1>บัตรเสริมเรือ</h1>
         <p class="sub">สวนลัยรุกเวช — โปรดนำบัตรนี้มาแสดงที่ท่าเรือ</p>
         <div class="box">
-          <div class="row"><div class="label">ลูกค้า</div><div class="value">${line.user_name || "-"}</div></div>
-          <div class="row"><div class="label">ห้องพัก</div><div class="value">${line.room_name} #${line.room_number}</div></div>
-          <div class="row"><div class="label">ประเภทเรือ</div><div class="value">${addon.boat_type_name}</div></div>
+          <div class="row"><div class="label">ลูกค้า</div><div class="value">${esc(line.user_name || "-")}</div></div>
+          <div class="row"><div class="label">ห้องพัก</div><div class="value">${esc(line.room_name)} #${esc(line.room_number)}</div></div>
+          <div class="row"><div class="label">ประเภทเรือ</div><div class="value">${esc(addon.boat_type_name)}</div></div>
           <div class="row"><div class="label">วันที่ / เวลา</div><div class="value">${formatThaiDate(String(addon.booking_date).slice(0, 10))} · ${String(addon.start_time).slice(0, 5)}-${String(addon.end_time).slice(0, 5)} น.</div></div>
           <div class="row"><div class="label">จำนวนเรือ / ผู้โดยสาร</div><div class="value">${addon.boat_count} ลำ / ${addon.num_passengers} คน</div></div>
           <div class="row"><div class="label">ประเภทบัตร</div><div class="value">${addon.mode === "paid" ? `เสริม (ชำระแล้ว ฿${Number(addon.price).toLocaleString()})` : "แถมฟรีจากโปรโมชั่น"}</div></div>

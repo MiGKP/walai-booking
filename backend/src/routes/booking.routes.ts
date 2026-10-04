@@ -16,10 +16,10 @@ import { createRoomBookingValidator, updateRoomBookingStatusValidator } from '..
 
 const router = Router();
 
-router.post('/', authenticate, createRoomBookingValidator, validate, createRoomBooking);
-router.post('/room', authenticate, createRoomBookingValidator, validate, createRoomBooking);
-router.get('/my', authenticate, getUserRoomBookings);
-router.get('/room/my', authenticate, getUserRoomBookings);
+router.post('/', authenticate, authorize('customer'), createRoomBookingValidator, validate, createRoomBooking);
+router.post('/room', authenticate, authorize('customer'), createRoomBookingValidator, validate, createRoomBooking);
+router.get('/my', authenticate, authorize('customer'), getUserRoomBookings);
+router.get('/room/my', authenticate, authorize('customer'), getUserRoomBookings);
 
 router.put(
   '/booking-rooms/:bookingRoomId/checkin',
@@ -46,6 +46,6 @@ router.put(
 router.put('/:id/checkout', authenticate, authorize('admin', 'room_staff'), checkoutRoomBooking);
 
 router.get('/:id', authenticate, getRoomBookingById);
-router.put('/:id/cancel', authenticate, cancelRoomBooking);
+router.put('/:id/cancel', authenticate, authorize('customer'), cancelRoomBooking);
 
 export default router;

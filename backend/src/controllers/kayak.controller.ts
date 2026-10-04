@@ -1509,7 +1509,7 @@ export const getKayakBookingById = async (
     const result = await pool.query(
       `SELECT bb.*, ${BOATS_JSON_SQL} AS boats
        FROM boat_bookings bb
-       WHERE bb.boat_booking_id = $1 AND (bb.member_id = $2 OR $3 IN ('admin', 'boat_staff'))`,
+       WHERE bb.boat_booking_id = $1 AND (($3 = 'customer' AND bb.member_id = $2) OR $3 IN ('admin', 'boat_staff'))`,
       [id, user.id, user.role],
     );
 

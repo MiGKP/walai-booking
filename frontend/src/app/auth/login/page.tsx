@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import api from "@/lib/api";
+import { isSafeInternalPath } from "@/lib/auth-redirect";
 import toast from "react-hot-toast";
 import LoginScene3D from "@/components/auth/Scene3D";
 
@@ -95,7 +96,8 @@ export default function LoginPage(): React.ReactElement | null {
       // backend คำนวณปลายทางตาม role ให้แล้ว (เช่น admin -> /admin, staff -> หน้า dashboard ของตัวเอง)
       // explicitRedirect (query param ?redirect=) มาก่อนเสมอ เผื่อผู้ใช้ถูกเด้งมา login ระหว่างทำอย่างอื่นอยู่
       const explicitRedirect = new URLSearchParams(window.location.search).get("redirect");
-      router.push(explicitRedirect || redirectUrl || "/");
+      const safeExplicit = explicitRedirect && isSafeInternalPath(explicitRedirect) ? explicitRedirect : null;
+      router.push(safeExplicit || redirectUrl || "/");
     } catch (error: unknown) {
       toast.error(getLoginErrorMessage(error));
       setIsRedirecting(false);

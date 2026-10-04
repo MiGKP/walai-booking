@@ -1,6 +1,13 @@
 import { Request, Response } from "express";
 import pool from "../config/database";
 import { deleteCloudinaryImage } from "../services/cloudinary.service";
+import { AuthRequest } from "../middleware/auth.middleware";
+
+// is_admin=true จะแสดงห้อง/ประเภทห้องที่ปิดใช้งานได้ เฉพาะเมื่อผู้เรียกมี JWT ของ staff ที่มีสิทธิ์เท่านั้น
+const canViewInactiveRooms = (req: Request): boolean => {
+  const role = (req as AuthRequest).user?.role;
+  return role === "admin" || role === "room_staff";
+};
 
 const normalizeAmenityIds = (value: unknown): number[] => {
   if (!Array.isArray(value)) {
@@ -40,7 +47,7 @@ export const getAllRooms = async (
 ): Promise<void> => {
   try {
     const { min_price, max_price, capacity, check_in, check_out } = req.query;
-    const isAdmin = req.query.is_admin === "true";
+    const isAdmin = req.query.is_admin === "true" && canViewInactiveRooms(req);
 
     // ยึด $1 เป็น isAdmin เสมอ
     const params: any[] = [isAdmin];
@@ -158,7 +165,7 @@ export const getRoomById = async (
   try {
     const { id } = req.params;
     const { check_in, check_out } = req.query;
-    const isAdmin = req.query.is_admin === "true";
+    const isAdmin = req.query.is_admin === "true" && canViewInactiveRooms(req);
 
     let roomsSubquery: string;
     const params: any[] = [id, isAdmin];

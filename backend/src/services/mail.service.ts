@@ -8,6 +8,15 @@ const getMissingMailEnv = (): string[] => {
 
 const stripQuotes = (value: string): string => value.replace(/^["']|["']$/g, '').trim();
 
+// escape ค่าที่มาจากผู้ใช้ก่อนแทรกลงใน HTML ของอีเมลเพื่อป้องกัน HTML injection
+const escapeHtml = (value: unknown): string =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 const getMailFrom = (): string => {
   const raw =
     process.env.MAIL_FROM ||
@@ -249,15 +258,15 @@ export const sendReviewReminderEmail = async (params: {
             <div style="display: inline-block; background: #ccfbf1; color: #0f766e; font-weight: 700; padding: 10px 14px; border-radius: 999px;">${appName}</div>
           </div>
           <h1 style="font-size: 22px; margin: 0 0 12px; color: #111827;">ขอบคุณที่เข้าพักกับเรา</h1>
-          <p style="font-size: 15px; line-height: 1.7; margin: 0 0 8px;">สวัสดี ${recipientName}</p>
+          <p style="font-size: 15px; line-height: 1.7; margin: 0 0 8px;">สวัสดี ${escapeHtml(recipientName)}</p>
           <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
-            ขอบคุณที่เลือกพัก <strong>${params.roomName}</strong> กับวลัย<br />
+            ขอบคุณที่เลือกพัก <strong>${escapeHtml(params.roomName)}</strong> กับวลัย<br />
             ช่วง <strong>${params.checkIn}</strong> – <strong>${params.checkOut}</strong>
           </p>
           <p style="font-size: 15px; line-height: 1.7; margin: 0 0 20px;">
             หวังว่าคุณจะได้รับประสบการณ์ที่ดี หากมีเวลา รบกวนรีวิวการเข้าพักของคุณสักนิดนะครับ — ความคิดเห็นของคุณมีค่ามากสำหรับเรา
           </p>
-          <a href="${params.reviewUrl}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 24px;">
+          <a href="${escapeHtml(params.reviewUrl)}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 24px;">
             เขียนรีวิว
           </a>
           <p style="font-size: 13px; color: #9ca3af; margin: 0;">หากคุณไม่ได้เข้าพักกับเรา สามารถละเว้นอีเมลนี้ได้</p>
@@ -288,9 +297,9 @@ export const sendPasswordResetEmail = async (params: {
             <div style="display: inline-block; background: #ccfbf1; color: #0f766e; font-weight: 700; padding: 10px 14px; border-radius: 999px;">${appName}</div>
           </div>
           <h1 style="font-size: 24px; margin: 0 0 16px; color: #111827;">รีเซ็ตรหัสผ่าน</h1>
-          <p style="font-size: 15px; line-height: 1.7; margin: 0 0 12px;">สวัสดี ${recipientName}</p>
+          <p style="font-size: 15px; line-height: 1.7; margin: 0 0 12px;">สวัสดี ${escapeHtml(recipientName)}</p>
           <p style="font-size: 15px; line-height: 1.7; margin: 0 0 18px;">เราได้รับคำขอรีเซ็ตรหัสผ่านสำหรับบัญชีของคุณ กรุณานำรหัส OTP ด้านล่างไปกรอกในหน้าตั้งรหัสผ่านใหม่</p>
-          <div style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 24px; border-radius: 14px; font-size: 28px; font-weight: 700; letter-spacing: 8px; margin-bottom: 24px;">${params.otpCode}</div>
+          <div style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 24px; border-radius: 14px; font-size: 28px; font-weight: 700; letter-spacing: 8px; margin-bottom: 24px;">${escapeHtml(params.otpCode)}</div>
           <div style="background: #f9fafb; border-radius: 12px; padding: 16px; font-size: 14px; color: #4b5563; line-height: 1.7;">
             OTP นี้จะหมดอายุภายใน ${expiresInMinutes} นาที<br />
             หากคุณไม่ได้เป็นผู้ร้องขอ คุณสามารถละเว้นอีเมลนี้ได้อย่างปลอดภัย
@@ -324,14 +333,14 @@ export const sendPaymentSlipNotificationEmail = async (params: {
             </div>
             <h1 style="font-size: 22px; margin: 0 0 16px; color: #111827;">มีสลิปการชำระเงินรอตรวจสอบ</h1>
             <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
-              ลูกค้า <strong>${params.customerName}</strong> ได้อัปโหลดสลิปการชำระเงินสำหรับการจอง${bookingTypeLabel}
+              ลูกค้า <strong>${escapeHtml(params.customerName)}</strong> ได้อัปโหลดสลิปการชำระเงินสำหรับการจอง${bookingTypeLabel}
             </p>
             <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 24px; font-size: 14px; line-height: 1.8;">
               <div>📋 <strong>ประเภท:</strong> ${bookingTypeLabel}</div>
               <div>🔢 <strong>รหัสการจอง:</strong> #${params.bookingId}</div>
               <div>💰 <strong>ยอดชำระ:</strong> ฿${Number(params.amount).toLocaleString()}</div>
             </div>
-            <a href="${params.adminDashboardUrl}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 16px;">
+            <a href="${escapeHtml(params.adminDashboardUrl)}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 16px;">
               ไปตรวจสอบสลิป →
             </a>
             <p style="font-size: 13px; color: #9ca3af; margin: 16px 0 0;">อีเมลนี้ส่งโดยอัตโนมัติจากระบบ ${appName}</p>
@@ -368,13 +377,13 @@ export const sendBookingConfirmationEmail = async (params: {
             </div>
             <h1 style="font-size: 22px; margin: 0 0 16px; color: #111827;">ขอบคุณสำหรับการจอง${bookingTypeLabel}!</h1>
             <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
-              สวัสดีคุณ <strong>${params.customerName}</strong><br />
+              สวัสดีคุณ <strong>${escapeHtml(params.customerName)}</strong><br />
               ระบบได้รับคำขอจอง${bookingTypeLabel}ของคุณแล้ว รายละเอียดดังนี้:
             </p>
             <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 24px; font-size: 14px; line-height: 1.8;">
               <div>📋 <strong>รหัสการจอง:</strong> #${params.bookingId}</div>
-              <div>🏠 <strong>รายการ:</strong> ${params.details}</div>
-              <div>📅 <strong>วันที่:</strong> ${params.dateInfo}</div>
+              <div>🏠 <strong>รายการ:</strong> ${escapeHtml(params.details)}</div>
+              <div>📅 <strong>วันที่:</strong> ${escapeHtml(params.dateInfo)}</div>
               <div>💰 <strong>ราคารวม:</strong> ฿${Number(params.totalPrice).toLocaleString()}</div>
             </div>
             <p style="font-size: 14px; line-height: 1.7; margin: 0 0 20px; color: #4b5563;">
@@ -426,12 +435,12 @@ export const sendBookingStatusEmail = async (params: {
             </div>
             <h1 style="font-size: 22px; margin: 0 0 16px; color: #111827;">${titleText}</h1>
             <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
-              สวัสดีคุณ <strong>${params.customerName}</strong><br />
+              สวัสดีคุณ <strong>${escapeHtml(params.customerName)}</strong><br />
               ${isApproved ? 'พนักงานได้ตรวจสอบการชำระเงินและยืนยันการจองเรียบร้อยแล้ว ยินดีต้อนรับสู่สวนวลัยครับ 🌊' : 'สลิปการชำระเงินหรือรายการจองของคุณไม่ผ่านการตรวจสอบ กรุณาติดต่อพนักงานหรือแนบสลิปใหม่อีกครั้ง'}
             </p>
             <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 24px; font-size: 14px; line-height: 1.8;">
               <div>📋 <strong>รหัสการจอง:</strong> #${params.bookingId}</div>
-              <div>🏠 <strong>รายการ:</strong> ${params.details}</div>
+              <div>🏠 <strong>รายการ:</strong> ${escapeHtml(params.details)}</div>
               <div>📌 <strong>สถานะปัจจุบัน:</strong> ${isApproved ? 'ยืนยันการจองแล้ว (Approved)' : 'ปฏิเสธ (Rejected)'}</div>
             </div>
             <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/bookings" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 16px;">

@@ -118,6 +118,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const member = result.rows[0];
+    if (member.is_active === false) {
+      res.status(401).json({ success: false, message: 'Account is disabled' });
+      return;
+    }
     if (!member.password) {
       res.status(401).json({ success: false, message: 'Please login with Google' });
       return;

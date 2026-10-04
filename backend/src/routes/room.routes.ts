@@ -20,13 +20,13 @@ import {
   toggleAmenityStatus,
   getNextRoomNumber,
 } from '../controllers/room.controller';
-import { authenticate, authorize } from '../middleware/auth.middleware';
+import { authenticate, authorize, optionalAuthenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // Static routes (must come before dynamic /:id)
-router.get('/', getAllRooms);
-router.get('/types', getAllRooms);
+router.get('/', optionalAuthenticate, getAllRooms);
+router.get('/types', optionalAuthenticate, getAllRooms);
 router.get('/availability', checkRoomAvailability);
 router.get('/calendar', getRoomCalendar);
 
@@ -50,7 +50,7 @@ router.delete('/amenity/:id', authenticate, authorize('admin', 'room_staff'), de
 
 // Room type routes (dynamic - must come last)
 router.post('/type', authenticate, authorize('admin'), createRoom);
-router.get('/:id', getRoomById);
+router.get('/:id', optionalAuthenticate, getRoomById);
 router.put('/:id', authenticate, authorize('admin'), updateRoom);
 
 // Route PATCH สำหรับอัปเดตสถานะ

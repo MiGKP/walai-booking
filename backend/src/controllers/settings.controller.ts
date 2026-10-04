@@ -1,5 +1,9 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import { AuthRequest } from '../middleware/auth.middleware';
+
+// ฟิลด์การชำระเงินที่ใช้เป็นปลายทางโอนเงิน แก้ไขได้เฉพาะ admin
+const ADMIN_ONLY_RESORT_FIELDS = ['promptpay_id', 'bank_account_no', 'bank_account_name'];
 
 // ─── Bank Accounts ─────────────────────────────────────────────────────────────
 
@@ -130,11 +134,12 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       'checkin_time_from', 'checkin_time_to', 'checkout_time', 'important_info', 'kids_policy', 'parking_info',
     ];
 
+    const isAdmin = (req as AuthRequest).user?.role === 'admin';
     const updates: { col: string; val: any }[] = [];
     for (const col of allowed) {
-      if (req.body[col] !== undefined) {
-        updates.push({ col, val: req.body[col] || null });
-      }
+      if (req.body[col] === undefined) continue;
+      if (!isAdmin && ADMIN_ONLY_RESORT_FIELDS.includes(col)) continue;
+      updates.push({ col, val: req.body[col] || null });
     }
 
     if (updates.length === 0) {
