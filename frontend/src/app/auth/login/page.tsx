@@ -17,7 +17,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import api from "@/lib/api";
-import { isSafeInternalPath } from "@/lib/auth-redirect";
+import { consumePostLoginRedirect, isSafeInternalPath } from "@/lib/auth-redirect";
 import toast from "react-hot-toast";
 import LoginScene3D from "@/components/auth/Scene3D";
 
@@ -97,7 +97,9 @@ export default function LoginPage(): React.ReactElement | null {
       // explicitRedirect (query param ?redirect=) มาก่อนเสมอ เผื่อผู้ใช้ถูกเด้งมา login ระหว่างทำอย่างอื่นอยู่
       const explicitRedirect = new URLSearchParams(window.location.search).get("redirect");
       const safeExplicit = explicitRedirect && isSafeInternalPath(explicitRedirect) ? explicitRedirect : null;
-      router.push(safeExplicit || redirectUrl || "/");
+      // ถ้าก่อนหน้านี้ถูกเด้งมาล็อกอินจากหน้าอื่น (เช่น เก็บคูปองที่ /promotions) ให้กลับไปหน้านั้น
+      const storedRedirect = consumePostLoginRedirect();
+      router.push(safeExplicit || storedRedirect || redirectUrl || "/");
     } catch (error: unknown) {
       toast.error(getLoginErrorMessage(error));
       setIsRedirecting(false);

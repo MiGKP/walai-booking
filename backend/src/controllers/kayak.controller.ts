@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { assertStatusTransition } from '../services/booking-status';
 import { PoolClient } from "pg";
 import pool from "../config/database";
 import { AuthPayload } from "../types";
@@ -112,7 +113,7 @@ async function getBoatTicketBalance(
 ): Promise<number> {
   const r = await client.query(
     `SELECT COALESCE(SUM(total_tickets - used_tickets), 0) AS balance
-     FROM member_boat_tickets WHERE member_id = $1`,
+     FROM member_boat_tickets WHERE member_id = $1 AND booking_room_id IS NULL`,
     [memberId],
   );
   return Number(r.rows[0].balance);
@@ -128,7 +129,7 @@ async function redeemBoatTickets(
   if (quantity <= 0) return;
   const grants = await client.query(
     `SELECT id, total_tickets, used_tickets FROM member_boat_tickets
-     WHERE member_id = $1 AND total_tickets > used_tickets
+     WHERE member_id = $1 AND booking_room_id IS NULL AND total_tickets > used_tickets
      ORDER BY created_at ASC
      FOR UPDATE`,
     [memberId],
@@ -1919,6 +1920,12 @@ export const updateKayakBookingStatus = async (
       return;
     }
     const previousStatus = String(current.rows[0].status);
+    const transitionError = assertStatusTransition(previousStatus, status);
+    if (transitionError) {
+      await client.query("ROLLBACK");
+      res.status(400).json({ success: false, message: transitionError });
+      return;
+    }
     if (status === "rejected" || status === "cancelled") {
       await restoreBookingPromotions(client, {
         previousStatus,
@@ -2431,7 +2438,6 @@ export const deleteBoatRound = async (
     );
 
     if (Number(bookingCheck.rows[0].count) > 0) {
-      client.release();
       res.status(400).json({
         success: false,
         message: "Cannot delete round with active bookings",

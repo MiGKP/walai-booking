@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { assertStatusTransition } from '../services/booking-status';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
 import {
@@ -13,7 +14,13 @@ import {
   sumCapacity,
   sumSubtotals,
 } from '../services/booking-room.math';
-import { restoreBookingPromotions } from '../services/promotion-ledger';
+import {
+  loadApplyContext,
+  loadPromosForApply,
+  persistBookingPromotions,
+  restoreBookingPromotions,
+} from '../services/promotion-ledger';
+import { ApplyLine, PromoApplyError, applyPromotionList } from '../services/promotion-apply';
 import { restoreBoatTicketRedemptions } from './kayak.controller';
 
 // ยกเลิกบัตรเสริมเรือคายัคที่ผูกกับห้องพักนี้ทั้งหมด (เรียกตอนห้องพักถูกยกเลิก/ปฏิเสธ) — คืนบัตรและปล่อยโควตารอบเรือ
@@ -153,48 +160,81 @@ async function applyPromotionDiscount(
   client: { query: typeof pool.query },
   promotionId: number,
   basePrice: number,
-  nights: number
+  nights: number,
+  memberId: number
 ): Promise<{
   finalPrice: number;
+  line: ApplyLine | null;
   boatTicketCount: number;
   boatAddonMode: 'free' | 'paid';
   boatAddonPrice: number;
 }> {
-  const promoRes = await client.query(
-    `SELECT discount_type, discount_value, max_discount, min_nights, min_price, is_active,
-            boat_ticket_count, boat_addon_mode, boat_addon_price
-     FROM promotions WHERE id = $1`,
+  // ใช้ตรรกะตรวจสอบชุดเดียวกับการจองคายัค (วันที่, usage limit, wallet, applies_to) เพื่อไม่ให้สองทางตรวจต่างกัน
+  const catalog = await loadPromosForApply(client, [promotionId]);
+  if (!catalog[0].is_active) {
+    throw new PromoApplyError('โปรโมชั่นไม่ถูกต้องหรือหมดอายุแล้ว');
+  }
+  const ctxExtra = await loadApplyContext(client, memberId, [promotionId]);
+  const result = applyPromotionList(catalog, {
+    memberId,
+    nights,
+    basePrice,
+    now: new Date(),
+    scope: 'room',
+    ...ctxExtra,
+  });
+
+  const boatRes = await client.query(
+    'SELECT boat_ticket_count, boat_addon_mode, boat_addon_price FROM promotions WHERE id = $1',
     [promotionId]
   );
-  if (promoRes.rows.length === 0 || !promoRes.rows[0].is_active) {
-    throw new Error('โปรโมชั่นไม่ถูกต้องหรือหมดอายุแล้ว');
-  }
-  const promo = promoRes.rows[0];
-  if (promo.min_nights != null && nights < Number(promo.min_nights)) {
-    throw new Error(`โปรโมชั่นนี้ต้องจองขั้นต่ำ ${promo.min_nights} คืน`);
-  }
-  if (promo.min_price != null && basePrice < Number(promo.min_price)) {
-    throw new Error(
-      `โปรโมชั่นนี้ต้องมียอดขั้นต่ำ ฿${Number(promo.min_price).toLocaleString()}`
-    );
-  }
-
-  let discountAmount = 0;
-  if (promo.discount_type === 'percent') {
-    discountAmount = (basePrice * Number(promo.discount_value)) / 100;
-    if (promo.max_discount != null) {
-      discountAmount = Math.min(discountAmount, Number(promo.max_discount));
-    }
-  } else {
-    discountAmount = Math.min(Number(promo.discount_value), basePrice);
-  }
-  discountAmount = Math.round(discountAmount);
+  const boat = boatRes.rows[0] ?? {};
   return {
-    finalPrice: Math.max(0, basePrice - discountAmount),
-    boatTicketCount: Number(promo.boat_ticket_count) || 0,
-    boatAddonMode: promo.boat_addon_mode === 'paid' ? 'paid' : 'free',
-    boatAddonPrice: Number(promo.boat_addon_price) || 0,
+    finalPrice: result.totalPrice,
+    line: result.lines[0] ?? null,
+    boatTicketCount: Number(boat.boat_ticket_count) || 0,
+    boatAddonMode: boat.boat_addon_mode === 'paid' ? 'paid' : 'free',
+    boatAddonPrice: Number(boat.boat_addon_price) || 0,
   };
+}
+
+// เลือกห้องว่างประเภทเดียวกันทีละห้อง โดยล็อกแถวห้องก่อน แล้วจึงตรวจการทับซ้อนใน statement ถัดไป
+// (ใน READ COMMITTED statement เดียวกันใช้ snapshot เดิม จึงมองไม่เห็น booking ที่เพิ่ง commit)
+async function pickAvailableRoom(
+  client: { query: typeof pool.query },
+  roomTypeId: number,
+  checkIn: string,
+  checkOut: string,
+  excludeRoomIds: number[]
+): Promise<{ rows: Array<{ room_id: number; room_number: string }> }> {
+  const candidates = await client.query(
+    `SELECT r.room_id, r.room_number
+     FROM rooms r
+     WHERE r.room_type_id = $1 AND r.status <> 'maintenance'
+       AND r.room_id <> ALL($2::int[])
+     ORDER BY r.room_id`,
+    [roomTypeId, excludeRoomIds]
+  );
+  for (const candidate of candidates.rows as Array<{ room_id: number; room_number: string }>) {
+    const locked = await client.query(
+      'SELECT room_id FROM rooms WHERE room_id = $1 FOR UPDATE SKIP LOCKED',
+      [candidate.room_id]
+    );
+    if (locked.rows.length === 0) continue;
+    const busy = await client.query(
+      `SELECT 1
+       FROM booking_room br
+       JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+       WHERE br.room_id = $1 AND br.status NOT IN ('cancelled', 'rejected', 'checked_out')
+         AND rb.check_in < $3 AND rb.check_out > $2
+       LIMIT 1`,
+      [candidate.room_id, checkIn, checkOut]
+    );
+    if (busy.rows.length === 0) {
+      return { rows: [candidate] };
+    }
+  }
+  return { rows: [] };
 }
 
 export const createRoomBooking = async (
@@ -323,22 +363,7 @@ export const createRoomBooking = async (
                FOR UPDATE`,
               [requestedRoomId, item.room_type_id, lockedRoomIds, checkInDate, checkOutDate]
             )
-          : await client.query(
-              `SELECT r.room_id, r.room_number
-               FROM rooms r
-               WHERE r.room_type_id = $1 AND r.status <> 'maintenance'
-                 AND r.room_id <> ALL($4::int[])
-                 AND r.room_id NOT IN (
-                   SELECT br.room_id
-                   FROM booking_room br
-                   JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
-                   WHERE br.status NOT IN ('cancelled', 'rejected', 'checked_out')
-                     AND rb.check_in < $3 AND rb.check_out > $2
-                 )
-               LIMIT 1
-               FOR UPDATE SKIP LOCKED`,
-              [item.room_type_id, checkInDate, checkOutDate, lockedRoomIds]
-            );
+          : await pickAvailableRoom(client, item.room_type_id, checkInDate, checkOutDate, lockedRoomIds);
 
         if (roomQuery.rows.length === 0) {
           await client.query('ROLLBACK');
@@ -373,15 +398,23 @@ export const createRoomBooking = async (
       if (item.promotion_id) promotionByType.set(item.room_type_id, item.promotion_id);
     }
     const usesPerItemPromotions = promotionByType.size > 0;
+    // โค้ดเดียวกันใช้ซ้ำข้ามประเภทห้องในบิลเดียวกันไม่ได้ (wallet/usage จะถูกนับซ้ำ)
+    const perItemPromoIds = [...promotionByType.values()];
+    if (new Set(perItemPromoIds).size !== perItemPromoIds.length) {
+      await client.query('ROLLBACK');
+      res.status(400).json({ success: false, message: 'ไม่สามารถใช้โค้ดเดียวกันกับหลายประเภทห้องในการจองเดียวกันได้' });
+      return;
+    }
 
     let totalPrice = faceValueTotal;
-    const appliedPromotions: Array<{ room_type_id: number; promotion_id: number; discount_amount: number }> = [];
+    const appliedPromotions: Array<{ room_type_id: number; promotion_id: number; discount_amount: number; line: ApplyLine | null }> = [];
     // บัตรพายเรือ (โปรโมชั่นเสริม) ที่จะแจกให้ "ต่อห้องพักจริง" — คีย์คือ room_type_id เพื่อ map กลับไปห้องแต่ละห้องทีหลัง
     const boatGrantByRoomType = new Map<
       number,
       { promotionId: number; ticketsPerRoom: number; mode: 'free' | 'paid'; unitPrice: number }
     >();
     let legacyBoatGrant: { promotionId: number; ticketsPerRoom: number; mode: 'free' | 'paid'; unitPrice: number } | null = null;
+    let legacyApplyLine: ApplyLine | null = null;
 
     if (usesPerItemPromotions) {
       totalPrice = 0;
@@ -398,11 +431,12 @@ export const createRoomBooking = async (
           continue;
         }
         try {
-          const { finalPrice, boatTicketCount, boatAddonMode, boatAddonPrice } = await applyPromotionDiscount(client, promoId, typeSubtotal, nights);
+          const { finalPrice, line, boatTicketCount, boatAddonMode, boatAddonPrice } = await applyPromotionDiscount(client, promoId, typeSubtotal, nights, user.id);
           appliedPromotions.push({
             room_type_id: roomTypeId,
             promotion_id: promoId,
             discount_amount: typeSubtotal - finalPrice,
+            line,
           });
           totalPrice += finalPrice;
           if (boatTicketCount > 0) {
@@ -424,8 +458,9 @@ export const createRoomBooking = async (
       }
     } else if (legacyPromotionId) {
       try {
-        const { finalPrice, boatTicketCount, boatAddonMode, boatAddonPrice } = await applyPromotionDiscount(client, legacyPromotionId, faceValueTotal, nights);
+        const { finalPrice, line, boatTicketCount, boatAddonMode, boatAddonPrice } = await applyPromotionDiscount(client, legacyPromotionId, faceValueTotal, nights, user.id);
         totalPrice = finalPrice;
+        legacyApplyLine = line;
         if (boatTicketCount > 0) {
           legacyBoatGrant = {
             promotionId: legacyPromotionId,
@@ -499,16 +534,18 @@ export const createRoomBooking = async (
          VALUES ($1, $2, $3, $4)`,
         [roomBookingId, applied.room_type_id, applied.promotion_id, applied.discount_amount]
       );
-      await client.query(
-        'UPDATE promotions SET usage_count = usage_count + 1 WHERE id = $1',
-        [applied.promotion_id]
-      );
     }
-    if (!usesPerItemPromotions && legacyPromotionId) {
-      await client.query(
-        'UPDATE promotions SET usage_count = usage_count + 1 WHERE id = $1',
-        [legacyPromotionId]
-      );
+    // บันทึก ledger ผ่าน persistBookingPromotions เพื่อให้ usage_count, wallet และการคืนโควตาตอนยกเลิกทำงานตรงกัน
+    const ledgerLines: ApplyLine[] = appliedPromotions
+      .map((applied) => applied.line)
+      .filter((line): line is ApplyLine => line !== null);
+    if (legacyApplyLine) ledgerLines.push(legacyApplyLine);
+    if (ledgerLines.length > 0) {
+      await persistBookingPromotions(client, {
+        memberId: user.id,
+        roomBookingId,
+        result: { totalPrice, lines: ledgerLines, headerPromotionId: primaryPromotionId },
+      });
     }
 
     // แจกบัตรพายเรือ (โปรโมชั่นเสริม ฟรีหรือขาย) เข้าบัญชีของ "แต่ละห้องพักจริง" — 1 ห้อง = N ครั้งตามโปรโมชั่นที่ใช้กับห้องนั้น
@@ -873,6 +910,25 @@ export const updateRoomBookingStatus = async (
       await client.query('ROLLBACK');
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;
+    }
+
+    const transitionError = assertStatusTransition(previousStatus, status);
+    if (transitionError) {
+      await client.query('ROLLBACK');
+      res.status(400).json({ success: false, message: transitionError });
+      return;
+    }
+    // ห้องที่เช็คอินแล้วต้องไม่ถูกย้อนสถานะหรือยกเลิกผ่านการเปลี่ยนสถานะ header
+    if (status === 'rejected' || status === 'cancelled' || status === 'pending') {
+      const checkedIn = await client.query(
+        "SELECT 1 FROM booking_room WHERE room_booking_id = $1 AND status = 'checked_in' LIMIT 1",
+        [id]
+      );
+      if (checkedIn.rows.length > 0) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ success: false, message: 'ไม่สามารถเปลี่ยนสถานะได้ เนื่องจากมีห้องที่เช็คอินแล้ว' });
+        return;
+      }
     }
 
     await client.query(

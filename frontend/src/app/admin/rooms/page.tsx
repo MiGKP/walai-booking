@@ -35,6 +35,7 @@ import {
 import api from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { useAuth } from "@/hooks/useAuth";
 import toast, { Toaster } from "react-hot-toast";
 
 import {
@@ -439,6 +440,7 @@ function RoomStaffDashboardContent() {
   const searchParams = useSearchParams();
 
   const { ready } = useAuthGuard({ allowedRoles: ["admin", "room_staff"] });
+  const { user } = useAuth();
 
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1313,7 +1315,7 @@ function RoomStaffDashboardContent() {
                               <button
                                 onClick={() =>
                                   router.push(
-                                    `/admin/checkin?search=${encodeURIComponent(b.user_phone || b.user_name || "")}`,
+                                    `${user?.role === "room_staff" ? "/staff/rooms/checkin" : "/admin/checkin"}?search=${encodeURIComponent(b.user_phone || b.user_name || "")}`,
                                   )
                                 }
                                 className="inline-flex items-center gap-1 text-xs text-stone-500 hover:text-[#0b3b2c] font-medium transition-colors"

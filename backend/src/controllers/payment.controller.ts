@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { assertStatusTransition } from '../services/booking-status';
 import QRCode from 'qrcode';
 import generatePayload from 'promptpay-qr';
 import pool from '../config/database';
@@ -119,7 +120,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     }
 
     const booking = existing.rows[0];
-    if (!['pending', 'approved'].includes(booking.status)) {
+    if (booking.status !== 'pending') {
       res.status(400).json({
         success: false,
         message: `Cannot upload slip for a booking with status: ${booking.status}`,
@@ -144,11 +145,15 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
 
     try {
       if (bType === 'room') {
-        await pool.query(
+        const slipUpdate = await pool.query(
           `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid', payment_submitted_at = NOW()
-           WHERE room_booking_id = $2 AND member_id = $3`,
+           WHERE room_booking_id = $2 AND member_id = $3 AND status = 'pending'`,
           [uploadedSlip.url, bId, user.id]
         );
+        if (slipUpdate.rowCount === 0) {
+          res.status(409).json({ success: false, message: 'สถานะการจองเปลี่ยนไปแล้ว กรุณาตรวจสอบอีกครั้ง' });
+          return;
+        }
         await pool.query(
           `UPDATE booking_room SET status = 'paid', updated_at = NOW()
            WHERE room_booking_id = $1 AND status <> 'checked_out'`,
@@ -156,7 +161,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
         );
       } else {
         await pool.query(
-        `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3`,
+        `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3 AND status = 'pending'`,
           [uploadedSlip.url, bId, user.id]
         );
         await pool.query(
@@ -221,13 +226,22 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
     
     const [bType, bId] = id.split('_');
 
+    const confirmRole = authUser.role;
+    if ((bType === 'room' && confirmRole === 'boat_staff') || (bType === 'kayak' && confirmRole === 'room_staff')) {
+      res.status(403).json({ success: false, message: 'Forbidden: staff cannot confirm this booking type' });
+      return;
+    }
     if (bType === 'room') {
       const bookingCheck = await pool.query(
-        `SELECT payment_slip FROM room_bookings WHERE room_booking_id = $1`,
+        `SELECT payment_slip, status FROM room_bookings WHERE room_booking_id = $1`,
         [bId]
       );
       if (bookingCheck.rows.length === 0) {
         res.status(404).json({ success: false, message: 'Booking not found' });
+        return;
+      }
+      if (bookingCheck.rows[0].status !== 'paid') {
+        res.status(400).json({ success: false, message: `Cannot approve booking with status: ${bookingCheck.rows[0].status}` });
         return;
       }
       if (!bookingCheck.rows[0].payment_slip) {
@@ -237,7 +251,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
       await pool.query(
         `UPDATE room_bookings 
          SET payment_status = 'paid', status = 'approved', payment_date = NOW(), verify_by_staff_id = $1
-         WHERE room_booking_id = $2`,
+         WHERE room_booking_id = $2 AND status = 'paid'`,
         [authUser.id, bId]
       );
       await pool.query(
@@ -247,11 +261,15 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
       );
     } else if (bType === 'kayak') {
       const bookingCheck = await pool.query(
-        `SELECT payment_slip FROM boat_bookings WHERE boat_booking_id = $1`,
+        `SELECT payment_slip, status FROM boat_bookings WHERE boat_booking_id = $1`,
         [bId]
       );
       if (bookingCheck.rows.length === 0) {
         res.status(404).json({ success: false, message: 'Booking not found' });
+        return;
+      }
+      if (bookingCheck.rows[0].status !== 'paid') {
+        res.status(400).json({ success: false, message: `Cannot approve booking with status: ${bookingCheck.rows[0].status}` });
         return;
       }
       if (!bookingCheck.rows[0].payment_slip) {
@@ -261,7 +279,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
       await pool.query(
         `UPDATE boat_bookings 
          SET payment_status = 'paid', status = 'approved'
-         WHERE boat_booking_id = $1`,
+         WHERE boat_booking_id = $1 AND status = 'paid'`,
         [bId]
       );
       await pool.query(

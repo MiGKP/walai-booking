@@ -437,15 +437,53 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
 export const updatePromotion = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const {
-      code, name, description, discount_type, discount_value,
-      min_nights, min_price, max_discount, start_date, end_date,
-      usage_limit, is_active, room_type_id, room_count, boat_ticket_count,
-      usage_limit_per_member, is_collectible, stackable, applies_to,
-      boat_addon_mode, boat_addon_price,
-    } = req.body;
+    const body = req.body as Record<string, unknown>;
 
-    if (code) {
+    const currentRes = await pool.query('SELECT * FROM promotions WHERE id = $1', [id]);
+    if (currentRes.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Promotion not found' });
+      return;
+    }
+    const current = currentRes.rows[0] as Record<string, unknown>;
+
+    // ฟิลด์ที่ไม่ได้ส่งมาใช้ค่าเดิม (ส่ง null มาเพื่อล้างค่าได้) ไม่เขียนทับฟิลด์อื่นเป็น NULL
+    const has = (key: string): boolean => Object.prototype.hasOwnProperty.call(body, key);
+    const numOrCurrent = (key: string, fallback: number | null = null): number | null => {
+      if (!has(key)) return current[key] == null ? null : Number(current[key]);
+      const raw = body[key];
+      if (raw === null || raw === undefined || raw === '') return fallback;
+      return Number(raw);
+    };
+    const textOrCurrent = (key: string): string | null => {
+      if (!has(key)) return current[key] == null ? null : String(current[key]);
+      const raw = body[key];
+      return raw === null || raw === undefined || raw === '' ? null : String(raw);
+    };
+    const boolOrCurrent = (key: string): boolean => {
+      if (!has(key)) return current[key] === true;
+      return body[key] === true || body[key] === 'true';
+    };
+
+    const code = has('code') && typeof body.code === 'string' && body.code.trim()
+      ? body.code.toUpperCase().trim()
+      : String(current.code);
+    const name = has('name') && body.name ? String(body.name) : String(current.name);
+    const discountType = has('discount_type') ? String(body.discount_type) : String(current.discount_type);
+    const discountValue = numOrCurrent('discount_value') ?? 0;
+    if (!['percent', 'fixed'].includes(discountType)) {
+      res.status(400).json({ success: false, message: 'discount_type must be percent or fixed' });
+      return;
+    }
+    if (!(discountValue > 0)) {
+      res.status(400).json({ success: false, message: 'discount_value must be a positive number' });
+      return;
+    }
+    if (discountType === 'percent' && discountValue > 100) {
+      res.status(400).json({ success: false, message: 'ส่วนลดเป็นเปอร์เซ็นต์ต้องไม่เกิน 100' });
+      return;
+    }
+
+    if (has('code') && typeof body.code === 'string') {
       const existing = await pool.query(
         'SELECT id FROM promotions WHERE UPPER(code) = UPPER($1) AND id != $2',
         [code, id]
@@ -456,56 +494,41 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
       }
     }
 
+    const appliesTo = parseAppliesTo(has('applies_to') ? body.applies_to : current.applies_to);
+    const boatAddonMode = (has('boat_addon_mode') ? body.boat_addon_mode : current.boat_addon_mode) === 'paid' ? 'paid' : 'free';
+
     const result = await pool.query(
-      `UPDATE promotions
-       SET code = COALESCE(UPPER($1), code),
-           name = COALESCE($2, name),
-           description = $3,
-           discount_type = COALESCE($4, discount_type),
-           discount_value = COALESCE($5, discount_value),
-           min_nights = $6,
-           min_price = $7,
-           max_discount = $8,
-           start_date = $9,
-           end_date = $10,
-           usage_limit = $11,
-           is_active = COALESCE($12, is_active),
-           room_type_id = $13,
-           room_count = COALESCE($14, room_count),
-           boat_ticket_count = COALESCE($15, boat_ticket_count),
-           usage_limit_per_member = $16,
-           is_collectible = COALESCE($17, is_collectible),
-           stackable = COALESCE($18, stackable),
-           applies_to = COALESCE($19, applies_to),
-           boat_addon_mode = COALESCE($20, boat_addon_mode),
-           boat_addon_price = $21,
-           updated_at = NOW()
+      `UPDATE promotions SET
+         code = $1, name = $2, description = $3, discount_type = $4, discount_value = $5,
+         min_nights = $6, min_price = $7, max_discount = $8, start_date = $9, end_date = $10,
+         usage_limit = $11, is_active = $12, room_type_id = $13, room_count = $14,
+         boat_ticket_count = $15, usage_limit_per_member = $16, is_collectible = $17,
+         stackable = $18, applies_to = $19, boat_addon_mode = $20, boat_addon_price = $21,
+         updated_at = NOW()
        WHERE id = $22
        RETURNING *`,
       [
-        code?.toUpperCase().trim() || null,
-        name || null,
-        description || null,
-        discount_type || null,
-        discount_value || null,
-        min_nights ?? null,
-        min_price ?? null,
-        max_discount ?? null,
-        start_date || null,
-        end_date || null,
-        usage_limit ?? null,
-        is_active !== undefined ? is_active : null,
-        room_type_id ?? null,
-        room_count ?? 1,
-        boat_ticket_count ?? 0,
-        usage_limit_per_member ?? null,
-        is_collectible === undefined ? null : is_collectible === true,
-        stackable === undefined ? null : stackable === true,
-        applies_to === undefined || applies_to === null || applies_to === ''
-          ? null
-          : parseAppliesTo(applies_to),
-        boat_addon_mode === 'paid' ? 'paid' : boat_addon_mode === 'free' ? 'free' : null,
-        boat_addon_price ?? null,
+        code,
+        name,
+        textOrCurrent('description'),
+        discountType,
+        discountValue,
+        numOrCurrent('min_nights'),
+        numOrCurrent('min_price'),
+        numOrCurrent('max_discount'),
+        has('start_date') ? (body.start_date || null) : current.start_date,
+        has('end_date') ? (body.end_date || null) : current.end_date,
+        numOrCurrent('usage_limit'),
+        has('is_active') ? (body.is_active === true || body.is_active === 'true') : current.is_active,
+        numOrCurrent('room_type_id'),
+        numOrCurrent('room_count', 1),
+        numOrCurrent('boat_ticket_count', 0),
+        numOrCurrent('usage_limit_per_member'),
+        boolOrCurrent('is_collectible'),
+        boolOrCurrent('stackable'),
+        appliesTo,
+        boatAddonMode,
+        numOrCurrent('boat_addon_price'),
         id,
       ]
     );

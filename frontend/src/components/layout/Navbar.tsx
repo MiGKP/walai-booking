@@ -366,7 +366,7 @@ export default function Navbar() {
                 {/* ถ้าเป็นพนักงาน ให้แสดงเมนูสำหรับ staff/admin ใน mobile ด้วย */}
                 {(user?.role === 'admin' || user?.role === 'room_staff' || user?.role === 'boat_staff') && (
                   <Link
-                    href={user.role === 'admin' ? '/admin/dashboard' : '/staff/dashboard'}
+                    href={user.role === 'admin' ? '/admin' : user.role === 'room_staff' ? '/staff/rooms/dashboard' : '/staff/boats/dashboard'}
                     className="block py-3 px-4 rounded-xl text-forest-700 bg-forest-50 hover:bg-forest-100 font-medium transition-colors"
                     onClick={() => setIsOpen(false)}
                   >

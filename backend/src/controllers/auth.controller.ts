@@ -364,17 +364,61 @@ export const updateStaff = async (req: Request, res: Response): Promise<void> =>
       return;
     }
     const { id } = req.params;
-    const { name, email, phone, role, address, subdistrict, district, province, postal_code } = req.body;
+    const body = req.body as Record<string, unknown>;
+    const STAFF_ROLES = ['admin', 'room_staff', 'boat_staff'];
 
-    const nameParts = String(name || '').trim().split(' ');
-    const first_name = nameParts[0] || '';
-    const last_name = nameParts.slice(1).join(' ') || '';
+    const currentRes = await pool.query('SELECT * FROM staff WHERE staff_id = $1', [id]);
+    if (currentRes.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Staff not found' });
+      return;
+    }
+    const current = currentRes.rows[0] as Record<string, unknown>;
+
+    const has = (key: string): boolean => Object.prototype.hasOwnProperty.call(body, key);
+    const textOrCurrent = (key: string): string | null => {
+      if (!has(key)) return current[key] == null ? null : String(current[key]);
+      const raw = body[key];
+      return raw === null || raw === undefined || raw === '' ? null : String(raw);
+    };
+
+    // role ต้องเป็นบทบาทของ staff เท่านั้น ห้ามกำหนดเป็น customer หรือค่าอื่น
+    const role = has('role') ? String(body.role) : String(current.role);
+    if (!STAFF_ROLES.includes(role)) {
+      res.status(400).json({ success: false, message: 'Invalid staff role' });
+      return;
+    }
+    // กันแอดมินลดสิทธิ์ตัวเองจนเข้าระบบแอดมินไม่ได้
+    if (Number(id) === Number(authUser.id) && role !== 'admin') {
+      res.status(400).json({ success: false, message: 'ไม่สามารถลดสิทธิ์ของตัวเองได้' });
+      return;
+    }
+
+    let firstName = String(current.first_name ?? '');
+    let lastName = String(current.last_name ?? '');
+    if (has('name')) {
+      const nameParts = String(body.name ?? '').trim().split(' ');
+      firstName = nameParts[0] || '';
+      lastName = nameParts.slice(1).join(' ') || '';
+    }
+    const email = has('email') && body.email ? String(body.email) : String(current.email);
 
     const result = await pool.query(
       `UPDATE staff SET first_name=$1, last_name=$2, email=$3, phone=$4, role=$5,
        address=$6, subdistrict=$7, district=$8, province=$9, postal_code=$10
        WHERE staff_id=$11 RETURNING staff_id, first_name, last_name, email, phone, role, address, subdistrict, district, province, postal_code`,
-      [first_name, last_name, email, phone || null, role, address || null, subdistrict || null, district || null, province || null, postal_code || null, id]
+      [
+        firstName,
+        lastName,
+        email,
+        textOrCurrent('phone'),
+        role,
+        textOrCurrent('address'),
+        textOrCurrent('subdistrict'),
+        textOrCurrent('district'),
+        textOrCurrent('province'),
+        textOrCurrent('postal_code'),
+        id,
+      ]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'Staff not found' });
@@ -758,29 +802,14 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
         otpCode,
       });
     } catch (mailError) {
+      // ไม่บอกผู้เรียกว่าส่งไม่สำเร็จ เพื่อไม่ให้รู้ว่าอีเมลนี้มีในระบบหรือไม่
       console.error('Forgot password mail error:', mailError);
-      const mailMessage = mailError instanceof Error ? mailError.message : String(mailError);
-      // Resend ฟรี + onboarding@resend.dev ส่งได้เฉพาะอีเมลเจ้าของบัญชี
-      const isResendRecipientBlocked =
-        /only send testing emails to your own email/i.test(mailMessage) ||
-        /validation_error/i.test(mailMessage);
-
-      res.status(503).json({
-        success: false,
-        code: isResendRecipientBlocked ? 'MAIL_RECIPIENT_BLOCKED' : 'MAIL_SEND_FAILED',
-        message: isResendRecipientBlocked
-          ? 'Resend โหมดทดสอบส่งได้เฉพาะอีเมลที่สมัคร Resend เท่านั้น กรุณาใช้เมลนั้น หรือ verify domain'
-          : 'ไม่สามารถส่งอีเมล OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง หรือติดต่อเจ้าหน้าที่',
-      });
-      return;
     }
 
     res.json({
       success: true,
       message: genericForgotPasswordMessage,
-      data: {
-        email: member.email,
-      },
+      data: null,
     });
   } catch (error) {
     console.error('Forgot password error:', error);

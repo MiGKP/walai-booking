@@ -40,8 +40,8 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
+// ปฏิทินการจองเป็นลิงก์ด้านบนของ sidebar อยู่แล้ว จึงไม่ต้องอยู่ในรายการนี้
 const roomStaffAllowedPaths = [
-  "/admin/calendar",
   "/admin/rooms/location",
   "/admin/promotions",
   "/admin/reviews",
@@ -51,7 +51,6 @@ const roomStaffAllowedPaths = [
 ];
 
 const boatStaffAllowedPaths = [
-  "/admin/calendar",
   "/admin/boats/location",
   "/admin/boats/types",
   "/admin/boats/rounds",
