@@ -23,6 +23,7 @@ import {
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
+import { PageHeader, Panel, Modal } from "@/components/admin/ui";
 
 // 🌟 Component Custom Dropdown
 function CustomSelect({
@@ -311,36 +312,31 @@ export default function StaffManagementPage() {
   if (!ready) return null;
 
   return (
-    <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
+    <div className="space-y-6 pb-12">
       {/* Header & Page Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200/80">
-        <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-            จัดการพนักงาน
-          </h1>
-          <p className="text-stone-400 mt-0.5 text-xs md:text-sm">
-            เพิ่ม ดู และบริหารจัดการสิทธิ์พนักงานในระบบสวนวลัยรุกขเวช
-          </p>
-        </div>
-
-        <div className="p-3 bg-white rounded-2xl border border-stone-200/80 shadow-2xs flex items-center gap-3 self-start sm:self-auto">
-          <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
-            <Users size={18} />
+      <PageHeader
+        title="จัดการพนักงาน"
+        description="เพิ่ม ดู และบริหารจัดการสิทธิ์พนักงานในระบบสวนวลัยรุกขเวช"
+        actions={
+          <div className="p-3 bg-white rounded-2xl border border-stone-200/80 shadow-2xs flex items-center gap-3 self-start sm:self-auto">
+            <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
+              <Users size={18} />
+            </div>
+            <div>
+              <span className="text-xs font-semibold text-stone-400 block leading-tight">
+                พนักงานทั้งหมด
+              </span>
+              <span className="text-sm font-bold text-[#0b3b2c]">
+                {staffList.length} คน
+              </span>
+            </div>
           </div>
-          <div>
-            <span className="text-xs font-semibold text-stone-400 block leading-tight">
-              พนักงานทั้งหมด
-            </span>
-            <span className="text-sm font-bold text-[#0b3b2c]">
-              {staffList.length} คน
-            </span>
-          </div>
-        </div>
-      </div>
+        }
+      />
       {/* Main Grid Content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Form Create Staff Column */}
-        <div className="lg:col-span-5 bg-white border border-stone-200/80 rounded-2xl shadow-2xs overflow-hidden">
+        <Panel className="lg:col-span-5 !p-0 overflow-hidden flex flex-col">
           <div className="p-4 bg-[#0b3b2c] text-white flex items-center gap-3">
             <div className="p-2 bg-white/10 rounded-lg">
               <UserPlus size={18} className="text-emerald-200" />
@@ -506,10 +502,10 @@ export default function StaffManagementPage() {
               สร้างบัญชีพนักงาน
             </button>
           </form>
-        </div>
+        </Panel>
 
         {/* Table Staff List Column */}
-        <div className="lg:col-span-7 bg-white border border-stone-200/80 rounded-2xl shadow-2xs overflow-hidden flex flex-col h-[580px]">
+        <Panel className="lg:col-span-7 !p-0 overflow-hidden flex flex-col h-[580px]">
           {" "}
           {/* Header & Tabs & Search/Status Filters */}
           <div className="p-4 border-b border-stone-100 space-y-3 shrink-0">
@@ -766,32 +762,21 @@ export default function StaffManagementPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Panel>
       </div>
       {/* MODAL: Edit Staff */}
-      {isEditModalOpen && editingStaff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-xl border border-stone-200 flex flex-col max-h-[90vh]">
-            <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
-              <h3 className="text-sm font-bold text-[#0b3b2c] flex items-center gap-2">
-                <Edit3 size={16} className="text-amber-700" />
-                แก้ไขข้อมูลพนักงาน
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditModalOpen(false);
-                  setEditingStaff(null);
-                }}
-                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
+      <Modal
+        open={isEditModalOpen && !!editingStaff}
+        title="แก้ไขข้อมูลพนักงาน"
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingStaff(null);
+        }}
+      >
+        {editingStaff && (
             <form
               onSubmit={handleUpdateStaff}
-              className="p-5 space-y-3.5 overflow-y-auto"
+              className="space-y-3.5"
             >
               <div>
                 <label className="block text-xs font-bold text-stone-600 mb-1">
@@ -949,28 +934,25 @@ export default function StaffManagementPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+        )}
+      </Modal>
       {/* MODAL: Staff Details */}
-      {isModalOpen && selectedStaff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl border border-stone-200 flex flex-col">
-            <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
-              <h3 className="text-sm font-bold text-[#0b3b2c] flex items-center gap-2">
-                <Eye size={16} className="text-[#0b3b2c]" />
-                รายละเอียดพนักงาน
-              </h3>
-              <button
-                type="button"
-                onClick={closeStaffDetails}
-                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 text-xs text-stone-700 overflow-y-auto">
+      <Modal
+        open={isModalOpen && !!selectedStaff}
+        title="รายละเอียดพนักงาน"
+        onClose={closeStaffDetails}
+        footer={
+          <button
+            type="button"
+            onClick={closeStaffDetails}
+            className="py-2 px-4 bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-bold rounded-xl transition-all"
+          >
+            ปิด
+          </button>
+        }
+      >
+        {selectedStaff && (
+            <div className="space-y-4 text-xs text-stone-700">
               <div className="flex items-center justify-between pb-3 border-b border-stone-100">
                 <div>
                   <h4 className="text-sm font-bold text-stone-900">
@@ -1028,19 +1010,8 @@ export default function StaffManagementPage() {
                 )}
               </div>
             </div>
-
-            <div className="p-4 bg-stone-50/50 border-t border-stone-100 flex justify-end">
-              <button
-                type="button"
-                onClick={closeStaffDetails}
-                className="py-2 px-4 bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-bold rounded-xl transition-all"
-              >
-                ปิด
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

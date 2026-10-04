@@ -16,6 +16,7 @@ import {
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
+import { PageHeader, Panel, Modal, EmptyState } from "@/components/admin/ui";
 
 export interface BoatType {
   boat_type_id?: number;
@@ -483,38 +484,28 @@ export default function BoatRoundsPage(): React.ReactElement | null {
   if (!ready) return null;
 
   return (
-    <div className="w-full min-h-screen flex flex-col font-sans space-y-6 pb-12 text-stone-800">
+    <div className="space-y-6 pb-12">
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-stone-200/80">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 bg-[#0b3b2c]/10 text-[#0b3b2c] rounded-xl">
-              <Clock size={20} />
-            </span>
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-              จัดการรอบเวลาพายเรือ
-            </h1>
+      <PageHeader 
+        title="จัดการรอบเวลาพายเรือ" 
+        description="รอบหนึ่งช่วงเวลา เลือกได้หลายประเภท — จำนวนลำคือเพดานจองในรอบนั้น"
+        actions={
+          <div className="px-3.5 py-2 bg-white rounded-xl border border-stone-200/80 shadow-xs flex items-center gap-3 w-fit">
+            <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
+              <Clock size={18} />
+            </div>
+            <div>
+              <span className="text-xs font-semibold text-stone-400 block leading-tight">
+                รอบเปิดบริการ
+              </span>
+              <span className="text-xs font-bold text-[#0b3b2c]">
+                {rounds.length} รอบเวลา
+              </span>
+            </div>
           </div>
-          <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            รอบหนึ่งช่วงเวลา เลือกได้หลายประเภท — จำนวนลำคือเพดานจองในรอบนั้น
-          </p>
-        </div>
-
-        <div className="px-3.5 py-2 bg-white rounded-xl border border-stone-200/80 shadow-xs flex items-center gap-3 w-fit">
-          <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
-            <Clock size={18} />
-          </div>
-          <div>
-            <span className="text-xs font-semibold text-stone-400 block leading-tight">
-              รอบเปิดบริการ
-            </span>
-            <span className="text-xs font-bold text-[#0b3b2c]">
-              {rounds.length} รอบเวลา
-            </span>
-          </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* 📥 FORM */}
       <form
@@ -723,7 +714,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
       </form>
 
       {/* 📋 TABLE LIST */}
-      <div className="bg-white rounded-2xl border border-stone-200/80 shadow-xs overflow-hidden">
+      <Panel>
         <div className="p-4 bg-stone-50/80 border-b border-stone-200/80 flex items-center justify-between">
           <h3 className="font-bold text-stone-900 text-sm md:text-base flex items-center gap-2">
             <Clock size={16} className="text-[#0b3b2c]" />
@@ -792,47 +783,44 @@ export default function BoatRoundsPage(): React.ReactElement | null {
               </div>
             ))
           ) : (
-            <div className="p-8 text-center text-xs text-stone-400">
-              ไม่พบข้อมูลรอบเวลา
+            <div className="p-8">
+              <EmptyState title="ไม่พบข้อมูลรอบเวลา" />
             </div>
           )}
         </div>
-      </div>
+      </Panel>
 
       {/* MODAL DELETE */}
-      {deleteRoundId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
-              <AlertTriangle size={24} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-stone-900">
-                ยืนยันการลบรอบเวลา
-              </h3>
-              <p className="text-xs text-stone-500 mt-1">
-                ต้องการลบรอบเวลานี้ใช่หรือไม่?
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setDeleteRoundId(null)}
-                className="px-4 py-2 bg-stone-100 text-stone-700 rounded-xl text-xs font-bold w-full cursor-pointer"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteConfirm}
-                className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold w-full cursor-pointer"
-              >
-                ยืนยันการลบ
-              </button>
-            </div>
+      <Modal
+        open={!!deleteRoundId}
+        title="ยืนยันการลบรอบเวลา"
+        onClose={() => setDeleteRoundId(null)}
+      >
+        <div className="text-center space-y-4 py-2">
+          <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+            <AlertTriangle size={24} />
+          </div>
+          <p className="text-xs text-stone-500">
+            ต้องการลบรอบเวลานี้ใช่หรือไม่?
+          </p>
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setDeleteRoundId(null)}
+              className="px-4 py-2 bg-stone-100 text-stone-700 rounded-xl text-xs font-bold w-full cursor-pointer"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteConfirm}
+              className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold w-full cursor-pointer"
+            >
+              ยืนยันการลบ
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

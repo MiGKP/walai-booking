@@ -28,6 +28,7 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import MapPickerModal from "@/components/admin/MapPickerModal";
 import { pickResortInfo } from "@/lib/resort-info";
+import { PageHeader, Panel, Modal } from "@/components/admin/ui";
 
 // รายการวันทั้งหมดในสัปดาห์
 const DAYS_OPTIONS = [
@@ -276,24 +277,15 @@ export default function GeneralSettingsPage() {
   if (!ready) return null;
 
   return (
-    <div className="space-y-6 font-sans pb-12">
-      {/* ย้าย <form> มาครอบตั้งแต่ส่วน Header */}
-      <form onSubmit={handleOpenConfirmModal} className="space-y-6">
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200/80">
-          <div>
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-[#064e3b] tracking-tight">
-              ตั้งค่าข้อมูลสถานที่ & การติดต่อ
-            </h1>
-            <p className="text-stone-500 mt-0.5 text-xs md:text-sm">
-              จัดการข้อมูลทั่วไป ช่องทางติดต่อ ที่อยู่ พิกัด
-              และรายละเอียดบัญชีรับชำระเงิน
-            </p>
-          </div>
-
+    <div className="space-y-6 pb-12 font-sans">
+      <PageHeader
+        title="ตั้งค่าข้อมูลสถานที่ & การติดต่อ"
+        description="จัดการข้อมูลทั่วไป ช่องทางติดต่อ ที่อยู่ พิกัด และรายละเอียดบัญชีรับชำระเงิน"
+        actions={
           <button
-            type="submit"
+            type="button"
             disabled={saving || loading}
+            onClick={handleOpenConfirmModal}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#064e3b] hover:bg-[#04392b] text-white font-semibold text-xs rounded-xl transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50"
           >
             {saving ? (
@@ -308,7 +300,10 @@ export default function GeneralSettingsPage() {
               </>
             )}
           </button>
-        </div>
+        }
+      />
+
+      <form onSubmit={handleOpenConfirmModal} className="space-y-6">
 
         {loading ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-pulse">
@@ -320,7 +315,7 @@ export default function GeneralSettingsPage() {
             {/* ฝั่งซ้าย: ข้อมูลสถานที่ & ช่องทางติดต่อ */}
             <div className="space-y-6">
               {/* การ์ด 1: ข้อมูลทั่วไป & ช่องทางติดต่อ */}
-              <div className="p-5 md:p-6 bg-white rounded-2xl border border-stone-200/80 shadow-2xs space-y-4">
+              <Panel className="space-y-4">
                 <div className="flex items-center gap-2 text-[#064e3b] font-bold text-sm pb-3 border-b border-stone-100">
                   <div className="p-1.5 bg-emerald-100/70 text-[#064e3b] rounded-lg">
                     <Building2 size={18} />
@@ -650,10 +645,10 @@ export default function GeneralSettingsPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Panel>
 
               {/* การ์ด 2: ที่อยู่และแผนที่ */}
-              <div className="p-5 md:p-6 bg-white rounded-2xl border border-stone-200/80 shadow-2xs space-y-4">
+              <Panel className="space-y-4">
                 <div className="flex items-center gap-2 text-[#064e3b] font-bold text-sm pb-3 border-b border-stone-100">
                   <div className="p-1.5 bg-emerald-100/70 text-[#064e3b] rounded-lg">
                     <MapPin size={18} />
@@ -702,12 +697,12 @@ export default function GeneralSettingsPage() {
                     />
                   </div>
                 </div>
-              </div>
+              </Panel>
             </div>
 
             {/* ฝั่งขวา: ข้อมูลชำระเงิน & เงื่อนไข */}
             {isAdmin && (
-              <div className="p-5 md:p-6 bg-white rounded-2xl border border-stone-200/80 shadow-2xs space-y-4">
+              <Panel className="space-y-4">
                 <div className="flex items-center gap-2 text-[#064e3b] font-bold text-sm pb-3 border-b border-stone-100">
                   <div className="p-1.5 bg-emerald-100/70 text-[#064e3b] rounded-lg">
                     <CreditCard size={18} />
@@ -872,7 +867,7 @@ export default function GeneralSettingsPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Panel>
             )}
           </div>
         )}
@@ -881,98 +876,73 @@ export default function GeneralSettingsPage() {
       {/* ========================================================= */}
       {/* 1. POPUP ยืนยันการบันทึกข้อมูล */}
       {/* ========================================================= */}
-      {isConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-          <div
-            className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-stone-100 transform transition-all scale-100 animate-in zoom-in-95 duration-150 space-y-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Icon & Title */}
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-emerald-50 text-[#064e3b] rounded-xl shrink-0">
-                <AlertCircle size={22} />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-stone-800 tracking-tight">
-                  ยืนยันการบันทึกข้อมูล
-                </h3>
-                <p className="text-xs text-stone-500 mt-0.5">
-                  โปรดตรวจสอบความถูกต้องก่อนดำเนินการ
-                </p>
-              </div>
-            </div>
-
-            {/* Content Body */}
-            <p className="text-xs text-stone-600 leading-relaxed bg-stone-50 p-3.5 rounded-xl border border-stone-100">
-              คุณต้องการบันทึกการเปลี่ยนแปลงข้อมูลสถานที่ รายละเอียดการติดต่อ
-              และบัญชีชำระเงินนี้ใช่หรือไม่?
-            </p>
-
-            {/* Buttons */}
-            <div className="flex items-center justify-end gap-2.5 pt-1">
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => setIsConfirmOpen(false)}
-                className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                disabled={saving}
-                onClick={executeSave}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#064e3b] hover:bg-[#04392b] text-white rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer disabled:opacity-50"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>กำลังบันทึก...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save size={14} />
-                    <span>ยืนยันบันทึก</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={isConfirmOpen}
+        title="ยืนยันการบันทึกข้อมูล"
+        onClose={() => setIsConfirmOpen(false)}
+        widthClass="max-w-sm"
+        footer={
+          <>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => setIsConfirmOpen(false)}
+              className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={executeSave}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#064e3b] hover:bg-[#04392b] text-white rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>กำลังบันทึก...</span>
+                </>
+              ) : (
+                <>
+                  <Save size={14} />
+                  <span>ยืนยันบันทึก</span>
+                </>
+              )}
+            </button>
+          </>
+        }
+      >
+        <p className="text-xs text-stone-600 leading-relaxed bg-stone-50 p-3.5 rounded-xl border border-stone-100">
+          คุณต้องการบันทึกการเปลี่ยนแปลงข้อมูลสถานที่ รายละเอียดการติดต่อ
+          และบัญชีชำระเงินนี้ใช่หรือไม่?
+        </p>
+      </Modal>
 
       {/* ========================================================= */}
       {/* 2. POPUP แจ้งเตือนบันทึกสำเร็จ */}
       {/* ========================================================= */}
-      {isSuccessOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-          <div
-            className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-stone-100 text-center space-y-4 animate-in zoom-in-95 duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-12 h-12 bg-emerald-100 text-[#064e3b] rounded-full flex items-center justify-center mx-auto">
-              <Check size={28} />
-            </div>
-
-            <div>
-              <h3 className="text-base font-bold text-stone-800">
-                บันทึกข้อมูลสำเร็จ!
-              </h3>
-              <p className="text-xs text-stone-500 mt-1">
-                ระบบได้ทำการอัปเดตข้อมูลสถานที่เรียบร้อยแล้ว
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsSuccessOpen(false)}
-              className="w-full py-2.5 bg-[#064e3b] hover:bg-[#04392b] text-white rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer"
-            >
-              ตกลง
-            </button>
+      <Modal
+        open={isSuccessOpen}
+        title="บันทึกข้อมูลสำเร็จ!"
+        onClose={() => setIsSuccessOpen(false)}
+        widthClass="max-w-sm"
+      >
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 bg-emerald-100 text-[#064e3b] rounded-full flex items-center justify-center mx-auto">
+            <Check size={28} />
           </div>
+          <p className="text-xs text-stone-500 mt-1">
+            ระบบได้ทำการอัปเดตข้อมูลสถานที่เรียบร้อยแล้ว
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsSuccessOpen(false)}
+            className="w-full py-2.5 bg-[#064e3b] hover:bg-[#04392b] text-white rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer"
+          >
+            ตกลง
+          </button>
         </div>
-      )}
+      </Modal>
 
       {/* Map Picker Modal */}
       <MapPickerModal

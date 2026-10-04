@@ -26,6 +26,7 @@ import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import MapPickerModal from "@/components/admin/MapPickerModal";
+import { PageHeader, Panel, Modal, EmptyState } from "@/components/admin/ui";
 
 // รายการวันทั้งหมดในสัปดาห์
 const DAYS_OPTIONS = [
@@ -284,37 +285,32 @@ export default function RoomLocationPage() {
   if (!ready) return null;
 
   return (
-    <div className="space-y-6 font-sans pb-12">
+    <div className="space-y-6 pb-12">
       <form onSubmit={handleFormSubmit} className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200/80">
-          <div>
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-[#064e3b] tracking-tight">
-              ตั้งค่าจุดบริการห้องพัก & ล็อบบี้
-            </h1>
-            <p className="text-stone-500 mt-0.5 text-xs md:text-sm">
-              จัดการเบอร์ติดต่อ พิกัดจุดต้อนรับ วัน และเวลาทำการประจำเคาน์เตอร์ห้องพัก
-            </p>
-          </div>
-
-          <button
-            type="submit"
-            disabled={saving || loading}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#064e3b] hover:bg-[#04392b] text-white font-semibold text-xs rounded-xl transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50"
-          >
-            {saving ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>กำลังบันทึก...</span>
-              </>
-            ) : (
-              <>
-                <Save size={16} />
-                <span>บันทึกการเปลี่ยนแปลง</span>
-              </>
-            )}
-          </button>
-        </div>
+        <PageHeader
+          title="ตั้งค่าจุดบริการห้องพัก & ล็อบบี้"
+          description="จัดการเบอร์ติดต่อ พิกัดจุดต้อนรับ วัน และเวลาทำการประจำเคาน์เตอร์ห้องพัก"
+          actions={
+            <button
+              type="submit"
+              disabled={saving || loading}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#064e3b] hover:bg-[#04392b] text-white font-semibold text-xs rounded-xl transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>กำลังบันทึก...</span>
+                </>
+              ) : (
+                <>
+                  <Save size={16} />
+                  <span>บันทึกการเปลี่ยนแปลง</span>
+                </>
+              )}
+            </button>
+          }
+        />
 
         {loading ? (
           <div className="bg-stone-200/60 h-[400px] rounded-2xl animate-pulse" />
@@ -650,7 +646,7 @@ export default function RoomLocationPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Panel>
 
             {/* พิกัดจุดเช็กอิน */}
             <div className="p-5 md:p-6 bg-white rounded-2xl border border-stone-200/80 shadow-2xs space-y-4">
@@ -704,7 +700,7 @@ export default function RoomLocationPage() {
                   />
                 </div>
               </div>
-            </div>
+            </Panel>
             
             {/* เงื่อนไขและข้อกำหนดเพิ่มเติม (ห้องพัก) */}
             <div className="p-5 md:p-6 bg-white rounded-2xl border border-stone-200/80 shadow-2xs space-y-4 lg:col-span-2">
@@ -751,7 +747,7 @@ export default function RoomLocationPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Panel>
           </div>
         )}
       </form>
@@ -766,87 +762,52 @@ export default function RoomLocationPage() {
         }
       />
 
-      {/* ===== Modal ยืนยันการบันทึก (แบบคลีน ไม่มีพื้นหลังเรืองแสง) ===== */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/20 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-100 text-center space-y-4">
-            <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mx-auto ring-4 ring-amber-50/50">
-              <AlertCircle size={32} />
-            </div>
-
-            <div>
-              <h3 className="text-lg font-bold text-stone-800">
-                ยืนยันการบันทึกข้อมูล?
-              </h3>
-              <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
-                คุณต้องการบันทึกการเปลี่ยนแปลงข้อมูลจุดบริการห้องพักและล็อบบี้ใช่หรือไม่คะ
-              </p>
-            </div>
-
-            <div className="flex gap-2.5 pt-2">
+      {/* ===== Modal ยืนยันการบันทึก ===== */}
+      <Modal 
+        open={showConfirmModal}
+        title="ยืนยันการบันทึกข้อมูล?"
+        onClose={() => setShowConfirmModal(false)}
+        footer={
+           <>
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
-                className="flex-1 py-2.5 px-4 bg-stone-100 hover:bg-stone-200/80 text-stone-600 font-semibold text-xs rounded-xl transition-all cursor-pointer"
+                className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 font-semibold text-sm rounded-lg transition-all"
               >
                 ยกเลิก
               </button>
               <button
                 type="button"
                 onClick={confirmSave}
-                className="flex-1 py-2.5 px-4 bg-[#064e3b] hover:bg-[#04392b] text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-emerald-900/10 cursor-pointer"
+                className="px-4 py-2 bg-forest-800 hover:bg-forest-900 text-white font-semibold text-sm rounded-lg transition-all"
               >
                 ยืนยันบันทึก
               </button>
-            </div>
-          </div>
-        </div>
-      )}
+           </>
+        }
+      >
+        <p className="text-sm text-stone-500">
+           คุณต้องการบันทึกการเปลี่ยนแปลงข้อมูลจุดบริการห้องพักและล็อบบี้ใช่หรือไม่คะ
+        </p>
+      </Modal>
 
-      {/* ===== Modal แจ้งเตือนสถานะผลลัพธ์ (แบบคลีน ไม่มีพื้นหลังเรืองแสง) ===== */}
-      {statusModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/20 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-100 text-center space-y-4">
-            {statusModal.type === "success" ? (
-              <div className="w-16 h-16 bg-emerald-50 text-[#064e3b] rounded-2xl flex items-center justify-center mx-auto ring-4 ring-emerald-50/50">
-                <CheckCircle2 size={34} />
-              </div>
-            ) : (
-              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto ring-4 ring-rose-50/50">
-                <XCircle size={34} />
-              </div>
-            )}
-
-            <div>
-              <div className="flex items-center justify-center gap-1.5">
-                {statusModal.type === "success" && (
-                  <Sparkles size={16} className="text-amber-400" />
-                )}
-                <h3 className="text-lg font-bold text-stone-800">
-                  {statusModal.title}
-                </h3>
-              </div>
-              <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
-                {statusModal.message}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                setStatusModal((prev) => ({ ...prev, isOpen: false }))
-              }
-              className={`w-full py-2.5 px-4 text-white font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-md ${
-                statusModal.type === "success"
-                  ? "bg-[#064e3b] hover:bg-[#04392b] shadow-emerald-900/10"
-                  : "bg-rose-500 hover:bg-rose-600 shadow-rose-900/10"
-              }`}
-            >
-              ตกลง
-            </button>
-          </div>
-        </div>
-      )}
+      {/* ===== Modal แจ้งเตือนสถานะผลลัพธ์ ===== */}
+      <Modal 
+        open={statusModal.isOpen}
+        title={statusModal.title}
+        onClose={() => setStatusModal((prev) => ({ ...prev, isOpen: false }))}
+        footer={
+           <button
+             type="button"
+             onClick={() => setStatusModal((prev) => ({ ...prev, isOpen: false }))}
+             className="w-full px-4 py-2 bg-forest-800 hover:bg-forest-900 text-white font-semibold text-sm rounded-lg transition-all"
+           >
+             ตกลง
+           </button>
+        }
+      >
+        <p className="text-sm text-stone-500">{statusModal.message}</p>
+      </Modal>
     </div>
   );
 }

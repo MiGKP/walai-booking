@@ -23,6 +23,7 @@ import {
   Bed,
   Users,
 } from "lucide-react";
+import { PageHeader, Panel, Modal } from "@/components/admin/ui";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
@@ -405,26 +406,21 @@ export default function PromotionsPage() {
   if (!ready) return null;
 
   return (
-    <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
+    <div className="space-y-6 pb-12">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200/80">
-        <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-            จัดการโปรโมชั่น / แพ็คเกจ
-          </h1>
-          <p className="text-stone-400 mt-0.5 text-xs md:text-sm">
-            สร้างและจัดการโค้ดส่วนลดและแพ็คเกจห้องพักพร้อมโปรโมชั่นพายเรือ
-          </p>
-        </div>
-
-        <button
-          onClick={openCreate}
-          className="inline-flex items-center justify-center gap-2 bg-[#0b3b2c] hover:bg-[#07271d] text-white px-4 py-2.5 rounded-xl font-medium shadow-2xs transition-all text-sm active:scale-95 cursor-pointer"
-        >
-          <Plus size={18} />
-          <span>เพิ่มโปรโมชั่น / แพ็คเกจ</span>
-        </button>
-      </div>
+      <PageHeader 
+        title="จัดการโปรโมชั่น / แพ็คเกจ" 
+        description="สร้างและจัดการโค้ดส่วนลดและแพ็คเกจห้องพักพร้อมโปรโมชั่นพายเรือ" 
+        actions={
+          <button
+            onClick={openCreate}
+            className="inline-flex items-center justify-center gap-2 bg-[#0b3b2c] hover:bg-[#07271d] text-white px-4 py-2.5 rounded-xl font-medium shadow-2xs transition-all text-sm active:scale-95 cursor-pointer"
+          >
+            <Plus size={18} />
+            <span>เพิ่มโปรโมชั่น / แพ็คเกจ</span>
+          </button>
+        } 
+      />
 
       {/* 🌟 Stats Cards (4 Columns) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
@@ -519,7 +515,7 @@ export default function PromotionsPage() {
       </div>
 
       {/* Table Container */}
-      <div className="bg-white border border-stone-200/80 rounded-2xl shadow-2xs overflow-hidden">
+      <Panel className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
@@ -770,7 +766,7 @@ export default function PromotionsPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Panel>
 
       {redemptionPromo && (
         <div className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
@@ -839,28 +835,11 @@ export default function PromotionsPage() {
       )}
 
       {/* Modal Form */}
-      {showModal && (
-        <div
-          className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all animate-in fade-in duration-150"
-          onClick={() => setShowModal(false)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-stone-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-stone-50/50">
-              <h3 className="text-sm font-bold text-[#0b3b2c]">
-                {editingId
-                  ? "แก้ไขโปรโมชั่น / แพ็คเกจ"
-                  : "เพิ่มโปรโมชั่น / แพ็คเกจใหม่"}
-              </h3>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      <Modal 
+        open={showModal} 
+        title={editingId ? "แก้ไขโปรโมชั่น / แพ็คเกจ" : "เพิ่มโปรโมชั่น / แพ็คเกจใหม่"} 
+        onClose={() => setShowModal(false)}
+      >
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1266,28 +1245,20 @@ export default function PromotionsPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* 🌟 Delete Confirmation Modal */}
-      {deletingPromotion && (
-        <div
-          className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all animate-in fade-in duration-150"
-          onClick={() => !deleting && setDeletingPromotion(null)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-stone-200 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Modal 
+        open={!!deletingPromotion} 
+        title="ยืนยันการลบโปรโมชั่น" 
+        onClose={() => !deleting && setDeletingPromotion(null)}
+      >
+          <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
                 <AlertCircle size={20} />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-stone-900">
-                  ยืนยันการลบโปรโมชั่น
-                </h3>
                 <p className="text-xs text-stone-500 mt-0.5">
                   การดำเนินการนี้จะไม่สามารถย้อนกลับได้
                 </p>
@@ -1330,8 +1301,7 @@ export default function PromotionsPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }

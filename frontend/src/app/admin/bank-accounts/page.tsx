@@ -7,6 +7,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { notify } from "@/lib/admin-notify";
 import { toastConfirm } from '@/lib/toastConfirm';
 import Link from 'next/link';
+import { PageHeader, Panel, Modal } from '@/components/admin/ui';
 
 interface BankAccount {
   bank_account_id: number;
@@ -106,36 +107,31 @@ export default function BankAccountsPage() {
   if (!ready) return null;
 
   return (
-    <div className="min-h-screen pt-16 bg-gray-50">
-      <div className="container mx-auto px-4 py-8 max-w-3xl">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link href="/admin" className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-              <ArrowLeft size={20} className="text-gray-600" />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">บัญชีธนาคาร</h1>
-              <p className="text-gray-500 mt-0.5">จัดการบัญชีรับชำระเงินของระบบ</p>
-            </div>
-          </div>
+    <div className="space-y-6 pb-12">
+      <PageHeader
+        title="บัญชีธนาคาร"
+        description="จัดการบัญชีรับชำระเงินของระบบ"
+        actions={
           <button onClick={openCreate} className="btn-primary flex items-center gap-2">
             <Plus size={16} /> เพิ่มบัญชี
           </button>
-        </div>
+        }
+      />
 
+      <Panel>
         {loading ? (
-          <div className="space-y-4">
-            {[1, 2].map(i => <div key={i} className="card h-24 animate-pulse bg-gray-100" />)}
+          <div className="space-y-4 p-5">
+            {[1, 2].map(i => <div key={i} className="h-24 animate-pulse bg-gray-100 rounded-xl" />)}
           </div>
         ) : accounts.length === 0 ? (
-          <div className="card p-12 text-center text-gray-400">
+          <div className="p-12 text-center text-gray-400">
             <CreditCard size={48} className="mx-auto mb-3 opacity-30" />
             <p>ยังไม่มีบัญชีธนาคาร</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="divide-y divide-gray-100">
             {accounts.map(acc => (
-              <div key={acc.bank_account_id} className={`card p-5 flex items-start justify-between gap-4 ${acc.is_primary ? 'border-2 border-teal-400' : ''}`}>
+              <div key={acc.bank_account_id} className={`p-5 flex items-start justify-between gap-4 ${acc.is_primary ? 'bg-teal-50/50' : ''}`}>
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center shrink-0">
                     <CreditCard size={22} className="text-teal-600" />
@@ -174,45 +170,40 @@ export default function BankAccountsPage() {
             ))}
           </div>
         )}
-      </div>
+      </Panel>
 
-      {/* Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h3 className="font-bold text-lg text-gray-900">{editing ? 'แก้ไขบัญชีธนาคาร' : 'เพิ่มบัญชีธนาคาร'}</h3>
-              <button onClick={() => setModalOpen(false)} className="p-1.5 hover:bg-gray-100 rounded-xl"><X size={18} /></button>
-            </div>
-            <form onSubmit={handleSave} className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อธนาคาร *</label>
-                <input className="input-field" value={form.bank_name} onChange={e => setForm(f => ({ ...f, bank_name: e.target.value }))} placeholder="เช่น ธนาคารกสิกรไทย" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อบัญชี *</label>
-                <input className="input-field" value={form.account_name} onChange={e => setForm(f => ({ ...f, account_name: e.target.value }))} placeholder="ชื่อเจ้าของบัญชี" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">เลขบัญชี *</label>
-                <input className="input-field font-mono" value={form.account_number} onChange={e => setForm(f => ({ ...f, account_number: e.target.value }))} placeholder="000-0-00000-0" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">หมายเลข PromptPay (ถ้ามี)</label>
-                <input className="input-field font-mono" value={form.promptpay_id} onChange={e => setForm(f => ({ ...f, promptpay_id: e.target.value }))} placeholder="เบอร์หรือเลขบัตรประชาชน" />
-              </div>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={form.is_primary} onChange={e => setForm(f => ({ ...f, is_primary: e.target.checked }))} className="w-4 h-4 accent-teal-600" />
-                <span className="text-sm font-medium text-gray-700">ตั้งเป็นบัญชีหลัก</span>
-              </label>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setModalOpen(false)} className="flex-1 btn-secondary">ยกเลิก</button>
-                <button type="submit" disabled={saving} className="flex-1 btn-primary">{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button>
-              </div>
-            </form>
+      <Modal 
+        open={modalOpen} 
+        onClose={() => setModalOpen(false)} 
+        title={editing ? 'แก้ไขบัญชีธนาคาร' : 'เพิ่มบัญชีธนาคาร'}
+      >
+        <form onSubmit={handleSave} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อธนาคาร *</label>
+            <input className="input-field" value={form.bank_name} onChange={e => setForm(f => ({ ...f, bank_name: e.target.value }))} placeholder="เช่น ธนาคารกสิกรไทย" required />
           </div>
-        </div>
-      )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อบัญชี *</label>
+            <input className="input-field" value={form.account_name} onChange={e => setForm(f => ({ ...f, account_name: e.target.value }))} placeholder="ชื่อเจ้าของบัญชี" required />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">เลขบัญชี *</label>
+            <input className="input-field font-mono" value={form.account_number} onChange={e => setForm(f => ({ ...f, account_number: e.target.value }))} placeholder="000-0-00000-0" required />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">หมายเลข PromptPay (ถ้ามี)</label>
+            <input className="input-field font-mono" value={form.promptpay_id} onChange={e => setForm(f => ({ ...f, promptpay_id: e.target.value }))} placeholder="เบอร์หรือเลขบัตรประชาชน" />
+          </div>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked={form.is_primary} onChange={e => setForm(f => ({ ...f, is_primary: e.target.checked }))} className="w-4 h-4 accent-teal-600" />
+            <span className="text-sm font-medium text-gray-700">ตั้งเป็นบัญชีหลัก</span>
+          </label>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={() => setModalOpen(false)} className="flex-1 btn-secondary">ยกเลิก</button>
+            <button type="submit" disabled={saving} className="flex-1 btn-primary">{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

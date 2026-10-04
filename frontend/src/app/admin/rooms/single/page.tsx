@@ -32,6 +32,7 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { PageHeader, Panel, Modal, EmptyState } from "@/components/admin/ui";
 
 interface DraftRoom {
   room_number: string;
@@ -442,22 +443,11 @@ function SingleRoomsPageContent() {
   return (
     <div className="w-full min-h-screen flex flex-col font-sans space-y-6 pb-12 text-stone-800">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-stone-200/80">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 bg-[#0b3b2c]/10 text-[#0b3b2c] rounded-xl">
-              <DoorClosed size={20} />
-            </span>
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-              จัดการห้องพัก (รายห้อง)
-            </h1>
-          </div>
-          <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            เพิ่มและแก้ไขหมายเลขห้องพักรายห้องในระบบสวนวลัยรุกขเวช
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
+      <PageHeader
+        title="จัดการห้องพัก (รายห้อง)"
+        description="เพิ่มและแก้ไขหมายเลขห้องพักรายห้องในระบบสวนวลัยรุกขเวช"
+        icon={DoorClosed}
+        actions={
           <div className="px-3.5 py-2 bg-white rounded-xl border border-stone-200/80 shadow-xs flex items-center gap-3 w-fit">
             <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
               <Home size={18} />
@@ -471,8 +461,8 @@ function SingleRoomsPageContent() {
               </span>
             </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
 
 
@@ -848,17 +838,12 @@ function SingleRoomsPageContent() {
         </div>
 
         {/* Table Container พร้อม Scrollable & Sticky Header */}
-        <div className="bg-white border border-stone-200/80 rounded-2xl shadow-xs overflow-hidden">
-          <div className="p-4 bg-stone-50/80 border-b border-stone-200/80 flex items-center justify-between">
-            <h3 className="font-bold text-stone-900 text-sm md:text-base flex items-center gap-2">
-              <DoorClosed size={16} className="text-[#0b3b2c]" />
-              รายการห้องพักย่อย
-            </h3>
-            <span className="px-2.5 py-0.5 bg-stone-200/70 text-stone-700 rounded-full text-xs font-bold">
-              {filteredAndSortedRooms.length} รายการ
-            </span>
-          </div>
-
+        <Panel
+          title="รายการห้องพักย่อย"
+          icon={DoorClosed}
+          badge={`${filteredAndSortedRooms.length} รายการ`}
+          noPadding
+        >
           <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
             <table className="w-full text-left border-collapse">
               <thead className="bg-stone-100 border-b border-stone-200/80 text-xs font-bold text-stone-500 uppercase tracking-wider select-none sticky top-0 z-10 shadow-2xs">
@@ -934,14 +919,11 @@ function SingleRoomsPageContent() {
                   </tr>
                 ) : displayedRooms.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-stone-400">
-                      <DoorClosed
-                        size={36}
-                        className="mx-auto mb-2 text-stone-300 stroke-[1.5]"
+                    <td colSpan={5} className="py-8">
+                      <EmptyState
+                        icon={DoorClosed}
+                        title="ไม่พบข้อมูลห้องพัก"
                       />
-                      <p className="text-sm font-semibold text-stone-600">
-                        ไม่พบข้อมูลห้องพัก
-                      </p>
                     </td>
                   </tr>
                 ) : (
@@ -1054,64 +1036,42 @@ function SingleRoomsPageContent() {
               </div>
             </div>
           )}
-        </div>
+        </Panel>
       </div>
 
       {/* Pop-up ยืนยันการลบ */}
-      {deleteTarget && (
-        <div
-          className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all animate-in fade-in duration-150"
-          onClick={() => setDeleteTarget(null)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-stone-100 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
-                <AlertTriangle size={20} />
-              </div>
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                className="p-1 text-stone-400 hover:text-stone-600 rounded-lg transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-1">
-              <h3 className="text-base font-bold text-stone-800">
-                ยืนยันการลบห้องพัก
-              </h3>
-              <p className="text-xs text-stone-500 leading-relaxed">
-                คุณแน่ใจหรือไม่ว่าต้องการลบห้องพักหมายเลข{" "}
-                <span className="font-bold text-stone-800">
-                  "{deleteTarget.number}"
-                </span>
-                ? การดำเนินการนี้ไม่สามารถย้อนกลับได้
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteConfirm}
-                className="inline-flex items-center gap-1 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer"
-              >
-                ลบห้องพัก
-              </button>
-            </div>
+      <Modal
+        open={!!deleteTarget}
+        title="ยืนยันการลบห้องพัก"
+        icon={AlertTriangle}
+        onClose={() => setDeleteTarget(null)}
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
+              className="px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteConfirm}
+              className="inline-flex items-center gap-1 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+            >
+              ลบห้องพัก
+            </button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-xs text-stone-500 leading-relaxed">
+          คุณแน่ใจหรือไม่ว่าต้องการลบห้องพักหมายเลข{" "}
+          <span className="font-bold text-stone-800">
+            "{deleteTarget?.number}"
+          </span>
+          ? การดำเนินการนี้ไม่สามารถย้อนกลับได้
+        </p>
+      </Modal>
     </div>
   );
 }

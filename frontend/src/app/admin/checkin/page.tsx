@@ -25,6 +25,7 @@ import {
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
+import { PageHeader, StatCard, Panel, EmptyState, Modal } from "@/components/admin/ui";
 
 interface RoomLine {
   booking_room_id: number;
@@ -414,111 +415,85 @@ function AdminCheckinContent() {
   if (!ready) return null;
 
   return (
-    <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-stone-200/60">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-              เช็คอิน-เช็คเอาต์
-            </h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#0b3b2c]/10 text-[#0b3b2c]">
-              Staff
-            </span>
-          </div>
-          <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            หน้าเคาน์เตอร์สำหรับรับเช็คอินและคืนกุญแจเช็คเอาต์ผู้เข้าพัก
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
+    <div className="space-y-6 pb-12">
+      <PageHeader
+        title="เช็คอิน-เช็คเอาต์"
+        description="หน้าเคาน์เตอร์สำหรับรับเช็คอินและคืนกุญแจเช็คเอาต์ผู้เข้าพัก"
+        badge="Staff"
+        actions={
+          <>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setSettingsDraft({ from: checkinFrom, to: checkinTo });
+                  setSettingsOpen((v) => !v);
+                }}
+                className="px-3.5 py-2 text-charcoal-700 bg-white hover:bg-charcoal-50 rounded-xl border border-charcoal-200 shadow-sm transition-all text-sm font-medium flex items-center gap-2 active:scale-95"
+                title="ตั้งค่าช่วงเวลาเช็คอิน"
+              >
+                <Clock size={16} className="text-charcoal-500" />
+                <span>{checkinFrom}-{checkinTo} น.</span>
+                <Settings size={14} className="text-charcoal-400" />
+              </button>
+              {settingsOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-charcoal-200 rounded-2xl shadow-xl z-50 p-4">
+                  <p className="text-sm font-bold text-charcoal-800 mb-2">ช่วงเวลาเช็คอินปกติ</p>
+                  <p className="text-xs text-charcoal-500 mb-4">
+                    ใช้แสดงเตือนเฉยๆ ไม่ได้ปิดกั้นการเช็คอิน พนักงานยังยืนยันเช็คอินนอกเวลาได้ตามดุลยพินิจ
+                  </p>
+                  <div className="flex items-center gap-2 mb-4">
+                    <input
+                      type="time"
+                      value={settingsDraft.from}
+                      onChange={(e) => setSettingsDraft((s) => ({ ...s, from: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg border border-charcoal-200 text-sm focus:outline-none focus:ring-2 focus:ring-forest-500/20"
+                    />
+                    <span className="text-charcoal-400">–</span>
+                    <input
+                      type="time"
+                      value={settingsDraft.to}
+                      onChange={(e) => setSettingsDraft((s) => ({ ...s, to: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg border border-charcoal-200 text-sm focus:outline-none focus:ring-2 focus:ring-forest-500/20"
+                    />
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => setSettingsOpen(false)}
+                      className="px-4 py-2 text-xs font-semibold text-charcoal-600 bg-charcoal-50 hover:bg-charcoal-100 rounded-lg transition-colors"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      onClick={handleSaveSettings}
+                      disabled={savingSettings}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-forest-700 hover:bg-forest-800 rounded-lg transition-colors disabled:opacity-60"
+                    >
+                      <Save size={14} />
+                      บันทึก
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             <button
-              onClick={() => {
-                setSettingsDraft({ from: checkinFrom, to: checkinTo });
-                setSettingsOpen((v) => !v);
-              }}
-              className="px-3.5 py-2 text-stone-700 bg-white hover:bg-stone-100/80 rounded-xl border border-stone-200 shadow-xs transition-all text-xs font-medium flex items-center gap-2 active:scale-95"
-              title="ตั้งค่าช่วงเวลาเช็คอิน"
+              onClick={fetchBookings}
+              className="px-3.5 py-2 text-charcoal-700 bg-white hover:bg-charcoal-50 rounded-xl border border-charcoal-200 shadow-sm transition-all text-sm font-medium flex items-center gap-2 active:scale-95"
             >
-              <Clock size={14} className="text-stone-500" />
-              <span>{checkinFrom}-{checkinTo} น.</span>
-              <Settings size={12} className="text-stone-400" />
+              <RefreshCw size={16} className={loading ? "animate-spin text-forest-700" : "text-charcoal-500"} />
+              <span>รีเฟรชข้อมูล</span>
             </button>
-            {settingsOpen && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-stone-200 rounded-2xl shadow-xl z-50 p-4">
-                <p className="text-xs font-bold text-stone-700 mb-3">ช่วงเวลาเช็คอินปกติ</p>
-                <p className="text-xs text-stone-400 mb-3">
-                  ใช้แสดงเตือนเฉยๆ ไม่ได้ปิดกั้นการเช็คอิน พนักงานยังยืนยันเช็คอินนอกเวลาได้ตามดุลยพินิจ
-                </p>
-                <div className="flex items-center gap-2 mb-3">
-                  <input
-                    type="time"
-                    value={settingsDraft.from}
-                    onChange={(e) => setSettingsDraft((s) => ({ ...s, from: e.target.value }))}
-                    className="w-full px-2 py-1.5 rounded-lg border border-stone-200 text-xs"
-                  />
-                  <span className="text-stone-300">–</span>
-                  <input
-                    type="time"
-                    value={settingsDraft.to}
-                    onChange={(e) => setSettingsDraft((s) => ({ ...s, to: e.target.value }))}
-                    className="w-full px-2 py-1.5 rounded-lg border border-stone-200 text-xs"
-                  />
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => setSettingsOpen(false)}
-                    className="px-3 py-1.5 text-xs font-semibold text-stone-600 bg-stone-100 hover:bg-stone-200/80 rounded-lg transition-colors"
-                  >
-                    ยกเลิก
-                  </button>
-                  <button
-                    onClick={handleSaveSettings}
-                    disabled={savingSettings}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0b3b2c] hover:bg-[#0b3b2c]/90 rounded-lg transition-colors disabled:opacity-60"
-                  >
-                    <Save size={12} />
-                    บันทึก
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-          <button
-            onClick={fetchBookings}
-            className="px-3.5 py-2 text-stone-700 bg-white hover:bg-stone-100/80 rounded-xl border border-stone-200 shadow-xs transition-all text-xs font-medium flex items-center gap-2 active:scale-95"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin text-[#0b3b2c]" : "text-stone-500"} />
-            <span>รีเฟรชข้อมูล</span>
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: "มาถึงวันนี้", count: counts.arrivalsToday, icon: <LogIn size={15} />, color: "text-[#0b3b2c]", bg: "bg-[#0b3b2c]/10", border: "border-[#0b3b2c]/20", bar: "bg-[#0b3b2c]" },
-          { label: "กำลังพักอยู่", count: counts.inHouse, icon: <Home size={15} />, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", bar: "bg-indigo-500" },
-          { label: "ออกวันนี้", count: counts.departingToday, icon: <LogOut size={15} />, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100", bar: "bg-teal-500" },
-          { label: "เลยกำหนดออก", count: counts.overdue, icon: <AlertTriangle size={15} />, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", bar: "bg-rose-500" },
-        ].map((c) => (
-          <div key={c.label} className="bg-white pl-3 pr-2.5 py-2.5 rounded-xl border border-stone-200/80 shadow-xs relative overflow-hidden">
-            <span className={`absolute left-0 top-0 bottom-0 w-1 ${c.bar}`} />
-            <div className="flex items-center justify-between gap-2 relative pl-1">
-              <div className="min-w-0">
-                <span className="text-xs font-medium text-stone-500 leading-tight block truncate">{c.label}</span>
-                <p className={`text-lg font-extrabold tracking-tight font-mono leading-tight ${c.color}`}>{c.count}</p>
-              </div>
-              <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${c.bg} ${c.border} ${c.color}`}>
-                {c.icon}
-              </div>
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="มาถึงวันนี้" value={counts.arrivalsToday} icon={<LogIn />} tone="forest" />
+        <StatCard label="กำลังพักอยู่" value={counts.inHouse} icon={<Home />} tone="lagoon" />
+        <StatCard label="ออกวันนี้" value={counts.departingToday} icon={<LogOut />} tone="bamboo" />
+        <StatCard label="เลยกำหนดออก" value={counts.overdue} icon={<AlertTriangle />} tone="rose" />
       </div>
 
-      {/* Search */}
       <div className="relative w-full sm:w-80">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
         <input
@@ -540,13 +515,10 @@ function AdminCheckinContent() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {/* Arrivals */}
-        <div className="bg-white rounded-2xl border border-stone-200/80 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100">
-            <h2 className="font-bold text-stone-800 text-sm flex items-center gap-2">
-              <LogIn size={16} className="text-[#0b3b2c]" />
-              รอเช็คอิน
-            </h2>
-            <div className="flex items-center gap-1">
+        <Panel
+          title="รอเช็คอิน"
+          actions={
+            <div className="flex items-center gap-1 bg-charcoal-50 p-1 rounded-lg">
               {(
                 [
                   ["today", "วันนี้"],
@@ -557,25 +529,26 @@ function AdminCheckinContent() {
                 <button
                   key={key}
                   onClick={() => setArrivalFilter(key)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                     arrivalFilter === key
-                      ? "bg-[#0b3b2c] text-white"
-                      : "bg-stone-100 text-stone-600 hover:bg-stone-200/70"
+                      ? "bg-white text-forest-700 shadow-sm"
+                      : "text-charcoal-500 hover:text-charcoal-700"
                   }`}
                 >
                   {label}
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="divide-y divide-stone-100 max-h-[650px] overflow-y-auto">
+          }
+          className="flex flex-col"
+        >
+          <div className="divide-y divide-charcoal-50 max-h-[650px] overflow-y-auto -mx-5 px-5">
             {loading ? (
               <div className="py-16 flex justify-center">
-                <RefreshCw size={24} className="animate-spin text-[#0b3b2c]" />
+                <RefreshCw size={24} className="animate-spin text-forest-700" />
               </div>
             ) : arrivals.length === 0 ? (
-              <div className="py-16 text-center text-stone-400 text-sm">ไม่มีรายการรอเช็คอิน</div>
+              <EmptyState title="ไม่มีรายการรอเช็คอิน" />
             ) : (
               arrivals.map((line) => {
                 const actionable = isCheckinActionable(line);
@@ -636,24 +609,17 @@ function AdminCheckinContent() {
               })
             )}
           </div>
-        </div>
+        </Panel>
 
         {/* In-house */}
-        <div className="bg-white rounded-2xl border border-stone-200/80 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100">
-            <h2 className="font-bold text-stone-800 text-sm flex items-center gap-2">
-              <Home size={16} className="text-indigo-600" />
-              กำลังพักอยู่ในรีสอร์ท
-            </h2>
-          </div>
-
-          <div className="divide-y divide-stone-100 max-h-[650px] overflow-y-auto">
+        <Panel title="กำลังพักอยู่ในรีสอร์ท" className="flex flex-col">
+          <div className="divide-y divide-charcoal-50 max-h-[650px] overflow-y-auto -mx-5 px-5">
             {loading ? (
               <div className="py-16 flex justify-center">
-                <RefreshCw size={24} className="animate-spin text-[#0b3b2c]" />
+                <RefreshCw size={24} className="animate-spin text-forest-700" />
               </div>
             ) : inHouse.length === 0 ? (
-              <div className="py-16 text-center text-stone-400 text-sm">ไม่มีผู้เข้าพักในขณะนี้</div>
+              <EmptyState title="ไม่มีผู้เข้าพักในขณะนี้" />
             ) : (
               inHouse.map((line) => {
                 const isToday = localDateStr(line.check_out) === today;
@@ -710,32 +676,37 @@ function AdminCheckinContent() {
               })
             )}
           </div>
-        </div>
+        </Panel>
       </div>
 
       {/* Confirm Modal */}
-      {confirmModal?.open && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="font-bold text-stone-800 text-base mb-2">{confirmModal.title}</h3>
-            <p className="text-sm text-stone-500 mb-5">{confirmModal.text}</p>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setConfirmModal(null)}
-                className="px-4 py-2 text-xs font-semibold text-stone-600 bg-stone-100 hover:bg-stone-200/80 rounded-xl transition-colors"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={() => {
-                  confirmModal.onConfirm();
-                  setConfirmModal(null);
-                }}
-                className={`px-4 py-2 text-xs font-semibold text-white rounded-xl transition-colors ${confirmModal.confirmColor}`}
-              >
-                {confirmModal.confirmText}
-              </button>
-            </div>
+      <Modal
+        open={!!confirmModal?.open}
+        title={confirmModal?.title || ""}
+        onClose={() => setConfirmModal(null)}
+        footer={
+          <>
+            <button
+              onClick={() => setConfirmModal(null)}
+              className="px-4 py-2 text-sm font-medium text-charcoal-600 bg-charcoal-50 hover:bg-charcoal-100 rounded-lg transition-colors"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={() => {
+                confirmModal?.onConfirm();
+                setConfirmModal(null);
+              }}
+              className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${confirmModal?.confirmColor}`}
+            >
+              {confirmModal?.confirmText}
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-charcoal-600">{confirmModal?.text}</p>
+      </Modal>
+    </div>
           </div>
         </div>
       )}

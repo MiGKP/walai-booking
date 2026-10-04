@@ -7,6 +7,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { notify } from "@/lib/admin-notify";
 import Link from 'next/link';
 import { pickResortInfo } from '@/lib/resort-info';
+import { PageHeader, Panel } from '@/components/admin/ui';
 
 export default function ContactInfoPage() {
   const { ready, user } = useAuthGuard({ allowedRoles: ['admin', 'room_staff', 'boat_staff'] });
@@ -54,20 +55,22 @@ export default function ContactInfoPage() {
   if (!ready) return null;
 
   return (
-    <div className="min-h-screen pt-16 bg-gray-50">
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <div className="flex items-center gap-4 mb-8">
-          <Link href={backPath} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-            <ArrowLeft size={20} className="text-gray-600" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">ข้อมูลติดต่อ</h1>
-            <p className="text-gray-500 mt-0.5">แก้ไขช่องทางติดต่อที่แสดงในเว็บไซต์</p>
-          </div>
+    <div className="space-y-6 pb-12">
+      <div className="flex items-start gap-4">
+        <Link href={backPath} className="p-2 hover:bg-gray-200 rounded-full transition-colors mt-1">
+          <ArrowLeft size={20} className="text-gray-600" />
+        </Link>
+        <div className="flex-1">
+          <PageHeader 
+            title="ข้อมูลติดต่อ" 
+            description="แก้ไขช่องทางติดต่อที่แสดงในเว็บไซต์" 
+          />
         </div>
+      </div>
 
-        {loading ? <div className="card h-64 animate-pulse bg-gray-100" /> : (
-          <form onSubmit={handleSave} className="card p-6 space-y-5">
+      {loading ? <div className="card h-64 animate-pulse bg-gray-100" /> : (
+        <Panel>
+          <form onSubmit={handleSave} className="p-6 space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1"><Phone size={13} /> เบอร์โทรศัพท์</label>
@@ -104,8 +107,8 @@ export default function ContactInfoPage() {
               <Save size={16} /> {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
             </button>
           </form>
-        )}
-      </div>
+        </Panel>
+      )}
     </div>
   );
 }
