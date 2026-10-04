@@ -1080,7 +1080,8 @@ export default function RoomTypesPage() {
       </Modal>
 
       {/* Modal: Edit Room Type */}
-      <Modal open={showEditModal && !!editingRoom} title="แก้ไขประเภทห้องพัก" onClose={() => { setShowEditModal(false); setEditingRoom(null); }}>
+      {editingRoom && (
+      <Modal open={showEditModal} title="แก้ไขประเภทห้องพัก" onClose={() => { setShowEditModal(false); setEditingRoom(null); }}>
         <form onSubmit={handleUpdateRoom} className="flex flex-col space-y-4">
                 {/* 1. ชื่อประเภทห้อง */}
                 <div>
@@ -1599,6 +1600,7 @@ export default function RoomTypesPage() {
         </div>
       </form>
       </Modal>
+      )}
 
       {/* Lightbox Modal */}
       {lightboxImage && (

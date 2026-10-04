@@ -13,6 +13,7 @@ type Listener = () => void;
 
 let current: NotifyMessage | null = null;
 let counter = 0;
+let timeoutId: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<Listener>();
 
 function emit(): void {
@@ -20,9 +21,20 @@ function emit(): void {
 }
 
 function push(kind: NotifyKind, message: string): number {
+  if (timeoutId) {
+    clearTimeout(timeoutId);
+    timeoutId = null;
+  }
+
   counter += 1;
   current = { id: counter, kind, message };
   emit();
+
+  // ตั้งเวลาลบอัตโนมัติ 30 วินาทีตามที่ผู้ใช้ต้องการ
+  timeoutId = setTimeout(() => {
+    notify.dismiss();
+  }, 30000);
+
   return counter;
 }
 
@@ -31,6 +43,10 @@ export const notify = {
   error: (message: string): number => push('error', message),
   info: (message: string): number => push('info', message),
   dismiss: (): void => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
     current = null;
     emit();
   },

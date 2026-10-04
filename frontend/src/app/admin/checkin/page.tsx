@@ -419,7 +419,6 @@ function AdminCheckinContent() {
       <PageHeader
         title="เช็คอิน-เช็คเอาต์"
         description="หน้าเคาน์เตอร์สำหรับรับเช็คอินและคืนกุญแจเช็คเอาต์ผู้เข้าพัก"
-        badge="Staff"
         actions={
           <>
             <div className="relative">

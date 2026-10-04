@@ -12,7 +12,6 @@ import {
   PlusCircle,
   Home,
   Sailboat,
-  BarChart3,
   MessageSquare,
   Building2,
   Clock,
@@ -78,7 +77,6 @@ const menuGroups: MenuGroup[] = [
         path: "/admin/boats/location",
         icon: <Anchor size={16} />,
       },
-      { label: "สถิติ", path: "/admin/stats", icon: <BarChart3 size={16} /> },
     ],
   },
   {
@@ -234,13 +232,6 @@ export default function AdminSidebar() {
     );
   };
 
-  const getRoleTitle = () => {
-    if (user?.role === "room_staff")
-      return "ระบบจัดการสำหรับเจ้าหน้าที่ห้องพัก";
-    if (user?.role === "boat_staff") return "ระบบจัดการสำหรับเจ้าหน้าที่เรือ";
-    return "ระบบจัดการผู้ดูแลระบบ";
-  };
-
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const renderNavContent = (collapsed: boolean, isMobile: boolean = false) => (
@@ -252,7 +243,6 @@ export default function AdminSidebar() {
             <h2 className="font-display font-semibold text-base text-forest-800 truncate">
               สวนวลัยรุกขเวช
             </h2>
-            <p className="text-xs text-charcoal-400 truncate">{getRoleTitle()}</p>
           </div>
         )}
         {!isMobile && (

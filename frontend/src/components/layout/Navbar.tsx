@@ -223,13 +223,6 @@ export default function Navbar() {
                           >
                             แผงควบคุม Admin
                           </Link>
-                          <Link
-                            href="/admin/stats"
-                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-forest-700 hover:bg-forest-50 transition-colors"
-                            onClick={() => setDropdownOpen(false)}
-                          >
-                            รายงานสถิติ
-                          </Link>
                         </>
                       )}
                       {user.role === "room_staff" && (

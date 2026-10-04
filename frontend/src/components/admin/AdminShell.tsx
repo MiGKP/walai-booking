@@ -1,10 +1,11 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { NotifyBanner } from "@/components/admin/ui";
+import { notify } from "@/lib/admin-notify";
 
 const SEGMENT_LABELS: Record<string, string> = {
   admin: "ผู้ดูแลระบบ",
@@ -44,6 +45,11 @@ function useBreadcrumb(pathname: string | null): string[] {
 export default function AdminShell({ children }: { children: ReactNode }): React.ReactElement {
   const pathname = usePathname();
   const crumbs = useBreadcrumb(pathname);
+
+  // เมื่อเปลี่ยนหน้า ให้ล้างการแจ้งเตือน (แก้ปัญหาการแจ้งเตือนค้างข้ามหน้า)
+  useEffect(() => {
+    notify.dismiss();
+  }, [pathname]);
 
   return (
     <div className="admin-theme flex min-h-screen min-w-[768px] bg-cream-100">

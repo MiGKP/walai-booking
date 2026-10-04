@@ -40,7 +40,7 @@ export const resetPasswordValidator = [
 
 export const updateProfileValidator = [
   body('first_name').trim().notEmpty().withMessage('First name is required'),
-  body('last_name').trim().notEmpty().withMessage('Last name is required'),
+  body('last_name').optional({ nullable: true }).trim(),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
