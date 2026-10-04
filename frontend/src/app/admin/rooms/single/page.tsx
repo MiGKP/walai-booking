@@ -446,7 +446,6 @@ function SingleRoomsPageContent() {
       <PageHeader
         title="จัดการห้องพัก (รายห้อง)"
         description="เพิ่มและแก้ไขหมายเลขห้องพักรายห้องในระบบสวนวลัยรุกขเวช"
-        icon={DoorClosed}
         actions={
           <div className="px-3.5 py-2 bg-white rounded-xl border border-stone-200/80 shadow-xs flex items-center gap-3 w-fit">
             <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
@@ -839,10 +838,8 @@ function SingleRoomsPageContent() {
 
         {/* Table Container พร้อม Scrollable & Sticky Header */}
         <Panel
-          title="รายการห้องพักย่อย"
-          icon={DoorClosed}
-          badge={`${filteredAndSortedRooms.length} รายการ`}
-          noPadding
+          title={`รายการห้องพักย่อย (${filteredAndSortedRooms.length} รายการ)`}
+          className="!p-0 overflow-hidden"
         >
           <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
             <table className="w-full text-left border-collapse">
@@ -921,7 +918,6 @@ function SingleRoomsPageContent() {
                   <tr>
                     <td colSpan={5} className="py-8">
                       <EmptyState
-                        icon={DoorClosed}
                         title="ไม่พบข้อมูลห้องพัก"
                       />
                     </td>
@@ -1043,7 +1039,6 @@ function SingleRoomsPageContent() {
       <Modal
         open={!!deleteTarget}
         title="ยืนยันการลบห้องพัก"
-        icon={AlertTriangle}
         onClose={() => setDeleteTarget(null)}
         footer={
           <div className="flex items-center justify-end gap-2 w-full">

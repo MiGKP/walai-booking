@@ -317,7 +317,7 @@ export default function RoomLocationPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start w-full">
             {/* ข้อมูลการติดต่อจุดต้อนรับ */}
-            <div className="p-5 md:p-6 bg-white rounded-2xl border border-stone-200/80 shadow-2xs space-y-4">
+            <Panel className="space-y-4">
               <div className="flex items-center gap-2 text-[#064e3b] font-bold text-sm pb-3 border-b border-stone-100">
                 <div className="p-1.5 bg-emerald-100/70 text-[#064e3b] rounded-lg">
                   <Building2 size={18} />
@@ -649,7 +649,7 @@ export default function RoomLocationPage() {
             </Panel>
 
             {/* พิกัดจุดเช็กอิน */}
-            <div className="p-5 md:p-6 bg-white rounded-2xl border border-stone-200/80 shadow-2xs space-y-4">
+            <Panel className="space-y-4">
               <div className="flex items-center gap-2 text-[#064e3b] font-bold text-sm pb-3 border-b border-stone-100">
                 <div className="p-1.5 bg-emerald-100/70 text-[#064e3b] rounded-lg">
                   <MapPin size={18} />
@@ -703,7 +703,7 @@ export default function RoomLocationPage() {
             </Panel>
             
             {/* เงื่อนไขและข้อกำหนดเพิ่มเติม (ห้องพัก) */}
-            <div className="p-5 md:p-6 bg-white rounded-2xl border border-stone-200/80 shadow-2xs space-y-4 lg:col-span-2">
+            <Panel className="space-y-4 lg:col-span-2">
               <div className="flex items-center justify-between pb-3 border-b border-stone-100">
                 <div className="flex items-center gap-2 text-[#064e3b] font-bold text-sm">
                   <div className="p-1.5 bg-emerald-100/70 text-[#064e3b] rounded-lg">

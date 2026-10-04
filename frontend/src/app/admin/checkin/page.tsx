@@ -707,10 +707,6 @@ function AdminCheckinContent() {
         <p className="text-sm text-charcoal-600">{confirmModal?.text}</p>
       </Modal>
     </div>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 

@@ -1268,11 +1268,11 @@ export default function PromotionsPage() {
             <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-3.5 text-xs text-stone-700">
               คุณต้องการลบโปรโมชั่น{" "}
               <span className="font-bold text-rose-600">
-                "{deletingPromotion.name}"
+                "{deletingPromotion?.name}"
               </span>{" "}
               (โค้ด:{" "}
               <span className="font-mono font-bold text-stone-900">
-                {deletingPromotion.code}
+                {deletingPromotion?.code}
               </span>
               ) ใช่หรือไม่?
             </div>
