@@ -9,18 +9,31 @@ export interface AuthRequest extends Request {
 }
 
 // ตรวจสอบ Bearer token จาก header, ถอดรหัส JWT และแนบ payload ของผู้ใช้ไว้ใน req.user
-// ตรวจสอบสถานะบัญชีและ role ล่าสุดจากฐานข้อมูล เพื่อให้บัญชีที่ถูกปิดหรือเปลี่ยนสิทธิ์มีผลทันที (ไม่รอให้ token หมดอายุ)
+// ตรวจสอบสถานะบัญชี role ล่าสุด และเวลาเปลี่ยนรหัสผ่านจากฐานข้อมูลทุกครั้ง
+// token ที่ออกก่อนเวลาเปลี่ยนรหัสผ่านจะถูกปฏิเสธ (ยกเลิก session เดิมอัตโนมัติ)
 const resolveActiveAccount = async (
   payload: AuthPayload
-): Promise<{ role: string } | null> => {
+): Promise<{ role: string; passwordChangedAtMs: number | null } | null> => {
   if (payload.role === 'customer') {
-    const r = await pool.query('SELECT is_active FROM members WHERE member_id = $1', [payload.id]);
+    const r = await pool.query(
+      'SELECT is_active, password_changed_at FROM members WHERE member_id = $1',
+      [payload.id]
+    );
     if (r.rows.length === 0 || r.rows[0].is_active === false) return null;
-    return { role: 'customer' };
+    return {
+      role: 'customer',
+      passwordChangedAtMs: r.rows[0].password_changed_at ? new Date(r.rows[0].password_changed_at).getTime() : null,
+    };
   }
-  const r = await pool.query('SELECT role, status FROM staff WHERE staff_id = $1', [payload.id]);
+  const r = await pool.query(
+    'SELECT role, status, password_changed_at FROM staff WHERE staff_id = $1',
+    [payload.id]
+  );
   if (r.rows.length === 0 || r.rows[0].status !== true) return null;
-  return { role: String(r.rows[0].role) };
+  return {
+    role: String(r.rows[0].role),
+    passwordChangedAtMs: r.rows[0].password_changed_at ? new Date(r.rows[0].password_changed_at).getTime() : null,
+  };
 };
 
 // ตรวจสอบ Bearer token จาก header, ถอดรหัส JWT, เช็คบัญชีในฐานข้อมูล แล้วแนบ payload ของผู้ใช้ไว้ใน req.user
@@ -39,9 +52,9 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     return;
   }
 
-  let decoded: AuthPayload;
+  let decoded: AuthPayload & { iat?: number };
   try {
-    decoded = jwt.verify(token, secret) as AuthPayload;
+    decoded = jwt.verify(token, secret) as AuthPayload & { iat?: number };
   } catch (error) {
     res.status(401).json({ success: false, message: 'Invalid token' });
     return;
@@ -51,6 +64,12 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     const account = await resolveActiveAccount(decoded);
     if (!account) {
       res.status(401).json({ success: false, message: 'Account is disabled or no longer exists' });
+      return;
+    }
+    // เทียบที่หน่วยวินาที (iat เป็นวินาที) token ที่ออกในวินาทีเดียวกับการเปลี่ยนรหัสยังใช้ได้
+    const issuedAtSec = Number(decoded.iat ?? 0);
+    if (account.passwordChangedAtMs !== null && issuedAtSec < Math.floor(account.passwordChangedAtMs / 1000)) {
+      res.status(401).json({ success: false, message: 'Session expired, please login again' });
       return;
     }
     (req as AuthRequest).user = { ...decoded, role: account.role as AuthPayload['role'] };

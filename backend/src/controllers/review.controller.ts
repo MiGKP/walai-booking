@@ -8,7 +8,7 @@ export const getPublicReviews = async (req: Request, res: Response): Promise<voi
     const limit = Math.min(Math.max(Number(req.query.limit) || 6, 1), 20);
     const result = await pool.query(
       `SELECT rv.review_id, rv.rating, rv.comment, rv.review_date,
-              m.first_name, m.last_name, m.image_profile,
+              m.first_name, LEFT(m.last_name, 1) AS last_name, m.image_profile,
               rt.room_name, rt.type_name
        FROM reviews rv
        JOIN members m ON m.member_id = rv.member_id
@@ -31,7 +31,7 @@ export const getReviewsByRoomType = async (req: Request, res: Response): Promise
     const { room_type_id } = req.params;
     const result = await pool.query(
       `SELECT rv.review_id, rv.rating, rv.comment, rv.review_date,
-              m.first_name, m.last_name, m.image_profile,
+              m.first_name, LEFT(m.last_name, 1) AS last_name, m.image_profile,
               rb.check_in, rb.check_out
        FROM reviews rv
        JOIN members m ON m.member_id = rv.member_id

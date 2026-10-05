@@ -673,7 +673,7 @@ export const setPassword = async (req: Request, res: Response): Promise<void> =>
       }
 
       const password_hash = await bcrypt.hash(new_password, 12);
-      await pool.query('UPDATE members SET password = $1 WHERE member_id = $2', [password_hash, authUser.id]);
+      await pool.query('UPDATE members SET password = $1, password_changed_at = NOW() WHERE member_id = $2', [password_hash, authUser.id]);
     } else {
       res.status(400).json({ success: false, message: 'Staff already have passwords.' });
       return;
@@ -708,9 +708,9 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
 
     const new_password_hash = await bcrypt.hash(new_password, 12);
     if (authUser.role === 'customer') {
-      await pool.query('UPDATE members SET password = $1 WHERE member_id = $2', [new_password_hash, authUser.id]);
+      await pool.query('UPDATE members SET password = $1, password_changed_at = NOW() WHERE member_id = $2', [new_password_hash, authUser.id]);
     } else {
-      await pool.query('UPDATE staff SET password = $1 WHERE staff_id = $2', [new_password_hash, authUser.id]);
+      await pool.query('UPDATE staff SET password = $1, password_changed_at = NOW() WHERE staff_id = $2', [new_password_hash, authUser.id]);
     }
 
     res.json({ success: true, message: 'Password changed successfully' });
@@ -790,7 +790,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 
     await pool.query(
       `UPDATE members 
-       SET reset_token = $1, reset_token_expires_at = $2 
+       SET reset_token = $1, reset_token_expires_at = $2, reset_attempts = 0 
        WHERE member_id = $3`,
       [hashedOtp, expiresAt, member.id]
     );
@@ -834,25 +834,40 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     }
 
     const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
-    const resetResult = await pool.query(
-      `SELECT member_id
+    // นับ OTP ที่กรอกผิดต่อบัญชี ครบเกณฑ์แล้ว OTP นั้นใช้ไม่ได้ทันที (ต้องขอใหม่)
+    const MAX_OTP_ATTEMPTS = 5;
+    const pending = await pool.query(
+      `SELECT member_id, reset_token, reset_attempts
        FROM members
-       WHERE LOWER(email) = $1 AND reset_token = $2 AND reset_token_expires_at > NOW()
+       WHERE LOWER(email) = $1 AND reset_token IS NOT NULL AND reset_token_expires_at > NOW()
        LIMIT 1`,
-      [email, hashedOtp]
+      [email]
     );
-
-    if (resetResult.rows.length === 0) {
+    if (pending.rows.length === 0 || Number(pending.rows[0].reset_attempts) >= MAX_OTP_ATTEMPTS) {
       res.status(400).json({ success: false, message: 'OTP is invalid or expired' });
       return;
     }
+    if (pending.rows[0].reset_token !== hashedOtp) {
+      const attempts = Number(pending.rows[0].reset_attempts) + 1;
+      await pool.query(
+        `UPDATE members
+         SET reset_attempts = $1::int,
+             reset_token = CASE WHEN $1::int >= $2::int THEN NULL ELSE reset_token END,
+             reset_token_expires_at = CASE WHEN $1::int >= $2::int THEN NULL ELSE reset_token_expires_at END
+         WHERE member_id = $3`,
+        [attempts, MAX_OTP_ATTEMPTS, pending.rows[0].member_id]
+      );
+      res.status(400).json({ success: false, message: 'OTP is invalid or expired' });
+      return;
+    }
+    const resetResult = { rows: [{ member_id: pending.rows[0].member_id }] };
 
     const memberId = resetResult.rows[0].member_id;
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
     await pool.query(
       `UPDATE members 
-       SET password = $1, reset_token = NULL, reset_token_expires_at = NULL 
+       SET password = $1, reset_token = NULL, reset_token_expires_at = NULL, reset_attempts = 0, password_changed_at = NOW() 
        WHERE member_id = $2`,
       [passwordHash, memberId]
     );

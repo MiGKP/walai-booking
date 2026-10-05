@@ -627,7 +627,8 @@ export const getUserRoomBookings = async (
                 rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
                 rb.total_price, rb.status, rb.special_request, rb.created_at,
                 rb.reject_reason, rb.payment_status, rb.payment_date,
-                rb.checkin_at, rb.checkout_at,
+                (SELECT MIN(brc.checkin_at) FROM booking_room brc WHERE brc.room_booking_id = rb.room_booking_id) AS checkin_at,
+                rb.checkout_at,
                 ${ROOMS_JSON_SQL} AS rooms,
                 (
                   SELECT json_agg(json_build_object(
