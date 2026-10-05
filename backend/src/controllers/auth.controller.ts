@@ -6,6 +6,7 @@ import { QueryResult } from 'pg';
 import pool from '../config/database';
 import { sendPasswordResetEmail } from '../services/mail.service';
 import { AuthPayload } from '../types';
+import { mapDbError } from '../utils/db-errors';
 import {
   CloudinaryUploadResult,
   deleteCloudinaryImage,
@@ -64,6 +65,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     res.status(201).json({ success: true, message: 'Registration successful', data: { user: userSafe, token } });
   } catch (error) {
     console.error('Registration error:', error);
+    const registerError = mapDbError(error);
+    if (registerError) {
+      res.status(registerError.status).json({ success: false, message: registerError.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -74,9 +80,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const { email, password } = req.body;
 
     // Check staff first
-    let result = await pool.query('SELECT * FROM staff WHERE email = $1 AND status = true', [email]);
+    let result = await pool.query('SELECT * FROM staff WHERE LOWER(email) = LOWER($1) AND status = true', [email]);
     if (result.rows.length > 0) {
       const staff = result.rows[0];
+      if (!staff.password) {
+        res.status(401).json({ success: false, message: 'Invalid email or password' });
+        return;
+      }
       const isValid = await bcrypt.compare(password, staff.password);
       if (!isValid) {
         res.status(401).json({ success: false, message: 'Invalid email or password' });
@@ -202,7 +212,7 @@ export const initAdmin = async (req: Request, res: Response): Promise<void> => {
       [first_name, last_name] = name.split(' ', 2);
     }
 
-    const existing = await pool.query('SELECT staff_id FROM staff WHERE email = $1', [email]);
+    const existing = await pool.query('SELECT staff_id FROM staff WHERE LOWER(email) = LOWER($1)', [email]);
     if (existing.rows.length > 0) {
       res.status(400).json({ success: false, message: 'Email already registered' });
       return;
@@ -238,7 +248,7 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
       [first_name, last_name] = name.split(' ', 2);
     }
 
-    const existing = await pool.query('SELECT staff_id FROM staff WHERE email = $1', [email]);
+    const existing = await pool.query('SELECT staff_id FROM staff WHERE LOWER(email) = LOWER($1)', [email]);
     if (existing.rows.length > 0) {
       res.status(400).json({ success: false, message: 'Email already registered' });
       return;
@@ -254,6 +264,11 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
     res.status(201).json({ success: true, message: 'Staff created successfully', data: result.rows[0] });
   } catch (error) {
     console.error('Create staff error:', error);
+    const createError = mapDbError(error);
+    if (createError) {
+      res.status(createError.status).json({ success: false, message: createError.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -331,6 +346,10 @@ export const toggleStaffStatus = async (req: Request, res: Response): Promise<vo
 
     const { id } = req.params;
     const { status } = req.body; // boolean
+    if (typeof status !== 'boolean') {
+      res.status(400).json({ success: false, message: 'status must be boolean' });
+      return;
+    }
 
     // Don't allow changing own status
     if (Number(id) === authUser.id) {
@@ -427,6 +446,11 @@ export const updateStaff = async (req: Request, res: Response): Promise<void> =>
     res.json({ success: true, message: 'Staff updated', data: result.rows[0] });
   } catch (error) {
     console.error('Update staff error:', error);
+    const updateError = mapDbError(error);
+    if (updateError) {
+      res.status(updateError.status).json({ success: false, message: updateError.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -667,13 +691,24 @@ export const setPassword = async (req: Request, res: Response): Promise<void> =>
 
     if (authUser.role === 'customer') {
       const result = await pool.query('SELECT password FROM members WHERE member_id = $1', [authUser.id]);
+      if (result.rows.length === 0) {
+        res.status(404).json({ success: false, message: 'Member not found' });
+        return;
+      }
       if (result.rows[0]?.password) {
         res.status(400).json({ success: false, message: 'Password is already set. Please use change password.' });
         return;
       }
 
       const password_hash = await bcrypt.hash(new_password, 12);
-      await pool.query('UPDATE members SET password = $1, password_changed_at = NOW() WHERE member_id = $2', [password_hash, authUser.id]);
+      const updated = await pool.query(
+        'UPDATE members SET password = $1, password_changed_at = NOW() WHERE member_id = $2 AND password IS NULL',
+        [password_hash, authUser.id]
+      );
+      if (updated.rowCount === 0) {
+        res.status(409).json({ success: false, message: 'Password is already set. Please use change password.' });
+        return;
+      }
     } else {
       res.status(400).json({ success: false, message: 'Staff already have passwords.' });
       return;
@@ -691,7 +726,7 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
     const authUser = req.user as AuthPayload;
     const { current_password, new_password } = req.body;
 
-    let user;
+    let user: { password: string | null } | undefined;
     if (authUser.role === 'customer') {
       const result = await pool.query('SELECT password FROM members WHERE member_id = $1', [authUser.id]);
       user = result.rows[0];
@@ -700,7 +735,16 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
       user = result.rows[0];
     }
 
-    const isValid = await bcrypt.compare(current_password, user.password);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+    if (!user.password) {
+      res.status(400).json({ success: false, message: 'บัญชีนี้ยังไม่มีรหัสผ่าน กรุณาตั้งรหัสผ่านก่อน' });
+      return;
+    }
+
+    const isValid = typeof current_password === 'string' && (await bcrypt.compare(current_password, user.password));
     if (!isValid) {
       res.status(400).json({ success: false, message: 'Current password is incorrect' });
       return;
@@ -749,6 +793,10 @@ export const toggleMemberStatus = async (req: Request, res: Response): Promise<v
   try {
     const { id } = req.params;
     const { is_active } = req.body;
+    if (typeof is_active !== 'boolean') {
+      res.status(400).json({ success: false, message: 'is_active must be boolean' });
+      return;
+    }
     const result = await pool.query(
       `UPDATE members SET is_active = $1 WHERE member_id = $2 RETURNING member_id, is_active`,
       [is_active, id]
@@ -834,48 +882,50 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     }
 
     const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
-    // นับ OTP ที่กรอกผิดต่อบัญชี ครบเกณฑ์แล้ว OTP นั้นใช้ไม่ได้ทันที (ต้องขอใหม่)
+    // นับ OTP ที่กรอกผิดต่อบัญชีแบบ atomic เมื่อครบเกณฑ์แล้ว OTP นั้นใช้ไม่ได้ทันที (ต้องขอใหม่)
     const MAX_OTP_ATTEMPTS = 5;
     const pending = await pool.query(
-      `SELECT member_id, reset_token, reset_attempts
+      `SELECT member_id, reset_token
        FROM members
-       WHERE LOWER(email) = $1 AND reset_token IS NOT NULL AND reset_token_expires_at > NOW()
+       WHERE LOWER(email) = $1 AND reset_token IS NOT NULL AND reset_token_expires_at > NOW() AND reset_attempts < $2
        LIMIT 1`,
-      [email]
+      [email, MAX_OTP_ATTEMPTS]
     );
-    if (pending.rows.length === 0 || Number(pending.rows[0].reset_attempts) >= MAX_OTP_ATTEMPTS) {
+    const pendingRow = pending.rows[0] as { member_id: number; reset_token: string } | undefined;
+    if (!pendingRow) {
       res.status(400).json({ success: false, message: 'OTP is invalid or expired' });
       return;
     }
-    if (pending.rows[0].reset_token !== hashedOtp) {
-      const attempts = Number(pending.rows[0].reset_attempts) + 1;
+    if (pendingRow.reset_token !== hashedOtp) {
+      // เพิ่มตัวนับในคำสั่งเดียว (atomic) เพื่อไม่ให้ request ขนานทายได้ไม่จำกัด
       await pool.query(
         `UPDATE members
-         SET reset_attempts = $1::int,
-             reset_token = CASE WHEN $1::int >= $2::int THEN NULL ELSE reset_token END,
-             reset_token_expires_at = CASE WHEN $1::int >= $2::int THEN NULL ELSE reset_token_expires_at END
-         WHERE member_id = $3`,
-        [attempts, MAX_OTP_ATTEMPTS, pending.rows[0].member_id]
+         SET reset_attempts = reset_attempts + 1,
+             reset_token = CASE WHEN reset_attempts + 1 >= $2::int THEN NULL ELSE reset_token END,
+             reset_token_expires_at = CASE WHEN reset_attempts + 1 >= $2::int THEN NULL ELSE reset_token_expires_at END
+         WHERE member_id = $1`,
+        [pendingRow.member_id, MAX_OTP_ATTEMPTS]
       );
       res.status(400).json({ success: false, message: 'OTP is invalid or expired' });
       return;
     }
-    const resetResult = { rows: [{ member_id: pending.rows[0].member_id }] };
 
-    const memberId = resetResult.rows[0].member_id;
     const passwordHash = await bcrypt.hash(newPassword, 12);
-
-    await pool.query(
-      `UPDATE members 
-       SET password = $1, reset_token = NULL, reset_token_expires_at = NULL, reset_attempts = 0, password_changed_at = NOW() 
-       WHERE member_id = $2`,
-      [passwordHash, memberId]
+    // ใช้ token ได้ครั้งเดียว: request ขนานที่ผ่านการตรวจแล้วจะได้ 0 แถวในครั้งที่สอง
+    const consumed = await pool.query(
+      `UPDATE members
+       SET password = $1, reset_token = NULL, reset_token_expires_at = NULL, reset_attempts = 0, password_changed_at = NOW()
+       WHERE member_id = $2 AND reset_token = $3 AND reset_token_expires_at > NOW() AND reset_attempts < $4`,
+      [passwordHash, pendingRow.member_id, hashedOtp, MAX_OTP_ATTEMPTS]
     );
+    if ((consumed.rowCount ?? 0) === 0) {
+      res.status(400).json({ success: false, message: 'OTP is invalid or expired' });
+      return;
+    }
 
     res.json({ success: true, message: 'Password reset successfully' });
   } catch (error) {
     console.error('Reset password error:', error);
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ success: false, message });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

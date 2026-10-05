@@ -133,29 +133,43 @@ export async function persistBookingPromotions(
         line.discount_amount,
       ]
     );
-    await client.query(
+
+    // จองโควตาโปรรวม: UPDATE ที่มีเงื่อนไข usage_limit จะล็อกแถว promotions จนจบ transaction
+    // จึงกันการจองพร้อมกันไม่ให้เกิน usage_limit
+    const quota = await client.query(
       `UPDATE promotions SET usage_count = usage_count + 1, updated_at = NOW()
-       WHERE id = $1`,
+       WHERE id = $1 AND (usage_limit IS NULL OR usage_count < usage_limit)
+       RETURNING id`,
       [line.promotion_id]
     );
+    if ((quota.rowCount ?? 0) === 0) {
+      throw new PromoApplyError('โปรโมชั่นนี้ถูกใช้ครบจำนวนแล้ว');
+    }
+
+    // เช็คโควตาต่อสมาชิกหลังบันทึก (แถว promotions ถูกล็อกอยู่ จึงนับค่าล่าสุดที่ commit แล้วได้ถูกต้อง)
+    const cap = await client.query(
+      `SELECT p.usage_limit_per_member,
+              (SELECT COUNT(*)::int FROM booking_promotions bp
+               WHERE bp.member_id = $1 AND bp.promotion_id = $2) AS used
+       FROM promotions p WHERE p.id = $2`,
+      [args.memberId, line.promotion_id]
+    );
+    const used = Number(cap.rows[0].used);
+    const limit =
+      cap.rows[0].usage_limit_per_member == null
+        ? null
+        : Number(cap.rows[0].usage_limit_per_member);
+    if (limit != null && used > limit) {
+      throw new PromoApplyError('ใช้โค้ดนี้ครบจำนวนครั้งแล้ว');
+    }
+
     if (line.member_promotion_id != null) {
-      const cap = await client.query(
-        `SELECT p.usage_limit_per_member,
-                (SELECT COUNT(*)::int FROM booking_promotions bp
-                 WHERE bp.member_id = $1 AND bp.promotion_id = $2) AS used
-         FROM promotions p WHERE p.id = $2`,
-        [args.memberId, line.promotion_id]
-      );
-      const used = Number(cap.rows[0].used);
-      const limit =
-        cap.rows[0].usage_limit_per_member == null
-          ? null
-          : Number(cap.rows[0].usage_limit_per_member);
       const next = walletStatusAfterUse(limit, used);
+      // expired ไม่ถูกเขียนทับ (คงสถานะหมดอายุไว้)
       await client.query(
         `UPDATE member_promotions
          SET status = $1, used_at = CASE WHEN $1 = 'used' THEN NOW() ELSE NULL END
-         WHERE member_promotion_id = $2`,
+         WHERE member_promotion_id = $2 AND status <> 'expired'`,
         [next, line.member_promotion_id]
       );
     }
@@ -203,10 +217,11 @@ export async function restoreBookingPromotions(
           ? null
           : Number(cap.rows[0].usage_limit_per_member);
       const next = walletStatusAfterUse(limit, used);
+      // expired ไม่ถูกเขียนทับ: คืนได้เฉพาะสลับระหว่าง saved/used
       await client.query(
         `UPDATE member_promotions
          SET status = $1, used_at = CASE WHEN $1 = 'used' THEN NOW() ELSE NULL END
-         WHERE member_promotion_id = $2`,
+         WHERE member_promotion_id = $2 AND status <> 'expired'`,
         [next, row.member_promotion_id]
       );
     }

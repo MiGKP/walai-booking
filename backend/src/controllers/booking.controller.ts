@@ -22,6 +22,8 @@ import {
 } from '../services/promotion-ledger';
 import { ApplyLine, PromoApplyError, applyPromotionList } from '../services/promotion-apply';
 import { restoreBoatTicketRedemptions } from './kayak.controller';
+import { mapDbError } from '../utils/db-errors';
+import { parsePositiveInt } from '../utils/ids';
 
 // ยกเลิกบัตรเสริมเรือคายัคที่ผูกกับห้องพักนี้ทั้งหมด (เรียกตอนห้องพักถูกยกเลิก/ปฏิเสธ) — คืนบัตรและปล่อยโควตารอบเรือ
 async function cancelBoatAddonsForRoomBooking(
@@ -47,7 +49,7 @@ async function cancelBoatAddonsForRoomBooking(
 }
 
 // ยืนยันบัตรเสริมเรือคายัคที่ผูกกับห้องพักนี้ทั้งหมด (เรียกตอนห้องพักถูกอนุมัติ)
-async function approveBoatAddonsForRoomBooking(
+export async function approveBoatAddonsForRoomBooking(
   client: { query: typeof pool.query },
   roomBookingId: number
 ): Promise<void> {
@@ -217,7 +219,7 @@ async function pickAvailableRoom(
   );
   for (const candidate of candidates.rows as Array<{ room_id: number; room_number: string }>) {
     const locked = await client.query(
-      'SELECT room_id FROM rooms WHERE room_id = $1 FOR UPDATE SKIP LOCKED',
+      'SELECT room_id FROM rooms WHERE room_id = $1 FOR UPDATE',
       [candidate.room_id]
     );
     if (locked.rows.length === 0) continue;
@@ -604,8 +606,17 @@ export const createRoomBooking = async (
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Create room booking error:', error);
+    if (error instanceof PromoApplyError) {
+      res.status(400).json({ success: false, message: error.message });
+      return;
+    }
     if (error instanceof Error && error.message.includes('check_out_date')) {
       res.status(400).json({ success: false, message: error.message });
+      return;
+    }
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
       return;
     }
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -683,12 +694,17 @@ export const getUserRoomBookings = async (
          ORDER BY rb.created_at DESC`,
         [user.id]
       ),
-      pool.query(`SELECT payment_due_days FROM resort_info LIMIT 1`),
+      pool.query(`SELECT payment_due_days FROM resort_info ORDER BY id ASC LIMIT 1`),
     ]);
     const payment_due_days = Number(resortRes.rows[0]?.payment_due_days ?? 3);
     res.json({ success: true, data: result.rows, payment_due_days });
   } catch (error) {
     console.error('Get user bookings error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -699,7 +715,11 @@ export const getRoomBookingById = async (
 ): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: 'Invalid id' });
+      return;
+    }
 
     const result = await pool.query(
       `SELECT rb.room_booking_id as id, rb.room_booking_id,
@@ -760,6 +780,11 @@ export const getRoomBookingById = async (
     res.json({ success: true, data: { ...booking, amenities, promotions } });
   } catch (error) {
     console.error('Get booking error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -771,7 +796,11 @@ export const cancelRoomBooking = async (
   const client = await pool.connect();
   try {
     const user = req.user as AuthPayload;
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: 'Invalid id' });
+      return;
+    }
 
     await client.query('BEGIN');
     const booking = await client.query(
@@ -815,6 +844,11 @@ export const cancelRoomBooking = async (
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Cancel booking error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   } finally {
     client.release();
@@ -834,9 +868,9 @@ export const getAllRoomBookings = async (
               rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
               rb.total_price, rb.status, rb.special_request,
               rb.payment_status, rb.payment_slip, rb.created_at,
-              m.first_name || ' ' || m.last_name as user_name,
+              CONCAT_WS(' ', m.first_name, m.last_name) as user_name,
               m.email as user_email, m.phone as user_phone,
-              s.first_name || ' ' || s.last_name as approved_by_name,
+              CONCAT_WS(' ', s.first_name, s.last_name) as approved_by_name,
               ${ROOMS_JSON_SQL} AS rooms,
               ${BOAT_ADDONS_JSON_SQL} AS boat_addons,
               (
@@ -862,6 +896,11 @@ export const getAllRoomBookings = async (
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get all bookings error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -872,10 +911,14 @@ export const updateRoomBookingStatus = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
     const { status, reject_reason } = req.body;
     const user = req.user as AuthPayload;
 
+    if (id === null) {
+      res.status(400).json({ success: false, message: 'Invalid id' });
+      return;
+    }
     const allowed = ['approved', 'rejected', 'pending', 'cancelled'];
     if (!allowed.includes(status)) {
       res.status(400).json({ success: false, message: 'Invalid status' });
@@ -1000,6 +1043,11 @@ export const updateRoomBookingStatus = async (
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Update booking status error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   } finally {
     client.release();
@@ -1086,6 +1134,11 @@ export const checkinBookingRoom = async (
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Checkin booking room error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   } finally {
     client.release();
@@ -1151,6 +1204,11 @@ export const checkoutRoomBooking = async (
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Checkout room booking error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   } finally {
     client.release();
@@ -1221,6 +1279,11 @@ export const checkoutBookingRoom = async (
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Checkout booking room error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   } finally {
     client.release();

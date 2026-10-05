@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
+import { mapDbError } from '../utils/db-errors';
+import { parsePositiveInt } from '../utils/ids';
 
 // ดึงรีวิวล่าสุดสำหรับหน้าแรก (public)
 export const getPublicReviews = async (req: Request, res: Response): Promise<void> => {
@@ -28,7 +30,11 @@ export const getPublicReviews = async (req: Request, res: Response): Promise<voi
 // ดึงรีวิวทั้งหมดของ room_type นั้น (public) พร้อมชื่อผู้รีวิว
 export const getReviewsByRoomType = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { room_type_id } = req.params;
+    const roomTypeId = parsePositiveInt(req.params.room_type_id);
+    if (roomTypeId == null) {
+      res.status(400).json({ success: false, message: 'รหัสประเภทห้องไม่ถูกต้อง' });
+      return;
+    }
     const result = await pool.query(
       `SELECT rv.review_id, rv.rating, rv.comment, rv.review_date,
               m.first_name, LEFT(m.last_name, 1) AS last_name, m.image_profile,
@@ -38,7 +44,7 @@ export const getReviewsByRoomType = async (req: Request, res: Response): Promise
        JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
        WHERE rv.room_type_id = $1
        ORDER BY rv.review_date DESC`,
-      [room_type_id]
+      [roomTypeId]
     );
     const avg = result.rows.length > 0
       ? result.rows.reduce((sum: number, r: any) => sum + Number(r.rating), 0) / result.rows.length
@@ -86,7 +92,7 @@ export const getReviewableBookings = async (req: Request, res: Response): Promis
        JOIN rooms r ON r.room_id = br.room_id
        JOIN room_types rt ON rt.id = r.room_type_id
        WHERE rb.member_id = $1
-         AND rb.status = 'approved'
+         AND rb.status IN ('approved', 'checked_out')
          AND NOT EXISTS (
            SELECT 1 FROM booking_room x
            WHERE x.room_booking_id = rb.room_booking_id AND x.status <> 'checked_out'
@@ -156,10 +162,14 @@ export const getAllReviews = async (req: Request, res: Response): Promise<void> 
 // ลบรีวิว (admin) — ลบได้ทุก review
 export const adminDeleteReview = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const reviewId = parsePositiveInt(req.params.id);
+    if (reviewId == null) {
+      res.status(400).json({ success: false, message: 'รหัสรีวิวไม่ถูกต้อง' });
+      return;
+    }
     const result = await pool.query(
       'DELETE FROM reviews WHERE review_id=$1 RETURNING review_id',
-      [id]
+      [reviewId]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'ไม่พบรีวิว' });
@@ -178,7 +188,9 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
     const user = req.user as AuthPayload;
     const { room_booking_id, room_type_id, rating, comment } = req.body;
 
-    if (!room_booking_id || !room_type_id || !rating) {
+    const bookingId = parsePositiveInt(room_booking_id);
+    const roomTypeId = parsePositiveInt(room_type_id);
+    if (bookingId == null || roomTypeId == null || !rating) {
       res.status(400).json({ success: false, message: 'room_booking_id, room_type_id และ rating จำเป็นต้องระบุ' });
       return;
     }
@@ -195,7 +207,7 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
        JOIN rooms r ON r.room_id = br.room_id
        WHERE rb.room_booking_id = $1 AND rb.member_id = $2 AND rb.status = 'checked_out' AND r.room_type_id = $3
        LIMIT 1`,
-      [room_booking_id, user.id, room_type_id]
+      [bookingId, user.id, roomTypeId]
     );
     if (bookingCheck.rows.length === 0) {
       res.status(403).json({ success: false, message: 'ไม่พบห้องประเภทนี้ในการจอง หรือไม่มีสิทธิ์รีวิว' });
@@ -205,7 +217,7 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
     // ตรวจสอบว่ายังไม่เคยรีวิวห้องประเภทนี้ในบิลนี้ (ประเภทอื่นในบิลเดียวกันยังรีวิวแยกได้)
     const existing = await pool.query(
       'SELECT review_id FROM reviews WHERE room_booking_id = $1 AND member_id = $2 AND room_type_id = $3',
-      [room_booking_id, user.id, room_type_id]
+      [bookingId, user.id, roomTypeId]
     );
     if (existing.rows.length > 0) {
       res.status(409).json({ success: false, message: 'คุณได้รีวิวห้องประเภทนี้ในการจองนี้ไปแล้ว' });
@@ -215,11 +227,17 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
     const result = await pool.query(
       `INSERT INTO reviews (member_id, room_booking_id, room_type_id, rating, comment, review_date)
        VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *`,
-      [user.id, room_booking_id, room_type_id, Number(rating), comment || null]
+      [user.id, bookingId, roomTypeId, Number(rating), comment || null]
     );
     res.status(201).json({ success: true, message: 'รีวิวสำเร็จ', data: result.rows[0] });
   } catch (error) {
     console.error('Create review error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      const message = mapped.status === 409 ? 'คุณได้รีวิวห้องประเภทนี้ในการจองนี้ไปแล้ว' : mapped.message;
+      res.status(mapped.status).json({ success: false, message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -228,7 +246,11 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
 export const updateReview = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
-    const { id } = req.params;
+    const reviewId = parsePositiveInt(req.params.id);
+    if (reviewId == null) {
+      res.status(400).json({ success: false, message: 'รหัสรีวิวไม่ถูกต้อง' });
+      return;
+    }
     const { rating, comment } = req.body;
 
     if (Number(rating) < 1 || Number(rating) > 5) {
@@ -239,7 +261,7 @@ export const updateReview = async (req: Request, res: Response): Promise<void> =
     const result = await pool.query(
       `UPDATE reviews SET rating=$1, comment=$2
        WHERE review_id=$3 AND member_id=$4 RETURNING *`,
-      [Number(rating), comment || null, id, user.id]
+      [Number(rating), comment || null, reviewId, user.id]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'ไม่พบรีวิวหรือไม่มีสิทธิ์แก้ไข' });
@@ -256,10 +278,14 @@ export const updateReview = async (req: Request, res: Response): Promise<void> =
 export const deleteReview = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
-    const { id } = req.params;
+    const reviewId = parsePositiveInt(req.params.id);
+    if (reviewId == null) {
+      res.status(400).json({ success: false, message: 'รหัสรีวิวไม่ถูกต้อง' });
+      return;
+    }
     const result = await pool.query(
       'DELETE FROM reviews WHERE review_id=$1 AND member_id=$2 RETURNING review_id',
-      [id, user.id]
+      [reviewId, user.id]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'ไม่พบรีวิวหรือไม่มีสิทธิ์ลบ' });

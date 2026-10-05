@@ -5,6 +5,9 @@ import generatePayload from 'promptpay-qr';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
 import { sendPaymentSlipNotificationEmail } from '../services/mail.service';
+import { mapDbError } from '../utils/db-errors';
+import { parsePositiveInt } from '../utils/ids';
+import { approveBoatAddonsForRoomBooking } from './booking.controller';
 import {
   CloudinaryUploadResult,
   deleteCloudinaryImage,
@@ -18,7 +21,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
     const { booking_type, booking_id } = req.body;
 
     // ดึงข้อมูลบัญชีธนาคารจาก resort_info (admin แก้ไขได้ผ่าน /admin/site-info)
-    const resortRes = await pool.query(`SELECT bank_account_no, bank_account_name, promptpay_id FROM resort_info LIMIT 1`);
+    const resortRes = await pool.query(`SELECT bank_account_no, bank_account_name, promptpay_id FROM resort_info ORDER BY id ASC LIMIT 1`);
     const resort = resortRes.rows[0] || {};
     const bankInfo = {
       promptpay: resort.promptpay_id || process.env.PROMPTPAY_ID || '0000000000',
@@ -75,6 +78,11 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
     });
   } catch (error) {
     console.error('Create payment error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -95,6 +103,10 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
 
     if (bType !== 'room' && bType !== 'kayak') {
       res.status(400).json({ success: false, message: 'Invalid payment ID format' });
+      return;
+    }
+    if (parsePositiveInt(bId) === null) {
+      res.status(400).json({ success: false, message: 'Invalid id' });
       return;
     }
 
@@ -143,38 +155,59 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       return;
     }
 
+    const removeUploadedSlip = async (): Promise<void> => {
+      await deleteCloudinaryImage(uploadedSlip.url).catch((cleanupError: unknown) => {
+        console.error('Payment slip cleanup error:', cleanupError);
+      });
+    };
+
+    const client = await pool.connect();
     try {
+      await client.query('BEGIN');
       if (bType === 'room') {
-        const slipUpdate = await pool.query(
+        const slipUpdate = await client.query(
           `UPDATE room_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid', payment_submitted_at = NOW()
            WHERE room_booking_id = $2 AND member_id = $3 AND status = 'pending'`,
           [uploadedSlip.url, bId, user.id]
         );
         if (slipUpdate.rowCount === 0) {
+          await client.query('ROLLBACK');
+          await removeUploadedSlip();
           res.status(409).json({ success: false, message: 'สถานะการจองเปลี่ยนไปแล้ว กรุณาตรวจสอบอีกครั้ง' });
           return;
         }
-        await pool.query(
+        await client.query(
           `UPDATE booking_room SET status = 'paid', updated_at = NOW()
            WHERE room_booking_id = $1 AND status <> 'checked_out'`,
           [bId]
         );
       } else {
-        await pool.query(
-        `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3 AND status = 'pending'`,
+        const slipUpdate = await client.query(
+          `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3 AND status = 'pending'`,
           [uploadedSlip.url, bId, user.id]
         );
-        await pool.query(
+        if (slipUpdate.rowCount === 0) {
+          await client.query('ROLLBACK');
+          await removeUploadedSlip();
+          res.status(409).json({ success: false, message: 'สถานะการจองเปลี่ยนไปแล้ว กรุณาตรวจสอบอีกครั้ง' });
+          return;
+        }
+        // เฉพาะรายการที่ยัง pending เท่านั้น เพื่อไม่ให้รายการที่ถูกยกเลิกกลับมาใช้งานอีก
+        await client.query(
           `UPDATE booking_boat SET status = 'paid', updated_at = NOW()
-           WHERE boat_booking_id = $1`,
+           WHERE boat_booking_id = $1 AND status = 'pending'`,
           [bId]
         );
       }
+      await client.query('COMMIT');
     } catch (error) {
-      await deleteCloudinaryImage(uploadedSlip.url).catch((cleanupError: unknown) => {
-        console.error('Payment slip cleanup error:', cleanupError);
+      await client.query('ROLLBACK').catch((rollbackError: unknown) => {
+        console.error('Payment slip rollback error:', rollbackError);
       });
+      await removeUploadedSlip();
       throw error;
+    } finally {
+      client.release();
     }
 
     const totalPrice = Number(booking.total_price);
@@ -214,6 +247,11 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     });
   } catch (error) {
     console.error('Upload slip error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -231,70 +269,97 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
       res.status(403).json({ success: false, message: 'Forbidden: staff cannot confirm this booking type' });
       return;
     }
-    if (bType === 'room') {
-      const bookingCheck = await pool.query(
-        `SELECT payment_slip, status FROM room_bookings WHERE room_booking_id = $1`,
-        [bId]
-      );
-      if (bookingCheck.rows.length === 0) {
-        res.status(404).json({ success: false, message: 'Booking not found' });
-        return;
-      }
-      if (bookingCheck.rows[0].status !== 'paid') {
-        res.status(400).json({ success: false, message: `Cannot approve booking with status: ${bookingCheck.rows[0].status}` });
-        return;
-      }
-      if (!bookingCheck.rows[0].payment_slip) {
-        res.status(400).json({ success: false, message: 'Cannot approve: no payment slip uploaded yet' });
-        return;
-      }
-      await pool.query(
-        `UPDATE room_bookings 
-         SET payment_status = 'paid', status = 'approved', payment_date = NOW(), verify_by_staff_id = $1
-         WHERE room_booking_id = $2 AND status = 'paid'`,
-        [authUser.id, bId]
-      );
-      await pool.query(
-        `UPDATE booking_room SET status = 'approved', updated_at = NOW()
-         WHERE room_booking_id = $1 AND status <> 'checked_out'`,
-        [bId]
-      );
-    } else if (bType === 'kayak') {
-      const bookingCheck = await pool.query(
-        `SELECT payment_slip, status FROM boat_bookings WHERE boat_booking_id = $1`,
-        [bId]
-      );
-      if (bookingCheck.rows.length === 0) {
-        res.status(404).json({ success: false, message: 'Booking not found' });
-        return;
-      }
-      if (bookingCheck.rows[0].status !== 'paid') {
-        res.status(400).json({ success: false, message: `Cannot approve booking with status: ${bookingCheck.rows[0].status}` });
-        return;
-      }
-      if (!bookingCheck.rows[0].payment_slip) {
-        res.status(400).json({ success: false, message: 'Cannot approve: no payment slip uploaded yet' });
-        return;
-      }
-      await pool.query(
-        `UPDATE boat_bookings 
-         SET payment_status = 'paid', status = 'approved'
-         WHERE boat_booking_id = $1 AND status = 'paid'`,
-        [bId]
-      );
-      await pool.query(
-        `UPDATE booking_boat SET status = 'approved', updated_at = NOW()
-         WHERE boat_booking_id = $1`,
-        [bId]
-      );
-    } else {
+    if (bType !== 'room' && bType !== 'kayak') {
       res.status(400).json({ success: false, message: 'Invalid payment ID format' });
       return;
+    }
+    if (parsePositiveInt(bId) === null) {
+      res.status(400).json({ success: false, message: 'Invalid id' });
+      return;
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const bookingCheck = await client.query(
+        bType === 'room'
+          ? `SELECT payment_slip, status FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE`
+          : `SELECT payment_slip, status FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE`,
+        [bId]
+      );
+      if (bookingCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        res.status(404).json({ success: false, message: 'Booking not found' });
+        return;
+      }
+      if (bookingCheck.rows[0].status !== 'paid') {
+        await client.query('ROLLBACK');
+        res.status(400).json({ success: false, message: `Cannot approve booking with status: ${bookingCheck.rows[0].status}` });
+        return;
+      }
+      if (!bookingCheck.rows[0].payment_slip) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ success: false, message: 'Cannot approve: no payment slip uploaded yet' });
+        return;
+      }
+
+      if (bType === 'room') {
+        const headerUpdate = await client.query(
+          `UPDATE room_bookings
+           SET payment_status = 'paid', status = 'approved', payment_date = NOW(), verify_by_staff_id = $1
+           WHERE room_booking_id = $2 AND status = 'paid'`,
+          [authUser.id, bId]
+        );
+        if (headerUpdate.rowCount === 0) {
+          await client.query('ROLLBACK');
+          res.status(409).json({ success: false, message: 'สถานะการจองเปลี่ยนไปแล้ว กรุณาตรวจสอบอีกครั้ง' });
+          return;
+        }
+        await client.query(
+          `UPDATE booking_room SET status = 'approved', updated_at = NOW()
+           WHERE room_booking_id = $1 AND status <> 'checked_out'`,
+          [bId]
+        );
+        // อนุมัติบัตรเสริมเรือคายัคที่ผูกกับห้องพักนี้ไปพร้อมกัน
+        await approveBoatAddonsForRoomBooking(client, Number(bId));
+      } else {
+        const headerUpdate = await client.query(
+          `UPDATE boat_bookings
+           SET payment_status = 'paid', status = 'approved'
+           WHERE boat_booking_id = $1 AND status = 'paid'`,
+          [bId]
+        );
+        if (headerUpdate.rowCount === 0) {
+          await client.query('ROLLBACK');
+          res.status(409).json({ success: false, message: 'สถานะการจองเปลี่ยนไปแล้ว กรุณาตรวจสอบอีกครั้ง' });
+          return;
+        }
+        await client.query(
+          `UPDATE booking_boat SET status = 'approved', updated_at = NOW()
+           WHERE boat_booking_id = $1`,
+          [bId]
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK').catch((rollbackError: unknown) => {
+        console.error('Confirm payment rollback error:', rollbackError);
+      });
+      throw error;
+    } finally {
+      client.release();
     }
 
     res.json({ success: true, message: 'Payment confirmed and booking approved' });
   } catch (error) {
     console.error('Confirm payment error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -305,6 +370,10 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
     const user = req.user as AuthPayload;
     const { id } = req.params;
     const [bType, bId] = id.split('_');
+    if ((bType !== 'room' && bType !== 'kayak') || parsePositiveInt(bId) === null) {
+      res.status(400).json({ success: false, message: 'Invalid id' });
+      return;
+    }
 
     let payment;
     if (bType === 'room') {
@@ -328,7 +397,7 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const resortRes2 = await pool.query(`SELECT bank_account_no, bank_account_name, promptpay_id FROM resort_info LIMIT 1`);
+    const resortRes2 = await pool.query(`SELECT bank_account_no, bank_account_name, promptpay_id FROM resort_info ORDER BY id ASC LIMIT 1`);
     const resort2 = resortRes2.rows[0] || {};
     const bankInfo2 = {
       promptpay: resort2.promptpay_id || process.env.PROMPTPAY_ID || '0000000000',
@@ -342,6 +411,11 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
     });
   } catch (error) {
     console.error('Get payment error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -361,6 +435,11 @@ export const getUserPayments = async (req: Request, res: Response): Promise<void
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get user payments error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -372,7 +451,7 @@ export const getAllPayments = async (req: Request, res: Response): Promise<void>
       `SELECT 
          'room_' || rb.room_booking_id as id, 
          'room' as booking_type,
-         m.first_name || ' ' || m.last_name as user_name,
+         CONCAT_WS(' ', m.first_name, m.last_name) as user_name,
          m.email as user_email,
          rb.total_price as amount,
          rb.payment_status as status,
@@ -385,7 +464,7 @@ export const getAllPayments = async (req: Request, res: Response): Promise<void>
        SELECT 
          'kayak_' || bb.boat_booking_id as id, 
          'kayak' as booking_type,
-         m.first_name || ' ' || m.last_name as user_name,
+         CONCAT_WS(' ', m.first_name, m.last_name) as user_name,
          m.email as user_email,
          bb.total_price as amount,
          bb.payment_status as status,
@@ -399,6 +478,11 @@ export const getAllPayments = async (req: Request, res: Response): Promise<void>
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get all payments error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

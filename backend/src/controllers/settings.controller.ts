@@ -1,6 +1,32 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
+import type { PoolClient } from 'pg';
+import { parsePositiveInt } from '../utils/ids';
+
+// คืนค่า rollback แบบเงียบ เพื่อไม่ให้ error ของ ROLLBACK บดบัง error เดิม
+const rollbackQuietly = async (client: PoolClient): Promise<void> => {
+  try {
+    await client.query('ROLLBACK');
+  } catch (rollbackError) {
+    console.error('Rollback error:', rollbackError);
+  }
+};
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const isValidIsoDate = (value: string): boolean => {
+  if (!ISO_DATE_PATTERN.test(value)) return false;
+  const d = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+};
+
+// คืน undefined ถ้าไม่ได้ส่งค่ามา, คืน null ถ้าไม่ใช่จำนวนเต็มในช่วงที่กำหนด
+const parseQueryInt = (value: unknown, min: number, max: number): number | null | undefined => {
+  if (value === undefined || value === '') return undefined;
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) return null;
+  const n = Number(value);
+  return n >= min && n <= max ? n : null;
+};
 
 // ฟิลด์การชำระเงินที่ใช้เป็นปลายทางโอนเงิน แก้ไขได้เฉพาะ admin
 const ADMIN_ONLY_RESORT_FIELDS = ['promptpay_id', 'bank_account_no', 'bank_account_name'];
@@ -18,43 +44,64 @@ export const getBankAccounts = async (req: Request, res: Response): Promise<void
 };
 
 export const createBankAccount = async (req: Request, res: Response): Promise<void> => {
+  let client: PoolClient | null = null;
   try {
+    client = await pool.connect();
     const { bank_name, account_number, account_name, promptpay_id, is_primary } = req.body;
+    await client.query('BEGIN');
     if (is_primary) {
-      await pool.query(`UPDATE bank_accounts SET is_primary = false`);
+      await client.query(`UPDATE bank_accounts SET is_primary = false`);
     }
-    const result = await pool.query(
+    const result = await client.query(
       `INSERT INTO bank_accounts (bank_name, account_number, account_name, promptpay_id, is_primary)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [bank_name, account_number, account_name, promptpay_id || null, is_primary ?? false]
     );
+    await client.query('COMMIT');
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
+    if (client) await rollbackQuietly(client);
     console.error('Create bank account error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    client?.release();
   }
 };
 
 export const updateBankAccount = async (req: Request, res: Response): Promise<void> => {
+  let client: PoolClient | null = null;
   try {
+    client = await pool.connect();
     const { id } = req.params;
     const { bank_name, account_number, account_name, promptpay_id, is_primary } = req.body;
-    if (is_primary) {
-      await pool.query(`UPDATE bank_accounts SET is_primary = false`);
+    await client.query('BEGIN');
+
+    // ยืนยันว่ามีรายการที่จะแก้ไขจริงก่อน จึงค่อยล้างค่าหลักของรายการอื่น
+    const target = await client.query(
+      `SELECT bank_account_id FROM bank_accounts WHERE bank_account_id=$1 FOR UPDATE`,
+      [id]
+    );
+    if (target.rows.length === 0) {
+      await rollbackQuietly(client);
+      res.status(404).json({ success: false, message: 'Bank account not found' });
+      return;
     }
-    const result = await pool.query(
+    if (is_primary) {
+      await client.query(`UPDATE bank_accounts SET is_primary = false WHERE bank_account_id <> $1`, [id]);
+    }
+    const result = await client.query(
       `UPDATE bank_accounts SET bank_name=$1, account_number=$2, account_name=$3, promptpay_id=$4, is_primary=$5
        WHERE bank_account_id=$6 RETURNING *`,
       [bank_name, account_number, account_name, promptpay_id || null, is_primary ?? false, id]
     );
-    if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: 'Bank account not found' });
-      return;
-    }
+    await client.query('COMMIT');
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
+    if (client) await rollbackQuietly(client);
     console.error('Update bank account error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    client?.release();
   }
 };
 
@@ -113,12 +160,23 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
 export const upsertResortInfo = async (req: Request, res: Response): Promise<void> => {
   try {
     // ดึง id จาก URL params หรือ request body
-    let targetId = req.params.id ? Number(req.params.id) : req.body.id ? Number(req.body.id) : null;
-    const targetName = req.body.name;
+    const rawId = req.params.id ?? req.body.id;
+    let targetId: number | null = null;
+    if (rawId !== undefined && rawId !== null && rawId !== '') {
+      targetId = parsePositiveInt(rawId);
+      if (targetId === null) {
+        res.status(400).json({ success: false, message: 'Invalid id' });
+        return;
+      }
+    }
+    const targetName = typeof req.body.name === 'string' ? req.body.name : '';
 
     // 🎯 Mapping ID อัตโนมัติตามประเภท หากไม่ได้ส่ง id มาตรงๆ
-    if (!targetId && targetName) {
-      if (targetName.includes('ห้อง') || targetName.includes('room')) {
+    // ไม่มีทั้ง id และ name → ใช้สถานที่หลัก (id 3) แทนการ INSERT แถวใหม่ทุกครั้ง
+    if (!targetId) {
+      if (!targetName) {
+        targetId = 3;
+      } else if (targetName.includes('ห้อง') || targetName.includes('room')) {
         targetId = 4; // ID จุดบริการห้องพัก
       } else if (targetName.includes('เรือ') || targetName.includes('boat')) {
         targetId = 5; // ID จุดบริการเรือ
@@ -139,7 +197,9 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
     for (const col of allowed) {
       if (req.body[col] === undefined) continue;
       if (!isAdmin && ADMIN_ONLY_RESORT_FIELDS.includes(col)) continue;
-      updates.push({ col, val: req.body[col] || null });
+      // ค่าว่างเป็น NULL ตามเดิม แต่ค่าตัวเลข 0 และ false ต้องคงไว้
+      const raw = req.body[col];
+      updates.push({ col, val: raw === '' ? null : (raw ?? null) });
     }
 
     if (updates.length === 0) {
@@ -265,17 +325,30 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
   try {
     const { period, date, month, year } = req.query;
 
+    // ตรวจค่าก่อนนำไปใช้ใน SQL: date = YYYY-MM-DD, year/month = จำนวนเต็มในช่วงที่สมเหตุสมผล
+    const dateProvided = date !== undefined && date !== '';
+    if (dateProvided && (typeof date !== 'string' || !isValidIsoDate(date))) {
+      res.status(400).json({ success: false, message: 'date ต้องเป็นวันที่รูปแบบ YYYY-MM-DD' });
+      return;
+    }
+    const yearParam = parseQueryInt(year, 1970, 2100);
+    const monthParam = parseQueryInt(month, 1, 12);
+    if (yearParam === null || monthParam === null) {
+      res.status(400).json({ success: false, message: 'year และ month ต้องเป็นจำนวนเต็มที่อยู่ในช่วงที่ถูกต้อง' });
+      return;
+    }
+
     const summaryParams: any[] = [];
     const chartParams: any[] = [];
     let whereClause = '';
     let chartWhereClause = '';
 
-    if (period === 'day' && date) {
+    if (period === 'day' && typeof date === 'string' && date) {
       summaryParams.push(date);
       whereClause = `WHERE DATE(created_at) = $1`;
     } else {
-      const y = (period === 'month' && year) ? Number(year) : new Date().getFullYear();
-      const m = (period === 'month' && month) ? Number(month) : new Date().getMonth() + 1;
+      const y = (period === 'month' && yearParam !== undefined) ? yearParam : new Date().getFullYear();
+      const m = (period === 'month' && monthParam !== undefined) ? monthParam : new Date().getMonth() + 1;
       summaryParams.push(y, m);
       chartParams.push(y, m);
       whereClause = `WHERE EXTRACT(YEAR FROM created_at) = $1 AND EXTRACT(MONTH FROM created_at) = $2`;

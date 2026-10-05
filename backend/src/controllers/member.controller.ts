@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import { mapDbError } from '../utils/db-errors';
+import { parsePositiveInt } from '../utils/ids';
 
 // ─── Members Management ────────────────────────────────────────────────────────
 
@@ -22,18 +24,26 @@ export const getAllMembers = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// สลับสถานะสมาชิก (เช่น active / inactive หรือ true / false)
+// สลับสถานะการใช้งานของสมาชิก (is_active) โดย admin ต้องส่งค่าเป็น boolean เท่านั้น
 export const toggleMemberStatus = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const { status } = req.body;
+    const memberId = parsePositiveInt(req.params.id);
+    if (memberId === null) {
+      res.status(400).json({ success: false, message: 'Invalid member id' });
+      return;
+    }
+    const { is_active } = req.body;
+    if (typeof is_active !== 'boolean') {
+      res.status(400).json({ success: false, message: 'status must be boolean' });
+      return;
+    }
 
     const result = await pool.query(
-      `UPDATE members 
-       SET status = $1 
-       WHERE member_id = $2 
-       RETURNING member_id, first_name, last_name, email, status`,
-      [status, id]
+      `UPDATE members
+       SET is_active = $1
+       WHERE member_id = $2
+       RETURNING member_id, first_name, last_name, email, is_active`,
+      [is_active, memberId]
     );
 
     if (result.rows.length === 0) {
@@ -44,6 +54,11 @@ export const toggleMemberStatus = async (req: Request, res: Response): Promise<v
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('Toggle member status error:', error);
+    const dbError = mapDbError(error);
+    if (dbError) {
+      res.status(dbError.status).json({ success: false, message: dbError.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

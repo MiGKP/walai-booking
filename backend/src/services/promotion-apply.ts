@@ -100,15 +100,25 @@ export function parsePromotionIds(body: Record<string, unknown>): number[] {
   return one != null ? [one] : [];
 }
 
-function startOfDay(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+// วันปฏิทินตามเวลาไทย (Asia/Bangkok = UTC+7, ไม่มี DST) เทียบกับคอลัมน์ start_date/end_date (DATE)
+function bangkokDayKey(d: Date): string {
+  return new Date(d.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+// pg คืนค่า DATE เป็น Date เที่ยงคืนตาม timezone ของเซิร์ฟเวอร์ จึงอ่านวันจาก local components
+function dateColumnDayKey(value: string | Date): string {
+  if (typeof value === 'string') return value.slice(0, 10);
+  const y = value.getFullYear();
+  const m = String(value.getMonth() + 1).padStart(2, '0');
+  const dd = String(value.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
 }
 
 export function isPromoInWindow(promo: CatalogPromo, now: Date): boolean {
   if (!promo.is_active) return false;
-  const day = startOfDay(now);
-  if (promo.start_date != null && new Date(promo.start_date) > day) return false;
-  if (promo.end_date != null && new Date(promo.end_date) < day) return false;
+  const today = bangkokDayKey(now);
+  if (promo.start_date != null && dateColumnDayKey(promo.start_date) > today) return false;
+  if (promo.end_date != null && dateColumnDayKey(promo.end_date) < today) return false;
   if (promo.usage_limit != null && promo.usage_count >= promo.usage_limit) return false;
   return true;
 }

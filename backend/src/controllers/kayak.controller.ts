@@ -8,6 +8,8 @@ import {
   sendBookingStatusEmail,
 } from "../services/mail.service";
 import { deleteCloudinaryImage } from "../services/cloudinary.service";
+import { mapDbError } from "../utils/db-errors";
+import { parsePositiveInt } from "../utils/ids";
 import {
   boatsNeeded,
   lineSubtotal,
@@ -176,6 +178,8 @@ export async function getRoomBoatTicketBalance(
   };
 }
 
+const ROOM_BOAT_TICKETS_SHORT_MESSAGE = "บัตรเสริมไม่พอสำหรับห้องนี้";
+
 // หักบัตรเสริมที่ผูกกับห้องพักจริงห้องนั้น แบบ FIFO เหมือนกระเป๋ารวม แต่กรองเฉพาะ booking_room_id นี้
 export async function redeemRoomBoatTickets(
   client: { query: typeof pool.query },
@@ -208,7 +212,7 @@ export async function redeemRoomBoatTickets(
     remaining -= take;
   }
   if (remaining > 0) {
-    throw new Error("บัตรเสริมไม่พอสำหรับห้องนี้");
+    throw new Error(ROOM_BOAT_TICKETS_SHORT_MESSAGE);
   }
 }
 
@@ -305,10 +309,14 @@ export const getKayakById = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
     const result = await pool.query(
       `
-      SELECT bt.boat_type_id as id, bt.type_name as name, bt.description, 
+      SELECT bt.boat_type_id as id, bt.type_name as name, bt.description,
              bt.seat_count as capacity, bt.price as price_per_hour, bt.quantity,
              (SELECT json_agg(image_path) FROM boat_images bi WHERE bi.boat_type_id = bt.boat_type_id) as images
       FROM boat_types bt 
@@ -1176,6 +1184,11 @@ export const createKayakBooking = async (
     });
   } catch (error) {
     await client.query("ROLLBACK");
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Create kayak booking error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -1191,8 +1204,8 @@ export const getBoatAddonInfo = async (
 ): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
-    const bookingRoomId = Number(req.params.bookingRoomId);
-    if (!Number.isInteger(bookingRoomId) || bookingRoomId < 1) {
+    const bookingRoomId = parsePositiveInt(req.params.bookingRoomId);
+    if (bookingRoomId === null) {
       res.status(400).json({ success: false, message: "Invalid booking_room id" });
       return;
     }
@@ -1258,14 +1271,14 @@ export const createBoatAddon = async (
   const client = await pool.connect();
   try {
     const user = req.user as AuthPayload;
-    const bookingRoomId = Number(req.params.bookingRoomId);
+    const bookingRoomId = parsePositiveInt(req.params.bookingRoomId);
     const body = req.body as Record<string, unknown>;
     const boatTypeId = Number(body.boat_type_id);
     const boatRoundId = Number(body.boat_round_id);
     const bookingDate = String(body.booking_date);
     const numPassengers = Math.max(1, Number(body.num_passengers) || 1);
 
-    if (!Number.isInteger(bookingRoomId) || bookingRoomId < 1) {
+    if (bookingRoomId === null) {
       res.status(400).json({ success: false, message: "Invalid booking_room id" });
       return;
     }
@@ -1321,7 +1334,9 @@ export const createBoatAddon = async (
     }
 
     const roundRes = await client.query(
-      `SELECT boat_round_id, start_time, end_time FROM boat_rounds WHERE boat_round_id = $1 AND is_active = true FOR UPDATE`,
+      `SELECT br.boat_round_id, br.start_time, br.end_time, br.total_slots
+       FROM boat_rounds br
+       WHERE br.boat_round_id = $1 AND br.is_active = true FOR UPDATE OF br`,
       [boatRoundId],
     );
     if (roundRes.rows.length === 0) {
@@ -1341,6 +1356,22 @@ export const createBoatAddon = async (
       return;
     }
     const boatType = btRes.rows[0];
+
+    // ประเภทเรือต้องอยู่ในรอบเวลาที่เลือก (เหมือนการจองเรือปกติใน createKayakBooking)
+    const memberRes = await client.query(
+      `SELECT 1 FROM boat_rounds br
+       WHERE br.boat_round_id = $1 AND ${roundIncludesTypeSql("br", "$2::int")}`,
+      [boatRoundId, boatTypeId],
+    );
+    if (memberRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      res.status(400).json({
+        success: false,
+        message: `เรือ ${boatType.type_name} ไม่ได้อยู่ในรอบเวลาที่เลือก`,
+      });
+      return;
+    }
+
     const seatCount = Number(boatType.seat_count || 1);
     const minBoatCount = boatsNeeded(numPassengers, seatCount);
     const boatCount = Number(body.boat_count) >= minBoatCount ? Number(body.boat_count) : minBoatCount;
@@ -1382,6 +1413,32 @@ export const createBoatAddon = async (
       return;
     }
 
+    // ท่าเรือรวมทุกประเภทในช่วงเวลาเดียวกัน (total_slots) ต้องไม่เกินความจุ
+    const poolSlots = round.total_slots == null ? null : Number(round.total_slots);
+    if (poolSlots != null) {
+      const poolRes = await client.query(
+        `SELECT COALESCE(SUM(bnb.boat_count), 0) as total_booked
+         FROM booking_boat bnb
+         JOIN boat_bookings bb ON bb.boat_booking_id = bnb.boat_booking_id
+         WHERE bb.booking_date = $1
+           AND bnb.status NOT IN ('cancelled', 'rejected')
+           AND bnb.boat_round_id IN (
+             SELECT boat_round_id FROM boat_rounds
+             WHERE start_time = $2::time AND end_time = $3::time
+           )`,
+        [bookingDate, round.start_time, round.end_time],
+      );
+      const totalBooked = Number(poolRes.rows[0].total_booked);
+      if (totalBooked + boatCount > poolSlots) {
+        await client.query("ROLLBACK");
+        res.status(409).json({
+          success: false,
+          message: `ท่าเรือเต็มในรอบนี้ (รองรับสูงสุด ${poolSlots} ลำ รวมทุกประเภท)`,
+        });
+        return;
+      }
+    }
+
     const priceCharged = ticketInfo.mode === "paid" ? ticketInfo.unitPrice * boatCount : 0;
     const initialStatus = room.room_status === "approved" ? "approved" : "pending";
 
@@ -1413,7 +1470,16 @@ export const createBoatAddon = async (
       [header.boat_booking_id, boatTypeId, boatRoundId, numPassengers, boatCount, boatType.price, priceCharged, initialStatus],
     );
 
-    await redeemRoomBoatTickets(client, bookingRoomId, header.boat_booking_id, boatCount);
+    try {
+      await redeemRoomBoatTickets(client, bookingRoomId, header.boat_booking_id, boatCount);
+    } catch (redeemError) {
+      if (redeemError instanceof Error && redeemError.message === ROOM_BOAT_TICKETS_SHORT_MESSAGE) {
+        await client.query("ROLLBACK");
+        res.status(400).json({ success: false, message: ROOM_BOAT_TICKETS_SHORT_MESSAGE });
+        return;
+      }
+      throw redeemError;
+    }
 
     if (ticketInfo.mode === "paid" && priceCharged > 0) {
       await client.query(
@@ -1436,6 +1502,11 @@ export const createBoatAddon = async (
     });
   } catch (error) {
     await client.query("ROLLBACK");
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Create boat addon error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -1444,24 +1515,40 @@ export const createBoatAddon = async (
 };
 
 // พนักงานกดมอบบัตรเสริม (พิมพ์+มอบให้ลูกค้าพร้อมกุญแจห้องตอนเช็คอิน)
+const CANCELLED_ADDON_MESSAGE = "บัตรเสริมนี้ถูกยกเลิกหรือปฏิเสธแล้ว";
+
+// ตรวจว่าบัตรเสริมมีอยู่และยังใช้งานได้ — คืนข้อความตอบกลับ 404/400 หรือ null เมื่อผ่าน
+async function findActiveAddonError(boatBookingId: number): Promise<{ status: number; message: string } | null> {
+  const found = await pool.query(
+    `SELECT status FROM boat_bookings WHERE boat_booking_id = $1 AND is_addon = true`,
+    [boatBookingId],
+  );
+  if (found.rows.length === 0) return { status: 404, message: "ไม่พบบัตรเสริมนี้" };
+  if (["cancelled", "rejected"].includes(String(found.rows[0].status))) {
+    return { status: 400, message: CANCELLED_ADDON_MESSAGE };
+  }
+  return null;
+}
+
 export const printBoatAddon = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
-    const boatBookingId = Number(req.params.boatBookingId);
-    if (!Number.isInteger(boatBookingId) || boatBookingId < 1) {
+    const boatBookingId = parsePositiveInt(req.params.boatBookingId);
+    if (boatBookingId === null) {
       res.status(400).json({ success: false, message: "Invalid boat booking id" });
       return;
     }
     const result = await pool.query(
       `UPDATE boat_bookings SET printed_at = COALESCE(printed_at, NOW())
-       WHERE boat_booking_id = $1 AND is_addon = true
+       WHERE boat_booking_id = $1 AND is_addon = true AND status NOT IN ('cancelled', 'rejected')
        RETURNING *`,
       [boatBookingId],
     );
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "ไม่พบบัตรเสริมนี้" });
+      const blocked = await findActiveAddonError(boatBookingId);
+      res.status(blocked?.status ?? 404).json({ success: false, message: blocked?.message ?? "ไม่พบบัตรเสริมนี้" });
       return;
     }
     res.json({ success: true, data: result.rows[0] });
@@ -1476,19 +1563,21 @@ export const handOutBoatAddon = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const boatBookingId = Number(req.params.boatBookingId);
-    if (!Number.isInteger(boatBookingId) || boatBookingId < 1) {
+    const boatBookingId = parsePositiveInt(req.params.boatBookingId);
+    if (boatBookingId === null) {
       res.status(400).json({ success: false, message: "Invalid boat booking id" });
       return;
     }
+    // ไม่เขียนทับ handed_out_at ถ้าเคยมอบแล้ว (เรียกซ้ำได้โดยไม่เปลี่ยนเวลาเดิม)
     const result = await pool.query(
-      `UPDATE boat_bookings SET handed_out_at = NOW(), printed_at = COALESCE(printed_at, NOW())
-       WHERE boat_booking_id = $1 AND is_addon = true
+      `UPDATE boat_bookings SET handed_out_at = COALESCE(handed_out_at, NOW()), printed_at = COALESCE(printed_at, NOW())
+       WHERE boat_booking_id = $1 AND is_addon = true AND status NOT IN ('cancelled', 'rejected')
        RETURNING *`,
       [boatBookingId],
     );
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "ไม่พบบัตรเสริมนี้" });
+      const blocked = await findActiveAddonError(boatBookingId);
+      res.status(blocked?.status ?? 404).json({ success: false, message: blocked?.message ?? "ไม่พบบัตรเสริมนี้" });
       return;
     }
     res.json({ success: true, data: result.rows[0] });
@@ -1505,7 +1594,11 @@ export const getKayakBookingById = async (
 ): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
 
     const result = await pool.query(
       `SELECT bb.*, ${BOATS_JSON_SQL} AS boats
@@ -1570,7 +1663,11 @@ export const cancelKayakBooking = async (
   const client = await pool.connect();
   try {
     const user = req.user as AuthPayload;
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
 
     await client.query("BEGIN");
     const booking = await client.query(
@@ -1609,6 +1706,11 @@ export const cancelKayakBooking = async (
     res.json({ success: true, message: "Boat booking cancelled" });
   } catch (error) {
     await client.query("ROLLBACK");
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Cancel kayak booking error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -1630,8 +1732,8 @@ export const getAllKayakBookings = async (
                 JOIN boat_types bt ON bt.boat_type_id = bnb.boat_type_id
                 WHERE bnb.boat_booking_id = bb.boat_booking_id
               ) as kayak_name,
-              m.first_name || ' ' || m.last_name as user_name, m.email as user_email,
-              s.first_name || ' ' || s.last_name as approved_by_name,
+              CONCAT_WS(' ', m.first_name, m.last_name) as user_name, m.email as user_email,
+              CONCAT_WS(' ', s.first_name, s.last_name) as approved_by_name,
               ${BOATS_JSON_SQL} AS boats
        FROM boat_bookings bb
        JOIN members m ON bb.member_id = m.member_id
@@ -1788,6 +1890,11 @@ export const createKayak = async (
     });
   } catch (error) {
     await client.query("ROLLBACK");
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Create kayak error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -1881,6 +1988,11 @@ export const createBoatRound = async (
     });
   } catch (error) {
     await client.query("ROLLBACK");
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Create boat round error:", error);
     res.status(500).json({
       success: false,
@@ -1898,10 +2010,14 @@ export const updateKayakBookingStatus = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
     const { status } = req.body;
     const user = req.user as AuthPayload;
 
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
     const allowed = ["approved", "rejected", "pending", "checked_out"];
     if (!allowed.includes(status)) {
       res.status(400).json({ success: false, message: "Invalid status" });
@@ -2004,6 +2120,11 @@ export const updateKayakBookingStatus = async (
     });
   } catch (error) {
     await client.query("ROLLBACK");
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Update kayak booking status error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -2018,7 +2139,11 @@ export const checkoutKayakBooking = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
 
     await client.query("BEGIN");
     const booking = await client.query(
@@ -2051,6 +2176,11 @@ export const checkoutKayakBooking = async (
     res.json({ success: true, message: "เช็คเอาต์สำเร็จ" });
   } catch (error) {
     await client.query("ROLLBACK");
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Checkout kayak booking error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -2063,16 +2193,35 @@ export const deleteKayak = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
+  const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
 
-    const bookingCheck = await pool.query(
+    await client.query("BEGIN");
+
+    // ล็อกแถวประเภทเรือก่อน เพื่อให้การตรวจการจองกับการลบเป็นชุดเดียวกัน (สอดคล้องกับ createKayakBooking)
+    const locked = await client.query(
+      `SELECT boat_type_id FROM boat_types WHERE boat_type_id = $1 FOR UPDATE`,
+      [id],
+    );
+    if (locked.rows.length === 0) {
+      await client.query("ROLLBACK");
+      res.status(404).json({ success: false, message: "Boat type not found" });
+      return;
+    }
+
+    const bookingCheck = await client.query(
       `SELECT COUNT(*) as count FROM booking_boat
        WHERE boat_type_id = $1 AND status NOT IN ('cancelled', 'rejected')`,
       [id],
     );
 
     if (Number(bookingCheck.rows[0].count) > 0) {
+      await client.query("ROLLBACK");
       res.status(400).json({
         success: false,
         message: "ไม่สามารถลบได้ เนื่องจากมีการจองที่ยังค้างอยู่",
@@ -2081,22 +2230,15 @@ export const deleteKayak = async (
     }
 
     // ดึงรายการรูปทั้งหมดของเรือลำนี้เตรียมไว้ลบออกจาก Cloudinary
-    const imagesRes = await pool.query(
+    const imagesRes = await client.query(
       `SELECT image_path FROM boat_images WHERE boat_type_id = $1`,
       [id],
     );
 
-    const result = await pool.query(
-      `DELETE FROM boat_types WHERE boat_type_id = $1 RETURNING *`,
-      [id],
-    );
+    await client.query(`DELETE FROM boat_types WHERE boat_type_id = $1`, [id]);
+    await client.query("COMMIT");
 
-    if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Boat type not found" });
-      return;
-    }
-
-    // ลบไฟล์รูปทั้งหมดออกจาก Cloudinary แบบ Cleanup
+    // ลบไฟล์รูปทั้งหมดออกจาก Cloudinary หลัง COMMIT สำเร็จเท่านั้น
     for (const row of imagesRes.rows) {
       if (row.image_path) {
         await deleteCloudinaryImage(row.image_path).catch(
@@ -2112,8 +2254,16 @@ export const deleteKayak = async (
 
     res.json({ success: true, message: "Boat type deleted successfully" });
   } catch (error) {
+    await client.query("ROLLBACK");
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Delete kayak error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
+  } finally {
+    client.release();
   }
 };
 
@@ -2123,7 +2273,11 @@ export const getBoatImages = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
     const result = await pool.query(
       `SELECT boat_image_id as id, image_path FROM boat_images WHERE boat_type_id = $1 ORDER BY boat_image_id ASC`,
       [id],
@@ -2141,7 +2295,11 @@ export const addBoatImage = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
     const { image_path } = req.body;
     if (!image_path) {
       res
@@ -2163,6 +2321,11 @@ export const addBoatImage = async (
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Add boat image error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
@@ -2174,10 +2337,16 @@ export const deleteBoatImage = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { imageId } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    const imageId = parsePositiveInt(req.params.imageId);
+    if (id === null || imageId === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
+    // ลบได้เฉพาะรูปที่เป็นของเรือ (boat_type_id) ตาม URL เท่านั้น
     const result = await pool.query(
-      `DELETE FROM boat_images WHERE boat_image_id = $1 RETURNING boat_image_id, image_path`,
-      [imageId],
+      `DELETE FROM boat_images WHERE boat_image_id = $1 AND boat_type_id = $2 RETURNING boat_image_id, image_path`,
+      [imageId, id],
     );
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: "Image not found" });
@@ -2190,6 +2359,11 @@ export const deleteBoatImage = async (
     );
     res.json({ success: true, message: "Image deleted" });
   } catch (error) {
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Delete boat image error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
@@ -2202,7 +2376,11 @@ export const updateKayak = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
     const body = req.body;
     const { boat_image, gallery_images } = body;
 
@@ -2230,12 +2408,15 @@ export const updateKayak = async (
       }
     });
 
+    // รูปที่ถูกนำออกจะลบจาก Cloudinary หลัง COMMIT เท่านั้น (ถ้า rollback แถวใน DB ยังชี้ไฟล์เดิมอยู่)
+    let removedImagePaths: string[] = [];
+
     await client.query("BEGIN");
 
     if (updates.length > 0) {
       values.push(id);
       const query = `
-        UPDATE boat_types 
+        UPDATE boat_types
         SET ${updates.join(", ")} 
         WHERE boat_type_id = $${paramIndex}`;
       await client.query(query, values);
@@ -2266,7 +2447,7 @@ export const updateKayak = async (
       }
 
       // 3. เปรียบเทียบหาไฟล์รูปเดิมที่ถูกตัดออก
-      const removedImagePaths = oldImagePaths.filter(
+      removedImagePaths = oldImagePaths.filter(
         (oldPath) => !newImagePaths.includes(oldPath),
       );
 
@@ -2295,18 +2476,24 @@ export const updateKayak = async (
         }
       }
 
-      // 7. สั่งลบรูปที่ไม่ได้ใช้แล้วออกจาก Cloudinary
-      for (const imgPath of removedImagePaths) {
-        await deleteCloudinaryImage(imgPath).catch((cleanupError: unknown) => {
-          console.error("Update kayak Cloudinary cleanup error:", cleanupError);
-        });
-      }
     }
 
     await client.query("COMMIT");
+
+    // 7. สั่งลบรูปที่ไม่ได้ใช้แล้วออกจาก Cloudinary หลัง COMMIT สำเร็จ
+    for (const imgPath of removedImagePaths) {
+      await deleteCloudinaryImage(imgPath).catch((cleanupError: unknown) => {
+        console.error("Update kayak Cloudinary cleanup error:", cleanupError);
+      });
+    }
     res.json({ success: true, message: "Boat type updated" });
   } catch (error) {
     await client.query("ROLLBACK");
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Update kayak error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -2321,7 +2508,11 @@ export const updateBoatRound = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
     const body = req.body as Record<string, unknown>;
     const hasBoatsPayload =
       Array.isArray(body.boats) || body.boat_type_id != null;
@@ -2415,6 +2606,11 @@ export const updateBoatRound = async (
     res.json({ success: true, message: "Boat round updated successfully" });
   } catch (error) {
     await client.query("ROLLBACK");
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Update boat round error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -2429,7 +2625,24 @@ export const deleteBoatRound = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
+
+    await client.query("BEGIN");
+
+    // ล็อกแถวรอบเวลาก่อน เพื่อให้การตรวจการจองกับการลบเป็นชุดเดียวกัน (สอดคล้องกับ createKayakBooking)
+    const locked = await client.query(
+      `SELECT boat_round_id FROM boat_rounds WHERE boat_round_id = $1 FOR UPDATE`,
+      [id],
+    );
+    if (locked.rows.length === 0) {
+      await client.query("ROLLBACK");
+      res.status(404).json({ success: false, message: "Boat round not found" });
+      return;
+    }
 
     const bookingCheck = await client.query(
       `SELECT COUNT(*) as count FROM booking_boat
@@ -2438,6 +2651,7 @@ export const deleteBoatRound = async (
     );
 
     if (Number(bookingCheck.rows[0].count) > 0) {
+      await client.query("ROLLBACK");
       res.status(400).json({
         success: false,
         message: "Cannot delete round with active bookings",
@@ -2445,25 +2659,22 @@ export const deleteBoatRound = async (
       return;
     }
 
-    await client.query("BEGIN");
     await client.query(`DELETE FROM round_boats WHERE boat_round_id = $1`, [
       id,
     ]);
-    const result = await client.query(
-      `DELETE FROM boat_rounds WHERE boat_round_id = $1 RETURNING *`,
-      [id],
-    );
-
-    if (result.rows.length === 0) {
-      await client.query("ROLLBACK");
-      res.status(404).json({ success: false, message: "Boat round not found" });
-      return;
-    }
+    await client.query(`DELETE FROM boat_rounds WHERE boat_round_id = $1`, [
+      id,
+    ]);
 
     await client.query("COMMIT");
     res.json({ success: true, message: "Boat round deleted successfully" });
   } catch (error) {
     await client.query("ROLLBACK");
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Delete boat round error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
