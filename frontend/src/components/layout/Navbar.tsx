@@ -260,7 +260,7 @@ export default function Navbar() {
                             แดชบอร์ดเรือ
                           </Link>
                           <Link
-                            href="/admin/boat-hours"
+                            href="/staff/boats/boat-hours"
                             className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-forest-700 hover:bg-forest-50 transition-colors"
                             onClick={() => setDropdownOpen(false)}
                           >

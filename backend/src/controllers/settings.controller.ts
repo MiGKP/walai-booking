@@ -126,7 +126,7 @@ export const deleteBankAccount = async (req: Request, res: Response): Promise<vo
 
 // คอลัมน์ของ resort_info ที่ endpoint สาธารณะส่งออกได้ (ไม่ใช้ SELECT * เพื่อไม่ให้ข้อมูลอื่นรั่ว)
 const RESORT_PUBLIC_COLUMNS =
-  'id, name, address, coordinates, phone, email, facebook, line_id, operating_days, operating_hours, additional_terms, payment_due_days, bank_account_no, bank_account_name, promptpay_id, facilities, checkin_time_from, checkin_time_to, checkout_time, important_info, kids_policy, parking_info';
+  'id, name, address, coordinates, phone, email, facebook, line_id, operating_days, operating_hours, additional_terms, payment_due_days, bank_account_no, bank_account_name, promptpay_id, facilities, checkin_time_from, checkin_time_to, checkout_time, important_info, kids_policy, parking_info, boat_advance_booking_minutes';
 
 // ─── Resort Info (รวม contact + site info ใน table resort_info) ────────────────
 
@@ -166,10 +166,16 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
   try {
     // ดึง id จาก URL params หรือ request body
     // เฉพาะ admin ที่ระบุ id แถวเองได้ พนักงานอื่นใช้แถวเริ่มต้นตามชื่อ/ประเภท
-    const isAdminWriter = (req as AuthRequest).user?.role === 'admin';
+    const writerRole = (req as AuthRequest).user?.role;
+    const isAdminWriter = writerRole === 'admin';
+    // พนักงานห้อง/เรือเขียนได้เฉพาะแถวของตัวเอง (ห้อง = 4, เรือ = 5) ไม่ให้แก้แถวสถานที่หลัก (3)
+    const ownRowByRole: Record<string, number> = { room_staff: 4, boat_staff: 5 };
+    const ownRowId = writerRole ? ownRowByRole[writerRole] : undefined;
     const rawId = req.params.id ?? (isAdminWriter ? req.body.id : undefined);
     let targetId: number | null = null;
-    if (rawId !== undefined && rawId !== null && rawId !== '') {
+    if (ownRowId !== undefined) {
+      targetId = ownRowId;
+    } else if (rawId !== undefined && rawId !== null && rawId !== '') {
       targetId = parsePositiveInt(rawId);
       if (targetId === null) {
         res.status(400).json({ success: false, message: 'Invalid id' });
@@ -197,9 +203,17 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       'operating_days', 'operating_hours', 'additional_terms', 'payment_due_days',
       'promptpay_id', 'bank_account_no', 'bank_account_name',
       'checkin_time_from', 'checkin_time_to', 'checkout_time', 'important_info', 'kids_policy', 'parking_info',
+      'boat_advance_booking_minutes',
     ];
 
     const isAdmin = (req as AuthRequest).user?.role === 'admin';
+    if (req.body.boat_advance_booking_minutes !== undefined) {
+      const minutes = Number(req.body.boat_advance_booking_minutes);
+      if (!Number.isInteger(minutes) || minutes < 0 || minutes > 10080) {
+        res.status(400).json({ success: false, message: 'จองล่วงหน้าขั้นต่ำต้องเป็นจำนวนเต็มระหว่าง 0 ถึง 10080 นาที' });
+        return;
+      }
+    }
     const updates: { col: string; val: any }[] = [];
     for (const col of allowed) {
       if (req.body[col] === undefined) continue;
@@ -264,8 +278,7 @@ export const getBoatHours = async (req: Request, res: Response): Promise<void> =
 
 export const upsertBoatHours = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { day_of_week, open_time, close_time, is_open, advance_booking_minutes } = req.body;
-    const advanceMin = advance_booking_minutes != null ? Number(advance_booking_minutes) : 60;
+    const { day_of_week, open_time, close_time, is_open } = req.body;
     const existing = await pool.query(
       `SELECT id FROM boat_operating_hours WHERE day_of_week = $1`, [day_of_week]
     );
@@ -273,15 +286,15 @@ export const upsertBoatHours = async (req: Request, res: Response): Promise<void
     if (existing.rows.length > 0) {
       result = await pool.query(
         `UPDATE boat_operating_hours
-         SET open_time=$1, close_time=$2, is_open=$3, advance_booking_minutes=$4
-         WHERE day_of_week=$5 RETURNING *`,
-        [open_time, close_time, is_open ?? true, advanceMin, day_of_week]
+         SET open_time=$1, close_time=$2, is_open=$3
+         WHERE day_of_week=$4 RETURNING *`,
+        [open_time, close_time, is_open ?? true, day_of_week]
       );
     } else {
       result = await pool.query(
-        `INSERT INTO boat_operating_hours (day_of_week, open_time, close_time, is_open, advance_booking_minutes)
-         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [day_of_week, open_time, close_time, is_open ?? true, advanceMin]
+        `INSERT INTO boat_operating_hours (day_of_week, open_time, close_time, is_open)
+         VALUES ($1, $2, $3, $4) RETURNING *`,
+        [day_of_week, open_time, close_time, is_open ?? true]
       );
     }
     res.json({ success: true, data: result.rows[0] });

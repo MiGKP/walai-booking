@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Pencil, Save, X } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { notify } from '@/lib/admin-notify';
+import { Panel } from '@/components/admin/ui';
 
 interface CancellationPolicy {
   full_refund_hours: number;
@@ -128,25 +129,21 @@ export default function CancellationPolicyCard(): React.ReactElement {
 
   const updatedAtText = formatUpdatedAt(policy?.updated_at);
 
+  const editButton =
+    !loading && !editing ? (
+      <button
+        type="button"
+        onClick={startEditing}
+        disabled={loadError}
+        className="btn-secondary flex items-center gap-1.5 py-1.5 px-3 text-sm disabled:opacity-50"
+      >
+        <Pencil size={14} aria-hidden="true" /> แก้ไข
+      </button>
+    ) : null;
+
   return (
-    <div className="card overflow-hidden mt-6">
-      <div className="px-5 py-4 bg-white">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div>
-            <h2 className="text-sm font-semibold text-forest-800">นโยบายการคืนเงินค่าบริการเรือ</h2>
-            <p className="text-xs text-charcoal-500 mt-0.5">ใช้กับการยกเลิกการจองเรือและกายัค</p>
-          </div>
-          {!loading && !editing && (
-            <button
-              type="button"
-              onClick={startEditing}
-              disabled={loadError}
-              className="btn-secondary text-sm py-1.5 px-3 flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <Pencil size={14} /> แก้ไข
-            </button>
-          )}
-        </div>
+    <Panel title="นโยบายการคืนเงินค่าบริการเรือ" actions={editButton}>
+      <p className="-mt-2 mb-4 text-xs text-charcoal-400">ใช้กับการยกเลิกการจองเรือและบัตรเสริมที่ชำระแล้ว</p>
 
         {loading ? (
           <div className="space-y-2">
@@ -154,7 +151,7 @@ export default function CancellationPolicyCard(): React.ReactElement {
             <div className="h-5 w-2/3 rounded bg-cream-200 animate-pulse" />
           </div>
         ) : loadError ? (
-          <p className="text-sm text-red-600">โหลดนโยบายการคืนเงินไม่สำเร็จ กรุณาลองรีเฟรชหน้า</p>
+          <p className="text-sm text-rose-600">โหลดนโยบายการคืนเงินไม่สำเร็จ กรุณาลองรีเฟรชหน้า</p>
         ) : editing ? (
           <div className="space-y-4">
             <div>
@@ -197,7 +194,7 @@ export default function CancellationPolicyCard(): React.ReactElement {
               </div>
             </div>
 
-            {formError && <p className="text-sm text-red-600">{formError}</p>}
+            {formError && <p className="text-sm text-rose-600">{formError}</p>}
 
             <div className="flex items-center gap-2 pt-1">
               <button
@@ -232,7 +229,6 @@ export default function CancellationPolicyCard(): React.ReactElement {
             {updatedAtText && <p className="text-xs text-charcoal-500 pt-1">อัปเดตล่าสุด {updatedAtText}</p>}
           </div>
         ) : null}
-      </div>
-    </div>
+    </Panel>
   );
 }
