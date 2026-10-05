@@ -55,7 +55,7 @@ export const sendPendingReviewReminders = async (): Promise<void> => {
            WHERE br.room_booking_id = rb.room_booking_id
              AND br.status NOT IN ('cancelled', 'rejected', 'checked_out')
          )
-         AND NOT EXISTS (
+         AND EXISTS (
            SELECT 1 FROM booking_room br
            JOIN rooms r ON r.room_id = br.room_id
            WHERE br.room_booking_id = rb.room_booking_id
