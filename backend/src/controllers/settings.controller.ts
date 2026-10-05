@@ -424,3 +424,36 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
+
+// นโยบายคืนเงินบัตรเสริมที่ชำระแล้ว: คืนเต็มจำนวนถ้ายกเลิกก่อนเข้าพัก full_refund_hours ชั่วโมง ที่เหลือคืน late_refund_percent
+export const getCancellationPolicy = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await pool.query(
+      `SELECT full_refund_hours, late_refund_percent, updated_at FROM cancellation_policies WHERE id = 1`
+    );
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('Get cancellation policy error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const upsertCancellationPolicy = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const body = req.body as Record<string, unknown>;
+    const result = await pool.query(
+      `INSERT INTO cancellation_policies (id, full_refund_hours, late_refund_percent, updated_at)
+       VALUES (1, $1, $2, NOW())
+       ON CONFLICT (id) DO UPDATE
+         SET full_refund_hours = EXCLUDED.full_refund_hours,
+             late_refund_percent = EXCLUDED.late_refund_percent,
+             updated_at = NOW()
+       RETURNING full_refund_hours, late_refund_percent, updated_at`,
+      [Number(body.full_refund_hours), Number(body.late_refund_percent)]
+    );
+    res.json({ success: true, message: 'บันทึกนโยบายการคืนเงินสำเร็จ', data: result.rows[0] });
+  } catch (error) {
+    console.error('Upsert cancellation policy error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};

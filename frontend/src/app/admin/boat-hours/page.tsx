@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { notify } from "@/lib/admin-notify";
 import Link from 'next/link';
+import CancellationPolicyCard from '@/components/settings/CancellationPolicyCard';
 
 const DAY_NAMES = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
 
@@ -192,6 +193,8 @@ export default function BoatHoursPage() {
         >
           <Save size={16} /> {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
         </button>
+
+        <CancellationPolicyCard />
       </div>
     </div>
   );
