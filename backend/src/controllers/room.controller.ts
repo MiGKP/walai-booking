@@ -734,67 +734,20 @@ export const deleteRoom = async (
     return;
   }
 
-  let client: PoolClient | null = null;
   try {
-    client = await pool.connect();
-    await client.query("BEGIN");
-
-    const roomResult = await client.query<{ room_image: string | null }>(
-      "SELECT room_image FROM room_types WHERE id = $1 FOR UPDATE",
+    // ปิดใช้งานแทนการลบ: คงประวัติการจองไว้และไม่ติด foreign key (หน้าบ้านซ่อนประเภทที่ status = false)
+    const result = await pool.query(
+      "UPDATE room_types SET status = false WHERE id = $1",
       [roomTypeId],
     );
-    if (roomResult.rows.length === 0) {
-      await rollbackQuietly(client);
+    if (result.rowCount === 0) {
       res.status(404).json({ success: false, message: "Room type not found" });
       return;
     }
-
-    // ตรวจการจองที่ยังค้างอยู่ของห้องทุกห้องในประเภทนี้ (เกณฑ์เดียวกับ deleteSingleRoom)
-    const bookingCheck = await client.query<{ count: string }>(
-      `SELECT COUNT(*) as count
-       FROM booking_room br
-       JOIN rooms r ON r.room_id = br.room_id
-       WHERE r.room_type_id = $1 AND br.status NOT IN ('cancelled', 'rejected')`,
-      [roomTypeId],
-    );
-    if (Number(bookingCheck.rows[0].count) > 0) {
-      await rollbackQuietly(client);
-      res.status(400).json({
-        success: false,
-        message: "ไม่สามารถลบได้ เนื่องจากมีการจองที่ยังค้างอยู่",
-      });
-      return;
-    }
-
-    const galleryResult = await client.query<{ image_path: string }>(
-      "SELECT image_path FROM room_images WHERE room_type_id = $1",
-      [roomTypeId],
-    );
-
-    const imagesToDelete = [
-      String(roomResult.rows[0].room_image || ""),
-      ...galleryResult.rows.map((row) => row.image_path),
-    ].filter(Boolean);
-
-    await client.query("DELETE FROM room_images WHERE room_type_id = $1", [
-      roomTypeId,
-    ]);
-    await client.query("DELETE FROM room_types WHERE id = $1", [roomTypeId]);
-    await client.query("COMMIT");
-    // ถ้าต้องการใช้ Soft Delete เหมือนเดิม ให้เปิดใช้บรรทัดนี้แทน:
-    // await pool.query('UPDATE room_types SET status = false WHERE id = $1', [id]);
-
-    await cleanupRemovedRoomImages(imagesToDelete);
-
-    res.json({
-      success: true,
-      message: "Room type and images deleted successfully",
-    });
+    res.json({ success: true, message: "ปิดใช้งานประเภทห้องแล้ว" });
   } catch (error) {
-    if (client) await rollbackQuietly(client);
-    respondWithDbError(res, error, "Delete room error:");
-  } finally {
-    client?.release();
+    console.error("Deactivate room type error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 

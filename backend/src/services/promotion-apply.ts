@@ -129,7 +129,7 @@ export function headerPromotionId(ids: number[]): number | null {
 }
 
 export function shouldRestoreQuota(previousStatus: string): boolean {
-  return previousStatus === 'pending' || previousStatus === 'paid';
+  return previousStatus === 'pending' || previousStatus === 'paid' || previousStatus === 'approved';
 }
 
 export function walletStatusAfterUse(

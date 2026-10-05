@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { bangkokToday } from '../utils/bangkok-date';
 import { assertStatusTransition } from '../services/booking-status';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
@@ -249,6 +250,10 @@ export const createRoomBooking = async (
     const body = req.body as Record<string, unknown>;
     const checkInDate = String(body.check_in_date);
     const checkOutDate = String(body.check_out_date);
+    if (checkInDate < bangkokToday()) {
+      res.status(400).json({ success: false, message: 'ไม่สามารถจองวันที่ย้อนหลังได้' });
+      return;
+    }
     const specialRequests =
       typeof body.special_requests === 'string' ? body.special_requests : null;
     // legacy: โปรโมชั่นเดียวสำหรับทั้งออเดอร์ (ยังรองรับไว้เผื่อผู้เรียกเก่าที่ไม่ได้ส่ง promotion_id แยกตาม item)

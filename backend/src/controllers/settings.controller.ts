@@ -123,6 +123,10 @@ export const deleteBankAccount = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// คอลัมน์ของ resort_info ที่ endpoint สาธารณะส่งออกได้ (ไม่ใช้ SELECT * เพื่อไม่ให้ข้อมูลอื่นรั่ว)
+const RESORT_PUBLIC_COLUMNS =
+  'id, name, address, coordinates, phone, email, facebook, line_id, operating_days, operating_hours, additional_terms, payment_due_days, bank_account_no, bank_account_name, promptpay_id, facilities, checkin_time_from, checkin_time_to, checkout_time, important_info, kids_policy, parking_info';
+
 // ─── Resort Info (รวม contact + site info ใน table resort_info) ────────────────
 
 // ─── Resort Info (รวม contact + site info ใน table resort_info) ────────────────
@@ -133,7 +137,7 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
 
     // 1. ถ้าส่ง ?id=4 หรือ ?id=5 มา
     if (id) {
-      const result = await pool.query(`SELECT * FROM resort_info WHERE id = $1 LIMIT 1`, [id]);
+      const result = await pool.query(`SELECT ${RESORT_PUBLIC_COLUMNS} FROM resort_info WHERE id = $1 LIMIT 1`, [id]);
       res.json({ success: true, data: result.rows[0] || null });
       return;
     }
@@ -141,7 +145,7 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
     // 2. ถ้าส่ง ?name=ห้องพัก มา
     if (name) {
       const result = await pool.query(
-        `SELECT * FROM resort_info WHERE name LIKE $1 LIMIT 1`,
+        `SELECT ${RESORT_PUBLIC_COLUMNS} FROM resort_info WHERE name LIKE $1 LIMIT 1`,
         [`%${name}%`]
       );
       res.json({ success: true, data: result.rows[0] || null });
@@ -149,7 +153,7 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
     }
 
     // 3. ถ้าไม่ระบุ ให้คืนค่าทุกแถว (สถานที่หลัก=3, ห้องพัก=4, เรือ=5)
-    const result = await pool.query(`SELECT * FROM resort_info ORDER BY id ASC`);
+    const result = await pool.query(`SELECT ${RESORT_PUBLIC_COLUMNS} FROM resort_info ORDER BY id ASC`);
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get resort info error:', error);

@@ -7,3 +7,10 @@ ALTER TABLE promotions
   ADD COLUMN IF NOT EXISTS room_count INTEGER NOT NULL DEFAULT 1;
 
 ALTER TABLE room_bookings ADD COLUMN IF NOT EXISTS reject_reason TEXT;
+
+-- คอลัมน์ของ resort_info ที่หน้าบ้านและ API ใช้งาน (ตรวจพบว่าไม่มี migration สร้าง)
+ALTER TABLE resort_info
+  ADD COLUMN IF NOT EXISTS checkout_time TEXT,
+  ADD COLUMN IF NOT EXISTS important_info TEXT,
+  ADD COLUMN IF NOT EXISTS kids_policy TEXT,
+  ADD COLUMN IF NOT EXISTS parking_info TEXT;

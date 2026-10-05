@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { bangkokToday } from "../utils/bangkok-date";
 import { assertStatusTransition } from '../services/booking-status';
 import { PoolClient } from "pg";
 import pool from "../config/database";
@@ -744,6 +745,10 @@ export const createKayakBooking = async (
     const user = req.user as AuthPayload;
     const body = req.body as Record<string, unknown>;
     const booking_date = String(body.booking_date);
+    if (booking_date < bangkokToday()) {
+      res.status(400).json({ success: false, message: "ไม่สามารถจองวันที่ย้อนหลังได้" });
+      return;
+    }
 
     if (user.role !== "customer") {
       res.status(403).json({
@@ -1276,6 +1281,10 @@ export const createBoatAddon = async (
     const boatTypeId = Number(body.boat_type_id);
     const boatRoundId = Number(body.boat_round_id);
     const bookingDate = String(body.booking_date);
+    if (bookingDate < bangkokToday()) {
+      res.status(400).json({ success: false, message: "ไม่สามารถจองวันที่ย้อนหลังได้" });
+      return;
+    }
     const numPassengers = Math.max(1, Number(body.num_passengers) || 1);
 
     if (bookingRoomId === null) {
@@ -1439,6 +1448,12 @@ export const createBoatAddon = async (
       }
     }
 
+    // บัตรเสริมแบบชำระเงินเพิ่มได้เฉพาะก่อนชำระค่าห้อง เพื่อไม่ให้ยอดไม่ตรงกับสลิปที่ลูกค้าโอนแล้ว
+    if (ticketInfo.mode === "paid" && (room.room_status === "paid" || room.room_status === "approved")) {
+      await client.query("ROLLBACK");
+      res.status(400).json({ success: false, message: "ไม่สามารถเพิ่มบัตรเสริมแบบชำระเงินหลังชำระค่าห้องแล้ว" });
+      return;
+    }
     const priceCharged = ticketInfo.mode === "paid" ? ticketInfo.unitPrice * boatCount : 0;
     const initialStatus = room.room_status === "approved" ? "approved" : "pending";
 
@@ -2413,6 +2428,29 @@ export const updateKayak = async (
 
     await client.query("BEGIN");
 
+    if (body.quantity !== undefined) {
+      const newQuantity = Number(body.quantity);
+      if (!Number.isInteger(newQuantity) || newQuantity < 0) {
+        await client.query("ROLLBACK");
+        res.status(400).json({ success: false, message: "จำนวนเรือต้องเป็นจำนวนเต็มไม่ติดลบ" });
+        return;
+      }
+      const activeRes = await client.query(
+        `SELECT COALESCE(SUM(bnb.boat_count), 0)::int AS n FROM booking_boat bnb
+         WHERE bnb.boat_type_id = $1 AND bnb.status NOT IN ('cancelled', 'rejected', 'checked_out')`,
+        [id],
+      );
+      const activeBoats = Number(activeRes.rows[0].n);
+      if (newQuantity < activeBoats) {
+        await client.query("ROLLBACK");
+        res.status(400).json({
+          success: false,
+          message: `ลดจำนวนเรือไม่ได้ เนื่องจากมีการจองที่ยังไม่เช็คเอาต์ ${activeBoats} ลำ`,
+        });
+        return;
+      }
+    }
+
     if (updates.length > 0) {
       values.push(id);
       const query = `
@@ -2599,6 +2637,34 @@ export const updateBoatRound = async (
     }
 
     if (hasBoatsPayload) {
+    if (hasBoatsPayload) {
+      const newQuota = new Map<number, number>(boats.map((b) => [b.boat_type_id, Number(b.quantity)]));
+      const existingRes = await client.query(
+        `SELECT boat_type_id FROM round_boats WHERE boat_round_id = $1`,
+        [id],
+      );
+      const typeIds = new Set<number>([
+        ...newQuota.keys(),
+        ...existingRes.rows.map((row: { boat_type_id: number }) => Number(row.boat_type_id)),
+      ]);
+      for (const typeId of typeIds) {
+        const activeRes = await client.query(
+          `SELECT COALESCE(SUM(boat_count), 0)::int AS n FROM booking_boat
+           WHERE boat_round_id = $1 AND boat_type_id = $2 AND status NOT IN ('cancelled', 'rejected', 'checked_out')`,
+          [id, typeId],
+        );
+        const activeBoats = Number(activeRes.rows[0].n);
+        const quota = newQuota.get(typeId) ?? 0;
+        if (quota < activeBoats) {
+          await client.query("ROLLBACK");
+          res.status(400).json({
+            success: false,
+            message: `ลดโควตาเรือไม่ได้ เนื่องจากมีการจองที่ยังไม่เช็คเอาต์ ${activeBoats} ลำ`,
+          });
+          return;
+        }
+      }
+    }
       await replaceRoundBoats(client, Number(id), boats);
     }
 
