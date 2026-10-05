@@ -313,14 +313,14 @@ export default function RoomCartPanel({
               โค้ดส่วนลด
             </label>
             {appliedPromo ? (
-              <div className="flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-2.5 border border-emerald-100 shadow-sm">
+              <div className="flex items-center justify-between rounded-xl bg-forest-50 px-3 py-2.5 border border-forest-100 shadow-sm">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-forest-100 text-forest-600">
                     <CheckCircle2 size={12} />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-emerald-900">{appliedPromo.name}</p>
-                    <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">{appliedPromo.code}</p>
+                    <p className="text-xs font-bold text-forest-900">{appliedPromo.name}</p>
+                    <p className="text-xs font-bold text-forest-600 uppercase tracking-wider">{appliedPromo.code}</p>
                   </div>
                 </div>
                 <button
@@ -329,7 +329,7 @@ export default function RoomCartPanel({
                     setAppliedPromo(null);
                     setPromoCode('');
                   }}
-                  className="text-emerald-400 hover:text-emerald-600 transition-colors p-1"
+                  className="text-forest-400 hover:text-forest-600 transition-colors p-1"
                 >
                   <X size={16} />
                 </button>

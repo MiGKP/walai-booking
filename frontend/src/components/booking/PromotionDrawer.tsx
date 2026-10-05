@@ -5,6 +5,22 @@ import { X, Tag, Loader2, CheckCircle2 } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 
+interface PromotionItem {
+  id: number;
+  name: string;
+  code: string;
+  description?: string | null;
+  discount_type: 'percent' | 'fixed';
+  discount_value: number;
+  applies_to: 'room' | 'kayak' | 'both';
+  is_collectible?: boolean;
+}
+
+interface WalletPromotion {
+  promotion_id: number;
+  promotion: PromotionItem;
+}
+
 interface PromotionDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -14,8 +30,8 @@ interface PromotionDrawerProps {
 }
 
 export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onApply, scope }: PromotionDrawerProps) {
-  const [activePromos, setActivePromos] = useState<any[]>([]);
-  const [myPromos, setMyPromos] = useState<any[]>([]);
+  const [activePromos, setActivePromos] = useState<PromotionItem[]>([]);
+  const [myPromos, setMyPromos] = useState<WalletPromotion[]>([]);
   const [loading, setLoading] = useState(false);
   const [collectingId, setCollectingId] = useState<number | null>(null);
 
@@ -33,11 +49,11 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
         api.get('/promotions/mine').catch(() => ({ data: { data: [] } })),
       ]);
 
-      let allActive = activeRes.data?.data || [];
-      let mine = mineRes.data?.data || [];
+      let allActive: PromotionItem[] = activeRes.data?.data || [];
+      let mine: WalletPromotion[] = mineRes.data?.data || [];
 
-      allActive = allActive.filter((p: any) => p.applies_to === scope || p.applies_to === 'both');
-      mine = mine.filter((p: any) => p.promotion?.applies_to === scope || p.promotion?.applies_to === 'both');
+      allActive = allActive.filter((p) => p.applies_to === scope || p.applies_to === 'both');
+      mine = mine.filter((p) => p.promotion?.applies_to === scope || p.promotion?.applies_to === 'both');
 
       setActivePromos(allActive);
       setMyPromos(mine);
@@ -108,7 +124,7 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
                     ))}
                     {myPromos.map(p => (
                       <PromotionCard 
-                        key={p.id} 
+                        key={p.promotion_id} 
                         promo={p.promotion} 
                         isCollected={true}
                         isActive={currentPromoCode === p.promotion.code}
@@ -144,12 +160,21 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
   );
 }
 
-function PromotionCard({ promo, isCollected, isActive, loading, onCollect, onApply }: any) {
+interface PromotionCardProps {
+  promo: PromotionItem | null | undefined;
+  isCollected: boolean;
+  isActive: boolean;
+  loading?: boolean;
+  onCollect?: () => void;
+  onApply?: () => void;
+}
+
+function PromotionCard({ promo, isCollected, isActive, loading, onCollect, onApply }: PromotionCardProps) {
   if (!promo) return null;
   return (
-    <div className={`relative overflow-hidden rounded-xl border p-4 transition-all ${isActive ? 'border-emerald-500 bg-emerald-50' : 'border-stone-200 bg-white'}`}>
+    <div className={`relative overflow-hidden rounded-xl border p-4 transition-all ${isActive ? 'border-forest-500 bg-forest-50' : 'border-stone-200 bg-white'}`}>
       {isActive && (
-        <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">
+        <div className="absolute top-0 right-0 bg-forest-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">
           ใช้อยู่
         </div>
       )}
@@ -173,7 +198,7 @@ function PromotionCard({ promo, isCollected, isActive, loading, onCollect, onApp
               <button 
                 onClick={onApply}
                 disabled={isActive}
-                className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${isActive ? 'bg-emerald-200 text-emerald-800' : 'bg-forest-900 text-white hover:bg-forest-800'}`}
+                className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${isActive ? 'bg-forest-200 text-forest-800' : 'bg-forest-900 text-white hover:bg-forest-800'}`}
               >
                 {isActive ? 'กำลังใช้' : 'ใช้โปรโมชั่น'}
               </button>

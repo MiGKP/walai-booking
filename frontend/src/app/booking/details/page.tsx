@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { formatThaiDate, nightsBetween, todayISO } from '@/lib/date';
+import type { RoomCartItem } from '@/lib/room-cart';
 
 interface Promotion {
   id: number;
@@ -82,7 +83,7 @@ function BookingDetailsContent() {
 
   // Group by room_type_id
   const groups = useMemo(() => {
-    const acc: Record<number, { typeId: number, typeName: string, pricePerNight: number, rooms: any[], totalBasePrice: number }> = {};
+    const acc: Record<number, { typeId: number, typeName: string, pricePerNight: number, rooms: RoomCartItem[], totalBasePrice: number }> = {};
     cartItems.forEach(item => {
       if (!acc[item.room_type_id]) {
         acc[item.room_type_id] = {
@@ -425,7 +426,7 @@ function BookingDetailsContent() {
                             })}
                           </select>
                           {discount > 0 && (
-                            <p className="text-xs font-bold text-emerald-600 mt-2 flex items-center gap-1 text-right justify-end">
+                            <p className="text-xs font-bold text-forest-600 mt-2 flex items-center gap-1 text-right justify-end">
                               <Tag size={12} /> ส่วนลด ฿{discount.toLocaleString()}
                             </p>
                           )}
@@ -444,7 +445,7 @@ function BookingDetailsContent() {
                     <span>฿{grandTotalBase.toLocaleString()}</span>
                   </div>
                   {totalDiscount > 0 && (
-                    <div className="flex justify-between text-sm text-emerald-300 font-medium">
+                    <div className="flex justify-between text-sm text-forest-300 font-medium">
                       <span>ส่วนลดรวม</span>
                       <span>- ฿{totalDiscount.toLocaleString()}</span>
                     </div>

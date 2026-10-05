@@ -9,6 +9,63 @@ import { formatThaiDate, formatTimeRange, nightsBetween, toISODate } from '@/lib
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
+interface PaymentInfo {
+  id: number;
+  booking_type: 'room' | 'kayak';
+  booking_id: number;
+  amount: number | string;
+  status?: string;
+  qr_code_url?: string | null;
+  bank_info?: { bank_name?: string; account_name?: string; account_number?: string; promptpay?: string } | null;
+  booking_status?: string | null;
+  reject_reason?: string | null;
+  slip_image?: string | null;
+  has_boat_tickets?: boolean;
+}
+
+interface BookingRoomLine {
+  booking_room_id: number;
+  room_type_id: number;
+  type_name?: string | null;
+  room_name: string;
+  room_number: string;
+  price_per_night: number | string;
+  nights: number;
+  subtotal: number | string;
+}
+
+interface BookingBoatLine {
+  booking_boat_id: number;
+  type_name: string;
+  num_passengers: number;
+  boat_count: number | string;
+  unit_price: number | string;
+  subtotal: number | string;
+}
+
+interface BookingPromotion {
+  name: string;
+  code?: string | null;
+  room_type_id?: number | null;
+  discount_amount: number | string;
+}
+
+interface BookingDetail {
+  created_at: string;
+  booking_date: string;
+  start_time: string;
+  end_time: string;
+  check_in_date: string;
+  check_out_date: string;
+  adults: number;
+  children: number;
+  num_passengers: number;
+  special_request?: string | null;
+  rooms?: BookingRoomLine[];
+  boats?: BookingBoatLine[];
+  promotions?: BookingPromotion[];
+}
+
 const CARD = 'rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)] p-5 sm:p-6';
 
 function SectionHeading({ icon, title }: { icon: React.ReactNode; title: string }): React.ReactElement {
@@ -28,8 +85,8 @@ function PaymentContent() {
   const booking_type = searchParams.get('booking_type');
   const booking_id = searchParams.get('booking_id');
 
-  const [payment, setPayment] = useState<any>(null);
-  const [bookingDetail, setBookingDetail] = useState<any>(null);
+  const [payment, setPayment] = useState<PaymentInfo | null>(null);
+  const [bookingDetail, setBookingDetail] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [slip, setSlip] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState('');
@@ -210,11 +267,11 @@ function PaymentContent() {
 
         <div className="mt-7 flex flex-col gap-3">
           {payment?.booking_type === 'room' && payment?.has_boat_tickets && (
-             <div className="rounded-xl border border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 text-center mb-2 shadow-md animate-fade-in relative overflow-hidden">
-               <h3 className="font-sans text-base font-bold text-emerald-900 relative z-10 flex items-center justify-center gap-1.5">
+             <div className="rounded-xl border border-forest-300 bg-gradient-to-br from-forest-50 to-forest-100 p-4 text-center mb-2 shadow-md animate-fade-in relative overflow-hidden">
+               <h3 className="font-sans text-base font-bold text-forest-900 relative z-10 flex items-center justify-center gap-1.5">
                  ยินดีด้วย! คุณได้รับสิทธิ์พิเศษ
                </h3>
-               <p className="text-sm text-emerald-800 mt-1.5 mb-4 leading-relaxed relative z-10 font-medium">
+               <p className="text-sm text-forest-800 mt-1.5 mb-4 leading-relaxed relative z-10 font-medium">
                  คุณใช้โปรโมชั่นได้รับบริการเรือฟรี<br/>โปรดจองรอบเวลาเรือที่ต้องการได้ในลิงก์นี้
                </p>
                <Link href={`/kayaks?room_booking_id=${payment.booking_id}${bookingDetail?.check_in_date ? `&check_in=${toISODate(new Date(bookingDetail.check_in_date))}` : ''}${bookingDetail?.check_out_date ? `&check_out=${toISODate(new Date(bookingDetail.check_out_date))}` : ''}`} className="flex items-center justify-center gap-2 w-full rounded-xl bg-forest-900 py-3 text-sm font-bold text-white transition-colors hover:bg-forest-800 shadow-md">
@@ -287,13 +344,13 @@ function PaymentContent() {
                       </span>
                     </div>
                   )}
-                  {payment.booking_type === 'kayak' && bookingDetail?.boats?.length > 0 && (
+                  {payment.booking_type === 'kayak' && bookingDetail?.boats && bookingDetail.boats.length > 0 && (
                     <div className="flex justify-between text-charcoal-500">
                       <span>รายการเรือ</span>
                       <span className="font-semibold text-forest-900">
-                        {bookingDetail.boats.map((b: any) => b.type_name).join(', ')}
+                        {bookingDetail.boats.map((b) => b.type_name).join(', ')}
                         {' · '}
-                        {bookingDetail.boats.reduce((sum: number, b: any) => sum + Number(b.boat_count), 0)} ลำ
+                        {bookingDetail.boats.reduce((sum: number, b) => sum + Number(b.boat_count), 0)} ลำ
                         {' · '}
                         {bookingDetail.num_passengers} คน
                       </span>
@@ -320,7 +377,7 @@ function PaymentContent() {
                     </div>
 
                     <div className="mt-4 space-y-2 border-t border-stone-100 pt-4">
-                      {(bookingDetail.rooms || []).map((room: any) => (
+                      {(bookingDetail.rooms || []).map((room) => (
                         <div key={room.booking_room_id} className="flex items-center justify-between gap-3 rounded-xl bg-stone-50/60 p-3">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-bold text-forest-900">{room.room_name} (ห้อง {room.room_number})</p>
@@ -358,7 +415,7 @@ function PaymentContent() {
                     </div>
 
                     <div className="mt-4 space-y-2 border-t border-stone-100 pt-4">
-                      {(bookingDetail.boats || []).map((boat: any) => (
+                      {(bookingDetail.boats || []).map((boat) => (
                         <div key={boat.booking_boat_id} className="flex items-center justify-between gap-3 rounded-xl bg-stone-50/60 p-3">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-bold text-forest-900">{boat.type_name}</p>
@@ -375,17 +432,17 @@ function PaymentContent() {
 
                 {/* Price Breakdown */}
                 <div className="mt-4 space-y-2 border-t border-stone-100 pt-4 text-sm">
-                  {payment.booking_type === 'room' && bookingDetail?.rooms?.length > 0 ? (() => {
+                  {payment.booking_type === 'room' && bookingDetail?.rooms && bookingDetail.rooms.length > 0 ? (() => {
                     // Group rooms by type
-                    const roomsByType: Record<string, { typeName: string; typeId: number; rooms: any[]; subtotal: number }> = {};
-                    (bookingDetail.rooms || []).forEach((r: any) => {
+                    const roomsByType: Record<string, { typeName: string; typeId: number; rooms: BookingRoomLine[]; subtotal: number }> = {};
+                    (bookingDetail.rooms || []).forEach((r) => {
                       const key = String(r.room_type_id || r.room_name || 'other');
                       if (!roomsByType[key]) roomsByType[key] = { typeName: r.type_name || r.room_name, typeId: r.room_type_id, rooms: [], subtotal: 0 };
                       roomsByType[key].rooms.push(r);
                       roomsByType[key].subtotal += Number(r.subtotal);
                     });
                     const promos = bookingDetail?.promotions || [];
-                    const totalDiscount = promos.reduce((s: number, p: any) => s + Number(p.discount_amount), 0);
+                    const totalDiscount = promos.reduce((s: number, p) => s + Number(p.discount_amount), 0);
                     const grandSubtotal = Object.values(roomsByType).reduce((s, g) => s + g.subtotal, 0);
                     
                     return (
@@ -396,8 +453,8 @@ function PaymentContent() {
                         </div>
                         
                         {Object.values(roomsByType).map((group) => {
-                          const typePromos = promos.filter((p: any) => !p.room_type_id || Number(p.room_type_id) === Number(group.typeId));
-                          const typeDiscount = typePromos.reduce((s: number, p: any) => s + Number(p.discount_amount), 0);
+                          const typePromos = promos.filter((p) => !p.room_type_id || Number(p.room_type_id) === Number(group.typeId));
+                          const typeDiscount = typePromos.reduce((s: number, p) => s + Number(p.discount_amount), 0);
                           const typeNet = group.subtotal - typeDiscount;
                           return (
                             <div key={group.typeName || Math.random()} className="space-y-1 mb-2">
@@ -405,8 +462,8 @@ function PaymentContent() {
                                 <span className="text-xs">{group.typeName}</span>
                                 <span className="text-xs">฿{group.subtotal.toLocaleString()}</span>
                               </div>
-                              {typePromos.map((promo: any, idx: number) => (
-                                <div key={idx} className="flex justify-between text-emerald-600">
+                              {typePromos.map((promo, idx: number) => (
+                                <div key={idx} className="flex justify-between text-forest-600">
                                   <span className="text-xs ml-4">
                                     ส่วนลด: {promo.name} {promo.code ? `(โค้ด: ${promo.code})` : ''}
                                   </span>
@@ -424,7 +481,7 @@ function PaymentContent() {
                         })}
                         
                         {totalDiscount > 0 && (
-                          <div className="flex justify-between text-emerald-600 pt-2">
+                          <div className="flex justify-between text-forest-600 pt-2">
                             <span className="text-sm font-bold">รวมส่วนลดทั้งหมด</span>
                             <span className="text-sm font-bold">-฿{totalDiscount.toLocaleString()}</span>
                           </div>
@@ -435,7 +492,7 @@ function PaymentContent() {
                     <div className="flex justify-between text-charcoal-500">
                       <span>ยอดรวมเรือ</span>
                       <span className="font-semibold text-forest-900">
-                        ฿{(bookingDetail?.boats || []).reduce((s: number, b: any) => s + Number(b.subtotal), 0).toLocaleString()}
+                        ฿{(bookingDetail?.boats || []).reduce((s: number, b) => s + Number(b.subtotal), 0).toLocaleString()}
                       </span>
                     </div>
                   )}

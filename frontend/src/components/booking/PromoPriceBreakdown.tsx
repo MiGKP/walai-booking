@@ -49,7 +49,7 @@ export default function PromoPriceBreakdown({
               {line.code}
             </span>
           </div>
-          <div className="flex items-center justify-between text-emerald-700">
+          <div className="flex items-center justify-between text-forest-700">
             <span>ส่วนลด</span>
             <span className="tabular-nums font-medium">
               -฿{line.discount_amount.toLocaleString()}
