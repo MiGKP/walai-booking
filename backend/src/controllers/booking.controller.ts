@@ -1127,6 +1127,11 @@ export const checkoutRoomBooking = async (
        RETURNING room_id`,
       [id]
     );
+    if ((lines.rowCount ?? 0) === 0) {
+      await client.query('ROLLBACK');
+      res.status(400).json({ success: false, message: 'ยังไม่มีห้องที่เช็คอินในการจองนี้' });
+      return;
+    }
 
     for (const line of lines.rows) {
       await client.query(

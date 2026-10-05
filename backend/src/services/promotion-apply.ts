@@ -176,6 +176,9 @@ export function applyPromotionList(
   const lines: ApplyLine[] = [];
 
   for (const row of promosInOrder) {
+    if (row.usage_limit != null && row.usage_count >= row.usage_limit) {
+      throw new PromoApplyError('โปรโมชั่นนี้ถูกใช้ครบจำนวนแล้ว');
+    }
     if (!isPromoInWindow(row, ctx.now)) {
       throw new PromoApplyError('โปรโมชั่นหมดอายุแล้ว');
     }

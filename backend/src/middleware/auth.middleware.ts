@@ -67,8 +67,9 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return;
     }
     // เทียบที่หน่วยวินาที (iat เป็นวินาที) token ที่ออกในวินาทีเดียวกับการเปลี่ยนรหัสยังใช้ได้
-    const issuedAtSec = Number(decoded.iat ?? 0);
-    if (account.passwordChangedAtMs !== null && issuedAtSec < Math.floor(account.passwordChangedAtMs / 1000)) {
+    // token ที่ออกที่เวลาเดียวกันหรือก่อนการเปลี่ยนรหัสผ่านต้องถูกปฏิเสธ (iat เป็นวินาที จึงคูณ 1000 เทียบกับ ms)
+    const issuedAtMs = Number(decoded.iat ?? 0) * 1000;
+    if (account.passwordChangedAtMs !== null && issuedAtMs <= account.passwordChangedAtMs) {
       res.status(401).json({ success: false, message: 'Session expired, please login again' });
       return;
     }
