@@ -1705,6 +1705,14 @@ export const cancelKayakBooking = async (
       res.status(404).json({ success: false, message: "Booking not found" });
       return;
     }
+    if (booking.rows[0].is_addon) {
+      await safeRollback(client);
+      res.status(400).json({
+        success: false,
+        message: "บัตรเสริมต้องยกเลิกผ่านการยกเลิกบัตรเสริมจากหน้าห้องพัก",
+      });
+      return;
+    }
     if (booking.rows[0].status !== "pending") {
       await safeRollback(client);
       res.status(400).json({
@@ -2053,7 +2061,7 @@ export const updateKayakBookingStatus = async (
     await client.query("BEGIN");
 
     const current = await client.query(
-      `SELECT status FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE`,
+      `SELECT status, is_addon FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE`,
       [id],
     );
     if (current.rows.length === 0) {
@@ -2068,6 +2076,32 @@ export const updateKayakBookingStatus = async (
       res.status(400).json({ success: false, message: transitionError });
       return;
     }
+    // บัตรเสริมที่ถูกปฏิเสธต้องปรับยอดห้องและบันทึกการคืนเงินเหมือนการยกเลิกโดยลูกค้า
+    if (status === "rejected" && current.rows[0].is_addon) {
+      const addonResult = await cancelBoatAddonInTx(
+        client,
+        Number(id),
+        { id: user.id, role: user.role },
+        "ปฏิเสธโดยเจ้าหน้าที่",
+      );
+      if (!addonResult.ok) {
+        await safeRollback(client);
+        res.status(addonResult.status).json({ success: false, message: addonResult.message });
+        return;
+      }
+      await client.query("COMMIT");
+      res.json({
+        success: true,
+        message: "ปฏิเสธบัตรเสริมสำเร็จ",
+        data: {
+          refund_amount: addonResult.refund,
+          percent_applied: addonResult.percent,
+          room_total_reduction: addonResult.roomTotalReduction,
+        },
+      });
+      return;
+    }
+
     if (status === "rejected" || status === "cancelled") {
       await restoreBookingPromotions(client, {
         previousStatus,
@@ -2777,6 +2811,152 @@ export const deleteBoatRound = async (
       return;
     }
     console.error("Delete boat round error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  } finally {
+    client.release();
+  }
+};
+// ยกเลิกบัตรเสริม (boat add-on) พร้อมปรับยอดห้องและบันทึกการคืนเงินแยก
+// - ห้องยังไม่ชำระ: ตัดยอดบัตรเสริมออกจากยอดห้องทั้งจำนวน (ยังไม่มีเงินเข้า จึงไม่มีรายการคืน)
+// - ห้องชำระแล้ว: คืนตามนโยบาย (cancellation_policies) และตัดยอดห้องเฉพาะส่วนที่คืน บันทึกใน booking_refunds
+// ฟังก์ชันนี้ไม่เปิด/ปิด transaction เอง ผู้เรียกต้อง BEGIN/COMMIT/ROLLBACK
+type AddonCancelResult =
+  | { ok: true; refund: number; percent: number; roomTotalReduction: number }
+  | { ok: false; status: number; message: string };
+
+async function cancelBoatAddonInTx(
+  client: PoolClient,
+  boatBookingId: number,
+  actor: { id: number; role: string },
+  reason: string | null,
+): Promise<AddonCancelResult> {
+  const addonRes = await client.query(
+    `SELECT bb.boat_booking_id, bb.member_id, bb.room_booking_id, bb.status, bb.total_price,
+            bb.handed_out_at,
+            (EXTRACT(EPOCH FROM ((bb.booking_date + bb.start_time) AT TIME ZONE 'Asia/Bangkok') - NOW()) / 3600)::float8 AS hours_before_start,
+            rb.status AS room_status
+     FROM boat_bookings bb
+     JOIN room_bookings rb ON rb.room_booking_id = bb.room_booking_id
+     WHERE bb.boat_booking_id = $1 AND bb.is_addon = true
+     FOR UPDATE OF bb, rb`,
+    [boatBookingId],
+  );
+  if (addonRes.rows.length === 0) {
+    return { ok: false, status: 404, message: "ไม่พบบัตรเสริม" };
+  }
+  const addon = addonRes.rows[0];
+  if (actor.role === "customer" && Number(addon.member_id) !== actor.id) {
+    return { ok: false, status: 404, message: "ไม่พบบัตรเสริม" };
+  }
+  if (!["pending", "approved"].includes(String(addon.status)) || addon.handed_out_at) {
+    return { ok: false, status: 400, message: "บัตรเสริมนี้ไม่สามารถยกเลิกได้แล้ว" };
+  }
+  if (!["pending", "paid", "approved"].includes(String(addon.room_status))) {
+    return { ok: false, status: 400, message: "ห้องพักนี้ไม่สามารถแก้ไขรายการได้แล้ว" };
+  }
+
+  const roomPaid = addon.room_status === "paid" || addon.room_status === "approved";
+  const charged = Number(addon.total_price) || 0;
+  const hoursBefore = Number(addon.hours_before_start);
+  let percent = 0;
+  let refund = 0;
+  if (charged > 0 && roomPaid) {
+    const policyRes = await client.query(
+      `SELECT full_refund_hours, late_refund_percent FROM cancellation_policies WHERE id = 1`,
+    );
+    const policy = policyRes.rows[0] ?? { full_refund_hours: 48, late_refund_percent: 0 };
+    percent = hoursBefore >= Number(policy.full_refund_hours)
+      ? 100
+      : Number(policy.late_refund_percent);
+    refund = Number(((charged * percent) / 100).toFixed(2));
+  }
+  // ห้องยังไม่ชำระ: ยอดบัตรเสริมยังไม่ได้รับเงิน จึงตัดออกทั้งจำนวน
+  const roomTotalReduction = roomPaid ? refund : charged;
+
+  if (charged > 0 && roomPaid) {
+    await client.query(
+      `INSERT INTO booking_refunds (
+         room_booking_id, boat_booking_id, amount, percent_applied, hours_before_start,
+         reason, cancelled_by_user_id, cancelled_by_role
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        addon.room_booking_id,
+        boatBookingId,
+        refund,
+        percent,
+        Number(hoursBefore.toFixed(2)),
+        reason,
+        actor.id,
+        actor.role,
+      ],
+    );
+  }
+
+  await restoreBookingPromotions(client, {
+    previousStatus: String(addon.status),
+    boatBookingId,
+  });
+  await restoreBoatTicketRedemptions(client, boatBookingId);
+
+  await client.query(
+    `UPDATE boat_bookings SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`,
+    [boatBookingId],
+  );
+  await client.query(
+    `UPDATE booking_boat SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`,
+    [boatBookingId],
+  );
+  if (roomTotalReduction > 0) {
+    await client.query(
+      `UPDATE room_bookings SET total_price = GREATEST(total_price - $1, 0), updated_at = NOW()
+       WHERE room_booking_id = $2`,
+      [roomTotalReduction, addon.room_booking_id],
+    );
+  }
+
+  return { ok: true, refund, percent, roomTotalReduction };
+}
+
+export const cancelBoatAddon = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const client = await pool.connect();
+  try {
+    const user = req.user as AuthPayload;
+    const boatBookingId = parsePositiveInt(req.params.boatBookingId);
+    if (boatBookingId === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
+    const body = req.body as Record<string, unknown>;
+    const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : null;
+
+    await client.query("BEGIN");
+    const result = await cancelBoatAddonInTx(client, boatBookingId, user, reason);
+    if (!result.ok) {
+      await safeRollback(client);
+      res.status(result.status).json({ success: false, message: result.message });
+      return;
+    }
+    await client.query("COMMIT");
+    res.json({
+      success: true,
+      message: "ยกเลิกบัตรเสริมสำเร็จ",
+      data: {
+        refund_amount: result.refund,
+        percent_applied: result.percent,
+        room_total_reduction: result.roomTotalReduction,
+      },
+    });
+  } catch (error) {
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
+    console.error("Cancel boat addon error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
     client.release();

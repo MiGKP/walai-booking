@@ -28,6 +28,7 @@ import {
   createBoatAddon,
   printBoatAddon,
   handOutBoatAddon,
+  cancelBoatAddon,
 } from '../controllers/kayak.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
@@ -56,6 +57,7 @@ router.get('/schedule', getKayakSchedule);
 // บัตรเสริมพายเรือ (ผูกกับห้องพักจริง — เลือกตอนชำระเงินห้องพัก, มอบ/พิมพ์ตอนเช็คอิน)
 router.get('/room-addon/:bookingRoomId', authenticate, authorize('customer'), getBoatAddonInfo);
 router.post('/room-addon/:bookingRoomId', authenticate, authorize('customer'), createBoatAddon);
+router.put('/room-addon/:boatBookingId/cancel', authenticate, authorize('customer', 'admin', 'room_staff', 'boat_staff'), cancelBoatAddon);
 router.put('/room-addon/:boatBookingId/print', authenticate, authorize('admin', 'room_staff'), printBoatAddon);
 router.put('/room-addon/:boatBookingId/hand-out', authenticate, authorize('admin', 'room_staff'), handOutBoatAddon);
 

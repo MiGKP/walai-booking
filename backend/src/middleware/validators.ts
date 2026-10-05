@@ -299,3 +299,10 @@ export const validatePromoCodeValidator = [
     return true;
   }),
 ];
+
+// ─── Cancellation policy ──────────────────────────────────────────────────────
+
+export const cancellationPolicyValidator = [
+  body('full_refund_hours').isInt({ min: 0, max: 8760 }).withMessage('full_refund_hours must be 0 to 8760'),
+  body('late_refund_percent').isFloat({ min: 0, max: 100 }).withMessage('late_refund_percent must be 0 to 100'),
+];
