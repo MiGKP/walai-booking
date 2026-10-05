@@ -162,6 +162,15 @@ function GuestRow({ label, hint, value, min, max = 20, onChange }: { label: stri
   );
 }
 
+interface ResortInfo {
+  checkin_time_from?: string | null;
+  checkin_time_to?: string | null;
+  checkout_time?: string | null;
+  important_info?: string | null;
+  kids_policy?: string | null;
+  parking_info?: string | null;
+}
+
 export default function RoomDetailPage(): React.ReactElement {
   const routeParams = useParams<{ id: string }>();
   const id = routeParams.id;
@@ -171,7 +180,7 @@ export default function RoomDetailPage(): React.ReactElement {
   const today = todayISO();
 
   const [room, setRoom] = useState<RoomDetail | null>(null);
-  const [resortInfo, setResortInfo] = useState<any>(null);
+  const [resortInfo, setResortInfo] = useState<ResortInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
   const checkIn = searchParams.get('check_in') || addDaysISO(today, 1);
@@ -608,7 +617,7 @@ export default function RoomDetailPage(): React.ReactElement {
                         <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={parseInt(searchParams.get('adults') || '1', 10)} min={1} onChange={(v) => handleGuestsChange({ adults: v, children: parseInt(searchParams.get('children') || '0', 10) })} />
                         <GuestRow label="เด็ก" hint="อายุ 0–11 ปี" value={parseInt(searchParams.get('children') || '0', 10)} min={0} onChange={(v) => handleGuestsChange({ adults: parseInt(searchParams.get('adults') || '1', 10), children: v })} />
                         {parseInt(searchParams.get('children') || '0', 10) > 0 && (
-                          <div className="mx-2 my-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 space-y-2">
+                          <div className="mx-2 my-2 rounded-xl border border-forest-100 bg-forest-50/50 p-3 space-y-2">
                             <div className="flex items-center gap-1.5">
                               <Baby size={13} className="text-forest-700 shrink-0" />
                               <p className="text-xs font-bold uppercase tracking-wide text-forest-800">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
@@ -694,7 +703,7 @@ export default function RoomDetailPage(): React.ReactElement {
             {room.available_promotions && room.available_promotions.length > 0 && (
               <div className="mt-4 rounded-2xl bg-stone-50/50 border border-stone-100 p-4">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <Tag size={14} className="text-emerald-600" />
+                  <Tag size={14} className="text-forest-600" />
                   <h4 className="text-xs font-bold text-stone-600 uppercase tracking-wide">มีโปรโมชั่นพิเศษสำหรับห้องนี้</h4>
                 </div>
                 {/* 
@@ -717,7 +726,7 @@ export default function RoomDetailPage(): React.ReactElement {
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[12px] font-bold text-forest-800">{promo.name}</span>
                             <span className="text-[11px] text-stone-400 hidden sm:inline">|</span>
-                            <span className="text-[12px] font-bold text-emerald-600">{discountText}</span>
+                            <span className="text-[12px] font-bold text-forest-600">{discountText}</span>
                           </div>
                           <button type="button" className="text-[11px] font-medium text-stone-400 hover:text-stone-600 flex items-center gap-0.5 shrink-0 whitespace-nowrap ml-1">
                             รายละเอียด <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />

@@ -738,7 +738,7 @@ function KayaksPageContent(): React.ReactElement {
                                 <span className={`block text-xs font-semibold tabular-nums ${isSelected ? (fits ? 'text-cream-100' : 'text-rose-700') : 'text-forest-900'}`}>
                                   {formatTimeRange(slot.start_time, slot.end_time)}
                                 </span>
-                                <span className={`block text-[11px] font-medium mt-0.5 ${isSelected ? (fits ? 'text-cream-200' : 'text-rose-200') : fits ? 'text-emerald-600' : 'text-stone-400'}`}>
+                                <span className={`block text-[11px] font-medium mt-0.5 ${isSelected ? (fits ? 'text-cream-200' : 'text-rose-200') : fits ? 'text-forest-600' : 'text-stone-400'}`}>
                                   {fits ? 'ว่าง' : !slot.available ? 'เต็ม' : 'เรือไม่พอ'}
                                 </span>
                               </button>
@@ -880,7 +880,7 @@ function KayaksPageContent(): React.ReactElement {
                                       <span className="text-xs font-medium text-charcoal-500">/ลำ</span>
                                       {availHint && (
                                         <div className="ml-2 flex items-center gap-1.5 border-l border-stone-200 pl-3">
-                                          <span className={`text-xs font-bold ${isFull || !hasRound ? 'text-rose-500' : 'text-emerald-600'}`}>
+                                          <span className={`text-xs font-bold ${isFull || !hasRound ? 'text-rose-500' : 'text-forest-600'}`}>
                                             {availHint}
                                           </span>
                                         </div>

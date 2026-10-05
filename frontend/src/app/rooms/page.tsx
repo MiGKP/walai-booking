@@ -361,7 +361,7 @@ function RoomsPageContent(): React.ReactElement {
                     <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={guests.adults} min={1} onChange={(v) => handleGuestsChange({ ...guests, adults: v })} />
                     <GuestRow label="เด็ก" hint="อายุ 0–11 ปี" value={guests.children} min={0} onChange={(v) => handleGuestsChange({ ...guests, children: v })} />
                     {guests.children > 0 && (
-                      <div className="mx-2 my-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 space-y-2">
+                      <div className="mx-2 my-2 rounded-xl border border-forest-100 bg-forest-50/50 p-3 space-y-2">
                         <div className="flex items-center gap-1.5">
                           <Baby size={13} className="text-forest-700 shrink-0" />
                           <p className="text-xs font-bold uppercase tracking-wide text-forest-800">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
@@ -471,7 +471,7 @@ function RoomsPageContent(): React.ReactElement {
                         )
                       : Math.min(Number(activePromotion.discount_value), unitPrice)
                     : 0;
-                  const bestPromo = room.available_promotions?.reduce((best: any, p: any) => {
+                  const bestPromo = room.available_promotions?.reduce<Promotion | null>((best, p) => {
                     const d = p.discount_type === 'percent' ? (unitPrice * Number(p.discount_value) / 100) : Number(p.discount_value);
                     const bestD = best ? (best.discount_type === 'percent' ? (unitPrice * Number(best.discount_value) / 100) : Number(best.discount_value)) : 0;
                     return d > bestD ? p : best;
