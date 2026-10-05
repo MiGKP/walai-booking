@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Phone, Mail, MessageCircle, MapPin, Clock } from 'lucide-react';
-import api from '@/lib/api';
+import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { notify } from "@/lib/admin-notify";
 import Link from 'next/link';
@@ -16,6 +16,7 @@ export default function ContactInfoPage() {
     address: '', operating_days: '', operating_hours: '',
   });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const backPath = user?.role === 'admin' ? '/admin' : user?.role === 'room_staff' ? '/staff/rooms/dashboard' : '/staff/boats/dashboard';
@@ -32,7 +33,7 @@ export default function ContactInfoPage() {
           operating_hours: d.operating_hours || '',
         });
       }
-    }).catch(() => notify.error('โหลดข้อมูลไม่สำเร็จ')).finally(() => setLoading(false));
+    }).catch(() => { setLoadError(true); notify.error('โหลดข้อมูลไม่สำเร็จ'); }).finally(() => setLoading(false));
   }, [ready]);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -42,11 +43,7 @@ export default function ContactInfoPage() {
       await api.put('/settings/resort', { id: 3, ...form });
       notify.success('บันทึกข้อมูลติดต่อสำเร็จ');
     } catch (err: unknown) {
-      notify.error(
-        err && typeof err === 'object' && 'response' in err
-          ? String((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'บันทึกไม่สำเร็จ')
-          : 'บันทึกไม่สำเร็จ'
-      );
+      notify.error(getApiErrorMessage(err, 'บันทึกไม่สำเร็จ'));
     } finally {
       setSaving(false);
     }
@@ -103,7 +100,7 @@ export default function ContactInfoPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1"><Clock size={13} /> เวลาทำการ</label>
               <input className="input-field" value={form.operating_hours} onChange={e => setForm(f => ({ ...f, operating_hours: e.target.value }))} placeholder="เช่น 08:00 – 20:00 น." />
             </div>
-            <button type="submit" disabled={saving} className="btn-primary w-full flex items-center justify-center gap-2">
+            <button type="submit" disabled={saving || loading || loadError} className="btn-primary w-full flex items-center justify-center gap-2">
               <Save size={16} /> {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
             </button>
           </form>

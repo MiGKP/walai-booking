@@ -245,12 +245,12 @@ function RoomsPageContent(): React.ReactElement {
     try {
       await api.post(`/promotions/${promoId}/collect`);
       setCollectedPromos((prev) => new Set(prev).add(promoId));
-      toast.success('เก็บโปรโมชั่นสำเร็จ! 🎉 อย่าลืมกดใช้ในหน้าชำระเงินนะ', { duration: 4000 });
-    } catch (err: any) {
+      toast.success('เก็บโปรโมชั่นสำเร็จ อย่าลืมกดใช้ในหน้าชำระเงินนะ', { duration: 4000 });
+    } catch (err: unknown) {
       const msg = getApiErrorMessage(err, 'ไม่สามารถเก็บโปรโมชั่นได้');
       if (msg.includes('เก็บโปรโมชั่นนี้ไปแล้ว') || msg.includes('already collected') || msg.includes('ซ้ำ')) {
          setCollectedPromos((prev) => new Set(prev).add(promoId));
-         toast('คุณมีโปรโมชั่นนี้ในกระเป๋าแล้วครับ 🎒', { icon: '✨' });
+         toast('คุณมีโปรโมชั่นนี้ในกระเป๋าแล้วครับ');
       } else {
          toast.error(msg || 'ไม่สามารถเก็บโปรโมชั่นได้');
       }
@@ -554,7 +554,7 @@ function RoomsPageContent(): React.ReactElement {
                           {isAvailable && searchedRange && availableCount <= 2 && (
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-700 shadow-sm whitespace-nowrap">
                               <span className="flex h-1.5 w-1.5 animate-pulse rounded-full bg-orange-500" />
-                              🔥 เหลือเพียง {availableCount} ห้องสุดท้ายสำหรับวันหยุดนี้
+                              เหลือเพียง {availableCount} ห้องสุดท้ายสำหรับวันหยุดนี้
                             </span>
                           )}
                           {room.today_bookings > 0 && (

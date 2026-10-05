@@ -22,7 +22,7 @@ import {
   Ship,
   Check,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { PageHeader, StatCard, Panel, EmptyState, Modal } from "@/components/admin/ui";
@@ -187,8 +187,8 @@ function AdminCheckinContent() {
       setCheckinTo(settingsDraft.to);
       setSettingsOpen(false);
       notify.success("บันทึกช่วงเวลาเช็คอินแล้ว");
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "บันทึกไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "บันทึกไม่สำเร็จ"));
     } finally {
       setSavingSettings(false);
     }
@@ -286,7 +286,7 @@ function AdminCheckinContent() {
       open: true,
       title: `ยืนยันเช็คอินห้อง #${line.room_number}?`,
       text: outsideWindow
-        ? `${line.user_name || "ลูกค้า"} — ${line.room_name} — ⚠️ ตอนนี้อยู่นอกเวลาเช็คอินปกติ (${checkinFrom}-${checkinTo} น.) ยืนยันว่าอนุญาตให้เช็คอินได้`
+        ? `${line.user_name || "ลูกค้า"} — ${line.room_name} —ตอนนี้อยู่นอกเวลาเช็คอินปกติ (${checkinFrom}-${checkinTo} น.) ยืนยันว่าอนุญาตให้เช็คอินได้`
         : `${line.user_name || "ลูกค้า"} — ${line.room_name} — ยืนยันว่าลูกค้ามาถึงและรับกุญแจห้องนี้แล้ว`,
       confirmText: "เช็คอิน",
       confirmColor: outsideWindow ? "bg-amber-600" : "bg-[#0b3b2c]",
@@ -295,8 +295,8 @@ function AdminCheckinContent() {
           await api.put(`/bookings/booking-rooms/${line.booking_room_id}/checkin`);
           notify.success("เช็คอินสำเร็จ");
           fetchBookings();
-        } catch (err: any) {
-          notify.error(err.response?.data?.message || "เช็คอินไม่สำเร็จ");
+        } catch (err: unknown) {
+          notify.error(getApiErrorMessage(err, "เช็คอินไม่สำเร็จ"));
         }
       },
     });
@@ -314,8 +314,8 @@ function AdminCheckinContent() {
           await api.put(`/bookings/booking-rooms/${line.booking_room_id}/checkout`);
           notify.success("เช็คเอาต์สำเร็จ");
           fetchBookings();
-        } catch (err: any) {
-          notify.error(err.response?.data?.message || "เช็คเอาต์ไม่สำเร็จ");
+        } catch (err: unknown) {
+          notify.error(getApiErrorMessage(err, "เช็คเอาต์ไม่สำเร็จ"));
         }
       },
     });
@@ -382,8 +382,8 @@ function AdminCheckinContent() {
       await api.put(`/kayaks/room-addon/${addon.boat_booking_id}/hand-out`);
       notify.success("มอบบัตรเสริมเรือแล้ว");
       fetchBookings();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "บันทึกการมอบบัตรไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "บันทึกการมอบบัตรไม่สำเร็จ"));
     }
   };
 
@@ -394,21 +394,21 @@ function AdminCheckinContent() {
         {line.boat_addons.map((addon) => (
           <div
             key={addon.boat_booking_id}
-            className="flex items-center justify-between gap-2 text-xs bg-sky-50 border border-sky-200/70 rounded-md px-2 py-1"
+            className="flex items-center justify-between gap-2 text-xs bg-lagoon-50 border border-lagoon-200/70 rounded-md px-2 py-1"
           >
-            <span className="flex items-center gap-1 text-sky-800">
+            <span className="flex items-center gap-1 text-lagoon-800">
               <Ship size={11} />
               {addon.boat_type_name} · {formatThaiDate(String(addon.booking_date).slice(0, 10))} ·{" "}
               {String(addon.start_time).slice(0, 5)}-{String(addon.end_time).slice(0, 5)} · {addon.boat_count} ลำ
             </span>
             {addon.handed_out_at ? (
-              <span className="inline-flex items-center gap-1 text-teal-700 font-semibold shrink-0">
+              <span className="inline-flex items-center gap-1 text-lagoon-700 font-semibold shrink-0">
                 <Check size={11} /> มอบแล้ว
               </span>
             ) : (
               <button
                 onClick={() => handlePrintAndHandOut(addon, line)}
-                className="inline-flex items-center gap-1 text-sky-700 hover:text-sky-900 font-semibold shrink-0"
+                className="inline-flex items-center gap-1 text-lagoon-700 hover:text-lagoon-900 font-semibold shrink-0"
               >
                 <Printer size={11} />
                 พิมพ์ + มอบบัตร
@@ -651,7 +651,7 @@ function AdminCheckinContent() {
                               <AlertTriangle size={10} /> เลยกำหนดออก {formatThaiDate(line.check_out)}
                             </span>
                           ) : isToday ? (
-                            <span className="inline-flex items-center gap-1 text-teal-700 font-semibold bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded-md">
+                            <span className="inline-flex items-center gap-1 text-lagoon-700 font-semibold bg-lagoon-50 border border-lagoon-200 px-1.5 py-0.5 rounded-md">
                               <CalendarCheck size={10} /> ออกวันนี้
                             </span>
                           ) : (

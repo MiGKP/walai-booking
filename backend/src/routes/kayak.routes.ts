@@ -35,6 +35,7 @@ import {
   createKayakBookingValidator,
   updateKayakBookingStatusValidator,
   createKayakValidator,
+  updateKayakValidator,
   createBoatRoundValidator,
 } from '../middleware/validators';
 
@@ -83,7 +84,7 @@ router.delete('/:id/images/:imageId', authenticate, authorize('admin', 'boat_sta
 
 // Dynamic routes (must come last)
 router.get('/:id', getKayakById);
-router.put('/:id', authenticate, authorize('admin', 'boat_staff'), updateKayak);
+router.put('/:id', authenticate, authorize('admin', 'boat_staff'), updateKayakValidator, validate, updateKayak);
 router.delete('/:id', authenticate, authorize('admin', 'boat_staff'), deleteKayak);
 
 export default router;

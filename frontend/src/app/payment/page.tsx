@@ -59,8 +59,8 @@ function PaymentContent() {
       if (res.data.data.slip_image) {
         setDone(true);
               }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'ไม่สามารถสร้างรายการชำระเงินได้');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'ไม่สามารถสร้างรายการชำระเงินได้'));
     } finally {
       setLoading(false);
     }
@@ -98,8 +98,8 @@ function PaymentContent() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setDone(true);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'อัปโหลดสลิปไม่สำเร็จ');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'อัปโหลดสลิปไม่สำเร็จ'));
     } finally {
       setUploading(false);
     }
@@ -212,7 +212,7 @@ function PaymentContent() {
           {payment?.booking_type === 'room' && payment?.has_boat_tickets && (
              <div className="rounded-xl border border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 text-center mb-2 shadow-md animate-fade-in relative overflow-hidden">
                <h3 className="font-sans text-base font-bold text-emerald-900 relative z-10 flex items-center justify-center gap-1.5">
-                 <span className="text-emerald-500 text-lg">✨</span> ยินดีด้วย! คุณได้รับสิทธิ์พิเศษ <span className="text-emerald-500 text-lg">✨</span>
+                 ยินดีด้วย! คุณได้รับสิทธิ์พิเศษ
                </h3>
                <p className="text-sm text-emerald-800 mt-1.5 mb-4 leading-relaxed relative z-10 font-medium">
                  คุณใช้โปรโมชั่นได้รับบริการเรือฟรี<br/>โปรดจองรอบเวลาเรือที่ต้องการได้ในลิงก์นี้
@@ -551,7 +551,7 @@ function PaymentContent() {
                     </div>
                     <button
                       onClick={handleUploadSlip}
-                      disabled={!slip || uploading}
+                      disabled={!slip || uploading || !payment}
                       className="btn-primary w-full mt-5 text-center py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {uploading ? 'กำลังอัปโหลดและส่งให้เจ้าหน้าที่...' : 'ยืนยันการชำระเงิน'}

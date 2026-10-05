@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { CalendarDays, Anchor, XCircle, CreditCard, Timer, Star, LayoutGrid, Clock3, ChevronDown, RefreshCw, CheckCircle2, Tag, MessageSquareWarning, AlertTriangle, LogIn, LogOut, Wallet, Users } from 'lucide-react';
-import api from '@/lib/api';
+import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { toastConfirm } from '@/lib/toastConfirm';
 import Link from 'next/link';
@@ -24,7 +24,7 @@ function DeadlineCell({ createdAt, dueDays }: { createdAt: string; dueDays: numb
 }
 
 const statusLabel: Record<string, string> = { pending: 'รอดำเนินการ', paid: 'รอตรวจสอบชำระเงิน', approved: 'ยืนยันแล้ว', cancelled: 'ยกเลิก', rejected: 'ถูกปฏิเสธ', checked_out: 'เช็คเอาต์แล้ว' };
-const statusClass: Record<string, string> = { pending: 'bg-orange-50 text-orange-700', paid: 'bg-blue-50 text-blue-700', approved: 'bg-forest-50 text-forest-700', cancelled: 'bg-stone-100 text-stone-500', rejected: 'bg-red-50 text-red-600', checked_out: 'bg-bamboo-50 text-bamboo-600' };
+const statusClass: Record<string, string> = { pending: 'bg-orange-50 text-orange-700', paid: 'bg-lagoon-50 text-lagoon-700', approved: 'bg-forest-50 text-forest-700', cancelled: 'bg-stone-100 text-stone-500', rejected: 'bg-red-50 text-red-600', checked_out: 'bg-bamboo-50 text-bamboo-600' };
 const paymentStatusLabel: Record<string, string> = { pending: 'ยังไม่ชำระ', paid: 'ชำระแล้ว' };
 
 // payment_status ค้างเป็น 'paid' ตลอดหลังส่งสลิป ไม่ถูกอัปเดตเมื่อเจ้าหน้าที่ปฏิเสธ/ยกเลิกภายหลัง
@@ -113,8 +113,8 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
           else await api.put(`/kayaks/bookings/${id}/cancel`);
           toast.success('ยกเลิกการจองสำเร็จ');
           fetchBookings();
-        } catch (err: any) {
-          toast.error(err.response?.data?.message || 'ยกเลิกไม่สำเร็จ');
+        } catch (err: unknown) {
+          toast.error(getApiErrorMessage(err, 'ยกเลิกไม่สำเร็จ'));
         }
       }
     });
@@ -324,7 +324,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
           <div className="mt-4 border-t border-stone-100 pt-4">
              <div className="rounded-xl border border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 text-center shadow-sm relative overflow-hidden">
                <h3 className="font-sans text-sm font-bold text-emerald-900 relative z-10 flex items-center justify-center gap-1.5 mb-2">
-                 <span className="text-emerald-500">✨</span> คุณมีสิทธิ์จองเรือฟรี (จากโปรโมชั่นที่ใช้) <span className="text-emerald-500">✨</span>
+                 คุณมีสิทธิ์จองเรือฟรี (จากโปรโมชั่นที่ใช้)
                </h3>
                <Link href={`/kayaks?room_booking_id=${bid}${b.check_in_date ? `&check_in=${toISODate(new Date(b.check_in_date))}` : ''}${b.check_out_date ? `&check_out=${toISODate(new Date(b.check_out_date))}` : ''}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-forest-900 px-6 py-2.5 text-xs font-bold text-white transition-colors hover:bg-forest-800 shadow-sm w-full">
                  จองคิวเรือตอนนี้

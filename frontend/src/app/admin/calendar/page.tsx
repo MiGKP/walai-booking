@@ -62,9 +62,9 @@ const statusLabel: Record<string, string> = {
 
 const statusClass: Record<string, string> = {
   approved: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  checked_in: 'bg-blue-100 text-blue-700 border-blue-200',
-  checked_out: 'bg-teal-100 text-teal-700 border-teal-200',
-  completed: 'bg-teal-100 text-teal-700 border-teal-200',
+  checked_in: 'bg-lagoon-100 text-lagoon-700 border-lagoon-200',
+  checked_out: 'bg-lagoon-100 text-lagoon-700 border-lagoon-200',
+  completed: 'bg-lagoon-100 text-lagoon-700 border-lagoon-200',
 };
 
 type FilterType = 'all' | 'rooms' | 'kayaks';
@@ -151,7 +151,7 @@ export default function AdminCalendarPage() {
             id: `room-${bookingId}-${dateStr}`,
             bookingId: bookingId,
             type: 'room',
-            title: `🏠 ${roomTitle} - ${customerName}${nightLabel}`,
+            title: `${roomTitle} - ${customerName}${nightLabel}`,
             dateStr: dateStr,
             raw: {
               ...b,
@@ -193,7 +193,7 @@ export default function AdminCalendarPage() {
           id: `kayak-${bookingId}`,
           bookingId: bookingId,
           type: 'kayak',
-          title: `🚣 ${boatTitle} - ${customerName} ${timeFormatted}`,
+          title: `${boatTitle} - ${customerName} ${timeFormatted}`,
           dateStr: dateStr,
           raw: {
             ...b,
@@ -349,7 +349,7 @@ export default function AdminCalendarPage() {
                         className={`w-full text-left px-2 py-1 rounded-md text-xs font-medium truncate transition-all shadow-2xs ${
                           ev.type === 'room'
                             ? 'bg-emerald-100/80 text-emerald-900 border border-emerald-200/80 hover:bg-emerald-200'
-                            : 'bg-sky-100/80 text-sky-900 border border-sky-200/80 hover:bg-sky-200'
+                            : 'bg-lagoon-100/80 text-lagoon-900 border border-lagoon-200/80 hover:bg-lagoon-200'
                         }`}
                       >
                         {ev.title}
@@ -383,7 +383,7 @@ export default function AdminCalendarPage() {
               {selectedEvent.type === 'room' ? (
                 <span className="p-2 rounded-lg bg-emerald-100 text-emerald-800"><Home size={18} /></span>
               ) : (
-                <span className="p-2 rounded-lg bg-sky-100 text-sky-800"><Sailboat size={18} /></span>
+                <span className="p-2 rounded-lg bg-lagoon-100 text-lagoon-800"><Sailboat size={18} /></span>
               )}
               <div>
                 <p className="text-xs text-stone-400">ID: {selectedEvent.bookingId}</p>
@@ -496,7 +496,7 @@ export default function AdminCalendarPage() {
                     });
                     setSelectedEvent(null); // Close the detail modal or leave it open, but closing is better on mobile, or just let them stack. Actually stacking is fine since Modals have fixed overlay.
                   }}
-                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors border border-blue-200 w-full justify-center"
+                  className="flex items-center gap-1.5 text-xs text-lagoon-600 hover:text-lagoon-800 font-medium bg-lagoon-50 hover:bg-lagoon-100 px-3 py-1.5 rounded-lg transition-colors border border-lagoon-200 w-full justify-center"
                 >
                   <Eye size={14} /> ดูหลักฐานการชำระเงิน (สลิป)
                 </button>

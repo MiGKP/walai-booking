@@ -31,6 +31,7 @@ export default function BoatHoursPage() {
   const { ready, user } = useAuthGuard({ allowedRoles: ['admin', 'boat_staff'] });
   const [hours, setHours] = useState<DayHour[]>(defaultHours());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const backPath = user?.role === 'admin' ? '/admin' : '/staff/boats/dashboard';
@@ -58,7 +59,7 @@ export default function BoatHoursPage() {
         });
         setHours(merged);
       }
-    }).catch(() => notify.error('โหลดข้อมูลเวลาไม่สำเร็จ')).finally(() => setLoading(false));
+    }).catch(() => { setLoadError(true); notify.error('โหลดข้อมูลเวลาไม่สำเร็จ'); }).finally(() => setLoading(false));
 
     // Fetch boat terms
     api.get('/settings/resort?id=5').then(res => {
@@ -186,7 +187,7 @@ export default function BoatHoursPage() {
 
         <button
           onClick={handleSave}
-          disabled={saving || loading}
+          disabled={saving || loading || loadError}
           className="btn-primary w-full mt-6 flex items-center justify-center gap-2"
         >
           <Save size={16} /> {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}

@@ -28,7 +28,7 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { PageHeader, Panel, Modal } from "@/components/admin/ui";
 
-// 🔹 Type Interface
+// Type Interface
 interface Member {
   id: number | string;
   member_id?: number | string;
@@ -65,7 +65,7 @@ export default function AdminMembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 State สำหรับ Filter & Search (ค้นหาจาก Client-side ไม่ยิง API)
+  // State สำหรับ Filter & Search (ค้นหาจาก Client-side ไม่ยิง API)
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
@@ -86,7 +86,7 @@ export default function AdminMembersPage() {
     data: null,
   });
 
-  // 🔹 ดึงข้อมูลจาก API ครั้งเดียว (ไม่ส่ง params search/status ไปที่ backend)
+  // ดึงข้อมูลจาก API ครั้งเดียว (ไม่ส่ง params search/status ไปที่ backend)
   const fetchMembers = useCallback(async () => {
     if (!ready) return;
 
@@ -109,7 +109,7 @@ export default function AdminMembersPage() {
     }
   }, [ready]);
 
-  // 🔹 เรียก Fetch ข้อมูลครั้งแรกเมื่อพร้อมเท่านั้น
+  // เรียก Fetch ข้อมูลครั้งแรกเมื่อพร้อมเท่านั้น
   useEffect(() => {
     fetchMembers();
   }, [fetchMembers]);
@@ -144,12 +144,12 @@ export default function AdminMembersPage() {
     }
   };
 
-  // 🔹 Reset หน้า Pagination เมื่อเปลี่ยนคำค้นหาหรือตัวกรอง
+  // Reset หน้า Pagination เมื่อเปลี่ยนคำค้นหาหรือตัวกรอง
   useEffect(() => {
     setCurrentPage(1);
   }, [search, statusFilter]);
 
-  // 🔹 สรุปตัวเลขสถิติรวมทั้งหมดจาก Database (ไม่ลดลงตามคำค้นหา)
+  // สรุปตัวเลขสถิติรวมทั้งหมดจาก Database (ไม่ลดลงตามคำค้นหา)
   const { totalMembers, activeMembers, inactiveMembers } = useMemo(() => {
     const total = members.length;
     const active = members.filter((m) => m.is_active !== false).length;
@@ -162,7 +162,7 @@ export default function AdminMembersPage() {
     };
   }, [members]);
 
-  // 🔹 Filter ข้อมูลฝั่ง Client (ค้นหาลื่นๆ ทันที ไม่กระตุก)
+  // Filter ข้อมูลฝั่ง Client (ค้นหาลื่นๆ ทันที ไม่กระตุก)
   const filteredMembers = useMemo(() => {
     return members.filter((m) => {
       // 1. กรองตามสถานะ
@@ -589,7 +589,7 @@ export default function AdminMembersPage() {
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1.5 text-blue-600">
+                  <div className="flex items-center gap-1.5 text-lagoon-600">
                     <Facebook size={14} />
                     <span className="text-xs text-charcoal-500">Facebook</span>
                   </div>

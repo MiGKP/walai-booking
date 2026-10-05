@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Tag, Loader2, CheckCircle2 } from 'lucide-react';
-import api from '@/lib/api';
+import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface PromotionDrawerProps {
@@ -52,10 +52,10 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
     setCollectingId(id);
     try {
       await api.post(`/promotions/${id}/collect`);
-      toast.success('เก็บโปรโมชั่นสำเร็จ! 🎉');
+      toast.success('เก็บโปรโมชั่นสำเร็จ');
       await fetchCoupons();
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'ไม่สามารถเก็บโปรโมชั่นได้');
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, 'ไม่สามารถเก็บโปรโมชั่นได้'));
     } finally {
       setCollectingId(null);
     }
@@ -90,7 +90,7 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
           ) : (
             <>
               <div>
-                <h3 className="text-sm font-bold text-charcoal-800 mb-3">🏷️ โปรโมชั่นในกระเป๋าของฉัน</h3>
+                <h3 className="text-sm font-bold text-charcoal-800 mb-3">โปรโมชั่นในกระเป๋าของฉัน</h3>
                 {myPromos.length === 0 && globalPromos.length === 0 ? (
                   <div className="text-center py-6 text-sm text-stone-400 border border-dashed rounded-xl border-stone-200">
                     ยังไม่มีโปรโมชั่นในกระเป๋า
@@ -121,7 +121,7 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
 
               {availableToCollect.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-bold text-charcoal-800 mb-3">🎁 โปรโมชั่นพิเศษที่เก็บได้เพิ่ม</h3>
+                  <h3 className="text-sm font-bold text-charcoal-800 mb-3">โปรโมชั่นพิเศษที่เก็บได้เพิ่ม</h3>
                   <div className="space-y-3">
                     {availableToCollect.map(p => (
                       <PromotionCard 

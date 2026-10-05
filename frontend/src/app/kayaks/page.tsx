@@ -114,6 +114,7 @@ interface BoatType {
   type: string;
   capacity: number;
   price_per_hour: number;
+  quantity?: number;
   image?: string | null;
   images?: string[];
   is_available: boolean;
@@ -318,9 +319,7 @@ function KayaksPageContent(): React.ReactElement {
   const minAllowedISO = promoCheckIn && isValidISO(promoCheckIn) && promoCheckIn >= today ? promoCheckIn : today;
   let maxAllowedISO: string | undefined = undefined;
   if (promoCheckIn && promoCheckOut && isValidISO(promoCheckOut)) {
-    const outDate = new Date(promoCheckOut);
-    outDate.setDate(outDate.getDate() - 1);
-    maxAllowedISO = outDate.toISOString().split('T')[0];
+    maxAllowedISO = addDaysISO(promoCheckOut, -1);
   }
 
   // ดึงเวลาทำการเรือจาก boat_operating_hours (public API)
@@ -792,7 +791,7 @@ function KayaksPageContent(): React.ReactElement {
                         // ถ้ามี date แต่ไม่มี slot: ใช้ max ของวัน (maxRemainingByType)
                         // ถ้ามี slot: ใช้ remaining ของรอบนั้น
                         const noDateYet = !selectedDate;
-                        const fleetMax: number = (boat as any).quantity ?? 99;
+                        const fleetMax: number = boat.quantity ?? 99;
                         const dayMax = maxRemainingByType[boat.id] ?? 0;
                         const slotRemaining = selectedSlotKey
                           ? slots.find(s => s.key === selectedSlotKey)?.remainingByType[boat.id] ?? 0

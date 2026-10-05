@@ -17,7 +17,7 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { PageHeader, Panel, Modal, EmptyState } from "@/components/admin/ui";
 
-// 🌟 Component Custom Dropdown สไตล์เดียวกับไฟล์ตัวอย่าง
+// Component Custom Dropdown สไตล์เดียวกับไฟล์ตัวอย่าง
 function CustomSelect({
   options,
   value,
@@ -137,11 +137,11 @@ export default function AdminReviewsPage() {
   // Options สำหรับ Dropdown กรองคะแนน
   const RATING_OPTIONS = [
     { value: "", label: "คะแนนทั้งหมด" },
-    { value: "5", label: "⭐ 5 ดาว" },
-    { value: "4", label: "⭐ 4 ดาวขึ้นไป" },
-    { value: "3", label: "⭐ 3 ดาวขึ้นไป" },
-    { value: "2", label: "⭐ 2 ดาวขึ้นไป" },
-    { value: "1", label: "⭐ 1 ดาวขึ้นไป" },
+    { value: "5", label: "5 ดาว" },
+    { value: "4", label: "4 ดาวขึ้นไป" },
+    { value: "3", label: "3 ดาวขึ้นไป" },
+    { value: "2", label: "2 ดาวขึ้นไป" },
+    { value: "1", label: "1 ดาวขึ้นไป" },
   ];
 
   useEffect(() => {

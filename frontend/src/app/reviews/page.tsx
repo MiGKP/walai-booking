@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useId } from 'react';
-import { Star, MessageSquare, PenLine, Trash2, X, Check } from 'lucide-react';
-import api from '@/lib/api';
+import { Star, MessageSquare, PenLine, Trash2, X, Check, Waves } from 'lucide-react';
+import api, { getApiErrorMessage } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import toast from 'react-hot-toast';
@@ -160,8 +160,8 @@ export default function ReviewsPage() {
       toast.success('รีวิวสำเร็จ!');
       setCreating(null);
       fetchAll();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'รีวิวไม่สำเร็จ');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'รีวิวไม่สำเร็จ'));
     } finally {
       setSubmitting(false);
     }
@@ -181,8 +181,8 @@ export default function ReviewsPage() {
       toast.success('แก้ไขรีวิวสำเร็จ');
       setEditing(null);
       fetchAll();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'แก้ไขไม่สำเร็จ');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'แก้ไขไม่สำเร็จ'));
     } finally {
       setEditSubmitting(false);
     }
@@ -209,10 +209,10 @@ export default function ReviewsPage() {
   return (
     <div className="min-h-screen pt-16 bg-gray-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-teal-700 to-cyan-600 text-white py-12">
+      <div className="bg-gradient-to-r from-forest-800 to-lagoon-700 text-white py-12">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-3xl font-bold mb-2">รีวิวของฉัน</h1>
-          <p className="text-teal-100">แบ่งปันประสบการณ์การพักผ่อนของคุณ</p>
+          <p className="text-cream-200">แบ่งปันประสบการณ์การพักผ่อนของคุณ</p>
         </div>
       </div>
 
@@ -221,7 +221,7 @@ export default function ReviewsPage() {
         <div className="flex gap-2 mb-6 bg-white p-1.5 rounded-xl shadow-sm border border-gray-100 w-fit">
           <button
             onClick={() => setTab('pending')}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'pending' ? 'bg-teal-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'pending' ? 'bg-forest-800 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-50'}`}
           >
             รอรีวิว
             {reviewable.length > 0 && (
@@ -230,7 +230,7 @@ export default function ReviewsPage() {
           </button>
           <button
             onClick={() => setTab('done')}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'done' ? 'bg-teal-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'done' ? 'bg-forest-800 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-50'}`}
           >
             รีวิวแล้ว ({myReviews.length})
           </button>
@@ -267,7 +267,7 @@ export default function ReviewsPage() {
                     {booking.room_image ? (
                       <img src={resolveMediaUrl(booking.room_image)} alt={booking.room_name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-2xl">🌊</div>
+                      <div className="w-full h-full flex items-center justify-center text-forest-300"><Waves size={28} /></div>
                     )}
                   </div>
                   <div className="flex-1">
@@ -302,14 +302,14 @@ export default function ReviewsPage() {
                       {review.room_image ? (
                         <img src={resolveMediaUrl(review.room_image)} alt={review.room_name} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-2xl">🌊</div>
+                        <div className="w-full h-full flex items-center justify-center text-forest-300"><Waves size={28} /></div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-bold text-gray-900 text-sm">{review.room_name} {review.type_name ? `(${review.type_name})` : ''}</p>
                         <div className="flex gap-1 flex-shrink-0">
-                          <button onClick={() => openEdit(review)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-teal-600">
+                          <button onClick={() => openEdit(review)} className="p-1.5 hover:bg-stone-100 rounded-lg transition-colors text-stone-500 hover:text-forest-800">
                             <PenLine size={15} />
                           </button>
                           <button onClick={() => handleDelete(review.review_id)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-red-600">

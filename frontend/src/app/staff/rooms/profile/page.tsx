@@ -13,7 +13,7 @@ import {
   Facebook,
   MapPin,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
@@ -60,8 +60,8 @@ export default function AdminProfilePage() {
       const res = await api.put("/auth/profile", profile);
       updateUser(res.data.data);
       notify.success("บันทึกข้อมูลสำเร็จ");
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "บันทึกไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "บันทึกไม่สำเร็จ"));
     } finally {
       setSaving(false);
     }
@@ -85,8 +85,8 @@ export default function AdminProfilePage() {
       });
       notify.success("เปลี่ยนรหัสผ่านสำเร็จ");
       setPasswords({ current_password: "", new_password: "", confirm: "" });
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "เปลี่ยนรหัสผ่านไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "เปลี่ยนรหัสผ่านไม่สำเร็จ"));
     } finally {
       setChangingPw(false);
     }

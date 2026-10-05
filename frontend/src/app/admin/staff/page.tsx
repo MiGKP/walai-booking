@@ -20,12 +20,12 @@ import {
   ChevronDown,
   Search,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { PageHeader, Panel, Modal } from "@/components/admin/ui";
 
-// 🌟 Component Custom Dropdown
+// Component Custom Dropdown
 function CustomSelect({
   options,
   value,
@@ -183,8 +183,8 @@ export default function StaffManagementPage() {
         postal_code: "",
       });
       fetchStaff();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "สร้างพนักงานไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "สร้างพนักงานไม่สำเร็จ"));
     }
   };
 
@@ -199,8 +199,8 @@ export default function StaffManagementPage() {
         currentStatus ? "ระงับบัญชีสำเร็จ" : "เปิดใช้งานบัญชีสำเร็จ",
       );
       fetchStaff();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "เปลี่ยนสถานะไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "เปลี่ยนสถานะไม่สำเร็จ"));
     }
   };
 
@@ -251,8 +251,8 @@ export default function StaffManagementPage() {
       setIsEditModalOpen(false);
       setEditingStaff(null);
       fetchStaff();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "แก้ไขข้อมูลไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "แก้ไขข้อมูลไม่สำเร็จ"));
     }
   };
 
@@ -295,8 +295,8 @@ export default function StaffManagementPage() {
         );
       case "boat_staff":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200">
-            <Ship size={13} className="text-teal-700" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-lagoon-50 text-lagoon-800 border border-lagoon-200">
+            <Ship size={13} className="text-lagoon-700" />
             จัดการเรือ
           </span>
         );
@@ -518,7 +518,7 @@ export default function StaffManagementPage() {
               </span>
             </div>
 
-            {/* 🔍 เพิ่มช่องค้นหา + กรองสถานะ */}
+            {/* เพิ่มช่องค้นหา + กรองสถานะ */}
             <div className="flex flex-col sm:flex-row items-center gap-2">
               {/* ช่องค้นหา ชื่อ / เบอร์ / อีเมล */}
               <div className="relative flex-1 w-full">

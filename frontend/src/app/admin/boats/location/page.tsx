@@ -22,7 +22,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import MapPickerModal from "@/components/admin/MapPickerModal";
@@ -263,14 +263,15 @@ export default function BoatLocationPage() {
         title: "บันทึกเรียบร้อยแล้ว!",
         message: "ระบบได้ทำการปรับปรุงข้อมูลจุดบริการเรือเรียบร้อยค่ะ",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStatusModal({
         isOpen: true,
         type: "error",
         title: "เกิดข้อผิดพลาด",
         message:
-          err.response?.data?.message ||
-          "ไม่สามารถบันทึกข้อมูลได้ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่อีกครั้งนะคะ",
+          getApiErrorMessage(
+            err,
+          "ไม่สามารถบันทึกข้อมูลได้ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่อีกครั้งนะคะ"),
       });
     } finally {
       setSaving(false);

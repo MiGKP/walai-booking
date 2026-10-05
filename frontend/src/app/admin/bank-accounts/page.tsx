@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Edit2, Trash2, X, Star, CreditCard } from 'lucide-react';
-import api from '@/lib/api';
+import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { notify } from "@/lib/admin-notify";
 import { toastConfirm } from '@/lib/toastConfirm';
@@ -81,8 +81,8 @@ export default function BankAccountsPage() {
       }
       setModalOpen(false);
       fetchAccounts();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || 'บันทึกไม่สำเร็จ');
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, 'บันทึกไม่สำเร็จ'));
     } finally {
       setSaving(false);
     }
@@ -131,16 +131,16 @@ export default function BankAccountsPage() {
         ) : (
           <div className="divide-y divide-gray-100">
             {accounts.map(acc => (
-              <div key={acc.bank_account_id} className={`p-5 flex items-start justify-between gap-4 ${acc.is_primary ? 'bg-teal-50/50' : ''}`}>
+              <div key={acc.bank_account_id} className={`p-5 flex items-start justify-between gap-4 ${acc.is_primary ? 'bg-lagoon-50/50' : ''}`}>
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center shrink-0">
-                    <CreditCard size={22} className="text-teal-600" />
+                  <div className="w-12 h-12 rounded-xl bg-lagoon-100 flex items-center justify-center shrink-0">
+                    <CreditCard size={22} className="text-lagoon-600" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <p className="font-bold text-gray-900">{acc.bank_name}</p>
                       {acc.is_primary && (
-                        <span className="flex items-center gap-1 text-xs bg-teal-100 text-teal-700 font-semibold px-2 py-0.5 rounded-full">
+                        <span className="flex items-center gap-1 text-xs bg-lagoon-100 text-lagoon-700 font-semibold px-2 py-0.5 rounded-full">
                           <Star size={11} fill="currentColor" /> หลัก
                         </span>
                       )}
@@ -195,7 +195,7 @@ export default function BankAccountsPage() {
             <input className="input-field font-mono" value={form.promptpay_id} onChange={e => setForm(f => ({ ...f, promptpay_id: e.target.value }))} placeholder="เบอร์หรือเลขบัตรประชาชน" />
           </div>
           <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" checked={form.is_primary} onChange={e => setForm(f => ({ ...f, is_primary: e.target.checked }))} className="w-4 h-4 accent-teal-600" />
+            <input type="checkbox" checked={form.is_primary} onChange={e => setForm(f => ({ ...f, is_primary: e.target.checked }))} className="w-4 h-4 accent-lagoon-600" />
             <span className="text-sm font-medium text-gray-700">ตั้งเป็นบัญชีหลัก</span>
           </label>
           <div className="flex gap-3 pt-2">

@@ -192,6 +192,15 @@ export const createKayakValidator = [
   body('description').optional({ nullable: true, checkFalsy: true }).trim(),
 ];
 
+export const updateKayakValidator = [
+  body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
+  body('capacity').optional().isInt({ min: 1, max: 10 }).withMessage('Capacity must be between 1 and 10'),
+  body('seat_count').optional().isInt({ min: 1, max: 10 }).withMessage('Capacity must be between 1 and 10'),
+  body('price_per_hour').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
+  body('price').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
+  body('quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
+];
+
 export const createBoatRoundValidator = [
   body('start_time').matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage('start_time must be in HH:MM format'),
   body('end_time').matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage('end_time must be in HH:MM format'),
@@ -244,6 +253,8 @@ export const createPromotionValidator = [
   body('stackable').optional().isBoolean().withMessage('stackable must be a boolean'),
   body('applies_to').optional().isIn(['room', 'kayak', 'both']).withMessage('applies_to must be room, kayak, or both'),
   body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
+  body('boat_ticket_count').optional({ nullable: true }).isInt({ min: 0 }).withMessage('boat_ticket_count must be 0 or more'),
+  body('boat_addon_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('boat_addon_price must be 0 or more'),
 ];
 
 export const updatePromotionValidator = [
@@ -263,6 +274,8 @@ export const updatePromotionValidator = [
   body('stackable').optional().isBoolean().withMessage('stackable must be a boolean'),
   body('applies_to').optional().isIn(['room', 'kayak', 'both']).withMessage('applies_to must be room, kayak, or both'),
   body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
+  body('boat_ticket_count').optional({ nullable: true }).isInt({ min: 0 }).withMessage('boat_ticket_count must be 0 or more'),
+  body('boat_addon_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('boat_addon_price must be 0 or more'),
 ];
 
 export const promotionIdParamValidator = [

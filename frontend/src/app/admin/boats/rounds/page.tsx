@@ -57,7 +57,7 @@ function boatTypeLabel(bt: BoatType): string {
 }
 
 // -------------------------------------------------------------
-// 🕒 CUSTOM TIME PICKER COMPONENT (เวลาไทย 24 ชม.)
+// CUSTOM TIME PICKER COMPONENT (เวลาไทย 24 ชม.)
 // -------------------------------------------------------------
 interface ThaiTimePickerProps {
   label: string;
@@ -507,7 +507,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
         }
       />
 
-      {/* 📥 FORM */}
+      {/* FORM */}
       <form
         ref={formRef}
         onSubmit={handleSubmitForm}
@@ -713,7 +713,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
         </div>
       </form>
 
-      {/* 📋 TABLE LIST */}
+      {/* TABLE LIST */}
       <Panel>
         <div className="p-4 bg-stone-50/80 border-b border-stone-200/80 flex items-center justify-between">
           <h3 className="font-bold text-stone-900 text-sm md:text-base flex items-center gap-2">

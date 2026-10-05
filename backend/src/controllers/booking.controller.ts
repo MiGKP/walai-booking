@@ -657,45 +657,24 @@ export const getUserRoomBookings = async (
                   JOIN promotions p ON p.id = brp.promotion_id
                   WHERE brp.room_booking_id = rb.room_booking_id
                 ) AS promotions,
-                (
-                  SELECT rt.room_name
-                  FROM booking_room br
-                  JOIN rooms r ON r.room_id = br.room_id
-                  JOIN room_types rt ON rt.id = r.room_type_id
-                  WHERE br.room_booking_id = rb.room_booking_id
-                  ORDER BY br.booking_room_id
-                  LIMIT 1
-                ) AS room_name,
-                (
-                  SELECT rt.type_name
-                  FROM booking_room br
-                  JOIN rooms r ON r.room_id = br.room_id
-                  JOIN room_types rt ON rt.id = r.room_type_id
-                  WHERE br.room_booking_id = rb.room_booking_id
-                  ORDER BY br.booking_room_id
-                  LIMIT 1
-                ) AS room_type,
-                (
-                  SELECT r.room_number
-                  FROM booking_room br
-                  JOIN rooms r ON r.room_id = br.room_id
-                  WHERE br.room_booking_id = rb.room_booking_id
-                  ORDER BY br.booking_room_id
-                  LIMIT 1
-                ) AS room_number,
+                first_room.room_name,
+                first_room.type_name AS room_type,
+                first_room.room_number,
                 (
                   SELECT json_agg(image_path)
                   FROM room_images ri
-                  WHERE ri.room_type_id = (
-                    SELECT r.room_type_id
-                    FROM booking_room br
-                    JOIN rooms r ON r.room_id = br.room_id
-                    WHERE br.room_booking_id = rb.room_booking_id
-                    ORDER BY br.booking_room_id
-                    LIMIT 1
-                  )
+                  WHERE ri.room_type_id = first_room.room_type_id
                 ) AS room_images, (SELECT COUNT(*) > 0 FROM member_boat_tickets mbt WHERE mbt.room_booking_id = rb.room_booking_id AND mbt.used_tickets < mbt.total_tickets) AS has_unused_boat_tickets
          FROM room_bookings rb
+         LEFT JOIN LATERAL (
+           SELECT rt.room_name, rt.type_name, r.room_number, r.room_type_id
+           FROM booking_room br
+           JOIN rooms r ON r.room_id = br.room_id
+           JOIN room_types rt ON rt.id = r.room_type_id
+           WHERE br.room_booking_id = rb.room_booking_id
+           ORDER BY br.booking_room_id
+           LIMIT 1
+         ) first_room ON true
          WHERE rb.member_id = $1
          ORDER BY rb.created_at DESC`,
         [user.id]

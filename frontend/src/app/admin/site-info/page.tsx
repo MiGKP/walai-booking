@@ -23,7 +23,7 @@ import {
   Trash2,
   Plus,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import MapPickerModal from "@/components/admin/MapPickerModal";
@@ -66,6 +66,7 @@ export default function GeneralSettingsPage() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
   
@@ -191,6 +192,8 @@ export default function GeneralSettingsPage() {
       })
       .catch((err) => {
         console.error("Error fetching settings:", err);
+        setLoadError(true);
+        setLoadError(true);
         notify.error("โหลดข้อมูลไม่สำเร็จ");
       })
       .finally(() => setLoading(false));
@@ -267,8 +270,8 @@ export default function GeneralSettingsPage() {
       });
       // เปิด Pop-up แจ้งเตือนสำเร็จ
       setIsSuccessOpen(true);
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "บันทึกข้อมูลไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "บันทึกข้อมูลไม่สำเร็จ"));
     } finally {
       setSaving(false);
     }
@@ -284,7 +287,7 @@ export default function GeneralSettingsPage() {
         actions={
           <button
             type="button"
-            disabled={saving || loading}
+            disabled={saving || loading || loadError}
             onClick={handleOpenConfirmModal}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#064e3b] hover:bg-[#04392b] text-white font-semibold text-xs rounded-xl transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50"
           >

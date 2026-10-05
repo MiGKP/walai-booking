@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { User, Mail, Phone, Save, Lock, MessageCircle, Facebook, CalendarDays, Camera, Eye, EyeOff, Star, Ticket } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { resolveAvatarUrl } from "@/lib/avatar";
@@ -95,7 +95,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const saved = localStorage.getItem("walai_dashboard_tab");
     if (saved) {
-      setActiveTab(saved as any);
+      setActiveTab(saved as "bookings" | "profile" | "security" | "reviews" | "coupons");
     }
   }, []);
 
@@ -137,8 +137,8 @@ export default function DashboardPage() {
       const res = await api.put("/auth/profile", profile);
       updateUser(res.data.data);
       toast.success("บันทึกโปรไฟล์สำเร็จ");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "บันทึกไม่สำเร็จ");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "บันทึกไม่สำเร็จ"));
     } finally {
       setSaving(false);
     }
@@ -175,8 +175,8 @@ export default function DashboardPage() {
       setAvatarLoadError(false);
       setAvatarPreview(resolveAvatarUrl(res.data.data.avatar));
       toast.success("อัปเดตรูปโปรไฟล์สำเร็จ");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "อัปโหลดรูปโปรไฟล์ไม่สำเร็จ");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "อัปโหลดรูปโปรไฟล์ไม่สำเร็จ"));
     } finally {
       setUploadingAvatar(false);
       e.target.value = "";
@@ -202,8 +202,8 @@ export default function DashboardPage() {
       });
       toast.success("เปลี่ยนรหัสผ่านสำเร็จ");
       setPasswords({ current_password: "", new_password: "", confirm: "" });
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "เปลี่ยนรหัสผ่านไม่สำเร็จ");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "เปลี่ยนรหัสผ่านไม่สำเร็จ"));
     } finally {
       setChangingPw(false);
     }
@@ -229,8 +229,8 @@ export default function DashboardPage() {
       setPasswords({ current_password: "", new_password: "", confirm: "" });
       // Update local user state to reflect they now have a password
       updateUser({ has_password: true });
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "ตั้งรหัสผ่านไม่สำเร็จ");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "ตั้งรหัสผ่านไม่สำเร็จ"));
     } finally {
       setChangingPw(false);
     }

@@ -270,6 +270,16 @@ function toTimeSql(value: unknown): string {
   return raw.includes("T") ? raw.split("T")[1].slice(0, 8) : raw;
 }
 
+// แปลงเวลารูปแบบ HH:MM หรือ HH:MM:SS เป็นนาทีนับจากเที่ยงคืน; คืน null ถ้ารูปแบบไม่ถูกต้อง
+function timeToMinutes(value: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(value.trim());
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
 // ดึงรายการประเภทเรือทั้งหมดที่เปิดใช้งานอยู่ พร้อมข้อมูลที่ frontend ใช้แสดง เช่น ความจุ ราคา และรูปหลัก
 export const getAllKayaks = async (
   req: Request,
@@ -2622,6 +2632,32 @@ export const updateBoatRound = async (
       updates.push(`boat_type_id = NULL`);
     }
 
+    if (body.start_time !== undefined || body.end_time !== undefined) {
+      const current = await client.query(
+        `SELECT start_time, end_time FROM boat_rounds WHERE boat_round_id = $1`,
+        [id],
+      );
+      if (current.rows.length === 0) {
+        await safeRollback(client);
+        res.status(404).json({ success: false, message: "Boat round not found" });
+        return;
+      }
+      const startSql = body.start_time !== undefined ? toTimeSql(body.start_time) : String(current.rows[0].start_time);
+      const endSql = body.end_time !== undefined ? toTimeSql(body.end_time) : String(current.rows[0].end_time);
+      const startMin = timeToMinutes(startSql);
+      const endMin = timeToMinutes(endSql);
+      if (startMin === null || endMin === null) {
+        await safeRollback(client);
+        res.status(400).json({ success: false, message: "รูปแบบเวลาไม่ถูกต้อง" });
+        return;
+      }
+      if (startMin >= endMin) {
+        await safeRollback(client);
+        res.status(400).json({ success: false, message: "เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด" });
+        return;
+      }
+    }
+
     if (updates.length > 0) {
       values.push(id);
       const query = `
@@ -2637,7 +2673,6 @@ export const updateBoatRound = async (
       }
     }
 
-    if (hasBoatsPayload) {
     if (hasBoatsPayload) {
       const newQuota = new Map<number, number>(boats.map((b) => [b.boat_type_id, Number(b.quantity)]));
       const existingRes = await client.query(
@@ -2665,7 +2700,6 @@ export const updateBoatRound = async (
           return;
         }
       }
-    }
       await replaceRoundBoats(client, Number(id), boats);
     }
 

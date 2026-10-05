@@ -11,7 +11,7 @@ import {
   ToggleRight,
   Save,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import {
@@ -101,8 +101,8 @@ export default function AmenitiesPage() {
       handleResetForm();
       setIsFormModalOpen(false);
       fetchAmenities();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "ทำรายการไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "ทำรายการไม่สำเร็จ"));
     } finally {
       setSubmitting(false);
     }
@@ -122,9 +122,9 @@ export default function AmenitiesPage() {
       notify.success(
         `เปลี่ยนสถานะเป็น ${newStatus ? "เปิด" : "ปิด"} ใช้งานเรียบร้อย`,
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Toggle error:", err);
-      notify.error(err.response?.data?.message || "ไม่สามารถเปลี่ยนสถานะได้");
+      notify.error(getApiErrorMessage(err, "ไม่สามารถเปลี่ยนสถานะได้"));
       fetchAmenities();
     }
   };
@@ -136,8 +136,8 @@ export default function AmenitiesPage() {
       notify.success("ลบสิ่งอำนวยความสะดวกเรียบร้อยแล้ว");
       setDeleteTarget(null);
       fetchAmenities();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "ลบไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "ลบไม่สำเร็จ"));
     }
   };
 

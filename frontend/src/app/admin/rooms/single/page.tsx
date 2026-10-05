@@ -27,7 +27,7 @@ import {
   Minus,
   X,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import Link from "next/link";
@@ -309,8 +309,8 @@ function SingleRoomsPageContent() {
       notify.success(`บันทึกห้องพักทั้งหมด ${draftRooms.length} ห้อง สำเร็จ`);
       handleResetForm();
       fetchData();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "บันทึกไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "บันทึกไม่สำเร็จ"));
     } finally {
       setSubmitting(false);
     }
@@ -355,8 +355,8 @@ function SingleRoomsPageContent() {
         notify.success("แก้ไขห้องพักสำเร็จ");
         handleResetForm();
         fetchData();
-      } catch (err: any) {
-        notify.error(err.response?.data?.message || "ทำรายการไม่สำเร็จ");
+      } catch (err: unknown) {
+        notify.error(getApiErrorMessage(err, "ทำรายการไม่สำเร็จ"));
       } finally {
         setSubmitting(false);
       }
@@ -372,8 +372,8 @@ function SingleRoomsPageContent() {
       notify.success("ลบห้องพักสำเร็จ");
       setDeleteTarget(null);
       fetchData();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "ลบไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "ลบไม่สำเร็จ"));
     }
   };
 

@@ -128,10 +128,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const member = result.rows[0];
-    if (member.is_active === false) {
-      res.status(401).json({ success: false, message: 'Account is disabled' });
-      return;
-    }
     if (!member.password) {
       res.status(401).json({ success: false, message: 'Please login with Google' });
       return;
@@ -140,6 +136,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const isValid = await bcrypt.compare(password, member.password);
     if (!isValid) {
       res.status(401).json({ success: false, message: 'Invalid email or password' });
+      return;
+    }
+
+    // ตรวจสถานะบัญชีหลังยืนยันรหัสผ่านแล้วเท่านั้น เพื่อไม่เปิดเผยว่าอีเมลนี้มีอยู่ในระบบ
+    if (member.is_active === false) {
+      res.status(401).json({ success: false, message: 'บัญชีนี้ถูกปิดการใช้งาน กรุณาติดต่อเจ้าหน้าที่' });
       return;
     }
 

@@ -23,6 +23,7 @@ export default function PoliciesSettingsPage() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function PoliciesSettingsPage() {
   const fetchPolicies = async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const { data } = await api.get("/settings/resort");
       const info = pickResortInfo(data.data, "room"); // 4 is room
       if (info) {
@@ -48,6 +50,7 @@ export default function PoliciesSettingsPage() {
       }
     } catch (error) {
       console.error("Failed to load policies", error);
+      setLoadError(true);
       notify.error("ไม่สามารถโหลดข้อมูลนโยบายได้");
     } finally {
       setLoading(false);
@@ -91,7 +94,7 @@ export default function PoliciesSettingsPage() {
         actions={
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || loading || loadError}
             className="flex items-center gap-2 rounded-xl bg-forest-700 px-5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-forest-800 active:scale-95 disabled:opacity-70 cursor-pointer"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}

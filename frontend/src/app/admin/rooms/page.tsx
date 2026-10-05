@@ -32,7 +32,8 @@ import {
   Printer,
   Moon,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
+import { toISODate } from "@/lib/date";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useAuth } from "@/hooks/useAuth";
@@ -76,19 +77,19 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string }> =
       dot: "bg-amber-500",
     },
     paid: {
-      bg: "bg-blue-500/10 border-blue-200/80 text-blue-700",
+      bg: "bg-lagoon-500/10 border-lagoon-200/80 text-lagoon-700",
       text: "รอตรวจสอบสลิป",
-      dot: "bg-blue-500",
+      dot: "bg-lagoon-500",
     },
     approved: {
-      bg: "bg-indigo-500/10 border-indigo-200/80 text-indigo-700",
+      bg: "bg-lagoon-500/10 border-lagoon-200/80 text-lagoon-700",
       text: "อนุมัติแล้ว (รอเช็คเอาต์)",
-      dot: "bg-indigo-500",
+      dot: "bg-lagoon-500",
     },
     checked_out: {
-      bg: "bg-slate-500/10 border-slate-200/80 text-slate-600",
+      bg: "bg-charcoal-500/10 border-charcoal-200/80 text-charcoal-600",
       text: "เช็คเอาต์เรียบร้อย",
-      dot: "bg-slate-400",
+      dot: "bg-charcoal-400",
     },
     cancelled: {
       bg: "bg-stone-500/10 border-stone-200/80 text-stone-600",
@@ -289,7 +290,7 @@ function CustomDatePicker({
           <div className="flex items-center justify-between pt-2 mt-2 border-t border-stone-100 text-xs">
             <button
               onClick={() => {
-                const today = new Date().toISOString().split("T")[0];
+                const today = toISODate(new Date());
                 onChange(today);
                 setIsOpen(false);
               }}
@@ -617,8 +618,8 @@ function RoomStaffDashboardContent() {
             prev.map((b) => (b.id === id ? { ...b, status: "approved" } : b)),
           );
           fetchBookings();
-        } catch (err: any) {
-          toast.error(err.response?.data?.message || "ทำรายการไม่สำเร็จ");
+        } catch (err: unknown) {
+          toast.error(getApiErrorMessage(err, "ทำรายการไม่สำเร็จ"));
         }
       },
     );
@@ -661,8 +662,8 @@ function RoomStaffDashboardContent() {
         customReason: "",
       });
       fetchBookings();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "ปฏิเสธการจองไม่สำเร็จ");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "ปฏิเสธการจองไม่สำเร็จ"));
     }
   };
 
@@ -1272,7 +1273,7 @@ function RoomStaffDashboardContent() {
                                 name: b.user_name || "slip",
                               })
                             }
-                            className="inline-flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50/80 hover:bg-blue-100 border border-blue-200/80 px-3 py-1.5 rounded-xl font-semibold transition-all active:scale-95 shadow-2xs"
+                            className="inline-flex items-center gap-1.5 text-xs text-lagoon-700 bg-lagoon-50/80 hover:bg-lagoon-100 border border-lagoon-200/80 px-3 py-1.5 rounded-xl font-semibold transition-all active:scale-95 shadow-2xs"
                           >
                             <Eye size={13} />
                             <span>ดูสลิป</span>
@@ -1297,7 +1298,7 @@ function RoomStaffDashboardContent() {
                           </button>
 
                           {b.status === "checked_out" ? (
-                            <span className="text-xs text-teal-700 font-semibold bg-teal-50 border border-teal-200/80 px-3 py-1 rounded-xl inline-block">
+                            <span className="text-xs text-lagoon-700 font-semibold bg-lagoon-50 border border-lagoon-200/80 px-3 py-1 rounded-xl inline-block">
                               เช็คเอาต์แล้ว
                             </span>
                           ) : b.status === "approved" ? (
@@ -1307,7 +1308,7 @@ function RoomStaffDashboardContent() {
                                 const checkedInCount = lines.filter((l) => l.status === "checked_in").length;
                                 const total = lines.length || 1;
                                 return (
-                                  <span className="text-xs text-indigo-700 font-semibold bg-indigo-50 border border-indigo-200/80 px-3 py-1 rounded-xl inline-block">
+                                  <span className="text-xs text-lagoon-700 font-semibold bg-lagoon-50 border border-lagoon-200/80 px-3 py-1 rounded-xl inline-block">
                                     เช็คอินแล้ว {checkedInCount}/{total} ห้อง
                                   </span>
                                 );

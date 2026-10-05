@@ -92,7 +92,7 @@ const defaultForm = {
   boat_addon_price: "",
 };
 
-// 🌟 Component Custom Dropdown
+// Component Custom Dropdown
 function CustomSelect({
   options,
   value,
@@ -205,7 +205,7 @@ export default function PromotionsPage() {
   const [form, setForm] = useState(defaultForm);
   const [saving, setSaving] = useState(false);
 
-  // 🌟 State สำหรับ ป๊อบอัพยืนยันการลบ
+  // State สำหรับ ป๊อบอัพยืนยันการลบ
   const [deletingPromotion, setDeletingPromotion] = useState<Promotion | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [redemptionPromo, setRedemptionPromo] = useState<Promotion | null>(null);
@@ -380,7 +380,7 @@ export default function PromotionsPage() {
     }
   };
 
-  // 🌟 ฟังก์ชันกดยืนยันลบจริง
+  // ฟังก์ชันกดยืนยันลบจริง
   const confirmDelete = async () => {
     if (!deletingPromotion) return;
     setDeleting(true);
@@ -390,8 +390,7 @@ export default function PromotionsPage() {
       fetchPromotions();
       setDeletingPromotion(null);
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      notify.error(error.response?.data?.message || "ลบไม่สำเร็จ");
+      notify.error(getApiErrorMessage(err, "ลบไม่สำเร็จ"));
     } finally {
       setDeleting(false);
     }
@@ -422,7 +421,7 @@ export default function PromotionsPage() {
         } 
       />
 
-      {/* 🌟 Stats Cards (4 Columns) */}
+      {/* Stats Cards (4 Columns) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div className="bg-white border border-stone-200/80 rounded-2xl p-5 shadow-2xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
@@ -614,8 +613,8 @@ export default function PromotionsPage() {
                             </span>
                           </div>
                           {Boolean(p.boat_ticket_count) && (
-                            <div className="flex items-center gap-1 text-sky-700 font-semibold">
-                              <Ship size={13} className="text-sky-600" />
+                            <div className="flex items-center gap-1 text-lagoon-700 font-semibold">
+                              <Ship size={13} className="text-lagoon-600" />
                               <span>
                                 บัตรเสริมเรือ {p.boat_ticket_count} ครั้ง/ห้อง
                                 {p.boat_addon_mode === "paid"
@@ -1247,7 +1246,7 @@ export default function PromotionsPage() {
             </form>
       </Modal>
 
-      {/* 🌟 Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal */}
       <Modal 
         open={!!deletingPromotion} 
         title="ยืนยันการลบโปรโมชั่น" 

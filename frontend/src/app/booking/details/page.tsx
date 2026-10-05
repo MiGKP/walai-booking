@@ -223,7 +223,7 @@ function BookingDetailsContent() {
         return;
       }
       router.push(`/payment?booking_type=room&booking_id=${bId}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'เกิดข้อผิดพลาดในการสร้างการจอง'));
       setIsSubmitting(false);
     }

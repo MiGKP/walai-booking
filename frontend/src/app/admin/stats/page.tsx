@@ -16,6 +16,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import api from '@/lib/api';
+import { toISODate } from '@/lib/date';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { notify } from '@/lib/admin-notify';
 import { PageHeader, StatCard, Panel, Skeleton, StatusBadge } from '@/components/admin/ui';
@@ -152,7 +153,7 @@ function SideBreakdown({
 export default function StatsPage() {
   const { ready, user } = useAuthGuard({ allowedRoles: ['admin', 'room_staff', 'boat_staff'] });
   const [period, setPeriod] = useState<'day' | 'month'>('month');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(toISODate(new Date()));
   const [month, setMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [data, setData] = useState<any>(null);
@@ -235,7 +236,7 @@ export default function StatsPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `stats_report_${period}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `stats_report_${period}_${toISODate(new Date())}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

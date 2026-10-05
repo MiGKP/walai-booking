@@ -42,7 +42,8 @@ import {
   BookingStatusBadge,
   EmptyState,
 } from "@/components/admin/ui";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
+import { toISODate } from "@/lib/date";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
@@ -70,24 +71,24 @@ const statusLabel: Record<string, string> = {
 const statusConfig: Record<string, { bg: string; text: string; dot: string }> =
   {
     pending: {
-      bg: "bg-cyan-900/10 border-cyan-900/80 text-cyan-900",
+      bg: "bg-lagoon-900/10 border-lagoon-900/80 text-lagoon-900",
       text: "รอดำเนินการ",
       dot: "bg-amber-500",
     },
     paid: {
-      bg: "bg-blue-500/10 border-blue-200/80 text-blue-700",
+      bg: "bg-lagoon-500/10 border-lagoon-200/80 text-lagoon-700",
       text: "รอตรวจสอบสลิป",
-      dot: "bg-blue-500",
+      dot: "bg-lagoon-500",
     },
     approved: {
-      bg: "bg-indigo-500/10 border-indigo-200/80 text-indigo-700",
+      bg: "bg-lagoon-500/10 border-lagoon-200/80 text-lagoon-700",
       text: "อนุมัติแล้ว (รอลงเรือ)",
-      dot: "bg-indigo-500",
+      dot: "bg-lagoon-500",
     },
     checked_out: {
-      bg: "bg-slate-500/10 border-slate-200/80 text-slate-600",
+      bg: "bg-charcoal-500/10 border-charcoal-200/80 text-charcoal-600",
       text: "คืนเรือเรียบร้อย",
-      dot: "bg-slate-400",
+      dot: "bg-charcoal-400",
     },
     cancelled: {
       bg: "bg-stone-500/10 border-stone-200/80 text-stone-600",
@@ -197,7 +198,7 @@ function CustomDatePicker({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-lg border border-stone-200 hover:border-stone-300 text-xs font-mono text-stone-700 transition-all shadow-2xs focus:outline-none focus:ring-2 focus:ring-cyan-700/20"
+        className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-lg border border-stone-200 hover:border-stone-300 text-xs font-mono text-stone-700 transition-all shadow-2xs focus:outline-none focus:ring-2 focus:ring-lagoon-700/20"
       >
         <span>
           {value
@@ -269,9 +270,9 @@ function CustomDatePicker({
                   onClick={() => handleSelectDay(day)}
                   className={`h-7 w-7 rounded-xl text-xs font-medium flex items-center justify-center transition-all ${
                     selected
-                      ? "bg-cyan-800 text-white font-bold shadow-xs scale-105"
+                      ? "bg-lagoon-800 text-white font-bold shadow-xs scale-105"
                       : today
-                        ? "bg-cyan-100 text-cyan-900 font-bold border border-cyan-300"
+                        ? "bg-lagoon-100 text-lagoon-900 font-bold border border-lagoon-300"
                         : "text-stone-700 hover:bg-stone-100"
                   }`}
                 >
@@ -285,11 +286,11 @@ function CustomDatePicker({
             <button
               type="button"
               onClick={() => {
-                const today = new Date().toISOString().split("T")[0];
+                const today = toISODate(new Date());
                 onChange(today);
                 setIsOpen(false);
               }}
-              className="text-cyan-800 font-bold hover:underline"
+              className="text-lagoon-800 font-bold hover:underline"
             >
               วันนี้
             </button>
@@ -352,7 +353,7 @@ function CustomSelect({
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-700/20 shadow-2xs"
+        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 transition-all focus:outline-none focus:ring-2 focus:ring-lagoon-700/20 shadow-2xs"
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
@@ -360,7 +361,7 @@ function CustomSelect({
         <ChevronDown
           size={14}
           className={`text-stone-400 transition-transform duration-200 ${
-            isOpen ? "rotate-180 text-cyan-800" : ""
+            isOpen ? "rotate-180 text-lagoon-800" : ""
           }`}
         />
       </button>
@@ -381,13 +382,13 @@ function CustomSelect({
                 }}
                 className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors flex items-center justify-between ${
                   isSelected
-                    ? "bg-cyan-50 text-cyan-900 font-bold"
+                    ? "bg-lagoon-50 text-lagoon-900 font-bold"
                     : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
                 }`}
               >
                 <span>{opt.label}</span>
                 {isSelected && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-800" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-lagoon-800" />
                 )}
               </button>
             );
@@ -448,7 +449,7 @@ function BoatStaffDashboardContent() {
     text: "",
     icon: "question",
     confirmText: "ยืนยัน",
-    confirmColor: "bg-cyan-800",
+    confirmColor: "bg-lagoon-800",
     onConfirm: () => {},
   });
 
@@ -522,8 +523,8 @@ function BoatStaffDashboardContent() {
     try {
       const res = await api.get("/kayaks/bookings/all");
       setBookings(res.data?.data || []);
-    } catch (error: any) {
-      console.error("Fetch bookings error:", error?.response?.data || error);
+    } catch (error: unknown) {
+      console.error("Fetch bookings error:", error);
       notify.error("ไม่สามารถโหลดข้อมูลการจองได้");
     } finally {
       setLoading(false);
@@ -561,7 +562,7 @@ function BoatStaffDashboardContent() {
       "เมื่ออนุมัติแล้ว สถานะจะเปลี่ยนเป็น 'อนุมัติแล้ว (รอลงเรือ)'",
       "question",
       "อนุมัติการจอง",
-      "bg-cyan-800",
+      "bg-lagoon-800",
       async () => {
         try {
           await api.put(`/kayaks/bookings/${id}/status`, {
@@ -576,8 +577,8 @@ function BoatStaffDashboardContent() {
             ),
           );
           fetchBookings();
-        } catch (err: any) {
-          notify.error(err.response?.data?.message || "ทำรายการไม่สำเร็จ");
+        } catch (err: unknown) {
+          notify.error(getApiErrorMessage(err, "ทำรายการไม่สำเร็จ"));
         }
       },
     );
@@ -619,8 +620,8 @@ function BoatStaffDashboardContent() {
         customReason: "",
       });
       fetchBookings();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "ปฏิเสธการจองไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "ปฏิเสธการจองไม่สำเร็จ"));
     }
   };
 
@@ -631,7 +632,7 @@ function BoatStaffDashboardContent() {
       "เมื่อยืนยัน สถานะจะเปลี่ยนเป็น 'คืนเรือแล้ว'",
       "warning",
       "ยืนยัน Check-out",
-      "bg-teal-700",
+      "bg-lagoon-700",
       async () => {
         try {
           await api.put(`/kayaks/bookings/${id}/checkout`);
@@ -648,8 +649,8 @@ function BoatStaffDashboardContent() {
             ),
           );
           fetchBookings();
-        } catch (err: any) {
-          notify.error(err.response?.data?.message || "เช็คเอาต์ไม่สำเร็จ");
+        } catch (err: unknown) {
+          notify.error(getApiErrorMessage(err, "เช็คเอาต์ไม่สำเร็จ"));
         }
       },
     );
@@ -730,13 +731,13 @@ function BoatStaffDashboardContent() {
       list = list.filter(
         (b) =>
           b.booking_date &&
-          new Date(b.booking_date).toISOString().split("T")[0] >= dateFrom,
+          toISODate(new Date(b.booking_date)) >= dateFrom,
       );
     if (dateTo)
       list = list.filter(
         (b) =>
           b.booking_date &&
-          new Date(b.booking_date).toISOString().split("T")[0] <= dateTo,
+          toISODate(new Date(b.booking_date)) <= dateTo,
       );
 
     if (searchParam.trim()) {
@@ -870,7 +871,7 @@ function BoatStaffDashboardContent() {
                 onClick={() => handleFilterChange(val as FilterType)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
                   active
-                    ? "bg-cyan-800 text-white shadow-xs"
+                    ? "bg-lagoon-800 text-white shadow-xs"
                     : "bg-stone-100/80 text-stone-600 hover:bg-stone-200/70"
                 }`}
               >
@@ -901,7 +902,7 @@ function BoatStaffDashboardContent() {
                 placeholder="ค้นหาชื่อ, เบอร์โทร, ประเภทเรือ, ID..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full bg-stone-50 pl-9 pr-8 py-1.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-cyan-700/20 text-xs font-medium text-stone-800 placeholder:text-stone-400 transition-all"
+                className="w-full bg-stone-50 pl-9 pr-8 py-1.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-lagoon-700/20 text-xs font-medium text-stone-800 placeholder:text-stone-400 transition-all"
               />
               {searchInput && (
                 <button
@@ -932,7 +933,7 @@ function BoatStaffDashboardContent() {
             </div>
 
             <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
-              <CalendarDays size={15} className="text-cyan-800" />
+              <CalendarDays size={15} className="text-lagoon-800" />
               <span className="font-medium text-stone-500 whitespace-nowrap">
                 วันที่จอง:
               </span>
@@ -989,7 +990,7 @@ function BoatStaffDashboardContent() {
                     <div className="flex flex-col items-center justify-center gap-3">
                       <RefreshCw
                         size={28}
-                        className="animate-spin text-cyan-800"
+                        className="animate-spin text-lagoon-800"
                       />
                       <span className="text-xs font-medium text-stone-500">
                         กำลังโหลดข้อมูลรายการจอง...
@@ -1102,7 +1103,7 @@ function BoatStaffDashboardContent() {
                         </div>
                       </td>
 
-                      <td className="px-5 py-4 font-bold text-cyan-900 font-mono text-sm whitespace-nowrap">
+                      <td className="px-5 py-4 font-bold text-lagoon-900 font-mono text-sm whitespace-nowrap">
                         ฿{Number(b.total_price || 0).toLocaleString()}
                       </td>
 
@@ -1130,7 +1131,7 @@ function BoatStaffDashboardContent() {
                                 name: b.user_name || "slip",
                               })
                             }
-                            className="inline-flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50/80 hover:bg-blue-100 border border-blue-200/80 px-3 py-1.5 rounded-xl font-semibold transition-all active:scale-95 shadow-2xs"
+                            className="inline-flex items-center gap-1.5 text-xs text-lagoon-700 bg-lagoon-50/80 hover:bg-lagoon-100 border border-lagoon-200/80 px-3 py-1.5 rounded-xl font-semibold transition-all active:scale-95 shadow-2xs"
                           >
                             <Eye size={13} />
                             <span>ดูสลิป</span>
@@ -1155,13 +1156,13 @@ function BoatStaffDashboardContent() {
                           </button>
 
                           {b.status === "checked_out" ? (
-                            <span className="text-xs text-teal-700 font-semibold bg-teal-50 border border-teal-200/80 px-3 py-1 rounded-xl inline-block">
+                            <span className="text-xs text-lagoon-700 font-semibold bg-lagoon-50 border border-lagoon-200/80 px-3 py-1 rounded-xl inline-block">
                               เช็คเอาต์แล้ว
                             </span>
                           ) : b.status === "approved" ? (
                             <button
                               onClick={() => handleCheckout(bookingId)}
-                              className="inline-flex items-center gap-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
+                              className="inline-flex items-center gap-1.5 text-xs bg-lagoon-600 hover:bg-lagoon-700 text-white font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
                             >
                               <LogOut size={13} />
                               <span>Check-out</span>
@@ -1178,7 +1179,7 @@ function BoatStaffDashboardContent() {
                             <>
                               <button
                                 onClick={() => handleApprove(bookingId)}
-                                className="inline-flex items-center gap-1 text-xs bg-cyan-700 hover:bg-cyan-800 text-white font-semibold px-3 py-1.5 rounded-xl transition-all shadow-xs active:scale-95"
+                                className="inline-flex items-center gap-1 text-xs bg-lagoon-700 hover:bg-lagoon-800 text-white font-semibold px-3 py-1.5 rounded-xl transition-all shadow-xs active:scale-95"
                               >
                                 <span>อนุมัติ</span>
                               </button>
@@ -1253,7 +1254,7 @@ function BoatStaffDashboardContent() {
                     onClick={() => handlePageChange(page)}
                     className={`px-3 py-1 rounded-lg text-xs font-semibold font-mono transition-all ${
                       currentPage === page
-                        ? "bg-cyan-800 text-white shadow-2xs"
+                        ? "bg-lagoon-800 text-white shadow-2xs"
                         : "bg-white text-stone-600 border border-stone-200 hover:bg-stone-50"
                     }`}
                   >

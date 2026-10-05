@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { X, Check } from 'lucide-react';
 
-// 🌟 Import ตัวแผนที่แบบ Dynamic และปิด SSR (ป้องกัน window is not defined)
+// Import ตัวแผนที่แบบ Dynamic และปิด SSR (ป้องกัน window is not defined)
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
   loading: () => (

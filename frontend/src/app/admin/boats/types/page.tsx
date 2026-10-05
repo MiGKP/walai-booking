@@ -22,7 +22,7 @@ import {
   Compass,
   CheckCircle2,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
@@ -242,8 +242,8 @@ export default function BoatTypesPage() {
       resetCreateForm();
       setShowCreateModal(false);
       fetchData();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "สร้างประเภทเรือไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "สร้างประเภทเรือไม่สำเร็จ"));
     } finally {
       setSubmitting(false);
     }
@@ -259,8 +259,8 @@ export default function BoatTypesPage() {
       await api.delete(`/kayaks/${deleteTargetId}`);
       notify.success("ลบประเภทเรือสำเร็จ");
       fetchData();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "ลบไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "ลบไม่สำเร็จ"));
     } finally {
       setDeleteTargetId(null);
     }
@@ -371,8 +371,8 @@ export default function BoatTypesPage() {
       setEditGalleryFiles([]);
       setEditGalleryPreviews([]);
       fetchData();
-    } catch (err: any) {
-      notify.error(err.response?.data?.message || "แก้ไขไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "แก้ไขไม่สำเร็จ"));
     } finally {
       setEditUploading(false);
     }
@@ -574,7 +574,7 @@ export default function BoatTypesPage() {
         </div>
       </Panel>
 
-      {/* 🟢 MODAL: Create Boat Type */}
+      {/* MODAL: Create Boat Type */}
       <Modal
         open={showCreateModal}
         title="เพิ่มประเภทเรือใหม่"
@@ -893,7 +893,7 @@ export default function BoatTypesPage() {
         </form>
       </Modal>
 
-      {/* 🟡 MODAL: Edit Boat Type */}
+      {/* MODAL: Edit Boat Type */}
       <Modal
         open={showEditModal && !!editingBoat}
         title="แก้ไขประเภทเรือ"
@@ -1263,7 +1263,7 @@ export default function BoatTypesPage() {
         </form>
       </Modal>
 
-      {/* 🔴 MODAL: Confirm Delete */}
+      {/* MODAL: Confirm Delete */}
       <Modal
         open={!!deleteTargetId}
         title="ยืนยันการลบประเภทเรือ"
@@ -1297,7 +1297,7 @@ export default function BoatTypesPage() {
         </div>
       </Modal>
 
-      {/* 🔍 MODAL: Lightbox Viewer */}
+      {/* MODAL: Lightbox Viewer */}
       <Modal
         open={!!lightboxImage}
         title={lightboxImage?.title || ""}

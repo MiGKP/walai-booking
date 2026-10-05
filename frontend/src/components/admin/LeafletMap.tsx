@@ -17,7 +17,7 @@ const customIcon = new L.Icon({
 const PRESET_LOCATIONS = [
   {
     name: 'สถาบันฯ (สถานีบ้านเกิ้ง)',
-    coords: [16.219313, 103.329219] as [number, number], // 📍 689H+RM8
+    coords: [16.219313, 103.329219] as [number, number], // 689H+RM8
   },
   {
     name: 'สถาบันฯ (สถานีนาดูน)',
@@ -118,7 +118,7 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
 
   return (
     <div className="relative w-full h-full">
-      {/* 🔍 ส่วนค้นหาและปุ่มลัดสถานที่สำคัญ */}
+      {/* ส่วนค้นหาและปุ่มลัดสถานที่สำคัญ */}
       <div className="absolute top-3 left-3 right-3 z-[1000] flex flex-col gap-2 max-w-lg mx-auto">
         
         {/* ช่องค้นหา + ปุ่ม GPS */}
@@ -157,7 +157,7 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
           </button>
         </div>
 
-        {/* 🌟 ปุ่มลัดตำแหน่งที่ใช้บ่อย (Quick Preset Buttons) */}
+        {/* ปุ่มลัดตำแหน่งที่ใช้บ่อย (Quick Preset Buttons) */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           <span className="text-xs font-semibold text-stone-600 bg-white/90 px-2 py-1 rounded-lg border border-stone-200 shrink-0 shadow-2xs">
             ทางลัด:

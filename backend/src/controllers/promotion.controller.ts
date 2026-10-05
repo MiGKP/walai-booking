@@ -97,6 +97,13 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
     }
 
     const catalog = await loadPromosForApply(pool, ids);
+    if (catalog.some((promo) => !promo.is_active)) {
+      res.status(400).json({
+        success: false,
+        message: 'โปรโมชั่นนี้ปิดใช้งานแล้ว',
+      });
+      return;
+    }
     const user = (req as AuthRequest).user;
     const memberId = user?.role === 'customer' ? user.id : 0;
     const ctxExtra =
