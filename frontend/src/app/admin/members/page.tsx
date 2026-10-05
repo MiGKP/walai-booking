@@ -201,7 +201,7 @@ export default function AdminMembersPage() {
               <Users size={16} />
               <span className="font-semibold">ทั้งหมด {totalMembers}</span>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-forest-50 text-forest-700 rounded-lg border border-forest-100">
               <UserCheck size={16} />
               <span className="font-semibold">ใช้งานอยู่ {activeMembers}</span>
             </div>
@@ -257,11 +257,11 @@ export default function AdminMembersPage() {
               onClick={() => setStatusFilter("active")}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
                 statusFilter === "active"
-                  ? "bg-white text-emerald-700 shadow-sm"
-                  : "text-charcoal-500 hover:text-emerald-700"
+                  ? "bg-white text-forest-700 shadow-sm"
+                  : "text-charcoal-500 hover:text-forest-700"
               }`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="w-1.5 h-1.5 rounded-full bg-forest-500" />
               ใช้งาน
             </button>
             <button
@@ -361,7 +361,7 @@ export default function AdminMembersPage() {
                         </div>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                        <span className="inline-flex items-center gap-1 font-semibold text-forest-700 bg-forest-50 px-2 py-0.5 rounded-md border border-forest-100">
                           <Hotel size={12} />
                           {m.room_booking_count ?? 0}
                         </span>
@@ -388,13 +388,13 @@ export default function AdminMembersPage() {
                         <span
                           className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
                             isActive
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              ? "bg-forest-50 text-forest-700 border border-forest-200"
                               : "bg-rose-50 text-rose-700 border border-rose-200"
                           }`}
                         >
                           <span
                             className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                              isActive ? "bg-emerald-500" : "bg-rose-500"
+                              isActive ? "bg-forest-500" : "bg-rose-500"
                             }`}
                           />
                           {isActive ? "ใช้งานอยู่" : "ถูกปิดใช้งาน"}
@@ -580,7 +580,7 @@ export default function AdminMembersPage() {
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1.5 text-emerald-600">
+                  <div className="flex items-center gap-1.5 text-forest-600">
                     <MessageCircle size={14} />
                     <span className="text-xs text-charcoal-500">Line</span>
                   </div>
@@ -605,13 +605,13 @@ export default function AdminMembersPage() {
                 ประวัติการจอง
               </h4>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="flex items-center gap-3 rounded-xl bg-emerald-50/50 p-4 border border-emerald-100">
-                  <div className="rounded-lg bg-emerald-100 p-2 text-emerald-700">
+                <div className="flex items-center gap-3 rounded-xl bg-forest-50/50 p-4 border border-forest-100">
+                  <div className="rounded-lg bg-forest-100 p-2 text-forest-700">
                     <Hotel size={20} />
                   </div>
                   <div>
-                    <p className="text-xs text-emerald-700/70">ห้องพัก</p>
-                    <p className="text-lg font-bold text-emerald-800">
+                    <p className="text-xs text-forest-700/70">ห้องพัก</p>
+                    <p className="text-lg font-bold text-forest-800">
                       {detailModal.data.room_booking_count ?? 0} <span className="text-sm font-normal">ครั้ง</span>
                     </p>
                   </div>

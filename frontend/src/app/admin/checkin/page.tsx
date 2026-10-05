@@ -308,7 +308,7 @@ function AdminCheckinContent() {
       title: `ยืนยันเช็คเอาต์ห้อง #${line.room_number}?`,
       text: `${line.user_name || "ลูกค้า"} — ${line.room_name} — คืนสถานะห้องนี้เป็นว่าง`,
       confirmText: "เช็คเอาต์",
-      confirmColor: "bg-emerald-700",
+      confirmColor: "bg-forest-700",
       onConfirm: async () => {
         try {
           await api.put(`/bookings/booking-rooms/${line.booking_room_id}/checkout`);
@@ -673,7 +673,7 @@ function AdminCheckinContent() {
                     </div>
                     <button
                       onClick={() => handleCheckout(line)}
-                      className="inline-flex items-center gap-1.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3.5 py-2 rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
+                      className="inline-flex items-center gap-1.5 text-xs bg-forest-700 hover:bg-forest-800 text-white font-semibold px-3.5 py-2 rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
                     >
                       <LogOut size={13} />
                       <span>เช็คเอาต์</span>

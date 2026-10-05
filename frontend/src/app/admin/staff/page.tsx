@@ -93,7 +93,7 @@ function CustomSelect({
                 }}
                 className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors flex items-center justify-between ${
                   isSelected
-                    ? "bg-emerald-50 text-emerald-900 font-bold"
+                    ? "bg-forest-50 text-forest-900 font-bold"
                     : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
                 }`}
               >
@@ -288,8 +288,8 @@ export default function StaffManagementPage() {
         );
       case "room_staff":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-            <Home size={13} className="text-emerald-700" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-forest-50 text-forest-800 border border-forest-200">
+            <Home size={13} className="text-forest-700" />
             จัดการห้องพัก
           </span>
         );
@@ -339,13 +339,13 @@ export default function StaffManagementPage() {
         <Panel className="lg:col-span-5 !p-0 overflow-hidden flex flex-col">
           <div className="p-4 bg-[#0b3b2c] text-white flex items-center gap-3">
             <div className="p-2 bg-white/10 rounded-lg">
-              <UserPlus size={18} className="text-emerald-200" />
+              <UserPlus size={18} className="text-forest-200" />
             </div>
             <div>
               <h2 className="text-base font-semibold tracking-wide">
                 เพิ่มพนักงานใหม่
               </h2>{" "}
-              <p className="text-xs text-emerald-100/80">
+              <p className="text-xs text-forest-100/80">
                 กรอกข้อมูลเพื่อสร้างบัญชีผู้ใช้งานใหม่
               </p>
             </div>
@@ -562,11 +562,11 @@ export default function StaffManagementPage() {
                   onClick={() => setStatusFilter("active")}
                   className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
                     statusFilter === "active"
-                      ? "bg-emerald-50 text-emerald-800 shadow-2xs"
+                      ? "bg-forest-50 text-forest-800 shadow-2xs"
                       : "text-stone-500 hover:text-[#0b3b2c]"
                   }`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-forest-600" />
                   ใช้งาน
                 </button>
                 <button
@@ -703,10 +703,10 @@ export default function StaffManagementPage() {
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">
                         {s.status ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-forest-50 text-forest-800 border border-forest-200">
                             <CheckCircle2
                               size={11}
-                              className="text-emerald-600"
+                              className="text-forest-600"
                             />
                             ใช้งาน
                           </span>
@@ -743,7 +743,7 @@ export default function StaffManagementPage() {
                               className={`p-1.5 rounded-lg transition-all ${
                                 s.status
                                   ? "text-stone-300 hover:text-rose-600 hover:bg-rose-50"
-                                  : "text-stone-300 hover:text-emerald-600 hover:bg-emerald-50"
+                                  : "text-stone-300 hover:text-forest-600 hover:bg-forest-50"
                               }`}
                               title={s.status ? "ระงับการใช้งาน" : "เปิดใช้งาน"}
                             >
@@ -998,8 +998,8 @@ export default function StaffManagementPage() {
               <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
                 <span className="text-stone-500 font-medium">สถานะบัญชี</span>
                 {selectedStaff.status ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                    <CheckCircle2 size={11} className="text-emerald-600" />{" "}
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-forest-50 text-forest-800 border border-forest-200">
+                    <CheckCircle2 size={11} className="text-forest-600" />{" "}
                     ใช้งาน
                   </span>
                 ) : (

@@ -61,7 +61,7 @@ const statusLabel: Record<string, string> = {
 };
 
 const statusClass: Record<string, string> = {
-  approved: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  approved: 'bg-forest-100 text-forest-700 border-forest-200',
   checked_in: 'bg-lagoon-100 text-lagoon-700 border-lagoon-200',
   checked_out: 'bg-lagoon-100 text-lagoon-700 border-lagoon-200',
   completed: 'bg-lagoon-100 text-lagoon-700 border-lagoon-200',
@@ -301,7 +301,7 @@ export default function AdminCalendarPage() {
             <div>พ.</div>
             <div>พฤ.</div>
             <div>ศ.</div>
-            <div className="text-emerald-700">ส.</div>
+            <div className="text-forest-700">ส.</div>
           </div>
 
           {/* Days Cells */}
@@ -334,7 +334,7 @@ export default function AdminCalendarPage() {
                       {dayNum}
                     </span>
                     {dayEvents.length > 0 && (
-                      <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                      <span className="text-xs text-forest-700 font-semibold bg-forest-50 px-1.5 py-0.5 rounded-full">
                         {dayEvents.length} คิว
                       </span>
                     )}
@@ -348,7 +348,7 @@ export default function AdminCalendarPage() {
                         onClick={() => setSelectedEvent(ev)}
                         className={`w-full text-left px-2 py-1 rounded-md text-xs font-medium truncate transition-all shadow-2xs ${
                           ev.type === 'room'
-                            ? 'bg-emerald-100/80 text-emerald-900 border border-emerald-200/80 hover:bg-emerald-200'
+                            ? 'bg-forest-100/80 text-forest-900 border border-forest-200/80 hover:bg-forest-200'
                             : 'bg-lagoon-100/80 text-lagoon-900 border border-lagoon-200/80 hover:bg-lagoon-200'
                         }`}
                       >
@@ -381,7 +381,7 @@ export default function AdminCalendarPage() {
           <div className="space-y-3 text-xs text-charcoal-600 mt-2">
             <div className="flex items-center gap-2 mb-4">
               {selectedEvent.type === 'room' ? (
-                <span className="p-2 rounded-lg bg-emerald-100 text-emerald-800"><Home size={18} /></span>
+                <span className="p-2 rounded-lg bg-forest-100 text-forest-800"><Home size={18} /></span>
               ) : (
                 <span className="p-2 rounded-lg bg-lagoon-100 text-lagoon-800"><Sailboat size={18} /></span>
               )}
@@ -429,7 +429,7 @@ export default function AdminCalendarPage() {
                 <div className="flex items-center gap-2">
                   <Clock size={15} className="text-stone-400 shrink-0" />
                   <span className="font-semibold text-charcoal-800">ระยะเวลาพัก:</span>
-                  <span className="text-emerald-800 font-bold">
+                  <span className="text-forest-800 font-bold">
                     {selectedEvent.raw.total_nights || 1} คืน
                   </span>
                 </div>
@@ -477,9 +477,9 @@ export default function AdminCalendarPage() {
 
             {/* สถานะการจอง */}
             <div className="flex items-center gap-2">
-              <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+              <CheckCircle2 size={15} className="text-forest-600 shrink-0" />
               <span className="font-semibold text-charcoal-800">สถานะ:</span>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${statusClass[selectedEvent.raw.status] || 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${statusClass[selectedEvent.raw.status] || 'bg-forest-100 text-forest-700 border-forest-200'}`}>
                 {statusLabel[selectedEvent.raw.status] || 'จองสำเร็จแล้ว'}
               </span>
             </div>
@@ -506,7 +506,7 @@ export default function AdminCalendarPage() {
             {/* ราคารวม */}
             <div className="pt-3 border-t border-stone-100 flex justify-between items-center text-sm">
               <span className="font-bold text-charcoal-700">ราคารวมทั้งสิ้น:</span>
-              <span className="font-bold text-emerald-800 text-base">
+              <span className="font-bold text-forest-800 text-base">
                 ฿{Number(selectedEvent.raw.total_price || 0).toLocaleString()}
               </span>
             </div>

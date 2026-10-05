@@ -162,7 +162,7 @@ function CustomSelect({
                 }}
                 className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors flex items-center justify-between ${
                   isSelected
-                    ? "bg-emerald-50 text-emerald-900 font-bold"
+                    ? "bg-forest-50 text-forest-900 font-bold"
                     : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
                 }`}
               >
@@ -445,11 +445,11 @@ export default function PromotionsPage() {
               <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider">
                 กำลังเปิดใช้งาน
               </p>
-              <h3 className="text-2xl font-extrabold text-emerald-600 mt-1">
+              <h3 className="text-2xl font-extrabold text-forest-600 mt-1">
                 {promotions.filter((p) => p.is_active).length}
               </h3>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-forest-50 text-forest-600 border border-forest-200 flex items-center justify-center">
               <CheckCircle2 size={22} />
             </div>
           </div>
@@ -629,8 +629,8 @@ export default function PromotionsPage() {
                         <div className="flex items-center gap-1">
                           {p.discount_type === "percent" ? (
                             <>
-                              <Percent size={14} className="text-emerald-700" />
-                              <span className="font-bold text-emerald-800 text-xs">
+                              <Percent size={14} className="text-forest-700" />
+                              <span className="font-bold text-forest-800 text-xs">
                                 {p.discount_value}%
                               </span>
                             </>
@@ -638,9 +638,9 @@ export default function PromotionsPage() {
                             <>
                               <DollarSign
                                 size={14}
-                                className="text-emerald-700"
+                                className="text-forest-700"
                               />
-                              <span className="font-bold text-emerald-800 text-xs">
+                              <span className="font-bold text-forest-800 text-xs">
                                 ฿{Number(p.discount_value).toLocaleString()}
                               </span>
                             </>
@@ -712,10 +712,10 @@ export default function PromotionsPage() {
                               className="inline-flex items-center focus:outline-none transition-transform active:scale-95 cursor-pointer"
                             >
                               {p.is_active ? (
-                                <span className="inline-flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold px-2.5 py-1 rounded-full">
+                                <span className="inline-flex items-center gap-1.5 text-xs bg-forest-50 text-forest-800 border border-forest-200 font-semibold px-2.5 py-1 rounded-full">
                                   <ToggleRight
                                     size={14}
-                                    className="text-emerald-600"
+                                    className="text-forest-600"
                                   />{" "}
                                   เปิดใช้งาน
                                 </span>
@@ -737,7 +737,7 @@ export default function PromotionsPage() {
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => void openRedemptions(p)}
-                            className="p-1.5 text-stone-400 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer"
+                            className="p-1.5 text-stone-400 hover:text-forest-800 hover:bg-forest-50 rounded-lg transition-all cursor-pointer"
                             title="ดูผู้ใช้"
                           >
                             <Users size={16} />
