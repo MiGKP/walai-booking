@@ -109,7 +109,7 @@ function CustomSelect({
                 }}
                 className={`w-full text-left px-3.5 py-2 text-xs transition-colors flex items-center justify-between cursor-pointer ${
                   isSelected
-                    ? "bg-emerald-50 text-emerald-900 font-bold"
+                    ? "bg-forest-50 text-forest-900 font-bold"
                     : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900 font-medium"
                 }`}
               >
@@ -499,7 +499,7 @@ function SingleRoomsPageContent() {
         </div>
 
         {!editingRoomId && currentPrefix && (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200/70 bg-emerald-50/80 px-3 py-2 text-xs text-[#0b3b2c]">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-forest-200/70 bg-forest-50/80 px-3 py-2 text-xs text-[#0b3b2c]">
             <span className="font-bold">โซน {currentPrefix}</span>
             <span className="text-stone-400">·</span>
             <span className="font-semibold tabular-nums">
@@ -645,7 +645,7 @@ function SingleRoomsPageContent() {
                     }
                     className={`w-full px-3 py-1.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
                       statusInput === "available"
-                        ? "bg-emerald-50/80 border-emerald-300 text-emerald-800 hover:bg-emerald-100/70"
+                        ? "bg-forest-50/80 border-forest-300 text-forest-800 hover:bg-forest-100/70"
                         : "bg-rose-50/80 border-rose-300 text-rose-800 hover:bg-rose-100/70"
                     }`}
                   >
@@ -653,7 +653,7 @@ function SingleRoomsPageContent() {
                       <span
                         className={`w-2 h-2 rounded-full ${
                           statusInput === "available"
-                            ? "bg-emerald-500"
+                            ? "bg-forest-500"
                             : "bg-rose-500"
                         }`}
                       />
@@ -661,7 +661,7 @@ function SingleRoomsPageContent() {
                     </span>
 
                     {statusInput === "available" ? (
-                      <ToggleRight size={22} className="text-emerald-600" />
+                      <ToggleRight size={22} className="text-forest-600" />
                     ) : (
                       <ToggleLeft size={22} className="text-rose-500" />
                     )}
@@ -700,7 +700,7 @@ function SingleRoomsPageContent() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h4 className="text-xs font-bold text-[#0b3b2c] flex items-center gap-1.5">
-                  <CheckCircle2 size={15} className="text-emerald-600" />
+                  <CheckCircle2 size={15} className="text-forest-600" />
                   พรีวิวผังห้องพัก ({draftRooms.length} ห้อง)
                 </h4>
                 <p className="text-xs text-stone-500">
@@ -738,7 +738,7 @@ function SingleRoomsPageContent() {
                     <span className="text-xs font-black text-[#0b3b2c]">
                       {draft.room_number}
                     </span>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="w-2 h-2 rounded-full bg-forest-500" />
                   </div>
 
                   <CustomSelect
@@ -803,8 +803,8 @@ function SingleRoomsPageContent() {
               onClick={() => setStatusFilter("available")}
               className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 statusFilter === "available"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "text-emerald-700 hover:bg-emerald-50"
+                  ? "bg-forest-600 text-white shadow-xs"
+                  : "text-forest-700 hover:bg-forest-50"
               }`}
             >
               ว่าง ({singleRooms.filter((a) => a.status === "available").length})
@@ -941,7 +941,7 @@ function SingleRoomsPageContent() {
                         <span
                           className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                             sr.status === "available"
-                              ? "bg-emerald-100 text-emerald-800"
+                              ? "bg-forest-100 text-forest-800"
                               : sr.status === "occupied"
                               ? "bg-amber-100 text-amber-800"
                               : "bg-rose-100 text-rose-800"

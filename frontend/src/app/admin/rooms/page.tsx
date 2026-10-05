@@ -277,7 +277,7 @@ function CustomDatePicker({
                     selected
                       ? "bg-[#0b3b2c] text-white font-bold shadow-xs scale-105"
                       : today
-                        ? "bg-emerald-100 text-[#0b3b2c] font-bold border border-emerald-300"
+                        ? "bg-forest-100 text-[#0b3b2c] font-bold border border-forest-300"
                         : "text-stone-700 hover:bg-stone-100"
                   }`}
                 >
@@ -383,7 +383,7 @@ function CustomSelect({
                 }}
                 className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors flex items-center justify-between ${
                   isSelected
-                    ? "bg-emerald-50 text-emerald-900 font-bold"
+                    ? "bg-forest-50 text-forest-900 font-bold"
                     : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
                 }`}
               >
@@ -1337,7 +1337,7 @@ function RoomStaffDashboardContent() {
                             <>
                               <button
                                 onClick={() => handleApprove(bookingId)}
-                                className="inline-flex items-center gap-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-xl transition-all shadow-xs active:scale-95"
+                                className="inline-flex items-center gap-1 text-xs bg-forest-600 hover:bg-forest-700 text-white font-semibold px-3 py-1.5 rounded-xl transition-all shadow-xs active:scale-95"
                               >
                                 <span>อนุมัติ</span>
                               </button>

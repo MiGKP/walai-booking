@@ -538,7 +538,7 @@ export default function BoatTypesPage() {
                         <span
                           className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                             bt.is_active !== false
-                              ? "bg-emerald-100/80 text-emerald-800 border border-emerald-200/60"
+                              ? "bg-forest-100/80 text-forest-800 border border-forest-200/60"
                               : "bg-stone-100 text-stone-500 border border-stone-200"
                           }`}
                         >

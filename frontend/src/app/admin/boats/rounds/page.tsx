@@ -405,7 +405,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
         return (
           <span
             key={b.boat_type_id ?? idx}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-900 border border-emerald-200/80 rounded-lg text-xs font-semibold shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-forest-50 text-forest-900 border border-forest-200/80 rounded-lg text-xs font-semibold shadow-2xs"
           >
             <Ship size={13} className="text-[#0b3b2c]" />
             <span>{name}</span>
@@ -430,7 +430,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
       const total = round.total_slots || round.max_booking || 1;
 
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-900 border border-emerald-200/80 rounded-lg text-xs font-semibold shadow-2xs">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-forest-50 text-forest-900 border border-forest-200/80 rounded-lg text-xs font-semibold shadow-2xs">
           <Ship size={13} className="text-[#0b3b2c]" />
           <span>{name}</span>
           <span className="px-1.5 py-0.5 bg-[#0b3b2c] text-white rounded-md text-xs font-bold">
@@ -747,7 +747,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                       round.is_active
-                        ? "bg-emerald-100/80 text-emerald-800 border-emerald-200/60"
+                        ? "bg-forest-100/80 text-forest-800 border-forest-200/60"
                         : "bg-stone-100 text-stone-500 border-stone-200"
                     }`}
                   >

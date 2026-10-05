@@ -296,7 +296,7 @@ export default function RoomLocationPage() {
             <button
               type="submit"
               disabled={saving || loading}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#064e3b] hover:bg-[#04392b] text-white font-semibold text-xs rounded-xl transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-forest-800 hover:bg-forest-900 text-white font-semibold text-xs rounded-xl transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50"
             >
               {saving ? (
                 <>
@@ -319,8 +319,8 @@ export default function RoomLocationPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start w-full">
             {/* ข้อมูลการติดต่อจุดต้อนรับ */}
             <Panel className="space-y-4">
-              <div className="flex items-center gap-2 text-[#064e3b] font-bold text-sm pb-3 border-b border-stone-100">
-                <div className="p-1.5 bg-emerald-100/70 text-[#064e3b] rounded-lg">
+              <div className="flex items-center gap-2 text-forest-800 font-bold text-sm pb-3 border-b border-stone-100">
+                <div className="p-1.5 bg-forest-100/70 text-forest-800 rounded-lg">
                   <Building2 size={18} />
                 </div>
                 <h2 className="text-base font-bold">
@@ -336,7 +336,7 @@ export default function RoomLocationPage() {
                   <input
                     type="text"
                     required
-                    className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-800/20 focus:border-[#064e3b]"
+                    className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
                     value={form.name}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, name: e.target.value }))
@@ -353,7 +353,7 @@ export default function RoomLocationPage() {
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-800/20 focus:border-[#064e3b]"
+                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
                       value={form.phone}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, phone: e.target.value }))
@@ -368,7 +368,7 @@ export default function RoomLocationPage() {
                     </label>
                     <input
                       type="email"
-                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-800/20 focus:border-[#064e3b]"
+                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
                       value={form.email}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, email: e.target.value }))
@@ -385,7 +385,7 @@ export default function RoomLocationPage() {
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-800/20 focus:border-[#064e3b]"
+                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
                       value={form.line_id}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, line_id: e.target.value }))
@@ -400,7 +400,7 @@ export default function RoomLocationPage() {
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-800/20 focus:border-[#064e3b]"
+                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
                       value={form.facebook}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, facebook: e.target.value }))
@@ -415,7 +415,7 @@ export default function RoomLocationPage() {
                   {/* วันเปิดทำการ */}
                   <div className="relative" ref={daysRef}>
                     <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                      <Calendar size={14} className="text-[#064e3b]" />{" "}
+                      <Calendar size={14} className="text-forest-800" />{" "}
                       วันเปิดทำการ
                     </label>
 
@@ -428,7 +428,7 @@ export default function RoomLocationPage() {
                       }}
                       className={`w-full flex items-center justify-between px-3.5 py-2 bg-stone-50 border rounded-xl text-xs font-medium transition-all cursor-pointer ${
                         openDaysDropdown
-                          ? "border-[#064e3b] ring-2 ring-emerald-800/20 bg-white"
+                          ? "border-forest-800 ring-2 ring-forest-800/20 bg-white"
                           : "border-stone-200 hover:border-stone-300"
                       }`}
                     >
@@ -444,7 +444,7 @@ export default function RoomLocationPage() {
                       <ChevronDown
                         size={14}
                         className={`text-stone-400 transition-transform duration-200 shrink-0 ml-1 ${
-                          openDaysDropdown ? "rotate-180 text-[#064e3b]" : ""
+                          openDaysDropdown ? "rotate-180 text-forest-800" : ""
                         }`}
                       />
                     </button>
@@ -459,7 +459,7 @@ export default function RoomLocationPage() {
                             <button
                               type="button"
                               onClick={() => handleQuickSelectDays("all")}
-                              className="px-2 py-1 text-xs font-medium bg-emerald-50 text-[#064e3b] hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer text-center"
+                              className="px-2 py-1 text-xs font-medium bg-forest-50 text-forest-800 hover:bg-forest-100 rounded-lg transition-colors cursor-pointer text-center"
                             >
                               เปิดทุกวัน
                             </button>
@@ -494,7 +494,7 @@ export default function RoomLocationPage() {
                                   onClick={() => handleDayToggle(day.full)}
                                   className={`w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-xl transition-colors cursor-pointer ${
                                     isChecked
-                                      ? "bg-emerald-50 text-[#064e3b] font-bold"
+                                      ? "bg-forest-50 text-forest-800 font-bold"
                                       : "text-stone-700 hover:bg-stone-50 font-normal"
                                   }`}
                                 >
@@ -502,7 +502,7 @@ export default function RoomLocationPage() {
                                   <div
                                     className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
                                       isChecked
-                                        ? "bg-[#064e3b] border-[#064e3b] text-white"
+                                        ? "bg-forest-800 border-forest-800 text-white"
                                         : "border-stone-300 bg-white"
                                     }`}
                                   >
@@ -520,7 +520,7 @@ export default function RoomLocationPage() {
                   {/* เวลาทำการ */}
                   <div>
                     <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                      <Clock size={14} className="text-emerald-600" /> เวลาทำการ (Check-in)
+                      <Clock size={14} className="text-forest-600" /> เวลาทำการ (Check-in)
                     </label>
 
                     <div className="flex items-center gap-2">
@@ -535,7 +535,7 @@ export default function RoomLocationPage() {
                           }}
                           className={`w-full flex items-center justify-between px-3 py-2 bg-stone-50 border rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                             openStart
-                              ? "border-[#064e3b] ring-2 ring-emerald-800/20 bg-white"
+                              ? "border-forest-800 ring-2 ring-forest-800/20 bg-white"
                               : "border-stone-200 hover:border-stone-300"
                           }`}
                         >
@@ -548,7 +548,7 @@ export default function RoomLocationPage() {
                           <ChevronDown
                             size={14}
                             className={`text-stone-400 transition-transform duration-200 ${
-                              openStart ? "rotate-180 text-[#064e3b]" : ""
+                              openStart ? "rotate-180 text-forest-800" : ""
                             }`}
                           />
                         </button>
@@ -568,13 +568,13 @@ export default function RoomLocationPage() {
                                 }}
                                 className={`w-full flex items-center justify-between px-3 py-1.5 text-xs transition-colors cursor-pointer ${
                                   startTime === time
-                                    ? "bg-emerald-50 text-[#064e3b] font-bold"
+                                    ? "bg-forest-50 text-forest-800 font-bold"
                                     : "text-stone-700 hover:bg-stone-50"
                                 }`}
                               >
                                 <span>{time}</span>
                                 {startTime === time && (
-                                  <Check size={12} className="text-[#064e3b]" />
+                                  <Check size={12} className="text-forest-800" />
                                 )}
                               </button>
                             ))}
@@ -597,7 +597,7 @@ export default function RoomLocationPage() {
                           }}
                           className={`w-full flex items-center justify-between px-3 py-2 bg-stone-50 border rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                             openEnd
-                              ? "border-[#064e3b] ring-2 ring-emerald-800/20 bg-white"
+                              ? "border-forest-800 ring-2 ring-forest-800/20 bg-white"
                               : "border-stone-200 hover:border-stone-300"
                           }`}
                         >
@@ -610,7 +610,7 @@ export default function RoomLocationPage() {
                           <ChevronDown
                             size={14}
                             className={`text-stone-400 transition-transform duration-200 ${
-                              openEnd ? "rotate-180 text-[#064e3b]" : ""
+                              openEnd ? "rotate-180 text-forest-800" : ""
                             }`}
                           />
                         </button>
@@ -630,13 +630,13 @@ export default function RoomLocationPage() {
                                 }}
                                 className={`w-full flex items-center justify-between px-3 py-1.5 text-xs transition-colors cursor-pointer ${
                                   endTime === time
-                                    ? "bg-emerald-50 text-[#064e3b] font-bold"
+                                    ? "bg-forest-50 text-forest-800 font-bold"
                                     : "text-stone-700 hover:bg-stone-50"
                                 }`}
                               >
                                 <span>{time}</span>
                                 {endTime === time && (
-                                  <Check size={12} className="text-[#064e3b]" />
+                                  <Check size={12} className="text-forest-800" />
                                 )}
                               </button>
                             ))}
@@ -651,8 +651,8 @@ export default function RoomLocationPage() {
 
             {/* พิกัดจุดเช็กอิน */}
             <Panel className="space-y-4">
-              <div className="flex items-center gap-2 text-[#064e3b] font-bold text-sm pb-3 border-b border-stone-100">
-                <div className="p-1.5 bg-emerald-100/70 text-[#064e3b] rounded-lg">
+              <div className="flex items-center gap-2 text-forest-800 font-bold text-sm pb-3 border-b border-stone-100">
+                <div className="p-1.5 bg-forest-100/70 text-forest-800 rounded-lg">
                   <MapPin size={18} />
                 </div>
                 <h2 className="text-base font-bold">
@@ -667,7 +667,7 @@ export default function RoomLocationPage() {
                   </label>
                   <textarea
                     rows={3}
-                    className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-800/20 focus:border-[#064e3b] resize-none"
+                    className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 resize-none"
                     value={form.address}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, address: e.target.value }))
@@ -685,14 +685,14 @@ export default function RoomLocationPage() {
                     <button
                       type="button"
                       onClick={() => setIsMapOpen(true)}
-                      className="text-xs font-semibold text-[#064e3b] hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-xs font-semibold text-forest-800 hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <Map size={13} /> เลือกจากแผนที่
                     </button>
                   </label>
                   <input
                     type="text"
-                    className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-mono text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-800/20 focus:border-[#064e3b]"
+                    className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-mono text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
                     value={form.coordinates}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, coordinates: e.target.value }))
@@ -706,8 +706,8 @@ export default function RoomLocationPage() {
             {/* เงื่อนไขและข้อกำหนดเพิ่มเติม (ห้องพัก) */}
             <Panel className="space-y-4 lg:col-span-2">
               <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-                <div className="flex items-center gap-2 text-[#064e3b] font-bold text-sm">
-                  <div className="p-1.5 bg-emerald-100/70 text-[#064e3b] rounded-lg">
+                <div className="flex items-center gap-2 text-forest-800 font-bold text-sm">
+                  <div className="p-1.5 bg-forest-100/70 text-forest-800 rounded-lg">
                     <AlertCircle size={18} />
                   </div>
                   <h2 className="text-base font-bold">
@@ -717,7 +717,7 @@ export default function RoomLocationPage() {
                 <button
                   type="button"
                   onClick={handleAddTerm}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#064e3b] hover:text-emerald-700 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-forest-800 hover:text-forest-700 transition-colors cursor-pointer"
                 >
                   <Plus size={14} />
                   <span>เพิ่มข้อกำหนด</span>
@@ -732,7 +732,7 @@ export default function RoomLocationPage() {
                     </span>
                     <input
                       type="text"
-                      className="flex-1 px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-emerald-800/20 focus:border-[#064e3b] transition-all"
+                      className="flex-1 px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all"
                       placeholder={`ข้อกำหนดที่ ${index + 1} (เช่น ห้ามส่งเสียงดังหลัง 22:00 น.)`}
                       value={term}
                       onChange={(e) => handleTermChange(index, e.target.value)}

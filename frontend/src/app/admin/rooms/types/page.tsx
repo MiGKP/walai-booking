@@ -469,7 +469,7 @@ export default function RoomTypesPage() {
             <h2 className="text-base font-bold text-stone-800">
               รายการประเภทห้องพักทั้งหมด
             </h2>
-            <span className="px-2.5 py-0.5 bg-emerald-50 text-[#0b3b2c] border border-emerald-100 rounded-full text-xs font-bold">
+            <span className="px-2.5 py-0.5 bg-forest-50 text-[#0b3b2c] border border-forest-100 rounded-full text-xs font-bold">
               {filteredRoomTypes.length}
             </span>
           </div>
@@ -580,7 +580,7 @@ export default function RoomTypesPage() {
                     <td className="px-4 py-3.5 whitespace-nowrap">
                       <Link
                         href={`/admin/rooms/single?type_id=${rt.id}`}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-[#0b3b2c] hover:bg-emerald-100 border border-emerald-200/60 transition-all group"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-forest-50 text-[#0b3b2c] hover:bg-forest-100 border border-forest-200/60 transition-all group"
                         title="เปิดหน้าจัดการห้อง — แสดงโซนและเลขห้องถัดไปของประเภทนี้"
                       >
                         <DoorClosed size={13} />
@@ -620,13 +620,13 @@ export default function RoomTypesPage() {
                         onClick={() => handleToggleStatus(rt.id, rt.status)}
                         className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                           rt.status
-                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                            ? "bg-forest-100 text-forest-800 hover:bg-forest-200"
                             : "bg-stone-200 text-stone-600 hover:bg-stone-300"
                         }`}
                         title="คลิกเพื่อเปิด/ปิดการใช้งาน"
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${rt.status ? "bg-emerald-600" : "bg-stone-400"}`}
+                          className={`w-1.5 h-1.5 rounded-full ${rt.status ? "bg-forest-600" : "bg-stone-400"}`}
                         />
                         {rt.status ? "เปิดใช้งาน" : "ปิดใช้งาน"}
                       </button>
@@ -798,7 +798,7 @@ export default function RoomTypesPage() {
                         .map((a) => (
                           <span
                             key={a.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-[#0b3b2c] text-xs font-semibold rounded-lg border border-emerald-100"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-forest-50 text-[#0b3b2c] text-xs font-semibold rounded-lg border border-forest-100"
                           >
                             {a.name}
                             <button
@@ -822,7 +822,7 @@ export default function RoomTypesPage() {
                           <label
                             className={`flex items-center gap-3 p-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                               form.amenities.length === amenities.length
-                                ? "bg-emerald-100/60 text-[#0b3b2c]"
+                                ? "bg-forest-100/60 text-[#0b3b2c]"
                                 : "text-charcoal-800 hover:bg-charcoal-100"
                             }`}
                           >
@@ -853,7 +853,7 @@ export default function RoomTypesPage() {
                             key={am.id}
                             className={`flex items-center gap-3 p-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                               checked
-                                ? "bg-emerald-50 text-[#0b3b2c]"
+                                ? "bg-forest-50 text-[#0b3b2c]"
                                 : "text-charcoal-700 hover:bg-charcoal-50"
                             }`}
                           >
@@ -919,7 +919,7 @@ export default function RoomTypesPage() {
                           onDrop={handleDropCover}
                           className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed rounded-2xl transition-all cursor-pointer p-3 text-center ${
                             isDraggingCover
-                              ? "border-[#0b3b2c] bg-emerald-50/50"
+                              ? "border-[#0b3b2c] bg-forest-50/50"
                               : "border-charcoal-200 hover:border-charcoal-300 bg-charcoal-50/50 hover:bg-charcoal-50"
                           }`}
                         >
@@ -980,7 +980,7 @@ export default function RoomTypesPage() {
                           return (
                             <label
                               key={idx}
-                              className="flex flex-col items-center justify-center w-full h-full border border-dashed border-charcoal-300 hover:border-[#0b3b2c] rounded-xl bg-charcoal-50/50 hover:bg-emerald-50/30 cursor-pointer text-charcoal-500 hover:text-[#0b3b2c] transition-all"
+                              className="flex flex-col items-center justify-center w-full h-full border border-dashed border-charcoal-300 hover:border-[#0b3b2c] rounded-xl bg-charcoal-50/50 hover:bg-forest-50/30 cursor-pointer text-charcoal-500 hover:text-[#0b3b2c] transition-all"
                             >
                               <PlusCircle size={18} />
                               <span className="text-xs font-semibold mt-1">
@@ -1036,7 +1036,7 @@ export default function RoomTypesPage() {
 
                       {/* ปุ่มเพิ่มรูปภาพในแถบล่าง (แสดงเมื่อมีรูป >= 2 และยังไม่ครบจำนวนสูงสุด) */}
                       {galleryPreviews.length < MAX_GALLERY_COUNT && (
-                        <label className="flex flex-col items-center justify-center h-20 border border-dashed border-charcoal-300 hover:border-[#0b3b2c] rounded-xl bg-charcoal-50/50 hover:bg-emerald-50/30 cursor-pointer text-charcoal-500 hover:text-[#0b3b2c] transition-all">
+                        <label className="flex flex-col items-center justify-center h-20 border border-dashed border-charcoal-300 hover:border-[#0b3b2c] rounded-xl bg-charcoal-50/50 hover:bg-forest-50/30 cursor-pointer text-charcoal-500 hover:text-[#0b3b2c] transition-all">
                           <PlusCircle size={18} />
                           <span className="text-xs font-semibold mt-1">
                             เพิ่มรูป
@@ -1278,7 +1278,7 @@ export default function RoomTypesPage() {
                         .map((a: any) => (
                           <span
                             key={a.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-[#0b3b2c] text-xs font-semibold rounded-lg border border-emerald-100"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-forest-50 text-[#0b3b2c] text-xs font-semibold rounded-lg border border-forest-100"
                           >
                             {a.name}
                             <button
@@ -1311,7 +1311,7 @@ export default function RoomTypesPage() {
                             key={am.id}
                             className={`flex items-center gap-2.5 p-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                               checked
-                                ? "bg-emerald-50/70 text-[#0b3b2c] font-semibold"
+                                ? "bg-forest-50/70 text-[#0b3b2c] font-semibold"
                                 : "text-charcoal-700 hover:bg-charcoal-50"
                             }`}
                           >
@@ -1466,7 +1466,7 @@ export default function RoomTypesPage() {
                               return (
                                 <label
                                   key={idx}
-                                  className="flex flex-col items-center justify-center w-full h-full border border-dashed border-charcoal-200 hover:border-[#0b3b2c] rounded-xl bg-[#f8fafc] hover:bg-emerald-50/20 cursor-pointer text-charcoal-500 hover:text-[#0b3b2c] transition-all"
+                                  className="flex flex-col items-center justify-center w-full h-full border border-dashed border-charcoal-200 hover:border-[#0b3b2c] rounded-xl bg-[#f8fafc] hover:bg-forest-50/20 cursor-pointer text-charcoal-500 hover:text-[#0b3b2c] transition-all"
                                 >
                                   <PlusCircle
                                     size={18}
@@ -1557,7 +1557,7 @@ export default function RoomTypesPage() {
                         })}
 
                         {combinedGallery.length < (MAX_GALLERY_COUNT || 5) && (
-                          <label className="flex flex-col items-center justify-center h-20 border border-dashed border-charcoal-200 hover:border-[#0b3b2c] rounded-xl bg-[#f8fafc] hover:bg-emerald-50/20 cursor-pointer text-charcoal-500 hover:text-[#0b3b2c] transition-all">
+                          <label className="flex flex-col items-center justify-center h-20 border border-dashed border-charcoal-200 hover:border-[#0b3b2c] rounded-xl bg-[#f8fafc] hover:bg-forest-50/20 cursor-pointer text-charcoal-500 hover:text-[#0b3b2c] transition-all">
                             <PlusCircle size={18} className="text-charcoal-400" />
                             <span className="text-xs font-medium text-charcoal-600 mt-0.5">
                               เพิ่มรูป

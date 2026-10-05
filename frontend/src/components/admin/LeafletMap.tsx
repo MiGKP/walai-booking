@@ -137,10 +137,10 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
             <button
               type="submit"
               disabled={searching}
-              className="text-stone-500 hover:text-emerald-800 p-1 cursor-pointer"
+              className="text-stone-500 hover:text-forest-800 p-1 cursor-pointer"
             >
               {searching ? (
-                <Loader2 className="w-4 h-4 animate-spin text-emerald-700" />
+                <Loader2 className="w-4 h-4 animate-spin text-forest-700" />
               ) : (
                 <Search className="w-4 h-4" />
               )}
@@ -151,7 +151,7 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
             type="button"
             onClick={handleCurrentLocation}
             title="ตำแหน่งปัจจุบัน"
-            className="p-2.5 bg-white/95 backdrop-blur-xs text-stone-700 hover:text-emerald-800 rounded-xl shadow-md border border-stone-200 flex items-center justify-center cursor-pointer shrink-0"
+            className="p-2.5 bg-white/95 backdrop-blur-xs text-stone-700 hover:text-forest-800 rounded-xl shadow-md border border-stone-200 flex items-center justify-center cursor-pointer shrink-0"
           >
             <Navigation className="w-4 h-4" />
           </button>
@@ -167,7 +167,7 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
               key={loc.name}
               type="button"
               onClick={() => setPosition(loc.coords)}
-              className="text-xs font-medium bg-emerald-800/90 hover:bg-emerald-900 text-white px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+              className="text-xs font-medium bg-forest-800/90 hover:bg-forest-900 text-white px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0 cursor-pointer"
             >
               <MapPin className="w-3 h-3" />
               {loc.name}
