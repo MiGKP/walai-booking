@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { safeRollback } from '../utils/safe-rollback';
 import { assertStatusTransition } from '../services/booking-status';
 import QRCode from 'qrcode';
 import generatePayload from 'promptpay-qr';
@@ -171,7 +172,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
           [uploadedSlip.url, bId, user.id]
         );
         if (slipUpdate.rowCount === 0) {
-          await client.query('ROLLBACK');
+          await safeRollback(client);
           await removeUploadedSlip();
           res.status(409).json({ success: false, message: 'สถานะการจองเปลี่ยนไปแล้ว กรุณาตรวจสอบอีกครั้ง' });
           return;
@@ -187,7 +188,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
           [uploadedSlip.url, bId, user.id]
         );
         if (slipUpdate.rowCount === 0) {
-          await client.query('ROLLBACK');
+          await safeRollback(client);
           await removeUploadedSlip();
           res.status(409).json({ success: false, message: 'สถานะการจองเปลี่ยนไปแล้ว กรุณาตรวจสอบอีกครั้ง' });
           return;
@@ -289,17 +290,17 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
         [bId]
       );
       if (bookingCheck.rows.length === 0) {
-        await client.query('ROLLBACK');
+        await safeRollback(client);
         res.status(404).json({ success: false, message: 'Booking not found' });
         return;
       }
       if (bookingCheck.rows[0].status !== 'paid') {
-        await client.query('ROLLBACK');
+        await safeRollback(client);
         res.status(400).json({ success: false, message: `Cannot approve booking with status: ${bookingCheck.rows[0].status}` });
         return;
       }
       if (!bookingCheck.rows[0].payment_slip) {
-        await client.query('ROLLBACK');
+        await safeRollback(client);
         res.status(400).json({ success: false, message: 'Cannot approve: no payment slip uploaded yet' });
         return;
       }
@@ -312,7 +313,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
           [authUser.id, bId]
         );
         if (headerUpdate.rowCount === 0) {
-          await client.query('ROLLBACK');
+          await safeRollback(client);
           res.status(409).json({ success: false, message: 'สถานะการจองเปลี่ยนไปแล้ว กรุณาตรวจสอบอีกครั้ง' });
           return;
         }
@@ -331,7 +332,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
           [bId]
         );
         if (headerUpdate.rowCount === 0) {
-          await client.query('ROLLBACK');
+          await safeRollback(client);
           res.status(409).json({ success: false, message: 'สถานะการจองเปลี่ยนไปแล้ว กรุณาตรวจสอบอีกครั้ง' });
           return;
         }

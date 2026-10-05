@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { safeRollback } from '../utils/safe-rollback';
 import pool from "../config/database";
 import { deleteCloudinaryImage } from "../services/cloudinary.service";
 import { AuthRequest } from "../middleware/auth.middleware";
@@ -57,7 +58,7 @@ const respondWithDbError = (res: Response, error: unknown, label: string): void 
 // ยกเลิก transaction ที่ค้างอยู่ โดยไม่ให้ error ของ ROLLBACK บดบัง error เดิม
 const rollbackQuietly = async (client: PoolClient): Promise<void> => {
   try {
-    await client.query("ROLLBACK");
+    await safeRollback(client);
   } catch (rollbackError) {
     console.error("Rollback error:", rollbackError);
   }
@@ -848,10 +849,10 @@ export const updateAmenity = async (
     // UPDATE ทั้ง name และ status (แปลงค่า status เป็น boolean ก่อนอัปเดต)
     const result = await pool.query(
       `UPDATE room_amenities 
-       SET name = $1, status = $2 
+       SET name = $1, status = COALESCE($2, status) 
        WHERE id = $3 
        RETURNING *`,
-      [String(name).trim(), Boolean(status), Number(id)],
+      [String(name).trim(), status === undefined ? null : status === true || status === 'true', Number(id)],
     );
 
     if (result.rowCount === 0) {

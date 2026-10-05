@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { safeRollback } from '../utils/safe-rollback';
 import { bangkokToday } from '../utils/bangkok-date';
 import { assertStatusTransition } from '../services/booking-status';
 import pool from '../config/database';
@@ -304,7 +305,7 @@ export const createRoomBooking = async (
         [item.room_type_id]
       );
       if (roomTypeRes.rows.length === 0) {
-        await client.query('ROLLBACK');
+        await safeRollback(client);
         res.status(404).json({
           success: false,
           message: `ไม่พบประเภทห้อง id ${item.room_type_id}`,
@@ -321,7 +322,7 @@ export const createRoomBooking = async (
     try {
       assertGuestsFitCapacity(adults, countCapacityChildren(childAges), sumCapacity(capacityItems));
     } catch (err) {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: err instanceof Error ? err.message : 'ผู้เข้าพักเกินความจุ',
@@ -373,7 +374,7 @@ export const createRoomBooking = async (
           : await pickAvailableRoom(client, item.room_type_id, checkInDate, checkOutDate, lockedRoomIds);
 
         if (roomQuery.rows.length === 0) {
-          await client.query('ROLLBACK');
+          await safeRollback(client);
           res.status(409).json({
             success: false,
             message: requestedRoomId
@@ -408,7 +409,7 @@ export const createRoomBooking = async (
     // โค้ดเดียวกันใช้ซ้ำข้ามประเภทห้องในบิลเดียวกันไม่ได้ (wallet/usage จะถูกนับซ้ำ)
     const perItemPromoIds = [...promotionByType.values()];
     if (new Set(perItemPromoIds).size !== perItemPromoIds.length) {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(400).json({ success: false, message: 'ไม่สามารถใช้โค้ดเดียวกันกับหลายประเภทห้องในการจองเดียวกันได้' });
       return;
     }
@@ -455,7 +456,7 @@ export const createRoomBooking = async (
             });
           }
         } catch (err) {
-          await client.query('ROLLBACK');
+          await safeRollback(client);
           res.status(400).json({
             success: false,
             message: err instanceof Error ? err.message : 'โปรโมชั่นไม่ถูกต้อง',
@@ -477,7 +478,7 @@ export const createRoomBooking = async (
           };
         }
       } catch (err) {
-        await client.query('ROLLBACK');
+        await safeRollback(client);
         res.status(400).json({
           success: false,
           message: err instanceof Error ? err.message : 'โปรโมชั่นไม่ถูกต้อง',
@@ -609,7 +610,7 @@ export const createRoomBooking = async (
       data: { ...header, rooms: lineRows, applied_promotions: appliedPromotions, boat_tickets_granted: totalBoatTickets },
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    await safeRollback(client);
     console.error('Create room booking error:', error);
     if (error instanceof PromoApplyError) {
       res.status(400).json({ success: false, message: error.message });
@@ -813,12 +814,12 @@ export const cancelRoomBooking = async (
       [id, user.id]
     );
     if (booking.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;
     }
     if (booking.rows[0].status !== 'pending') {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: `Cannot cancel booking with status: ${booking.rows[0].status}`,
@@ -847,7 +848,7 @@ export const cancelRoomBooking = async (
     await client.query('COMMIT');
     res.json({ success: true, message: 'Booking cancelled' });
   } catch (error) {
-    await client.query('ROLLBACK');
+    await safeRollback(client);
     console.error('Cancel booking error:', error);
     const mapped = mapDbError(error);
     if (mapped) {
@@ -956,14 +957,14 @@ export const updateRoomBookingStatus = async (
 
     const result = await client.query(query, params);
     if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;
     }
 
     const transitionError = assertStatusTransition(previousStatus, status);
     if (transitionError) {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(400).json({ success: false, message: transitionError });
       return;
     }
@@ -974,7 +975,7 @@ export const updateRoomBookingStatus = async (
         [id]
       );
       if (checkedIn.rows.length > 0) {
-        await client.query('ROLLBACK');
+        await safeRollback(client);
         res.status(400).json({ success: false, message: 'ไม่สามารถเปลี่ยนสถานะได้ เนื่องจากมีห้องที่เช็คอินแล้ว' });
         return;
       }
@@ -1046,7 +1047,7 @@ export const updateRoomBookingStatus = async (
       data: result.rows[0],
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    await safeRollback(client);
     console.error('Update booking status error:', error);
     const mapped = mapDbError(error);
     if (mapped) {
@@ -1104,14 +1105,14 @@ export const checkinBookingRoom = async (
     );
 
     if (lineRes.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(404).json({ success: false, message: 'Booking room not found' });
       return;
     }
 
     const line = lineRes.rows[0];
     if (line.header_status !== 'approved') {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: 'เช็คอินได้เมื่อหัวการจองเป็น approved',
@@ -1119,7 +1120,7 @@ export const checkinBookingRoom = async (
       return;
     }
     if (line.line_status !== 'approved') {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: `Cannot check in line with status: ${line.line_status}`,
@@ -1137,7 +1138,7 @@ export const checkinBookingRoom = async (
     await client.query('COMMIT');
     res.json({ success: true, message: 'เช็คอินห้องสำเร็จ' });
   } catch (error) {
-    await client.query('ROLLBACK');
+    await safeRollback(client);
     console.error('Checkin booking room error:', error);
     const mapped = mapDbError(error);
     if (mapped) {
@@ -1165,12 +1166,12 @@ export const checkoutRoomBooking = async (
       [id]
     );
     if (booking.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(404).json({ success: false, message: 'Booking not found' });
       return;
     }
     if (booking.rows[0].status !== 'approved') {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: 'เช็คเอาต์ได้เฉพาะการจองที่อนุมัติแล้ว',
@@ -1186,7 +1187,7 @@ export const checkoutRoomBooking = async (
       [id]
     );
     if ((lines.rowCount ?? 0) === 0) {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(400).json({ success: false, message: 'ยังไม่มีห้องที่เช็คอินในการจองนี้' });
       return;
     }
@@ -1207,7 +1208,7 @@ export const checkoutRoomBooking = async (
       data: { checked_out_count: lines.rowCount ?? 0 },
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    await safeRollback(client);
     console.error('Checkout room booking error:', error);
     const mapped = mapDbError(error);
     if (mapped) {
@@ -1243,14 +1244,14 @@ export const checkoutBookingRoom = async (
     );
 
     if (lineRes.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(404).json({ success: false, message: 'Booking room not found' });
       return;
     }
 
     const line = lineRes.rows[0];
     if (line.header_status !== 'approved') {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: 'เช็คเอาต์ได้เมื่อหัวการจองเป็น approved',
@@ -1258,7 +1259,7 @@ export const checkoutBookingRoom = async (
       return;
     }
     if (line.line_status !== 'checked_in') {
-      await client.query('ROLLBACK');
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: `Cannot check out line with status: ${line.line_status}`,
@@ -1282,7 +1283,7 @@ export const checkoutBookingRoom = async (
     await client.query('COMMIT');
     res.json({ success: true, message: 'เช็คเอาต์ห้องสำเร็จ' });
   } catch (error) {
-    await client.query('ROLLBACK');
+    await safeRollback(client);
     console.error('Checkout booking room error:', error);
     const mapped = mapDbError(error);
     if (mapped) {

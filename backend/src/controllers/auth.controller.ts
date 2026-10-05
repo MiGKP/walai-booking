@@ -209,7 +209,8 @@ export const initAdmin = async (req: Request, res: Response): Promise<void> => {
     let first_name = name;
     let last_name = '';
     if (name && name.includes(' ')) {
-      [first_name, last_name] = name.split(' ', 2);
+      first_name = String(name).trim().split(' ')[0] || '';
+      last_name = String(name).trim().split(' ').slice(1).join(' ');
     }
 
     const existing = await pool.query('SELECT staff_id FROM staff WHERE LOWER(email) = LOWER($1)', [email]);
@@ -245,7 +246,8 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
     let first_name = name;
     let last_name = '';
     if (name && name.includes(' ')) {
-      [first_name, last_name] = name.split(' ', 2);
+      first_name = String(name).trim().split(' ')[0] || '';
+      last_name = String(name).trim().split(' ').slice(1).join(' ');
     }
 
     const existing = await pool.query('SELECT staff_id FROM staff WHERE LOWER(email) = LOWER($1)', [email]);
@@ -838,7 +840,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 
     await pool.query(
       `UPDATE members 
-       SET reset_token = $1, reset_token_expires_at = $2, reset_attempts = 0 
+       SET reset_token = $1, reset_token_expires_at = $2, reset_attempts = CASE WHEN reset_token_expires_at IS NULL OR reset_token_expires_at < NOW() THEN 0 ELSE reset_attempts END 
        WHERE member_id = $3`,
       [hashedOtp, expiresAt, member.id]
     );

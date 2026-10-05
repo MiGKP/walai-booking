@@ -194,7 +194,7 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
       res.status(400).json({ success: false, message: 'room_booking_id, room_type_id และ rating จำเป็นต้องระบุ' });
       return;
     }
-    if (Number(rating) < 1 || Number(rating) > 5) {
+    if (!Number.isInteger(Number(rating)) || Number(rating) < 1 || Number(rating) > 5) {
       res.status(400).json({ success: false, message: 'rating ต้องอยู่ระหว่าง 1-5' });
       return;
     }
@@ -253,7 +253,7 @@ export const updateReview = async (req: Request, res: Response): Promise<void> =
     }
     const { rating, comment } = req.body;
 
-    if (Number(rating) < 1 || Number(rating) > 5) {
+    if (!Number.isInteger(Number(rating)) || Number(rating) < 1 || Number(rating) > 5) {
       res.status(400).json({ success: false, message: 'rating ต้องอยู่ระหว่าง 1-5' });
       return;
     }

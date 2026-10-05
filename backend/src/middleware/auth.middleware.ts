@@ -54,7 +54,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
   let decoded: AuthPayload & { iat?: number };
   try {
-    decoded = jwt.verify(token, secret) as AuthPayload & { iat?: number };
+    decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as AuthPayload & { iat?: number };
   } catch (error) {
     res.status(401).json({ success: false, message: 'Invalid token' });
     return;
@@ -89,6 +89,12 @@ export const optionalAuthenticate = (
 ): void => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
+    next();
+    return;
+  }
+  try {
+    jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET || '', { algorithms: ['HS256'] });
+  } catch {
     next();
     return;
   }

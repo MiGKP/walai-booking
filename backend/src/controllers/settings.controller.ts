@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { safeRollback } from '../utils/safe-rollback';
 import pool from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
 import type { PoolClient } from 'pg';
@@ -7,7 +8,7 @@ import { parsePositiveInt } from '../utils/ids';
 // คืนค่า rollback แบบเงียบ เพื่อไม่ให้ error ของ ROLLBACK บดบัง error เดิม
 const rollbackQuietly = async (client: PoolClient): Promise<void> => {
   try {
-    await client.query('ROLLBACK');
+    await safeRollback(client);
   } catch (rollbackError) {
     console.error('Rollback error:', rollbackError);
   }
@@ -164,7 +165,9 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
 export const upsertResortInfo = async (req: Request, res: Response): Promise<void> => {
   try {
     // ดึง id จาก URL params หรือ request body
-    const rawId = req.params.id ?? req.body.id;
+    // เฉพาะ admin ที่ระบุ id แถวเองได้ พนักงานอื่นใช้แถวเริ่มต้นตามชื่อ/ประเภท
+    const isAdminWriter = (req as AuthRequest).user?.role === 'admin';
+    const rawId = req.params.id ?? (isAdminWriter ? req.body.id : undefined);
     let targetId: number | null = null;
     if (rawId !== undefined && rawId !== null && rawId !== '') {
       targetId = parsePositiveInt(rawId);
