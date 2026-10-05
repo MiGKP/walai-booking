@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { toastConfirm } from '@/lib/toastConfirm';
 import Link from 'next/link';
 import { toISODate } from '@/lib/date';
+import BoatAddonSection from '@/components/booking/BoatAddonSection';
 
 type BookingType = 'room' | 'kayak';
 type TabKey = 'all' | BookingType;
@@ -292,6 +293,15 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
                 ))}
               </ul>
             )}
+            {/* บัตรเสริมเรือของแต่ละห้อง — แสดงเฉพาะบิลที่ยังไม่จบ */}
+            {type === 'room' && ['pending', 'paid', 'approved'].includes(b.status) && Array.isArray(b.rooms) && b.rooms.map((line) => (
+              <BoatAddonSection
+                key={`addon-${line.booking_room_id}`}
+                bookingRoomId={line.booking_room_id}
+                roomBookingStatus={b.status}
+                onChanged={() => fetchBookings(true)}
+              />
+            ))}
             {type === 'kayak' && Array.isArray(b.boats) && b.boats.length > 0 && (
               <ul className="space-y-1 text-xs text-charcoal-500">
                 {b.boats.map((line: { booking_boat_id: number; type_name?: string; num_passengers?: number; boat_count?: number }) => (
