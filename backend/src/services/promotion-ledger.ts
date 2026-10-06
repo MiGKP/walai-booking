@@ -38,6 +38,7 @@ function mapCatalogRow(row: Record<string, unknown>): CatalogPromo {
     is_collectible: Boolean(row.is_collectible),
     stackable: Boolean(row.stackable),
     applies_to: parseAppliesTo(row.applies_to),
+    room_type_id: toNullableNumber(row.room_type_id),
   };
 }
 
@@ -50,7 +51,7 @@ export async function loadPromosForApply(
     `SELECT id, code, name, description, discount_type, discount_value,
             min_nights, min_price, max_discount, usage_limit, usage_count,
             is_active, start_date, end_date,
-            usage_limit_per_member, is_collectible, stackable, applies_to
+            usage_limit_per_member, is_collectible, stackable, applies_to, room_type_id
      FROM promotions WHERE id = ANY($1::int[])`,
     [ids]
   );

@@ -1,3 +1,4 @@
+import { legacyAuthEmail, normalizeAuthEmail } from '../services/auth-email';
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -47,7 +48,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { first_name, last_name, email, password, phone, line_id, facebook } = req.body;
 
-    const existing = await pool.query('SELECT member_id FROM members WHERE LOWER(email) = LOWER($1)', [email]);
+    const existing = await pool.query(`SELECT member_id FROM members
+       WHERE LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2)
+          OR (SPLIT_PART(LOWER(email), '@', 2) IN ('gmail.com', 'googlemail.com')
+              AND REGEXP_REPLACE(SPLIT_PART(SPLIT_PART(LOWER(email), '@', 1), '+', 1), '[.]', '', 'g') || '@gmail.com' = $2)`, [email, legacyAuthEmail(email)]);
     if (existing.rows.length > 0) {
       res.status(400).json({ success: false, message: 'Email already registered' });
       return;
@@ -81,7 +85,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const { email, password } = req.body;
 
     // Check staff first
-    let result = await pool.query('SELECT * FROM staff WHERE LOWER(email) = LOWER($1) AND status = true', [email]);
+    let result = await pool.query('SELECT * FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2)) AND status = true ORDER BY CASE WHEN LOWER(email) = LOWER($1) THEN 0 ELSE 1 END LIMIT 1', [email, legacyAuthEmail(email)]);
     if (result.rows.length > 0) {
       const staff = result.rows[0];
       if (!staff.password) {
@@ -122,7 +126,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Check members
-    result = await pool.query('SELECT * FROM members WHERE LOWER(email) = LOWER($1)', [email]);
+    result = await pool.query('SELECT * FROM members WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2)) ORDER BY CASE WHEN LOWER(email) = LOWER($1) THEN 0 ELSE 1 END LIMIT 1', [email, legacyAuthEmail(email)]);
     if (result.rows.length === 0) {
       res.status(401).json({ success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
       return;
@@ -216,7 +220,7 @@ export const initAdmin = async (req: Request, res: Response): Promise<void> => {
       last_name = String(name).trim().split(' ').slice(1).join(' ');
     }
 
-    const existing = await pool.query('SELECT staff_id FROM staff WHERE LOWER(email) = LOWER($1)', [email]);
+    const existing = await pool.query('SELECT staff_id FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2))', [email, legacyAuthEmail(email)]);
     if (existing.rows.length > 0) {
       res.status(400).json({ success: false, message: 'Email already registered' });
       return;
@@ -253,7 +257,7 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
       last_name = String(name).trim().split(' ').slice(1).join(' ');
     }
 
-    const existing = await pool.query('SELECT staff_id FROM staff WHERE LOWER(email) = LOWER($1)', [email]);
+    const existing = await pool.query('SELECT staff_id FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2))', [email, legacyAuthEmail(email)]);
     if (existing.rows.length > 0) {
       res.status(400).json({ success: false, message: 'Email already registered' });
       return;
@@ -820,7 +824,7 @@ export const toggleMemberStatus = async (req: Request, res: Response): Promise<v
 export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const genericForgotPasswordMessage = 'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่ง OTP สำหรับรีเซ็ตรหัสผ่านให้แล้ว';
-    const email = String(req.body.email || '').trim().toLowerCase();
+    const email = normalizeAuthEmail(String(req.body.email || ''));
 
     if (!email) {
       res.status(400).json({ success: false, message: 'กรุณากรอกอีเมล' });
@@ -828,8 +832,8 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     }
 
     const memberResult = await pool.query(
-      'SELECT member_id as id, first_name, last_name, email FROM members WHERE LOWER(email) = $1 LIMIT 1',
-      [email]
+      'SELECT member_id as id, first_name, last_name, email FROM members WHERE (LOWER(email) = $1 OR LOWER(email) = $2) ORDER BY CASE WHEN LOWER(email) = $1 THEN 0 ELSE 1 END LIMIT 1',
+      [email, legacyAuthEmail(email)]
     );
 
     if (memberResult.rows.length === 0) {
@@ -872,7 +876,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   try {
-    const email = String(req.body.email || '').trim().toLowerCase();
+    const email = normalizeAuthEmail(String(req.body.email || ''));
     const otp = String(req.body.otp || '').trim();
     const newPassword = String(req.body.new_password || '');
 
@@ -892,9 +896,9 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     const pending = await pool.query(
       `SELECT member_id, reset_token
        FROM members
-       WHERE LOWER(email) = $1 AND reset_token IS NOT NULL AND reset_token_expires_at > NOW() AND reset_attempts < $2
-       LIMIT 1`,
-      [email, MAX_OTP_ATTEMPTS]
+       WHERE (LOWER(email) = $1 OR (LOWER(email) = $3 AND NOT EXISTS (SELECT 1 FROM members exact WHERE LOWER(exact.email) = $1))) AND reset_token IS NOT NULL AND reset_token_expires_at > NOW() AND reset_attempts < $2
+       ORDER BY CASE WHEN LOWER(email) = $1 THEN 0 ELSE 1 END LIMIT 1`,
+      [email, MAX_OTP_ATTEMPTS, legacyAuthEmail(email)]
     );
     const pendingRow = pending.rows[0] as { member_id: number; reset_token: string } | undefined;
     if (!pendingRow) {

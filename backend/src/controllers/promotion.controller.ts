@@ -46,7 +46,7 @@ export const getActivePromotions = async (req: Request, res: Response): Promise<
        ORDER BY p.is_collectible DESC, p.created_at DESC`,
       [memberId]
     );
-    res.json({ success: true, data: result.rows });
+    res.json({ success: true, data: result.rows.map((row) => ({ ...row, wallet_remaining: row.usage_limit_per_member == null ? null : Math.max(0, Number(row.usage_limit_per_member) - Number(row.member_usage_count ?? 0)) })) });
   } catch (error) {
     console.error('Get active promotions error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -59,7 +59,7 @@ export const getAllPromotions = async (req: Request, res: Response): Promise<voi
       `SELECT id, code, name, description, discount_type, discount_value,
               min_nights, min_price, max_discount, start_date, end_date,
               usage_limit, usage_count, is_active, created_at,
-              room_type_id, room_count, boat_ticket_count,
+              room_type_id, room_count, boat_ticket_count, boat_addon_mode, boat_addon_price,
               usage_limit_per_member, is_collectible, stackable, applies_to
        FROM promotions
        ORDER BY created_at DESC`
@@ -128,6 +128,7 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
       now,
       skipMinPrice: !hasPrice,
       scope: parseBookingScope(body.scope),
+      roomTypeIds: Array.isArray(body.room_type_ids) ? body.room_type_ids.map(Number) : body.room_type_id != null ? [Number(body.room_type_id)] : undefined,
       ...ctxExtra,
     });
 
@@ -316,7 +317,7 @@ export const getMyPromotions = async (req: Request, res: Response): Promise<void
           ? null
           : Number(row.usage_limit_per_member);
       const remaining = limit == null ? null : Math.max(0, limit - usedCount);
-      const status = catalogExpired ? 'expired' : row.status;
+      const status = catalogExpired || row.status === 'expired' ? 'expired' : (remaining == null || remaining > 0 ? 'saved' : 'used');
       return {
         ...row,
         status,

@@ -380,7 +380,11 @@ export default function RoomDetailPage(): React.ReactElement {
         ]
       : items.filter((item) => item.room_id !== roomId);
 
-    commitCart(nextItems);
+    if (!isSelecting && cart) {
+      setRoomCart({ ...cart, items: nextItems });
+    } else {
+      commitCart(nextItems);
+    }
 
   };
 

@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import type { PoolClient } from 'pg';
 import pool from '../config/database';
 import { restoreBookingPromotions } from './promotion-ledger';
+import { cancelBoatAddonsForRoomBooking, restoreBoatTicketRedemptions } from './boat-booking-lifecycle';
 
 // ยกเลิก booking ที่หมดเวลาชำระเงินแล้ว (status = pending และ created_at + payment_due_days < NOW)
 // ทำทั้งรอบใน transaction เดียว และคืนโควตาโปรโมชั่น/บัตรพายเรือ เหมือนการยกเลิกด้วยมือ (cancelRoomBooking)
@@ -36,6 +37,7 @@ export const cancelExpiredBookings = async (): Promise<void> => {
       );
       // คืนโควตาโปรโมชั่นและ wallet (สถานะก่อนยกเลิกคือ pending เสมอ)
       await restoreBookingPromotions(client, { previousStatus: 'pending', roomBookingId });
+      await cancelBoatAddonsForRoomBooking(client, roomBookingId, 'pending');
       // เพิกถอนบัตรพายเรือฟรีที่แจกไว้จากการจองนี้ (เฉพาะที่ยังไม่ถูกใช้เลย) เหมือน cancelRoomBooking
       await client.query(
         `DELETE FROM member_boat_tickets WHERE room_booking_id = $1 AND used_tickets = 0`,
@@ -48,6 +50,7 @@ export const cancelExpiredBookings = async (): Promise<void> => {
       `UPDATE boat_bookings
        SET status = 'cancelled'
        WHERE status = 'pending'
+         AND is_addon = false
          AND created_at + make_interval(days => $1) < NOW()
        RETURNING boat_booking_id`,
       [dueDays]
@@ -60,6 +63,7 @@ export const cancelExpiredBookings = async (): Promise<void> => {
         [boatBookingId]
       );
       await restoreBookingPromotions(client, { previousStatus: 'pending', boatBookingId });
+      await restoreBoatTicketRedemptions(client, boatBookingId);
     }
 
     await client.query('COMMIT');

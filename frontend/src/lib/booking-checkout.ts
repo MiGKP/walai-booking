@@ -1,3 +1,5 @@
+import { canUseWalletPromotion } from './promotions';
+
 interface CheckoutCart {
   check_in: string;
   check_out: string;
@@ -19,6 +21,7 @@ export interface CheckoutPromotion {
   applies_to?: string | null;
   is_collectible?: boolean;
   wallet_status?: 'saved' | 'used' | 'expired' | null;
+  wallet_remaining?: number | null;
   room_type_id?: number | null;
   room_count?: number | null;
   usage_limit_per_member?: number | null;
@@ -47,7 +50,7 @@ export function resolveCheckoutDetails(params: URLSearchParams, cart: CheckoutCa
 
 export function eligibleRoomPromotion(promo: CheckoutPromotion, basePrice: number, nights: number, typeId?: number, roomCount?: number): boolean {
   if (promo.applies_to === 'kayak') return false;
-  if (promo.is_collectible && promo.wallet_status !== 'saved') return false;
+  if (promo.is_collectible && !canUseWalletPromotion(promo.wallet_status, promo.wallet_remaining)) return false;
   if (promo.min_nights != null && nights < Number(promo.min_nights)) return false;
   if (promo.min_price != null && basePrice < Number(promo.min_price)) return false;
   if (promo.room_type_id != null && typeId !== promo.room_type_id) return false;
