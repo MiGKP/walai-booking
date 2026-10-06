@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRight,
   Eye,
@@ -16,7 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import api from "@/lib/api";
+import api, { getNetworkErrorMessage } from "@/lib/api";
 import { consumePostLoginRedirect, isSafeInternalPath } from "@/lib/auth-redirect";
 import toast from "react-hot-toast";
 import LoginScene3D from "@/components/auth/Scene3D";
@@ -28,6 +29,7 @@ interface LoginResponse {
       first_name?: string;
       last_name?: string;
       email: string;
+      role?: string;
     };
     token: string;
     redirectUrl?: string;
@@ -40,9 +42,10 @@ interface LoginErrorResponse {
 
 const getLoginErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError<LoginErrorResponse>(error)) {
-    return error.response?.data?.message || "เข้าสู่ระบบไม่สำเร็จ";
+    const message = error.response?.data?.message;
+    if (message) return message;
   }
-  return "เข้าสู่ระบบไม่สำเร็จ";
+  return getNetworkErrorMessage(error) ?? "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 };
 
 const getGoogleLoginErrorMessage = (code: string): string => {
@@ -80,6 +83,8 @@ export default function LoginPage(): React.ReactElement | null {
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // ข้อผิดพลาดการเข้าสู่ระบบแสดงในฟอร์ม ไม่ใช้ toast เพื่อให้ผู้ใช้เห็นตรงจุดที่ต้องแก้
+  const [formError, setFormError] = useState<string | null>(null);
 
   if (!ready) return null;
 
@@ -88,11 +93,19 @@ export default function LoginPage(): React.ReactElement | null {
   ): Promise<void> => {
     event.preventDefault();
     setLoading(true);
+    setFormError(null);
     setIsRedirecting(true);
     try {
       const response = await api.post<LoginResponse>("/auth/login", form);
-      const { token, redirectUrl } = response.data.data;
+      const { token, redirectUrl, user } = response.data.data;
       await login(token);
+      // admin และพนักงานต้องเริ่มที่หน้าภาพรวมของตัวเสมอ (ไม่ย้อนไปหน้าเดิมที่เคยเปิดค้างไว้)
+      const isStaffOrAdmin = user.role !== undefined && user.role !== "customer";
+      if (isStaffOrAdmin) {
+        consumePostLoginRedirect();
+        router.push(redirectUrl || "/");
+        return;
+      }
       // backend คำนวณปลายทางตาม role ให้แล้ว (เช่น admin -> /admin, staff -> หน้า dashboard ของตัวเอง)
       // explicitRedirect (query param ?redirect=) มาก่อนเสมอ เผื่อผู้ใช้ถูกเด้งมา login ระหว่างทำอย่างอื่นอยู่
       const explicitRedirect = new URLSearchParams(window.location.search).get("redirect");
@@ -101,7 +114,7 @@ export default function LoginPage(): React.ReactElement | null {
       const storedRedirect = consumePostLoginRedirect();
       router.push(safeExplicit || storedRedirect || redirectUrl || "/");
     } catch (error: unknown) {
-      toast.error(getLoginErrorMessage(error));
+      setFormError(getLoginErrorMessage(error));
       setIsRedirecting(false);
     } finally {
       setLoading(false);
@@ -186,12 +199,13 @@ export default function LoginPage(): React.ReactElement | null {
                     className="input-field h-[52px] pl-12"
                     placeholder="your@email.com"
                     value={form.email}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      setFormError(null);
                       setForm((current) => ({
                         ...current,
                         email: event.target.value,
-                      }))
-                    }
+                      }));
+                    }}
                   />
                 </div>
               </div>
@@ -218,12 +232,13 @@ export default function LoginPage(): React.ReactElement | null {
                     className="input-field h-[52px] pl-12 pr-12"
                     placeholder="รหัสผ่าน"
                     value={form.password}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      setFormError(null);
                       setForm((current) => ({
                         ...current,
                         password: event.target.value,
-                      }))
-                    }
+                      }));
+                    }}
                   />
                   <button
                     type="button"
@@ -243,6 +258,16 @@ export default function LoginPage(): React.ReactElement | null {
                   </Link>
                 </div>
               </div>
+
+              {formError && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
+                >
+                  <AlertCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+                  <span>{formError}</span>
+                </div>
+              )}
 
               <button
                 type="submit"

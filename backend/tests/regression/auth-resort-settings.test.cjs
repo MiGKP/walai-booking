@@ -175,3 +175,27 @@ test('public resort response selects the configurable age setting', async () => 
   assert.equal(res.body.data.infant_max_age_exclusive, 6);
   assert.ok(sql.includes('infant_max_age_exclusive'));
 });
+
+test('boat advance setting accepts zero and rejects malformed or wrong-service updates', async () => {
+  for (const value of [0, 60, 10080, '90']) {
+    const { res, calls } = await saveResort('boat_staff', { id: 5, boat_advance_booking_minutes: value });
+    assert.equal(res.code, 200);
+    assert.equal(calls.at(-1).values[0], Number(value));
+  }
+  for (const value of [-1, 10081, 0.5, null, '', true, '60oops']) {
+    const { res, calls } = await saveResort('boat_staff', { id: 5, boat_advance_booking_minutes: value });
+    assert.equal(res.code, 400);
+    assert.equal(calls.length, 0);
+  }
+  assert.equal((await saveResort('room_staff', { id: 4, boat_advance_booking_minutes: 60 })).res.code, 400);
+});
+
+test('customer boat hours expose the same global advance setting edited by staff', async () => {
+  let sql;
+  queryHandler = async query => { sql = query; return rows([{ day_of_week: 0, advance_booking_minutes: 0 }]); };
+  const res = response();
+  await settings.getBoatHours({}, res);
+  assert.equal(res.body.data[0].advance_booking_minutes, 0);
+  assert.ok(sql.includes('boat_advance_booking_minutes'));
+  assert.ok(sql.includes('AS advance_booking_minutes'));
+});

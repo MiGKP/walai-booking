@@ -21,6 +21,7 @@ The reviewed inventory includes promotion 12 with a current global cap of 1 and 
 - A repeat application on the backup was refused with `Already committed once; refusing to apply again`.
 - The guest-policy migration was tested on the backup and applied to production. The initial cutoff remains 6. Production has `approved_by_staff_id`, not `verify_by_staff_id`; controllers use the existing approval column.
 - All 11 representative pagination SQL queries parsed and produced PostgreSQL execution plans on the backup in a read-only transaction.
+- The latest PR commit also requires `2026-10-08-boat-advance-booking-single.sql`. It passed on the backup and was applied to production; the existing setting remains 60 minutes. The customer boat-hours response now reads this same global value.
 - Files 08, 09 and 10 all set transaction-local UTC. This keeps timestamp JSON in fingerprints and audit comparisons independent of the SQL editor's default timezone.
 - Backup preview: expect 14 candidates, 11 inserts, 3 source releases, 4 header-only releases, and no exceptions. Review every counter delta.
 - Backup apply: set `apply=true` and its current preview fingerprint in file 09; run the complete transaction.

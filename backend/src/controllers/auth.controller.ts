@@ -85,12 +85,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     if (result.rows.length > 0) {
       const staff = result.rows[0];
       if (!staff.password) {
-        res.status(401).json({ success: false, message: 'Invalid email or password' });
+        res.status(401).json({ success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
         return;
       }
       const isValid = await bcrypt.compare(password, staff.password);
       if (!isValid) {
-        res.status(401).json({ success: false, message: 'Invalid email or password' });
+        res.status(401).json({ success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
         return;
       }
       const token = generateToken({ id: staff.staff_id, email: staff.email, role: staff.role });
@@ -124,7 +124,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Check members
     result = await pool.query('SELECT * FROM members WHERE LOWER(email) = LOWER($1)', [email]);
     if (result.rows.length === 0) {
-      res.status(401).json({ success: false, message: 'Invalid email or password' });
+      res.status(401).json({ success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
       return;
     }
 
@@ -136,7 +136,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const isValid = await bcrypt.compare(password, member.password);
     if (!isValid) {
-      res.status(401).json({ success: false, message: 'Invalid email or password' });
+      res.status(401).json({ success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
       return;
     }
 

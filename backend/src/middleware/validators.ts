@@ -136,6 +136,8 @@ export const resortInfoValidator = [
   body('id').optional().isInt({ min: 3, max: 5 }).withMessage('Invalid resort id'),
   body('infant_max_age_exclusive').optional().isInt({ min: 0, max: 18 })
     .withMessage('อายุที่เริ่มนับความจุต้องเป็นจำนวนเต็ม 0-18 ปี'),
+  body('boat_advance_booking_minutes').optional().isInt({ min: 0, max: 10080 })
+    .withMessage('จองล่วงหน้าขั้นต่ำต้องเป็นจำนวนเต็ม 0-10080 นาที'),
 ];
 
 export const updateRoomBookingStatusValidator = [

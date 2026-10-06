@@ -54,6 +54,7 @@ const boatStaffAllowedPaths = [
   "/admin/boats/location",
   "/admin/boats/types",
   "/admin/boats/rounds",
+  "/staff/boats/boat-hours",
 ];
 
 const menuGroups: MenuGroup[] = [
@@ -149,6 +150,11 @@ const menuGroups: MenuGroup[] = [
         label: "รอบเวลา",
         path: "/admin/boats/rounds",
         icon: <Sailboat size={16} />,
+      },
+      {
+        label: "เวลาทำการเรือ",
+        path: "/staff/boats/boat-hours",
+        icon: <Clock size={16} />,
       },
     ],
   },

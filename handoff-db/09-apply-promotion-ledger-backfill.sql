@@ -278,6 +278,3 @@ SELECT jsonb_build_object('run_key',run_key,'applied_at',applied_at,
   'inserted',(report->'plan'->>'insert_count')::integer,
   'fingerprint',report->'plan'->>'fingerprint') AS applied
 FROM public.promotion_backfill_runs WHERE run_key='2026-10-05-room-promotion-ledger-v1';
-
-
-

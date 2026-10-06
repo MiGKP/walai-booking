@@ -146,4 +146,3 @@ SELECT jsonb_build_object(
      FROM counters c WHERE c.usage_limit IS NOT NULL AND c.after_count>c.usage_limit)
 ) AS plan;
 COMMIT;
-

@@ -56,4 +56,3 @@ SELECT jsonb_build_object(
 -- Run immediately after application while booking writes remain paused. Later legitimate
 -- cancellations can remove inserted pending/paid ledger rows; that is normal app behavior.
 COMMIT;
-
