@@ -1,3 +1,4 @@
+import { parsePagination, paginationMeta } from '../utils/pagination';
 import { Request, Response } from 'express';
 import { safeRollback } from '../utils/safe-rollback';
 import { bangkokToday } from '../utils/bangkok-date';
@@ -22,7 +23,7 @@ import {
   persistBookingPromotions,
   restoreBookingPromotions,
 } from '../services/promotion-ledger';
-import { ApplyLine, PromoApplyError, applyPromotionList } from '../services/promotion-apply';
+import { ApplyLine, PromoApplyError, applyPromotionList, headerPromotionId } from '../services/promotion-apply';
 import { restoreBoatTicketRedemptions } from './kayak.controller';
 import { mapDbError } from '../utils/db-errors';
 import { parsePositiveInt } from '../utils/ids';
@@ -202,8 +203,8 @@ async function applyPromotionDiscount(
   };
 }
 
-// เลือกห้องว่างประเภทเดียวกันทีละห้อง โดยล็อกแถวห้องก่อน แล้วจึงตรวจการทับซ้อนใน statement ถัดไป
-// (ใน READ COMMITTED statement เดียวกันใช้ snapshot เดิม จึงมองไม่เห็น booking ที่เพิ่ง commit)
+// Candidate rooms are already locked globally by room_id. Check overlaps in a
+// later statement so READ COMMITTED sees bookings committed while waiting.
 async function pickAvailableRoom(
   client: { query: typeof pool.query },
   roomTypeId: number,
@@ -220,11 +221,6 @@ async function pickAvailableRoom(
     [roomTypeId, excludeRoomIds]
   );
   for (const candidate of candidates.rows as Array<{ room_id: number; room_number: string }>) {
-    const locked = await client.query(
-      'SELECT room_id FROM rooms WHERE room_id = $1 FOR UPDATE',
-      [candidate.room_id]
-    );
-    if (locked.rows.length === 0) continue;
     const busy = await client.query(
       `SELECT 1
        FROM booking_room br
@@ -257,6 +253,9 @@ export const createRoomBooking = async (
     }
     const specialRequests =
       typeof body.special_requests === 'string' ? body.special_requests : null;
+    const guestName = typeof body.guest_name === 'string' ? body.guest_name.trim() || null : null;
+    const guestPhone = typeof body.guest_phone === 'string' ? body.guest_phone.trim() || null : null;
+    const guestEmail = typeof body.guest_email === 'string' ? body.guest_email.trim() || null : null;
     // legacy: โปรโมชั่นเดียวสำหรับทั้งออเดอร์ (ยังรองรับไว้เผื่อผู้เรียกเก่าที่ไม่ได้ส่ง promotion_id แยกตาม item)
     const legacyPromotionId =
       body.promotion_id != null ? Number(body.promotion_id) : null;
@@ -319,8 +318,16 @@ export const createRoomBooking = async (
       capacity: Number(typeMap.get(item.room_type_id)!.capacity),
       quantity: item.quantity,
     }));
+    const ageConfig = await client.query(
+      'SELECT infant_max_age_exclusive FROM resort_info WHERE id = 3'
+    );
+    const infantMaxAgeExclusive = ageConfig.rows.length === 0
+      ? 6 : ageConfig.rows[0].infant_max_age_exclusive as unknown;
+    if (typeof infantMaxAgeExclusive !== 'number' || !Number.isInteger(infantMaxAgeExclusive) || infantMaxAgeExclusive < 0 || infantMaxAgeExclusive > 18) {
+      throw new Error('Invalid infant age configuration');
+    }
     try {
-      assertGuestsFitCapacity(adults, countCapacityChildren(childAges), sumCapacity(capacityItems));
+      assertGuestsFitCapacity(adults, countCapacityChildren(childAges, infantMaxAgeExclusive), sumCapacity(capacityItems));
     } catch (err) {
       await safeRollback(client);
       res.status(400).json({
@@ -338,9 +345,22 @@ export const createRoomBooking = async (
       room_number: string;
     }> = [];
 
-    // ห้องที่ถูกจับจองไปแล้วภายใน transaction นี้ (ยังไม่ถูก insert ลง booking_room) กันไม่ให้ query
-    // รอบถัดไปหยิบห้องเดียวกันซ้ำ เพราะ lock ของธุรกรรมตัวเองไม่ถูก SKIP LOCKED กันเอง
+    // Lock the complete candidate set in one global order, including explicit
+    // room choices. Reversed carts must never acquire physical rooms in reverse.
+    // Blocking locks let a fresh overlap query decide availability after waiting.
+    const allocationTypeIds = [...typeMap.keys()].sort((a, b) => a - b);
+    await client.query(
+      `SELECT room_id FROM rooms
+       WHERE room_type_id = ANY($1::int[])
+       ORDER BY room_id FOR UPDATE`,
+      [allocationTypeIds]
+    );
+
+    // Exclude rooms allocated earlier in this transaction but not yet inserted.
     const lockedRoomIds: number[] = [];
+    const explicitRoomIds = items
+      .map((item) => item.room_id)
+      .filter((roomId): roomId is number => roomId !== null);
 
     for (const item of items) {
       const roomType = typeMap.get(item.room_type_id)!;
@@ -348,12 +368,6 @@ export const createRoomBooking = async (
         // หน่วยแรกของแต่ละ item เท่านั้นที่ผูกกับห้องเฉพาะเจาะจงที่ลูกค้าเลือกไว้ (ถ้ามี)
         // ส่วนที่เกินมา (quantity > 1 บนห้องเดียวกัน) ให้ระบบเลือกห้องว่างประเภทเดียวกันให้อัตโนมัติ
         const requestedRoomId = i === 0 ? item.room_id : null;
-
-        // lock แถวห้องใน statement แยกก่อน แล้วค่อยตรวจการทับซ้อนใน statement ถัดไป
-        // เพราะใน READ COMMITTED subquery ของ statement เดียวกันใช้ snapshot เดิม และจะไม่เห็น booking ที่เพิ่ง commit
-        if (requestedRoomId) {
-          await client.query('SELECT room_id FROM rooms WHERE room_id = $1 FOR UPDATE', [requestedRoomId]);
-        }
 
         const roomQuery = requestedRoomId
           ? await client.query(
@@ -367,11 +381,10 @@ export const createRoomBooking = async (
                    JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
                    WHERE br.status NOT IN ('cancelled', 'rejected', 'checked_out')
                      AND rb.check_in < $5 AND rb.check_out > $4
-                 )
-               FOR UPDATE`,
+                 )`,
               [requestedRoomId, item.room_type_id, lockedRoomIds, checkInDate, checkOutDate]
             )
-          : await pickAvailableRoom(client, item.room_type_id, checkInDate, checkOutDate, lockedRoomIds);
+          : await pickAvailableRoom(client, item.room_type_id, checkInDate, checkOutDate, [...lockedRoomIds, ...explicitRoomIds]);
 
         if (roomQuery.rows.length === 0) {
           await safeRollback(client);
@@ -487,15 +500,17 @@ export const createRoomBooking = async (
       }
     }
 
-    // เก็บโปรโมชั่นตัวแรกไว้ในคอลัมน์เดิม (room_bookings.promotion_id) เพื่อ backward-compat กับโค้ด/รายงานเดิม
-    const primaryPromotionId = appliedPromotions[0]?.promotion_id ?? legacyPromotionId ?? null;
+    // Multiple codes live in the ledger; the legacy header stores a single code only.
+    const primaryPromotionId = usesPerItemPromotions
+      ? headerPromotionId(appliedPromotions.map(applied => applied.promotion_id))
+      : legacyPromotionId;
 
     const guestTotal = adults + children;
     const headerRes = await client.query(
       `INSERT INTO room_bookings (
          member_id, check_in, check_out, guest_count, adults, children, child_ages,
-         special_request, promotion_id, status, total_price
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10)
+         special_request, promotion_id, status, total_price, guest_name, guest_phone, guest_email
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11, $12, $13)
        RETURNING *`,
       [
         user.id,
@@ -508,6 +523,9 @@ export const createRoomBooking = async (
         specialRequests,
         primaryPromotionId,
         totalPrice,
+        guestName,
+        guestPhone,
+        guestEmail,
       ]
     );
     const header = headerRes.rows[0];
@@ -584,14 +602,14 @@ export const createRoomBooking = async (
         if (memberRes.rows.length === 0) return;
         const m = memberRes.rows[0];
         const customerName =
-          `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email;
+          guestName || `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email;
         const details = lockedRooms
           .map((r) => `${r.room_name} (ห้อง ${r.room_number})`)
           .join(', ');
         const checkInStr = new Date(checkInDate).toLocaleDateString('th-TH');
         const checkOutStr = new Date(checkOutDate).toLocaleDateString('th-TH');
         await sendBookingConfirmationEmail({
-          to: m.email,
+          to: guestEmail || m.email,
           customerName,
           bookingType: 'room',
           bookingId: roomBookingId,
@@ -642,6 +660,7 @@ export const getUserRoomBookings = async (
         `SELECT rb.room_booking_id as id, rb.room_booking_id,
                 rb.check_in as check_in_date, rb.check_out as check_out_date,
                 rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
+                rb.guest_name, rb.guest_phone, rb.guest_email,
                 rb.total_price, rb.status, rb.special_request, rb.created_at,
                 rb.reject_reason, rb.payment_status, rb.payment_date,
                 (SELECT MIN(brc.checkin_at) FROM booking_room brc WHERE brc.room_booking_id = rb.room_booking_id) AS checkin_at,
@@ -711,6 +730,7 @@ export const getRoomBookingById = async (
               to_char(rb.check_in, 'YYYY-MM-DD') as check_in_date,
               to_char(rb.check_out, 'YYYY-MM-DD') as check_out_date,
               rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
+              rb.guest_name, rb.guest_phone, rb.guest_email,
               rb.total_price, rb.status, rb.special_request, rb.created_at,
               ${ROOMS_JSON_SQL} AS rooms
        FROM room_bookings rb
@@ -845,16 +865,69 @@ export const getAllRoomBookings = async (
   res: Response
 ): Promise<void> => {
   try {
+    const pagination = parsePagination(req.query);
+    const params: (string | number)[] = [];
+    let where = 'WHERE 1=1';
+    const pendingSlip = "NULLIF(rb.payment_slip, '') IS NOT NULL AND rb.status NOT IN ('approved', 'checked_out', 'rejected', 'cancelled')";
+    const unpaidPending = "NULLIF(rb.payment_slip, '') IS NULL AND rb.status = 'pending'";
+    if (req.query.filter === 'has_slip') where += ` AND (${pendingSlip})`;
+    else if (req.query.filter === 'pending') where += ` AND (${unpaidPending})`;
+    else if (req.query.filter === 'approved' || req.query.filter === 'checked_out') {
+      params.push(req.query.filter); where += ` AND rb.status = $${params.length}`;
+    }
+    if (typeof req.query.status === 'string') { params.push(req.query.status); where += ` AND rb.status = $${params.length}`; }
+    const type = req.query.room_type;
+    if (typeof type === 'string' && type !== 'all') {
+      params.push(type);
+      where += ` AND EXISTS (SELECT 1 FROM booking_room br JOIN rooms r ON r.room_id = br.room_id
+         JOIN room_types rt ON rt.id = r.room_type_id
+         WHERE br.room_booking_id = rb.room_booking_id AND COALESCE(NULLIF(rt.type_name, ''), rt.room_name) = $${params.length})`;
+    }
+    for (const [key, operator] of [['date_from', '>='], ['date_to', '<=']]) {
+      if (typeof req.query[key] === 'string') { params.push(req.query[key] as string); where += ` AND rb.check_in::date ${operator} $${params.length}::date`; }
+    }
+    if (typeof req.query.search === 'string' && req.query.search.trim()) {
+      params.push(`%${req.query.search.trim()}%`);
+      where += ` AND (rb.room_booking_id::text ILIKE $${params.length}
+        OR CONCAT_WS(' ', m.first_name, m.last_name) ILIKE $${params.length}
+        OR m.phone ILIKE $${params.length} OR m.email ILIKE $${params.length}
+        OR rb.guest_name ILIKE $${params.length} OR rb.guest_phone ILIKE $${params.length} OR rb.guest_email ILIKE $${params.length} OR EXISTS (SELECT 1 FROM booking_room br JOIN rooms r ON r.room_id = br.room_id
+          JOIN room_types rt ON rt.id = r.room_type_id WHERE br.room_booking_id = rb.room_booking_id
+          AND (rt.room_name ILIKE $${params.length} OR rt.type_name ILIKE $${params.length} OR r.room_number::text ILIKE $${params.length} OR r.room_id::text ILIKE $${params.length})))`;
+    }
+    const from = `FROM room_bookings rb
+       JOIN members m ON rb.member_id = m.member_id
+       LEFT JOIN staff s ON rb.approved_by_staff_id = s.staff_id`;
+    let extra = {};
+    if (pagination) {
+      const count = await pool.query(`SELECT COUNT(*) AS total ${from} ${where}`, params);
+      const summary = await pool.query(`SELECT COUNT(*) AS "all",
+        COUNT(*) FILTER (WHERE ${pendingSlip}) AS has_slip,
+        COUNT(*) FILTER (WHERE ${unpaidPending}) AS pending,
+        COUNT(*) FILTER (WHERE rb.status = 'approved') AS approved,
+        COUNT(*) FILTER (WHERE rb.status = 'checked_out') AS checked_out,
+        COALESCE(SUM(rb.total_price) FILTER (WHERE rb.status IN ('approved', 'checked_out')), 0) AS "totalRevenue",
+        COALESCE(SUM(rb.total_price) FILTER (WHERE ${pendingSlip}), 0) AS "pendingRevenue"
+        ${from}`);
+      const row = summary.rows[0];
+      extra = { pagination: paginationMeta(pagination, Number(count.rows[0].total)),
+        summary: { all: Number(row.all), has_slip: Number(row.has_slip), pending: Number(row.pending), approved: Number(row.approved),
+          checked_out: Number(row.checked_out), totalRevenue: Number(row.totalRevenue), pendingRevenue: Number(row.pendingRevenue) } };
+    }
+    const sortColumns: Record<string, string> = { check_in: 'rb.check_in', total_price: 'rb.total_price', created_at: 'rb.created_at' };
+    const sort = typeof req.query.sort === 'string' ? sortColumns[req.query.sort] || 'rb.created_at' : 'rb.created_at';
+    const direction = req.query.sort_dir === 'asc' ? 'ASC' : 'DESC';
     const result = await pool.query(
       `SELECT rb.room_booking_id, rb.room_booking_id as id,
               rb.check_in, rb.check_out,
               rb.check_in as check_in_date, rb.check_out as check_out_date,
               rb.checkout_at,
               rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
+              rb.guest_name, rb.guest_phone, rb.guest_email,
               rb.total_price, rb.status, rb.special_request,
               rb.payment_status, rb.payment_slip, rb.created_at,
-              CONCAT_WS(' ', m.first_name, m.last_name) as user_name,
-              m.email as user_email, m.phone as user_phone,
+              COALESCE(rb.guest_name, CONCAT_WS(' ', m.first_name, m.last_name)) as user_name,
+              COALESCE(rb.guest_email, m.email) as user_email, COALESCE(rb.guest_phone, m.phone) as user_phone,
               CONCAT_WS(' ', s.first_name, s.last_name) as approved_by_name,
               ${ROOMS_JSON_SQL} AS rooms,
               ${BOAT_ADDONS_JSON_SQL} AS boat_addons,
@@ -867,18 +940,25 @@ export const getAllRoomBookings = async (
                 ORDER BY br.booking_room_id LIMIT 1
               ) AS room_name,
               (
+                SELECT rt.type_name FROM booking_room br
+                JOIN rooms r ON r.room_id = br.room_id
+                JOIN room_types rt ON rt.id = r.room_type_id
+                WHERE br.room_booking_id = rb.room_booking_id
+                ORDER BY br.booking_room_id LIMIT 1
+              ) AS type_name,
+              (
                 SELECT r.room_number
                 FROM booking_room br
                 JOIN rooms r ON r.room_id = br.room_id
                 WHERE br.room_booking_id = rb.room_booking_id
                 ORDER BY br.booking_room_id LIMIT 1
               ) AS room_number
-       FROM room_bookings rb
-       JOIN members m ON rb.member_id = m.member_id
-       LEFT JOIN staff s ON rb.approved_by_staff_id = s.staff_id
-       ORDER BY rb.created_at DESC`
+       ${from} ${where}
+       ORDER BY ${sort} ${direction}, rb.room_booking_id DESC
+       ${pagination ? `LIMIT $${params.length + 1} OFFSET $${params.length + 2}` : ''}`,
+      pagination ? [...params, pagination.limit, pagination.offset] : params
     );
-    res.json({ success: true, data: result.rows });
+    res.json({ success: true, data: result.rows, ...extra });
   } catch (error) {
     console.error('Get all bookings error:', error);
     const mapped = mapDbError(error);
@@ -987,7 +1067,8 @@ export const updateRoomBookingStatus = async (
       (async () => {
         try {
           const infoRes = await pool.query(
-            `SELECT m.email, m.first_name, m.last_name,
+            `SELECT COALESCE(rb.guest_email, m.email) AS email,
+                    COALESCE(rb.guest_name, CONCAT_WS(' ', m.first_name, m.last_name)) AS customer_name,
                     (
                       SELECT string_agg(rt.room_name || ' (ห้อง ' || r.room_number || ')', ', ' ORDER BY br.booking_room_id)
                       FROM booking_room br
@@ -1003,7 +1084,7 @@ export const updateRoomBookingStatus = async (
           if (infoRes.rows.length > 0) {
             const info = infoRes.rows[0];
             const customerName =
-              `${info.first_name || ''} ${info.last_name || ''}`.trim() ||
+              info.customer_name ||
               info.email;
             await sendBookingStatusEmail({
               to: info.email,

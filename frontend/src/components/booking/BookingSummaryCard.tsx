@@ -7,6 +7,7 @@ import { useRoomCart } from '@/lib/room-cart-store';
 import { useCartSync } from '@/hooks/useCartSync';
 import { RoomCartItem } from '@/lib/room-cart';
 import { formatThaiDate } from '@/lib/date';
+import { resolveCheckoutDetails } from '@/lib/booking-checkout';
 
 export default function BookingSummaryCard() {
   const router = useRouter();
@@ -14,16 +15,14 @@ export default function BookingSummaryCard() {
   const cart = useRoomCart();
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const checkIn = searchParams.get('check_in') || '';
-  const checkOut = searchParams.get('check_out') || '';
-  const adults = parseInt(searchParams.get('adults') || '1', 10);
-  const children = parseInt(searchParams.get('children') || '0', 10);
+  const { checkIn, checkOut, adults, children, childAges } = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
 
   const { commit: commitCart, clearAll: clearCartEverywhere } = useCartSync({ 
     checkIn, 
     checkOut, 
     adults, 
-    children 
+    children,
+    childAges,
   });
 
   // Filter out any generic items just in case (roomId === null), though the UI should only add specific rooms now.
@@ -57,7 +56,13 @@ export default function BookingSummaryCard() {
   };
 
   const handleConfirmBooking = () => {
-    router.push(`/booking/details?${searchParams.toString()}`);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('check_in', checkIn);
+    params.set('check_out', checkOut);
+    params.set('adults', String(adults));
+    params.set('children', String(children));
+    if (childAges.length > 0) params.set('child_ages', childAges.join(','));
+    router.push(`/booking/details?${params.toString()}`);
   };
 
   if (cartItems.length === 0) {

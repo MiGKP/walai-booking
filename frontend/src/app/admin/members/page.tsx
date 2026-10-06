@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Users,
   Search,
@@ -65,13 +65,16 @@ export default function AdminMembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // State สำหรับ Filter & Search (ค้นหาจาก Client-side ไม่ยิง API)
+  // Server-side filters
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
+  const [summary, setSummary] = useState({ total: 0, active: 0, inactive: 0 });
+  const requestId = useRef(0);
 
   // Modals
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
@@ -86,13 +89,18 @@ export default function AdminMembersPage() {
     data: null,
   });
 
-  // ดึงข้อมูลจาก API ครั้งเดียว (ไม่ส่ง params search/status ไปที่ backend)
-  const fetchMembers = useCallback(async () => {
+  // Load the requested page and global member totals
+  const fetchMembers = useCallback(async (): Promise<void> => {
     if (!ready) return;
 
+    const id = ++requestId.current;
     setLoading(true);
     try {
-      const res = await api.get("/auth/members");
+      const res = await api.get("/members", { params: { page: currentPage, limit: itemsPerPage, search: search.trim() || undefined, status: statusFilter } });
+      if (id !== requestId.current) return;
+      setPagination(res.data.pagination);
+      setSummary(res.data.summary);
+      if (currentPage > Math.max(1, res.data.pagination.totalPages)) setCurrentPage(Math.max(1, res.data.pagination.totalPages));
       const rawData: Member[] = res.data?.data || [];
 
       const formattedData = rawData.map((item) => ({
@@ -103,11 +111,11 @@ export default function AdminMembersPage() {
       setMembers(formattedData);
     } catch (error) {
       console.error("Fetch members error:", error);
-      notify.error("ไม่สามารถโหลดข้อมูลสมาชิกได้");
+      if (id === requestId.current) notify.error("ไม่สามารถโหลดข้อมูลสมาชิกได้");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  }, [ready]);
+  }, [ready, currentPage, search, statusFilter]);
 
   // เรียก Fetch ข้อมูลครั้งแรกเมื่อพร้อมเท่านั้น
   useEffect(() => {
@@ -123,13 +131,7 @@ export default function AdminMembersPage() {
         is_active: newStatus,
       });
 
-      setMembers((prev) =>
-        prev.map((m) =>
-          (m.member_id ?? m.id) === confirmModal.memberId
-            ? { ...m, is_active: newStatus }
-            : m
-        )
-      );
+      await fetchMembers();
 
       notify.success(
         `เปลี่ยนสถานะ ${confirmModal.memberName} เป็น ${
@@ -144,49 +146,11 @@ export default function AdminMembersPage() {
     }
   };
 
-  // Reset หน้า Pagination เมื่อเปลี่ยนคำค้นหาหรือตัวกรอง
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, statusFilter]);
-
-  // สรุปตัวเลขสถิติรวมทั้งหมดจาก Database (ไม่ลดลงตามคำค้นหา)
-  const { totalMembers, activeMembers, inactiveMembers } = useMemo(() => {
-    const total = members.length;
-    const active = members.filter((m) => m.is_active !== false).length;
-    const inactive = members.filter((m) => m.is_active === false).length;
-
-    return {
-      totalMembers: total,
-      activeMembers: active,
-      inactiveMembers: inactive,
-    };
-  }, [members]);
-
-  // Filter ข้อมูลฝั่ง Client (ค้นหาลื่นๆ ทันที ไม่กระตุก)
-  const filteredMembers = useMemo(() => {
-    return members.filter((m) => {
-      // 1. กรองตามสถานะ
-      const isActive = m.is_active !== false;
-      if (statusFilter === "active" && !isActive) return false;
-      if (statusFilter === "inactive" && isActive) return false;
-
-      // 2. กรองตามคำค้นหา (ชื่อ, นามสกุล, อีเมล, เบอร์โทร)
-      const query = search.trim().toLowerCase();
-      if (!query) return true;
-
-      const fullName = `${m.first_name || ""} ${m.last_name || ""}`.toLowerCase();
-      const email = (m.email || "").toLowerCase();
-      const phone = (m.phone || "").toLowerCase();
-
-      return fullName.includes(query) || email.includes(query) || phone.includes(query);
-    });
-  }, [members, search, statusFilter]);
-
-  // Pagination logic
+  const { total: totalMembers, active: activeMembers, inactive: inactiveMembers } = summary;
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentMembers = filteredMembers.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
+  const currentMembers = members;
+  const totalPages = pagination.totalPages;
 
   if (!ready) return null;
 
@@ -225,13 +189,13 @@ export default function AdminMembersPage() {
               type="text"
               placeholder="ค้นหาชื่อ, อีเมล หรือเบอร์โทร..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               className="w-full pl-9 pr-8 py-2 bg-cream-50 border border-charcoal-200 rounded-xl text-sm font-medium text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-forest-600/20 focus:border-forest-600 transition-all"
             />
             {search && (
               <button
                 type="button"
-                onClick={() => setSearch("")}
+                onClick={() => { setSearch(""); setCurrentPage(1); }}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-charcoal-400 hover:text-charcoal-600 p-0.5 rounded-full hover:bg-charcoal-100 transition-colors"
                 title="ล้างคำค้นหา"
               >
@@ -243,7 +207,7 @@ export default function AdminMembersPage() {
           <div className="flex items-center gap-1 p-1 bg-cream-100 rounded-xl text-sm w-full sm:w-auto shrink-0 justify-between sm:justify-start">
             <button
               type="button"
-              onClick={() => setStatusFilter("all")}
+              onClick={() => { setStatusFilter("all"); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
                 statusFilter === "all"
                   ? "bg-white text-charcoal-800 shadow-sm"
@@ -254,7 +218,7 @@ export default function AdminMembersPage() {
             </button>
             <button
               type="button"
-              onClick={() => setStatusFilter("active")}
+              onClick={() => { setStatusFilter("active"); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
                 statusFilter === "active"
                   ? "bg-white text-forest-700 shadow-sm"
@@ -266,7 +230,7 @@ export default function AdminMembersPage() {
             </button>
             <button
               type="button"
-              onClick={() => setStatusFilter("inactive")}
+              onClick={() => { setStatusFilter("inactive"); setCurrentPage(1); }}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
                 statusFilter === "inactive"
                   ? "bg-white text-rose-700 shadow-sm"
@@ -436,11 +400,11 @@ export default function AdminMembersPage() {
         </div>
 
         {/* Pagination Footer */}
-        {!loading && filteredMembers.length > 0 && (
+        {!loading && pagination.total > 0 && (
           <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
             <p className="text-charcoal-500">
               แสดงข้อมูล {indexOfFirstItem + 1} -{" "}
-              {Math.min(indexOfLastItem, filteredMembers.length)} จากทั้งหมด {filteredMembers.length} รายการ
+              {Math.min(indexOfLastItem, pagination.total)} จากทั้งหมด {pagination.total} รายการ
             </p>
 
             <div className="flex items-center gap-2">

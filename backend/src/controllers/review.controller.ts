@@ -3,6 +3,7 @@ import pool from '../config/database';
 import { AuthPayload } from '../types';
 import { mapDbError } from '../utils/db-errors';
 import { parsePositiveInt } from '../utils/ids';
+import { parsePagination, paginationMeta } from '../utils/pagination';
 
 // ดึงรีวิวล่าสุดสำหรับหน้าแรก (public)
 export const getPublicReviews = async (req: Request, res: Response): Promise<void> => {
@@ -114,45 +115,52 @@ export const getReviewableBookings = async (req: Request, res: Response): Promis
 // ดึงรีวิวทั้งหมด (admin only)
 export const getAllReviews = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { room_type_id, min_rating, max_rating } = req.query;
+    const { room_type_id, min_rating, max_rating, search } = req.query;
+    const pagination = parsePagination(req.query);
     let whereClause = 'WHERE 1=1';
-    const params: any[] = [];
-    let idx = 1;
-    if (room_type_id) {
-      whereClause += ` AND rv.room_type_id = $${idx++}`;
-      params.push(Number(room_type_id));
+    const params: (string | number)[] = [];
+    if (room_type_id) { params.push(Number(room_type_id)); whereClause += ` AND rv.room_type_id = $${params.length}`; }
+    if (min_rating) { params.push(Number(min_rating)); whereClause += ` AND rv.rating >= $${params.length}`; }
+    if (max_rating) { params.push(Number(max_rating)); whereClause += ` AND rv.rating <= $${params.length}`; }
+    if (typeof search === 'string' && search.trim()) {
+      params.push(`%${search.trim()}%`);
+      whereClause += ` AND (CONCAT_WS(' ', m.first_name, m.last_name) ILIKE $${params.length}
+        OR m.email ILIKE $${params.length} OR rt.room_name ILIKE $${params.length}
+        OR rt.type_name ILIKE $${params.length} OR rv.comment ILIKE $${params.length})`;
     }
-    if (min_rating) {
-      whereClause += ` AND rv.rating >= $${idx++}`;
-      params.push(Number(min_rating));
+    const fromClause = `FROM reviews rv
+       JOIN members m ON m.member_id = rv.member_id
+       JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
+       JOIN room_types rt ON rt.id = rv.room_type_id
+       ${whereClause}`;
+    let aggregate: { total: number; avg_rating: number | null; ratingCounts: Record<number, number> } | undefined;
+    if (pagination) {
+      const stats = await pool.query(`SELECT COUNT(*) AS total, AVG(rv.rating) AS avg_rating,
+        COUNT(*) FILTER (WHERE rv.rating = 5) AS rating_5,
+        COUNT(*) FILTER (WHERE rv.rating = 4) AS rating_4,
+        COUNT(*) FILTER (WHERE rv.rating = 3) AS rating_3,
+        COUNT(*) FILTER (WHERE rv.rating = 2) AS rating_2,
+        COUNT(*) FILTER (WHERE rv.rating = 1) AS rating_1 ${fromClause}`, params);
+      const row = stats.rows[0];
+      aggregate = { total: Number(row.total), avg_rating: row.avg_rating == null ? null : Math.round(Number(row.avg_rating) * 10) / 10,
+        ratingCounts: { 1: Number(row.rating_1), 2: Number(row.rating_2), 3: Number(row.rating_3), 4: Number(row.rating_4), 5: Number(row.rating_5) } };
     }
-    if (max_rating) {
-      whereClause += ` AND rv.rating <= $${idx++}`;
-      params.push(Number(max_rating));
-    }
-
     const result = await pool.query(
       `SELECT rv.review_id, rv.rating, rv.comment, rv.review_date,
               m.first_name, m.last_name, m.image_profile, m.email,
               rt.room_name, rt.type_name, rt.room_image, rt.id AS room_type_id,
               rb.check_in, rb.check_out, rb.room_booking_id
-       FROM reviews rv
-       JOIN members m ON m.member_id = rv.member_id
-       JOIN room_bookings rb ON rb.room_booking_id = rv.room_booking_id
-       JOIN room_types rt ON rt.id = rv.room_type_id
-       ${whereClause}
-       ORDER BY rv.review_date DESC`,
-      params
+       ${fromClause}
+       ORDER BY rv.review_date DESC, rv.review_id DESC
+       ${pagination ? `LIMIT $${params.length + 1} OFFSET $${params.length + 2}` : ''}`,
+      pagination ? [...params, pagination.limit, pagination.offset] : params
     );
     const avg = result.rows.length > 0
-      ? result.rows.reduce((sum: number, r: any) => sum + Number(r.rating), 0) / result.rows.length
-      : null;
-    res.json({
-      success: true,
-      data: result.rows,
-      avg_rating: avg ? Math.round(avg * 10) / 10 : null,
-      total: result.rows.length,
-    });
+      ? result.rows.reduce((sum: number, row: { rating: number }) => sum + Number(row.rating), 0) / result.rows.length : null;
+    res.json({ success: true, data: result.rows,
+      avg_rating: aggregate ? aggregate.avg_rating : avg == null ? null : Math.round(avg * 10) / 10,
+      total: aggregate ? aggregate.total : result.rows.length,
+      ...(pagination && aggregate ? { pagination: paginationMeta(pagination, aggregate.total), summary: aggregate } : {}) });
   } catch (error) {
     console.error('Get all reviews error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });

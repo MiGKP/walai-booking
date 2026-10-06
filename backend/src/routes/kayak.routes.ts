@@ -40,6 +40,8 @@ import {
   createBoatRoundValidator,
 } from '../middleware/validators';
 
+import { bookingListValidator } from '../middleware/pagination-validator';
+
 const router = Router();
 
 // Static routes (must come before dynamic /:id)
@@ -64,7 +66,7 @@ router.put('/room-addon/:boatBookingId/hand-out', authenticate, authorize('admin
 // Bookings routes (specific before dynamic)
 router.post('/bookings', authenticate, authorize('customer'), createKayakBookingValidator, validate, createKayakBooking);
 router.get('/bookings/my', authenticate, authorize('customer'), getUserKayakBookings);
-router.get('/bookings/all', authenticate, authorize('admin', 'boat_staff'), getAllKayakBookings);
+router.get('/bookings/all', authenticate, authorize('admin', 'boat_staff'), bookingListValidator, validate, getAllKayakBookings);
 router.get('/bookings/:id', authenticate, getKayakBookingById);
 router.put('/bookings/:id/cancel', authenticate, authorize('customer'), cancelKayakBooking);
 router.put('/bookings/:id/status', authenticate, authorize('admin', 'boat_staff'), updateKayakBookingStatusValidator, validate, updateKayakBookingStatus);

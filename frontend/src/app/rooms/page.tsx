@@ -21,6 +21,7 @@ import {
   Search, ShoppingCart, Loader2, Baby,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useInfantAgePolicy } from "@/hooks/useInfantAgePolicy";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import toast from "react-hot-toast";
@@ -318,7 +319,8 @@ function RoomsPageContent(): React.ReactElement {
 
   const roomTypeOptions = useMemo(() => Array.from(new Set(rooms.map((room) => room.type_name).filter(Boolean))), [rooms]);
   const roomsByType = useMemo(() => typeFilter === "all" ? rooms : rooms.filter((room) => room.type_name === typeFilter), [rooms, typeFilter]);
-  const countableChildren = childAges.filter((age) => age !== null && age > 5).length;
+  const infantAge = useInfantAgePolicy();
+  const countableChildren = childAges.filter((age) => age !== null && age >= infantAge).length;
   const totalGuests = guests.adults + countableChildren;
   const availableRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) > 0 && (Number(room.capacity) * Number(room.available_count)) >= totalGuests), [roomsByType, totalGuests]);
   const fullRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) <= 0 || (Number(room.capacity) * Number(room.available_count)) < totalGuests), [roomsByType, totalGuests]);
@@ -390,7 +392,7 @@ function RoomsPageContent(): React.ReactElement {
                     )}
                     <div className="px-3 py-2 bg-stone-50 rounded-xl mt-1 mb-2">
                       <p className="text-xs text-charcoal-400 leading-relaxed">
-                        <span className="font-bold text-forest-700">นโยบายเด็ก:</span> 0-5 ปี เข้าพักฟรีไม่มีค่าใช้จ่าย, 6-11 ปี คิดราคาเด็ก (เตียงเสริม), 12 ปีขึ้นไป คิดราคาผู้ใหญ่
+                        <span className="font-bold text-forest-700">นโยบายเด็ก:</span> {infantAge === 0 ? 'เด็กทุกอายุนับรวมในความจุห้อง' : `เด็กอายุต่ำกว่า ${infantAge} ปี เข้าพักฟรีและไม่นับความจุห้อง`}
                       </p>
                     </div>
                     <div className="border-t border-stone-100 p-2">

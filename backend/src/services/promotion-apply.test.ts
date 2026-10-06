@@ -273,7 +273,7 @@ describe('shouldRestoreQuota', () => {
   it('restores only pending or paid', (): void => {
     assert.equal(shouldRestoreQuota('pending'), true);
     assert.equal(shouldRestoreQuota('paid'), true);
-    assert.equal(shouldRestoreQuota('approved'), true);
+    assert.equal(shouldRestoreQuota('approved'), false);
   });
 });
 

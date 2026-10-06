@@ -1,3 +1,4 @@
+import { parsePagination, paginationMeta } from '../utils/pagination';
 import { Request, Response } from "express";
 import { safeRollback } from '../utils/safe-rollback';
 import { bangkokToday } from "../utils/bangkok-date";
@@ -103,6 +104,44 @@ function normalizeTimePart(value: unknown): string {
   return raw;
 }
 
+// Inventory is reused on different dates and after each time window ends.
+// Group simultaneous event deltas before the running sum so adjacent bookings
+// do not temporarily count the ending reservation and its replacement together.
+async function peakReservedBoats(
+  client: PoolClient,
+  boatTypeId: number,
+  boatRoundId: number | null = null,
+): Promise<number> {
+  const result = await client.query(
+    `WITH reservations AS (
+       SELECT bb.booking_date, bnb.boat_count,
+              COALESCE(bb.start_time, br.start_time) AS start_time,
+              COALESCE(bb.end_time, br.end_time) AS end_time
+       FROM booking_boat bnb
+       JOIN boat_bookings bb ON bb.boat_booking_id = bnb.boat_booking_id
+       JOIN boat_rounds br ON br.boat_round_id = bnb.boat_round_id
+       WHERE bnb.boat_type_id = $1
+         AND ($2::int IS NULL OR bnb.boat_round_id = $2)
+         AND bnb.status NOT IN ('cancelled', 'rejected', 'checked_out')
+     ), events AS (
+       SELECT booking_date, start_time AS event_time, boat_count AS delta FROM reservations
+       UNION ALL
+       SELECT booking_date, end_time AS event_time, -boat_count AS delta FROM reservations
+     ), simultaneous AS (
+       SELECT booking_date, event_time, SUM(delta) AS delta
+       FROM events GROUP BY booking_date, event_time
+     ), demand AS (
+       SELECT SUM(delta) OVER (
+         PARTITION BY booking_date ORDER BY event_time
+         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+       ) AS boats FROM simultaneous
+     )
+     SELECT COALESCE(MAX(boats), 0)::int AS n FROM demand`,
+    [boatTypeId, boatRoundId],
+  );
+  return Number(result.rows[0].n);
+}
+
 // บวก/ลบวันจากสตริงวันที่ล้วน (YYYY-MM-DD) โดยไม่ยุ่งกับ timezone ของเครื่อง — ใช้ UTC เที่ยงคืนเสมอ กันวันเพี้ยน
 function addDaysToDateStr(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
@@ -134,7 +173,7 @@ async function redeemBoatTickets(
   const grants = await client.query(
     `SELECT id, total_tickets, used_tickets FROM member_boat_tickets
      WHERE member_id = $1 AND booking_room_id IS NULL AND total_tickets > used_tickets
-     ORDER BY created_at ASC
+     ORDER BY created_at ASC, id ASC
      FOR UPDATE`,
     [memberId],
   );
@@ -193,7 +232,7 @@ export async function redeemRoomBoatTickets(
   const grants = await client.query(
     `SELECT id, total_tickets, used_tickets FROM member_boat_tickets
      WHERE booking_room_id = $1 AND total_tickets > used_tickets
-     ORDER BY created_at ASC
+     ORDER BY created_at ASC, id ASC
      FOR UPDATE`,
     [bookingRoomId],
   );
@@ -860,17 +899,17 @@ export const createKayakBooking = async (
     const sortedItems = [...items].sort((a, b) => a.boat_type_id - b.boat_type_id);
 
     const candidateRes = await client.query(
-      `SELECT br.boat_round_id, br.boat_type_id, br.max_booking, br.total_slots,
+      `SELECT br.boat_round_id, br.boat_type_id, br.max_booking, br.total_slots, br.is_active,
               ${MEMBER_TYPE_IDS_SQL} AS member_type_ids
        FROM boat_rounds br
-       WHERE br.is_active = true
-         AND br.start_time = $1::time
+       WHERE br.start_time = $1::time
          AND br.end_time = $2::time
+       ORDER BY br.boat_round_id
        FOR UPDATE OF br`,
       [startTime, endTime],
     );
 
-    const candidates = candidateRes.rows.map((row) => ({
+    const candidates = candidateRes.rows.filter((row: { is_active: boolean }) => row.is_active).map((row) => ({
       boat_round_id: Number(row.boat_round_id),
       boat_type_id: row.boat_type_id == null ? null : Number(row.boat_type_id),
       memberTypeIds: memberTypeIdsFromRow(row),
@@ -1309,6 +1348,23 @@ export const createBoatAddon = async (
 
     await client.query("BEGIN");
 
+    // Slip submission and room status actions lock the header before its lines.
+    // Match that order, and keep the header locked while checking paid addons so
+    // a slip cannot be accepted against an amount that changes underneath it.
+    const roomHeader = await client.query(
+      `SELECT rb.room_booking_id
+       FROM room_bookings rb
+       WHERE rb.room_booking_id = (
+         SELECT room_booking_id FROM booking_room WHERE booking_room_id = $1
+       ) FOR UPDATE OF rb`,
+      [bookingRoomId],
+    );
+    if (roomHeader.rows.length === 0) {
+      await safeRollback(client);
+      res.status(404).json({ success: false, message: "Booking room not found" });
+      return;
+    }
+
     const roomRes = await client.query(
       `SELECT br.booking_room_id, rb.room_booking_id, rb.member_id, rb.check_in::text AS check_in, rb.check_out::text AS check_out, rb.status AS room_status
        FROM booking_room br
@@ -1353,18 +1409,34 @@ export const createBoatAddon = async (
       return;
     }
 
-    const roundRes = await client.query(
+    // Use the same shared-window lock set and order as normal kayak bookings.
+    // Never lock the selected round first: distinct selected IDs could deadlock
+    // while each request subsequently waits for the other round in this pool.
+    const roundLookup = await client.query(
       `SELECT br.boat_round_id, br.start_time, br.end_time, br.total_slots
        FROM boat_rounds br
-       WHERE br.boat_round_id = $1 AND br.is_active = true FOR UPDATE OF br`,
+       WHERE br.boat_round_id = $1 AND br.is_active = true`,
       [boatRoundId],
     );
-    if (roundRes.rows.length === 0) {
+    if (roundLookup.rows.length === 0) {
       await safeRollback(client);
       res.status(404).json({ success: false, message: "ไม่พบรอบเวลาที่เลือก" });
       return;
     }
-    const round = roundRes.rows[0];
+    const selectedWindow = roundLookup.rows[0];
+    const roundRes = await client.query(
+      `SELECT br.boat_round_id, br.start_time, br.end_time, br.total_slots, br.is_active
+       FROM boat_rounds br
+       WHERE br.start_time = $1::time AND br.end_time = $2::time
+       ORDER BY br.boat_round_id FOR UPDATE OF br`,
+      [selectedWindow.start_time, selectedWindow.end_time],
+    );
+    const round = roundRes.rows.find((row: { boat_round_id: number; is_active: boolean }) => row.is_active && Number(row.boat_round_id) === boatRoundId);
+    if (!round) {
+      await safeRollback(client);
+      res.status(409).json({ success: false, message: "รอบเวลาที่เลือกเปลี่ยนไปแล้ว กรุณาเลือกอีกครั้ง" });
+      return;
+    }
 
     const btRes = await client.query(
       `SELECT boat_type_id, type_name, price, quantity, seat_count FROM boat_types WHERE boat_type_id = $1 FOR UPDATE`,
@@ -1758,6 +1830,53 @@ export const getAllKayakBookings = async (
   res: Response,
 ): Promise<void> => {
   try {
+    const pagination = parsePagination(req.query);
+    const params: (string | number)[] = [];
+    let where = 'WHERE 1=1';
+    const pendingSlip = "NULLIF(bb.payment_slip, '') IS NOT NULL AND bb.status NOT IN ('approved', 'checked_out', 'rejected', 'cancelled')";
+    const unpaidPending = "NULLIF(bb.payment_slip, '') IS NULL AND bb.status = 'pending'";
+    if (req.query.filter === 'has_slip') where += ` AND (${pendingSlip})`;
+    else if (req.query.filter === 'pending') where += ` AND (${unpaidPending})`;
+    else if (req.query.filter === 'approved' || req.query.filter === 'checked_out') {
+      params.push(req.query.filter); where += ` AND bb.status = $${params.length}`;
+    }
+    if (typeof req.query.status === 'string') { params.push(req.query.status); where += ` AND bb.status = $${params.length}`; }
+    const type = req.query.boat_type;
+    if (typeof type === 'string' && type !== 'all') {
+      params.push(type);
+      where += ` AND EXISTS (SELECT 1 FROM booking_boat bnb JOIN boat_types bt ON bt.boat_type_id = bnb.boat_type_id
+         WHERE bnb.boat_booking_id = bb.boat_booking_id AND bt.type_name = $${params.length})`;
+    }
+    for (const [key, operator] of [['date_from', '>='], ['date_to', '<=']]) {
+      if (typeof req.query[key] === 'string') { params.push(req.query[key] as string); where += ` AND bb.booking_date::date ${operator} $${params.length}::date`; }
+    }
+    if (typeof req.query.search === 'string' && req.query.search.trim()) {
+      params.push(`%${req.query.search.trim()}%`);
+      where += ` AND (bb.boat_booking_id::text ILIKE $${params.length}
+        OR CONCAT_WS(' ', m.first_name, m.last_name) ILIKE $${params.length}
+        OR m.phone ILIKE $${params.length} OR m.email ILIKE $${params.length}
+         OR EXISTS (SELECT 1 FROM booking_boat bnb JOIN boat_types bt ON bt.boat_type_id = bnb.boat_type_id
+          WHERE bnb.boat_booking_id = bb.boat_booking_id AND bt.type_name ILIKE $${params.length}))`;
+    }
+    const from = `FROM boat_bookings bb
+       JOIN members m ON bb.member_id = m.member_id
+       LEFT JOIN staff s ON bb.approved_by_staff_id = s.staff_id`;
+    let extra = {};
+    if (pagination) {
+      const count = await pool.query(`SELECT COUNT(*) AS total ${from} ${where}`, params);
+      const summary = await pool.query(`SELECT COUNT(*) AS "all",
+        COUNT(*) FILTER (WHERE ${pendingSlip}) AS has_slip,
+        COUNT(*) FILTER (WHERE ${unpaidPending}) AS pending,
+        COUNT(*) FILTER (WHERE bb.status = 'approved') AS approved,
+        COUNT(*) FILTER (WHERE bb.status = 'checked_out') AS checked_out,
+        COALESCE(SUM(bb.total_price) FILTER (WHERE bb.status IN ('approved', 'checked_out')), 0) AS "totalRevenue",
+        COALESCE(SUM(bb.total_price) FILTER (WHERE ${pendingSlip}), 0) AS "pendingRevenue"
+        ${from}`);
+      const row = summary.rows[0];
+      extra = { pagination: paginationMeta(pagination, Number(count.rows[0].total)),
+        summary: { all: Number(row.all), has_slip: Number(row.has_slip), pending: Number(row.pending), approved: Number(row.approved),
+          checked_out: Number(row.checked_out), totalRevenue: Number(row.totalRevenue), pendingRevenue: Number(row.pendingRevenue) } };
+    }
     const result = await pool.query(
       `SELECT bb.*,
               (
@@ -1766,16 +1885,15 @@ export const getAllKayakBookings = async (
                 JOIN boat_types bt ON bt.boat_type_id = bnb.boat_type_id
                 WHERE bnb.boat_booking_id = bb.boat_booking_id
               ) as kayak_name,
-              CONCAT_WS(' ', m.first_name, m.last_name) as user_name, m.email as user_email,
+              CONCAT_WS(' ', m.first_name, m.last_name) as user_name, m.email as user_email, m.phone as user_phone,
               CONCAT_WS(' ', s.first_name, s.last_name) as approved_by_name,
               ${BOATS_JSON_SQL} AS boats
-       FROM boat_bookings bb
-       JOIN members m ON bb.member_id = m.member_id
-       LEFT JOIN staff s ON bb.approved_by_staff_id = s.staff_id
-       ORDER BY bb.boat_booking_id DESC`,
+       ${from} ${where}
+       ORDER BY bb.created_at DESC, bb.boat_booking_id DESC
+       ${pagination ? `LIMIT $${params.length + 1} OFFSET $${params.length + 2}` : ''}`,
+      pagination ? [...params, pagination.limit, pagination.offset] : params
     );
-
-    res.json({ success: true, data: result.rows });
+    res.json({ success: true, data: result.rows, ...extra });
   } catch (error: unknown) {
     console.error("Get all kayak bookings error:", error);
     res.status(500).json({
@@ -2060,6 +2178,7 @@ export const updateKayakBookingStatus = async (
 
     await client.query("BEGIN");
 
+    await lockAddonRoomHeader(client, id);
     const current = await client.query(
       `SELECT status, is_addon FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE`,
       [id],
@@ -2480,12 +2599,8 @@ export const updateKayak = async (
         res.status(400).json({ success: false, message: "จำนวนเรือต้องเป็นจำนวนเต็มไม่ติดลบ" });
         return;
       }
-      const activeRes = await client.query(
-        `SELECT COALESCE(SUM(bnb.boat_count), 0)::int AS n FROM booking_boat bnb
-         WHERE bnb.boat_type_id = $1 AND bnb.status NOT IN ('cancelled', 'rejected', 'checked_out')`,
-        [id],
-      );
-      const activeBoats = Number(activeRes.rows[0].n);
+      await client.query('SELECT boat_type_id FROM boat_types WHERE boat_type_id = $1 FOR UPDATE', [id]);
+      const activeBoats = await peakReservedBoats(client, id);
       if (newQuantity < activeBoats) {
         await safeRollback(client);
         res.status(400).json({
@@ -2622,6 +2737,17 @@ export const updateBoatRound = async (
 
     await client.query("BEGIN");
 
+    // Hold the round before reading reservation demand, matching booking paths.
+    const lockedRound = await client.query(
+      'SELECT boat_round_id FROM boat_rounds WHERE boat_round_id = $1 FOR UPDATE',
+      [id],
+    );
+    if (lockedRound.rows.length === 0) {
+      await safeRollback(client);
+      res.status(404).json({ success: false, message: "Boat round not found" });
+      return;
+    }
+
     if (hasBoatsPayload && !(await boatTypesExist(client, boats.map((b) => b.boat_type_id)))) {
       await safeRollback(client);
       res.status(400).json({
@@ -2718,12 +2844,7 @@ export const updateBoatRound = async (
         ...existingRes.rows.map((row: { boat_type_id: number }) => Number(row.boat_type_id)),
       ]);
       for (const typeId of typeIds) {
-        const activeRes = await client.query(
-          `SELECT COALESCE(SUM(boat_count), 0)::int AS n FROM booking_boat
-           WHERE boat_round_id = $1 AND boat_type_id = $2 AND status NOT IN ('cancelled', 'rejected', 'checked_out')`,
-          [id, typeId],
-        );
-        const activeBoats = Number(activeRes.rows[0].n);
+        const activeBoats = await peakReservedBoats(client, typeId, id);
         const quota = newQuota.get(typeId) ?? 0;
         if (quota < activeBoats) {
           await safeRollback(client);
@@ -2824,12 +2945,30 @@ type AddonCancelResult =
   | { ok: true; refund: number; percent: number; roomTotalReduction: number }
   | { ok: false; status: number; message: string };
 
+// Room approval/payment/cancellation owns the room header before its addons.
+// Acquire that same header first; a joined FOR UPDATE cannot guarantee which
+// relation locks first. Normal standalone boat bookings have no room to lock.
+async function lockAddonRoomHeader(
+  client: PoolClient,
+  boatBookingId: number,
+): Promise<void> {
+  await client.query(
+    `SELECT rb.room_booking_id FROM room_bookings rb
+     WHERE rb.room_booking_id = (
+       SELECT room_booking_id FROM boat_bookings
+       WHERE boat_booking_id = $1 AND is_addon = true
+     ) FOR UPDATE OF rb`,
+    [boatBookingId],
+  );
+}
+
 async function cancelBoatAddonInTx(
   client: PoolClient,
   boatBookingId: number,
   actor: { id: number; role: string },
   reason: string | null,
 ): Promise<AddonCancelResult> {
+  await lockAddonRoomHeader(client, boatBookingId);
   const addonRes = await client.query(
     `SELECT bb.boat_booking_id, bb.member_id, bb.room_booking_id, bb.status, bb.total_price,
             bb.handed_out_at,
@@ -2838,7 +2977,7 @@ async function cancelBoatAddonInTx(
      FROM boat_bookings bb
      JOIN room_bookings rb ON rb.room_booking_id = bb.room_booking_id
      WHERE bb.boat_booking_id = $1 AND bb.is_addon = true
-     FOR UPDATE OF bb, rb`,
+     FOR UPDATE OF bb`,
     [boatBookingId],
   );
   if (addonRes.rows.length === 0) {

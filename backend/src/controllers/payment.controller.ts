@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
+import { PoolClient } from 'pg';
 import { safeRollback } from '../utils/safe-rollback';
 import { assertStatusTransition } from '../services/booking-status';
 import QRCode from 'qrcode';
@@ -15,6 +17,15 @@ import {
   uploadImage,
 } from '../services/cloudinary.service';
 
+interface PaymentBookingRow {
+  total_price: number | string;
+  payment_status: string;
+  payment_slip: string | null;
+  status: string;
+  reject_reason?: string | null;
+  has_boat_tickets?: boolean;
+}
+
 // สร้างข้อมูลสำหรับหน้าชำระเงินของการจองห้องหรือเรือ โดยดึงยอดจริงจากฐานข้อมูลและสร้าง PromptPay QR Code แบบ Data URL
 export const createPayment = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -30,10 +41,12 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       account_name: resort.bank_account_name || process.env.BANK_ACCOUNT_NAME || 'ชื่อบัญชี',
     };
 
-    let booking: any;
+    let booking: PaymentBookingRow;
     if (booking_type === 'room') {
       const result = await pool.query(
-        'SELECT total_price, payment_status, payment_slip, status, reject_reason FROM room_bookings WHERE room_booking_id = $1 AND member_id = $2',
+        `SELECT total_price, payment_status, payment_slip, status, reject_reason,
+                EXISTS (SELECT 1 FROM member_boat_tickets WHERE room_booking_id = $1) AS has_boat_tickets
+         FROM room_bookings WHERE room_booking_id = $1 AND member_id = $2`,
         [booking_id, user.id]
       );
       if (result.rows.length === 0) {
@@ -73,6 +86,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
         booking_status: booking.status,
         reject_reason: booking.reject_reason ?? null,
         slip_image: booking.payment_slip,
+        has_boat_tickets: booking.has_boat_tickets ?? false,
         qr_code_url: qrCodeDataUrl,
         bank_info: bankInfo,
       },
@@ -113,7 +127,8 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
 
     const existing = bType === 'room'
       ? await pool.query(
-        `SELECT rb.status, rb.total_price, m.first_name, m.last_name
+        `SELECT rb.status, rb.total_price, m.first_name, m.last_name,
+                COALESCE(rb.guest_name, CONCAT_WS(' ', m.first_name, m.last_name)) AS customer_name
          FROM room_bookings rb
          JOIN members m ON rb.member_id = m.member_id
          WHERE rb.room_booking_id = $1 AND rb.member_id = $2`,
@@ -145,7 +160,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     try {
       uploadedSlip = await uploadImage(file.buffer, {
         folder: 'walai-booking/slips',
-        publicId: `${bType}-${bId}`,
+        publicId: `${bType}-${bId}-${randomUUID()}`,
       });
     } catch (error) {
       console.error('Payment slip Cloudinary upload error:', error);
@@ -162,8 +177,9 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       });
     };
 
-    const client = await pool.connect();
+    let client: PoolClient | undefined;
     try {
+      client = await pool.connect();
       await client.query('BEGIN');
       if (bType === 'room') {
         const slipUpdate = await client.query(
@@ -202,17 +218,15 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       }
       await client.query('COMMIT');
     } catch (error) {
-      await client.query('ROLLBACK').catch((rollbackError: unknown) => {
-        console.error('Payment slip rollback error:', rollbackError);
-      });
+      if (client) await safeRollback(client);
       await removeUploadedSlip();
       throw error;
     } finally {
-      client.release();
+      client?.release();
     }
 
     const totalPrice = Number(booking.total_price);
-    const memberName = `${booking.first_name || ''} ${booking.last_name || ''}`.trim();
+    const memberName = booking.customer_name || `${booking.first_name || ''} ${booking.last_name || ''}`.trim();
 
     // ส่งอีเมลแจ้งเตือน admin / staff ให้มาตรวจสอบสลิป (fire-and-forget)
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -308,7 +322,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
       if (bType === 'room') {
         const headerUpdate = await client.query(
           `UPDATE room_bookings
-           SET payment_status = 'paid', status = 'approved', payment_date = NOW(), verify_by_staff_id = $1
+           SET payment_status = 'paid', status = 'approved', payment_date = NOW(), approved_by_staff_id = $1
            WHERE room_booking_id = $2 AND status = 'paid'`,
           [authUser.id, bId]
         );
@@ -327,9 +341,9 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
       } else {
         const headerUpdate = await client.query(
           `UPDATE boat_bookings
-           SET payment_status = 'paid', status = 'approved'
-           WHERE boat_booking_id = $1 AND status = 'paid'`,
-          [bId]
+           SET payment_status = 'paid', status = 'approved', approved_by_staff_id = $1
+           WHERE boat_booking_id = $2 AND status = 'paid'`,
+          [authUser.id, bId]
         );
         if (headerUpdate.rowCount === 0) {
           await safeRollback(client);
@@ -452,8 +466,8 @@ export const getAllPayments = async (req: Request, res: Response): Promise<void>
       `SELECT 
          'room_' || rb.room_booking_id as id, 
          'room' as booking_type,
-         CONCAT_WS(' ', m.first_name, m.last_name) as user_name,
-         m.email as user_email,
+         COALESCE(rb.guest_name, CONCAT_WS(' ', m.first_name, m.last_name)) as user_name,
+         COALESCE(rb.guest_email, m.email) as user_email,
          rb.total_price as amount,
          rb.payment_status as status,
          rb.payment_slip as slip_image,

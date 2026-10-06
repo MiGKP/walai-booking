@@ -10,7 +10,7 @@ import { PageHeader, Panel } from "@/components/admin/ui";
 
 export default function PoliciesSettingsPage() {
   const { ready, user } = useAuthGuard({
-    allowedRoles: ["admin", "room_staff", "boat_staff"],
+    allowedRoles: ["admin", "room_staff"],
   });
 
   const [form, setForm] = useState({
@@ -19,6 +19,7 @@ export default function PoliciesSettingsPage() {
     checkout_time: "12:00",
     important_info: "",
     kids_policy: "",
+    infant_max_age_exclusive: "6",
     parking_info: "",
   });
 
@@ -38,6 +39,7 @@ export default function PoliciesSettingsPage() {
       setLoadError(false);
       const { data } = await api.get("/settings/resort");
       const info = pickResortInfo(data.data, "room"); // 4 is room
+      const mainInfo = pickResortInfo(data.data, "main");
       if (info) {
         setForm({
           checkin_time_from: (info.checkin_time_from as string) || "14:00",
@@ -45,6 +47,7 @@ export default function PoliciesSettingsPage() {
           checkout_time: (info.checkout_time as string) || "12:00",
           important_info: (info.important_info as string) || "",
           kids_policy: (info.kids_policy as string) || "",
+          infant_max_age_exclusive: String(mainInfo.infant_max_age_exclusive ?? 6),
           parking_info: (info.parking_info as string) || "",
         });
       }
@@ -58,6 +61,11 @@ export default function PoliciesSettingsPage() {
   };
 
   const handleSave = async () => {
+    const infantAge = Number(form.infant_max_age_exclusive);
+    if (user?.role === 'admin' && (form.infant_max_age_exclusive.trim() === '' || !Number.isInteger(infantAge) || infantAge < 0 || infantAge > 18)) {
+      notify.error('กรุณาระบุอายุที่เริ่มนับความจุเป็นจำนวนเต็ม 0-18 ปี');
+      return;
+    }
     try {
       setSaving(true);
       await api.put("/settings/resort", {
@@ -69,6 +77,11 @@ export default function PoliciesSettingsPage() {
         kids_policy: form.kids_policy,
         parking_info: form.parking_info,
       });
+      if (user?.role === 'admin') {
+        await api.put('/settings/resort', {
+          id: 3, infant_max_age_exclusive: infantAge,
+        });
+      }
       notify.success("บันทึกนโยบายสำเร็จ");
     } catch (error) {
       console.error("Failed to save policies", error);
@@ -166,6 +179,16 @@ export default function PoliciesSettingsPage() {
               <Users size={18} />
               <h2>นโยบายเด็กและเตียงเสริม</h2>
             </div>
+            {user?.role === 'admin' && (
+              <div>
+                <label htmlFor="infant-age" className="block text-xs font-semibold text-stone-700 mb-1.5">อายุที่เริ่มนับรวมในความจุห้อง (ปี)</label>
+                <input id="infant-age" type="number" min={0} max={18} step={1} required
+                  value={form.infant_max_age_exclusive}
+                  onChange={(event) => setForm({ ...form, infant_max_age_exclusive: event.target.value })}
+                  className="input-field max-w-xs" />
+                <p className="mt-2 text-xs text-charcoal-500">เด็กที่อายุต่ำกว่าค่านี้เข้าพักฟรีและไม่นับความจุห้อง ใช้กับการจองใหม่</p>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1.5">ข้อกำหนดเด็กและเตียง (รูปแบบ หัวข้อ: รายละเอียด)</label>
               <textarea

@@ -66,9 +66,18 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       res.status(401).json({ success: false, message: 'Account is disabled or no longer exists' });
       return;
     }
-    // เทียบที่หน่วยวินาที (iat เป็นวินาที) token ที่ออกในวินาทีเดียวกับการเปลี่ยนรหัสยังใช้ได้
-    // token ที่ออกที่เวลาเดียวกันหรือก่อนการเปลี่ยนรหัสผ่านต้องถูกปฏิเสธ (iat เป็นวินาที จึงคูณ 1000 เทียบกับ ms)
-    const issuedAtMs = Number(decoded.iat ?? 0) * 1000;
+    // New tokens carry signed millisecond precision. Legacy tokens retain the
+    // conservative second-resolution check, including their entire reset second.
+    const issuedAtSecondsMs = Number(decoded.iat ?? 0) * 1000;
+    if (decoded.issued_at_ms !== undefined && (
+      !Number.isSafeInteger(decoded.issued_at_ms) ||
+      decoded.issued_at_ms < issuedAtSecondsMs ||
+      decoded.issued_at_ms >= issuedAtSecondsMs + 1000
+    )) {
+      res.status(401).json({ success: false, message: 'Invalid token' });
+      return;
+    }
+    const issuedAtMs = decoded.issued_at_ms ?? issuedAtSecondsMs;
     if (account.passwordChangedAtMs !== null && issuedAtMs <= account.passwordChangedAtMs) {
       res.status(401).json({ success: false, message: 'Session expired, please login again' });
       return;

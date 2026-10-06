@@ -410,6 +410,10 @@ function BoatStaffDashboardContent() {
 
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
+  const [counts, setCounts] = useState({ all: 0, has_slip: 0, pending: 0, approved: 0, checked_out: 0, totalRevenue: 0, pendingRevenue: 0 });
+  const [catalogTypes, setCatalogTypes] = useState<string[]>([]);
+  const requestId = useRef(0);
 
   // อ่านค่า State จาก URL Query Parameters
   const filter = (searchParams.get("filter") as FilterType) || "all";
@@ -417,7 +421,8 @@ function BoatStaffDashboardContent() {
   const dateFrom = searchParams.get("dateFrom") || "";
   const dateTo = searchParams.get("dateTo") || "";
   const searchParam = searchParams.get("search") || "";
-  const currentPage = Number(searchParams.get("page")) || 1;
+  const pageParam = Number(searchParams.get("page"));
+  const currentPage = Number.isSafeInteger(pageParam) && pageParam > 0 ? pageParam : 1;
 
   // Search Debounce State
   const [searchInput, setSearchInput] = useState(searchParam);
@@ -518,23 +523,37 @@ function BoatStaffDashboardContent() {
     updateQueryParams({ page });
   };
 
-  const fetchBookings = useCallback(async () => {
+  const fetchBookings = useCallback(async (): Promise<void> => {
+    if (!ready) return;
+    const id = ++requestId.current;
     setLoading(true);
     try {
-      const res = await api.get("/kayaks/bookings/all");
+      const res = await api.get("/kayaks/bookings/all", { params: { page: currentPage, limit: itemsPerPage,
+        filter, search: searchParam.trim() || undefined,
+        boat_type: boatType === "all" ? undefined : boatType,
+        date_from: dateFrom || undefined, date_to: dateTo || undefined,
+      } });
+      if (id !== requestId.current) return;
       setBookings(res.data?.data || []);
-    } catch (error: unknown) {
-      console.error("Fetch bookings error:", error);
-      notify.error("ไม่สามารถโหลดข้อมูลการจองได้");
+      setPagination(res.data.pagination);
+      setCounts(res.data.summary);
+      if (currentPage > Math.max(1, res.data.pagination.totalPages)) updateQueryParams({ page: Math.max(1, res.data.pagination.totalPages) });
+    } catch {
+      if (id === requestId.current) notify.error("ไม่สามารถโหลดข้อมูลการจองได้");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  }, []);
+  }, [ready, currentPage, filter, boatType, dateFrom, dateTo, searchParam, updateQueryParams]);
 
+  useEffect(() => { fetchBookings(); }, [fetchBookings]);
   useEffect(() => {
     if (!ready) return;
-    fetchBookings();
-  }, [ready, fetchBookings]);
+    api.get("/kayaks/admin/types").then((res) => {
+      const types: { type_name?: string; room_name?: string; name?: string }[] = res.data?.data || [];
+      setCatalogTypes(Array.from(new Set(types.map((type) => type.name || type.type_name || "").filter(Boolean))));
+    }).catch(() => notify.error("ไม่สามารถโหลดประเภทเรือได้"));
+  }, [ready]);
+
 
   const openConfirmDialog = (
     title: string,
@@ -660,14 +679,7 @@ function BoatStaffDashboardContent() {
     window.print();
   };
 
-  const boatTypes = useMemo(() => {
-    const types = new Set<string>();
-    bookings.forEach((b) => {
-      const name = b.kayak_name || b.boat_name;
-      if (name) types.add(name);
-    });
-    return Array.from(types);
-  }, [bookings]);
+  const boatTypes = catalogTypes;
 
   const boatTypeOptions = useMemo(() => {
     return [
@@ -676,102 +688,8 @@ function BoatStaffDashboardContent() {
     ];
   }, [boatTypes]);
 
-  const counts = useMemo(() => {
-    const approvedList = bookings.filter((b) =>
-      ["approved", "checked_out"].includes(b.status),
-    );
-    const pendingSlipList = bookings.filter(
-      (b) =>
-        b.payment_slip &&
-        !["approved", "checked_out", "rejected", "cancelled"].includes(
-          b.status,
-        ),
-    );
-
-    return {
-      has_slip: pendingSlipList.length,
-      pending: bookings.filter((b) => !b.payment_slip && b.status === "pending")
-        .length,
-      approved: bookings.filter((b) => b.status === "approved").length,
-      checked_out: bookings.filter((b) => b.status === "checked_out").length,
-      totalRevenue: approvedList.reduce(
-        (acc, curr) => acc + Number(curr.total_price || 0),
-        0,
-      ),
-      pendingRevenue: pendingSlipList.reduce(
-        (acc, curr) => acc + Number(curr.total_price || 0),
-        0,
-      ),
-    };
-  }, [bookings]);
-
-  const filtered = useMemo(() => {
-    let list = bookings;
-
-    if (filter === "has_slip")
-      list = list.filter(
-        (b) =>
-          b.payment_slip &&
-          !["approved", "checked_out", "rejected", "cancelled"].includes(
-            b.status,
-          ),
-      );
-    else if (filter === "pending")
-      list = list.filter((b) => !b.payment_slip && b.status === "pending");
-    else if (filter === "approved")
-      list = list.filter((b) => b.status === "approved");
-    else if (filter === "checked_out")
-      list = list.filter((b) => b.status === "checked_out");
-
-    if (boatType !== "all") {
-      list = list.filter((b) => (b.kayak_name || b.boat_name) === boatType);
-    }
-
-    if (dateFrom)
-      list = list.filter(
-        (b) =>
-          b.booking_date &&
-          toISODate(new Date(b.booking_date)) >= dateFrom,
-      );
-    if (dateTo)
-      list = list.filter(
-        (b) =>
-          b.booking_date &&
-          toISODate(new Date(b.booking_date)) <= dateTo,
-      );
-
-    if (searchParam.trim()) {
-      const q = searchParam.toLowerCase().trim();
-      list = list.filter((b) => {
-        const bookingId = String(b.boat_booking_id || b.id || "").toLowerCase();
-        const userName = String(b.user_name || "").toLowerCase();
-        const userPhone = String(b.user_phone || b.phone || "").toLowerCase();
-        const userEmail = String(b.user_email || "").toLowerCase();
-        const boatName = String(
-          b.kayak_name || b.boat_name || "",
-        ).toLowerCase();
-
-        return (
-          bookingId.includes(q) ||
-          userName.includes(q) ||
-          userPhone.includes(q) ||
-          userEmail.includes(q) ||
-          boatName.includes(q)
-        );
-      });
-    }
-
-    return list;
-  }, [bookings, filter, boatType, dateFrom, dateTo, searchParam]);
-
-  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
-
-  const paginatedBookings = useMemo(() => {
-    return filtered.slice(
-      (currentPage - 1) * itemsPerPage,
-      currentPage * itemsPerPage,
-    );
-  }, [filtered, currentPage]);
+  const totalPages = Math.max(1, pagination.totalPages);
+  const paginatedBookings = bookings;
 
   const getPaginationRange = () => {
     const delta = 1;
@@ -857,7 +775,7 @@ function BoatStaffDashboardContent() {
         <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5">
           {(
             [
-              ["all", "ทั้งหมด", bookings.length],
+              ["all", "ทั้งหมด", counts.all],
               ["has_slip", "รอตรวจสอบสลิป", counts.has_slip],
               ["pending", "ยังไม่ชำระ", counts.pending],
               ["approved", "อนุมัติแล้ว", counts.approved],
@@ -1213,7 +1131,7 @@ function BoatStaffDashboardContent() {
         </div>
 
         {/* Pagination Footer */}
-        {filtered.length > 0 && (
+        {pagination.total > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 bg-stone-50/80 border-t border-stone-200/80 text-xs text-stone-500 print:hidden">
             <span>
               แสดง{" "}
@@ -1222,11 +1140,11 @@ function BoatStaffDashboardContent() {
               </strong>{" "}
               ถึง{" "}
               <strong className="text-stone-800 font-mono">
-                {Math.min(currentPage * itemsPerPage, filtered.length)}
+                {Math.min(currentPage * itemsPerPage, pagination.total)}
               </strong>{" "}
               จากทั้งหมด{" "}
               <strong className="text-stone-800 font-mono">
-                {filtered.length}
+                {pagination.total}
               </strong>{" "}
               รายการ
             </span>
@@ -1234,14 +1152,14 @@ function BoatStaffDashboardContent() {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => handlePageChange(1)}
-                disabled={currentPage === 1}
+                disabled={loading || currentPage === 1}
                 className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
               >
                 <ChevronsLeft size={16} />
               </button>
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
+                disabled={loading || currentPage === 1}
                 className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
               >
                 <ChevronLeft size={16} />
@@ -1269,14 +1187,14 @@ function BoatStaffDashboardContent() {
 
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
+                disabled={loading || currentPage >= totalPages}
                 className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
               >
                 <ChevronRight size={16} />
               </button>
               <button
                 onClick={() => handlePageChange(totalPages)}
-                disabled={currentPage === totalPages}
+                disabled={loading || currentPage >= totalPages}
                 className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
               >
                 <ChevronsRight size={16} />

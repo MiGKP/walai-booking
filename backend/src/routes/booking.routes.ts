@@ -14,6 +14,8 @@ import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { createRoomBookingValidator, updateRoomBookingStatusValidator } from '../middleware/validators';
 
+import { bookingListValidator } from '../middleware/pagination-validator';
+
 const router = Router();
 
 router.post('/', authenticate, authorize('customer'), createRoomBookingValidator, validate, createRoomBooking);
@@ -34,7 +36,7 @@ router.put(
   checkoutBookingRoom
 );
 
-router.get('/', authenticate, authorize('admin', 'room_staff'), getAllRoomBookings);
+router.get('/', authenticate, authorize('admin', 'room_staff'), bookingListValidator, validate, getAllRoomBookings);
 router.put(
   '/:id/status',
   authenticate,

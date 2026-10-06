@@ -9,6 +9,7 @@ interface UseCartSyncOptions {
   checkOut: string;
   adults: number;
   children: number;
+  childAges?: number[];
 }
 
 /**
@@ -16,12 +17,12 @@ interface UseCartSyncOptions {
  * เละเวลาเลือกห้อง (เช่น room_ids=51_0-1) — คอมโพเนนต์ที่ subscribe ผ่าน useRoomCart() จะ re-render
  * ให้เองทันทีที่ commit/clearAll ถูกเรียก
  */
-export function useCartSync({ checkIn, checkOut, adults, children }: UseCartSyncOptions) {
+export function useCartSync({ checkIn, checkOut, adults, children, childAges }: UseCartSyncOptions) {
   const commit = useCallback(
     (items: RoomCartItem[]) => {
-      setRoomCart(items.length > 0 ? { check_in: checkIn, check_out: checkOut, adults, children, items } : null);
+      setRoomCart(items.length > 0 ? { check_in: checkIn, check_out: checkOut, adults, children, child_ages: childAges, items } : null);
     },
-    [checkIn, checkOut, adults, children]
+    [checkIn, checkOut, adults, children, childAges]
   );
 
   const clearAll = useCallback(() => setRoomCart(null), []);

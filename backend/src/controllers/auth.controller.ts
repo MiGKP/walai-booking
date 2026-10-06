@@ -23,7 +23,8 @@ interface AvatarUpdateRow {
 const generateToken = (payload: AuthPayload): string => {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error('JWT_SECRET environment variable is not set');
-  return jwt.sign(payload, secret, {
+  const issuedAtMs = Date.now();
+  return jwt.sign({ ...payload, issued_at_ms: issuedAtMs, iat: Math.floor(issuedAtMs / 1000) }, secret, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   } as jwt.SignOptions);
 };

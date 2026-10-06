@@ -48,6 +48,7 @@ import {
 import { RoomCartItem } from '@/lib/room-cart';
 import { useRoomCart, setRoomCart } from '@/lib/room-cart-store';
 import { useCartSync } from '@/hooks/useCartSync';
+import { useInfantAgePolicy } from '@/hooks/useInfantAgePolicy';
 
 type RoomAmenity = string | { id: number; name: string };
 
@@ -271,7 +272,9 @@ export default function RoomDetailPage(): React.ReactElement {
     checkOut: range.end,
     adults: parseInt(searchParams.get('adults') || '1', 10),
     children: parseInt(searchParams.get('children') || '0', 10),
+    childAges: childAges.filter((age): age is number => age !== null),
   });
+  const infantAge = useInfantAgePolicy();
 
   useEffect(() => {
     if (!id) return;
@@ -646,7 +649,7 @@ export default function RoomDetailPage(): React.ReactElement {
                         )}
                         <div className="px-3 py-2 bg-stone-50 rounded-xl mt-1 mb-2">
                           <p className="text-xs text-charcoal-400 leading-relaxed">
-                            <span className="font-bold text-forest-700">นโยบายเด็ก:</span> 0-5 ปี ฟรี, 6-11 ปี ราคาเด็ก, 12 ปีขึ้นไป ราคาผู้ใหญ่
+                            <span className="font-bold text-forest-700">นโยบายเด็ก:</span> {infantAge === 0 ? 'เด็กทุกอายุนับรวมในความจุห้อง' : `เด็กอายุต่ำกว่า ${infantAge} ปี เข้าพักฟรีและไม่นับความจุห้อง`}
                           </p>
                         </div>
                         <div className="border-t border-stone-100 p-2">
@@ -822,7 +825,7 @@ export default function RoomDetailPage(): React.ReactElement {
                 <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
                   <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Users size={16} className="text-forest-600" />นโยบายเด็กและเตียงเสริม</p>
                   <ul className="list-disc list-outside ml-4 space-y-1.5 text-stone-500">
-                    {(resortInfo?.kids_policy || 'เด็ก 0-5 ปี: เข้าพักฟรี (ใช้เตียงที่มีอยู่)\nเด็ก 6-11 ปี: คิดราคาเด็ก / เตียงเสริม\n12 ปีขึ้นไป: คิดราคาผู้ใหญ่').split('\n').map((line: string, i: number) => {
+                    {(resortInfo?.kids_policy || (infantAge === 0 ? 'เด็กทุกอายุนับรวมในความจุห้อง' : `เด็กอายุต่ำกว่า ${infantAge} ปี: เข้าพักฟรี (ใช้เตียงที่มีอยู่) และไม่นับความจุห้อง`)).split('\n').map((line: string, i: number) => {
                       const [title, ...rest] = line.split(':');
                       if (rest.length === 0) return <li key={i}>{line.trim()}</li>;
                       return (

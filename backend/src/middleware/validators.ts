@@ -91,6 +91,9 @@ export const initAdminValidator = [
 // ─── Room Booking ─────────────────────────────────────────────────────────────
 
 export const createRoomBookingValidator = [
+  body('guest_name').optional({ nullable: true, checkFalsy: true }).trim().isLength({ min: 1, max: 200 }),
+  body('guest_phone').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 30 }).isMobilePhone('any'),
+  body('guest_email').optional({ nullable: true, checkFalsy: true }).trim().isEmail().isLength({ max: 254 }),
   body('check_in_date').isISO8601().withMessage('Valid check_in_date (ISO 8601) is required'),
   body('check_out_date')
     .isISO8601()
@@ -127,6 +130,12 @@ export const createRoomBookingValidator = [
     }
     return true;
   }),
+];
+
+export const resortInfoValidator = [
+  body('id').optional().isInt({ min: 3, max: 5 }).withMessage('Invalid resort id'),
+  body('infant_max_age_exclusive').optional().isInt({ min: 0, max: 18 })
+    .withMessage('อายุที่เริ่มนับความจุต้องเป็นจำนวนเต็ม 0-18 ปี'),
 ];
 
 export const updateRoomBookingStatusValidator = [

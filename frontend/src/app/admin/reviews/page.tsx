@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Star,
   Trash2,
@@ -128,6 +128,10 @@ export default function AdminReviewsPage() {
   const [search, setSearch] = useState("");
   const [filterRoomType, setFilterRoomType] = useState("");
   const [filterRating, setFilterRating] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
+  const [ratingTotals, setRatingTotals] = useState<Record<number, number>>({});
+  const requestId = useRef(0);
   const [avgRating, setAvgRating] = useState<number | null>(null);
 
   // State สำหรับ Popup ยืนยันการลบ
@@ -145,40 +149,42 @@ export default function AdminReviewsPage() {
   ];
 
   useEffect(() => {
-    if (!ready) return;
-    fetchRoomTypes();
-    fetchReviews();
+    if (ready) fetchRoomTypes();
   }, [ready]);
-
-  useEffect(() => {
-    if (!ready) return;
-    fetchReviews();
-  }, [filterRoomType, filterRating]);
 
   const fetchRoomTypes = async () => {
     try {
-      const res = await api.get("/rooms");
+      const res = await api.get("/rooms", { params: { is_admin: true } });
       setRoomTypes(res.data?.data || []);
     } catch (error) {
       console.error("Failed to fetch room types", error);
     }
   };
 
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async (): Promise<void> => {
+    if (!ready) return;
+    const id = ++requestId.current;
     setLoading(true);
     try {
-      const params: Record<string, string> = {};
+      const params: Record<string, string | number> = { page: currentPage, limit: 10 };
+      if (search.trim()) params.search = search.trim();
       if (filterRoomType) params.room_type_id = filterRoomType;
       if (filterRating) params.min_rating = filterRating;
       const res = await api.get("/reviews/admin/all", { params });
+      if (id !== requestId.current) return;
       setReviews(res.data?.data || []);
+      setPagination(res.data.pagination);
+      setRatingTotals(res.data.summary.ratingCounts);
+      if (currentPage > Math.max(1, res.data.pagination.totalPages)) setCurrentPage(Math.max(1, res.data.pagination.totalPages));
       setAvgRating(res.data?.avg_rating ?? null);
     } catch {
-      notify.error("ไม่สามารถโหลดรีวิวได้");
+      if (id === requestId.current) notify.error("ไม่สามารถโหลดรีวิวได้");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  };
+  }, [ready, currentPage, search, filterRoomType, filterRating]);
+
+  useEffect(() => { fetchReviews(); }, [fetchReviews]);
 
   const confirmDelete = async () => {
     if (!deleteTargetId) return;
@@ -186,7 +192,7 @@ export default function AdminReviewsPage() {
     try {
       await api.delete(`/reviews/admin/${deleteTargetId}`);
       notify.success("ลบรีวิวสำเร็จ");
-      setReviews((prev) => prev.filter((r) => r.review_id !== deleteTargetId));
+      await fetchReviews();
       setDeleteTargetId(null);
     } catch {
       notify.error("ลบรีวิวไม่สำเร็จ");
@@ -195,21 +201,8 @@ export default function AdminReviewsPage() {
     }
   };
 
-  const filtered = reviews.filter((r) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      (r.first_name + " " + r.last_name).toLowerCase().includes(q) ||
-      r.email?.toLowerCase().includes(q) ||
-      r.room_name?.toLowerCase().includes(q) ||
-      r.comment?.toLowerCase().includes(q)
-    );
-  });
-
-  const ratingCounts = [5, 4, 3, 2, 1].map((star) => ({
-    star,
-    count: reviews.filter((r) => Number(r.rating) === star).length,
-  }));
+  const filtered = reviews;
+  const ratingCounts = [5, 4, 3, 2, 1].map((star) => ({ star, count: ratingTotals[star] || 0 }));
 
   const roomTypeOptions = [
     { value: "", label: "ห้องพักทั้งหมด" },
@@ -232,13 +225,13 @@ export default function AdminReviewsPage() {
             <CustomSelect
               options={roomTypeOptions}
               value={filterRoomType}
-              onChange={(val) => setFilterRoomType(val)}
+              onChange={(val) => { setFilterRoomType(val); setCurrentPage(1); }}
               width="w-40 sm:w-48"
             />
             <CustomSelect
               options={RATING_OPTIONS}
               value={filterRating}
-              onChange={(val) => setFilterRating(val)}
+              onChange={(val) => { setFilterRating(val); setCurrentPage(1); }}
               width="w-32 sm:w-40"
             />
           </div>
@@ -255,7 +248,7 @@ export default function AdminReviewsPage() {
           <p className="text-xs text-charcoal-400 mt-2">คะแนนเฉลี่ย</p>
         </Panel>
         <Panel className="flex flex-col items-center justify-center text-center">
-          <p className="text-3xl font-display font-semibold text-forest-600">{reviews.length}</p>
+          <p className="text-3xl font-display font-semibold text-forest-600">{pagination.total}</p>
           <p className="text-xs text-charcoal-500 mt-2">รีวิวทั้งหมด</p>
         </Panel>
         <Panel className="col-span-2 flex flex-col justify-center gap-2">
@@ -273,8 +266,8 @@ export default function AdminReviewsPage() {
                   className="h-full bg-yellow-400 rounded-full transition-all"
                   style={{
                     width:
-                      reviews.length > 0
-                        ? `${Math.round((count / reviews.length) * 100)}%`
+                      pagination.total > 0
+                        ? `${Math.round((count / pagination.total) * 100)}%`
                         : "0%",
                   }}
                 />
@@ -298,12 +291,12 @@ export default function AdminReviewsPage() {
               type="text"
               placeholder="ค้นหาชื่อ, อีเมล, ห้อง, ความคิดเห็น..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               className="w-full pl-9 pr-3 py-2 text-sm border border-charcoal-200 rounded-xl focus:outline-none focus:border-forest-400 transition-colors bg-white"
             />
           </div>
           <span className="text-xs text-charcoal-400 font-medium">
-            พบ {filtered.length} รายการ
+            พบ {pagination.total} รายการ
           </span>
         </div>
 
@@ -411,6 +404,16 @@ export default function AdminReviewsPage() {
           )}
         </div>
       </Panel>
+
+      {pagination.total > 0 && (
+        <div className="flex items-center justify-between gap-3 text-sm text-charcoal-600">
+          <span>หน้า {currentPage} / {pagination.totalPages} · {pagination.total} รายการ</span>
+          <div className="flex gap-2">
+            <button type="button" className="btn-secondary disabled:opacity-40" disabled={loading || currentPage <= 1} onClick={() => setCurrentPage((page) => page - 1)}>ก่อนหน้า</button>
+            <button type="button" className="btn-secondary disabled:opacity-40" disabled={loading || currentPage >= pagination.totalPages} onClick={() => setCurrentPage((page) => page + 1)}>ถัดไป</button>
+          </div>
+        </div>
+      )}
 
       <Modal
         open={deleteTargetId !== null}

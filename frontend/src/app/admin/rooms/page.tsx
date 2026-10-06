@@ -445,6 +445,10 @@ function RoomStaffDashboardContent() {
 
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
+  const [counts, setCounts] = useState({ all: 0, has_slip: 0, pending: 0, approved: 0, checked_out: 0, totalRevenue: 0, pendingRevenue: 0 });
+  const [catalogTypes, setCatalogTypes] = useState<string[]>([]);
+  const requestId = useRef(0);
 
   // อ่านค่า State จาก URL Query Parameters
   const filter = (searchParams.get("filter") as FilterType) || "all";
@@ -452,7 +456,8 @@ function RoomStaffDashboardContent() {
   const dateFrom = searchParams.get("dateFrom") || "";
   const dateTo = searchParams.get("dateTo") || "";
   const searchParam = searchParams.get("search") || "";
-  const currentPage = Number(searchParams.get("page")) || 1;
+  const pageParam = Number(searchParams.get("page"));
+  const currentPage = Number.isSafeInteger(pageParam) && pageParam > 0 ? pageParam : 1;
 
   // Search Debounce State
   const [searchInput, setSearchInput] = useState(searchParam);
@@ -463,6 +468,7 @@ function RoomStaffDashboardContent() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const toggleSort = (key: "check_in" | "total_price" | "created_at") => {
+    updateQueryParams({ page: 1 });
     if (sortKey === key) {
       setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -566,22 +572,36 @@ function RoomStaffDashboardContent() {
     updateQueryParams({ page });
   };
 
-  useEffect(() => {
+  const fetchBookings = useCallback(async (): Promise<void> => {
     if (!ready) return;
-    fetchBookings();
-  }, [ready]);
-
-  const fetchBookings = async () => {
+    const id = ++requestId.current;
     setLoading(true);
     try {
-      const res = await api.get("/bookings");
+      const res = await api.get("/bookings", { params: { page: currentPage, limit: itemsPerPage,
+        filter, search: searchParam.trim() || undefined,
+        room_type: roomType === "all" ? undefined : roomType,
+        date_from: dateFrom || undefined, date_to: dateTo || undefined, sort: sortKey || undefined, sort_dir: sortDir,
+      } });
+      if (id !== requestId.current) return;
       setBookings(res.data?.data || []);
+      setPagination(res.data.pagination);
+      setCounts(res.data.summary);
+      if (currentPage > Math.max(1, res.data.pagination.totalPages)) updateQueryParams({ page: Math.max(1, res.data.pagination.totalPages) });
     } catch {
-      toast.error("ไม่สามารถโหลดข้อมูลการจองได้");
+      if (id === requestId.current) toast.error("ไม่สามารถโหลดข้อมูลการจองได้");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  };
+  }, [ready, currentPage, filter, roomType, dateFrom, dateTo, searchParam, updateQueryParams, sortKey, sortDir]);
+
+  useEffect(() => { fetchBookings(); }, [fetchBookings]);
+  useEffect(() => {
+    if (!ready) return;
+    api.get("/rooms", { params: { is_admin: true } }).then((res) => {
+      const types: { type_name?: string; room_name?: string; name?: string }[] = res.data?.data || [];
+      setCatalogTypes(Array.from(new Set(types.map((type) => type.type_name || type.room_name || "").filter(Boolean))));
+    }).catch(() => toast.error("ไม่สามารถโหลดประเภทห้องพักได้"));
+  }, [ready]);
 
   const openConfirmDialog = (
     title: string,
@@ -671,14 +691,7 @@ function RoomStaffDashboardContent() {
     window.print();
   };
 
-  const roomTypes = useMemo(() => {
-    const types = new Set<string>();
-    bookings.forEach((b) => {
-      const name = b.type_name || b.room_name;
-      if (name) types.add(name);
-    });
-    return Array.from(types);
-  }, [bookings]);
+  const roomTypes = catalogTypes;
 
   const roomTypeOptions = useMemo(() => {
     return [
@@ -687,115 +700,8 @@ function RoomStaffDashboardContent() {
     ];
   }, [roomTypes]);
 
-  const counts = useMemo(() => {
-    const approvedList = bookings.filter((b) =>
-      ["approved", "checked_out"].includes(b.status),
-    );
-    const pendingSlipList = bookings.filter(
-      (b) =>
-        b.payment_slip &&
-        !["approved", "checked_out", "rejected", "cancelled"].includes(
-          b.status,
-        ),
-    );
-
-    return {
-      has_slip: pendingSlipList.length,
-      pending: bookings.filter((b) => !b.payment_slip && b.status === "pending")
-        .length,
-      approved: bookings.filter((b) => b.status === "approved").length,
-      checked_out: bookings.filter((b) => b.status === "checked_out").length,
-      totalRevenue: approvedList.reduce(
-        (acc, curr) => acc + Number(curr.total_price || 0),
-        0,
-      ),
-      pendingRevenue: pendingSlipList.reduce(
-        (acc, curr) => acc + Number(curr.total_price || 0),
-        0,
-      ),
-    };
-  }, [bookings]);
-
-  const filtered = useMemo(() => {
-    let list = bookings;
-
-    if (filter === "has_slip")
-      list = list.filter(
-        (b) =>
-          b.payment_slip &&
-          !["approved", "checked_out", "rejected", "cancelled"].includes(
-            b.status,
-          ),
-      );
-    else if (filter === "pending")
-      list = list.filter((b) => !b.payment_slip && b.status === "pending");
-    else if (filter === "approved")
-      list = list.filter((b) => b.status === "approved");
-    else if (filter === "checked_out")
-      list = list.filter((b) => b.status === "checked_out");
-
-    if (roomType !== "all") {
-      list = list.filter((b) => (b.type_name || b.room_name) === roomType);
-    }
-
-    if (dateFrom)
-      list = list.filter(
-        (b) => b.check_in && new Date(b.check_in) >= new Date(dateFrom),
-      );
-    if (dateTo)
-      list = list.filter(
-        (b) => b.check_in && new Date(b.check_in) <= new Date(dateTo),
-      );
-
-    if (searchParam.trim()) {
-      const q = searchParam.toLowerCase().trim();
-      list = list.filter((b) => {
-        const bookingId = String(b.room_booking_id || b.id || "").toLowerCase();
-        const userName = String(b.user_name || "").toLowerCase();
-        const userPhone = String(b.user_phone || b.phone || "").toLowerCase();
-        const userEmail = String(b.user_email || "").toLowerCase();
-        const roomName = String(b.room_name || b.type_name || "").toLowerCase();
-        const roomNum = String(b.room_number || b.room_id || "").toLowerCase();
-
-        return (
-          bookingId.includes(q) ||
-          userName.includes(q) ||
-          userPhone.includes(q) ||
-          userEmail.includes(q) ||
-          roomName.includes(q) ||
-          roomNum.includes(q)
-        );
-      });
-    }
-
-    return list;
-  }, [bookings, filter, roomType, dateFrom, dateTo, searchParam]);
-
-  const sorted = useMemo(() => {
-    if (!sortKey) return filtered;
-    const list = [...filtered];
-    list.sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "total_price") {
-        cmp = Number(a.total_price || 0) - Number(b.total_price || 0);
-      } else if (sortKey === "created_at") {
-        cmp = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-      } else {
-        cmp = new Date(a.check_in || 0).getTime() - new Date(b.check_in || 0).getTime();
-      }
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return list;
-  }, [filtered, sortKey, sortDir]);
-
-  const totalPages = Math.ceil(sorted.length / itemsPerPage) || 1;
-
-  const paginatedBookings = useMemo(() => {
-    return sorted.slice(
-      (currentPage - 1) * itemsPerPage,
-      currentPage * itemsPerPage,
-    );
-  }, [sorted, currentPage]);
+  const totalPages = Math.max(1, pagination.totalPages);
+  const paginatedBookings = bookings;
 
   const getPaginationRange = () => {
     const delta = 1;
@@ -882,7 +788,7 @@ function RoomStaffDashboardContent() {
         <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5">
           {(
             [
-              ["all", "ทั้งหมด", bookings.length],
+              ["all", "ทั้งหมด", counts.all],
               ["has_slip", "รอตรวจสอบสลิป", counts.has_slip],
               ["pending", "ยังไม่ชำระ", counts.pending],
               ["approved", "อนุมัติแล้ว", counts.approved],
@@ -1371,7 +1277,7 @@ function RoomStaffDashboardContent() {
         </div>
 
         {/* Pagination Footer */}
-        {filtered.length > 0 && (
+        {pagination.total > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 bg-stone-50/80 border-t border-stone-200/80 text-xs text-stone-500 print:hidden">
             <span>
               แสดง{" "}
@@ -1380,11 +1286,11 @@ function RoomStaffDashboardContent() {
               </strong>{" "}
               ถึง{" "}
               <strong className="text-stone-800 font-mono">
-                {Math.min(currentPage * itemsPerPage, filtered.length)}
+                {Math.min(currentPage * itemsPerPage, pagination.total)}
               </strong>{" "}
               จากทั้งหมด{" "}
               <strong className="text-stone-800 font-mono">
-                {filtered.length}
+                {pagination.total}
               </strong>{" "}
               รายการ
             </span>
@@ -1392,14 +1298,14 @@ function RoomStaffDashboardContent() {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => handlePageChange(1)}
-                disabled={currentPage === 1}
+                disabled={loading || currentPage === 1}
                 className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
               >
                 <ChevronsLeft size={16} />
               </button>
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
+                disabled={loading || currentPage === 1}
                 className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
               >
                 <ChevronLeft size={16} />
@@ -1427,14 +1333,14 @@ function RoomStaffDashboardContent() {
 
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
+                disabled={loading || currentPage >= totalPages}
                 className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
               >
                 <ChevronRight size={16} />
               </button>
               <button
                 onClick={() => handlePageChange(totalPages)}
-                disabled={currentPage === totalPages}
+                disabled={loading || currentPage >= totalPages}
                 className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
               >
                 <ChevronsRight size={16} />

@@ -8,18 +8,12 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useAuth } from '@/hooks/useAuth';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { formatThaiDate, nightsBetween, todayISO } from '@/lib/date';
+import { formatThaiDate, nightsBetween } from '@/lib/date';
+import { chooseRoomPromotions, eligibleRoomPromotion, resolveCheckoutDetails, roomPromotionDiscount } from '@/lib/booking-checkout';
+import type { CheckoutPromotion } from '@/lib/booking-checkout';
 import type { RoomCartItem } from '@/lib/room-cart';
 
-interface Promotion {
-  id: number;
-  name: string;
-  code: string;
-  discount_value: number;
-  discount_type: 'percent' | 'fixed';
-  min_nights?: number;
-  max_discount?: number;
-}
+type Promotion = CheckoutPromotion;
 
 import { Suspense } from 'react';
 
@@ -55,11 +49,8 @@ function BookingDetailsContent() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const checkIn = searchParams.get('check_in') || todayISO();
-  const checkOut = searchParams.get('check_out') || todayISO();
-  const adults = parseInt(searchParams.get('adults') || '1', 10);
-  const childrenCount = parseInt(searchParams.get('children') || '0', 10);
-  const childAgesStr = searchParams.get('child_ages') || '';
+  const { checkIn, checkOut, adults, children: childrenCount, childAges } = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
+  const childAgesStr = childAges.join(',');
   const nights = nightsBetween(checkIn, checkOut);
 
   const cartItems = cart?.items.filter(item => item.room_id !== null) ?? [];
@@ -107,32 +98,7 @@ function BookingDetailsContent() {
     // Only auto-select if we haven't set them yet
     if (Object.keys(selectedPromos).length > 0) return;
 
-    const initialSelections: Record<number, number | null> = {};
-    groups.forEach(group => {
-      let bestPromo: number | null = null;
-      let maxDiscount = 0;
-      
-      promotions.forEach(promo => {
-        // Evaluate if eligible
-        if (promo.min_nights && nights < promo.min_nights) return;
-        
-        let discount = 0;
-        if (promo.discount_type === 'percent') {
-          discount = group.totalBasePrice * (promo.discount_value / 100);
-          if (promo.max_discount) discount = Math.min(discount, promo.max_discount);
-        } else {
-          discount = Math.min(promo.discount_value, group.totalBasePrice);
-        }
-        
-        if (discount > maxDiscount) {
-          maxDiscount = discount;
-          bestPromo = promo.id;
-        }
-      });
-      initialSelections[group.typeId] = bestPromo;
-    });
-    
-    setSelectedPromos(initialSelections);
+    setSelectedPromos(chooseRoomPromotions(groups, promotions, nights));
   }, [promotions, groups, nights]);
 
   if (!ready) return <div className="min-h-screen bg-stone-50 flex items-center justify-center">กำลังโหลด...</div>;
@@ -152,31 +118,44 @@ function BookingDetailsContent() {
     );
   }
 
-  const handleSelectPromo = (typeId: number, promoId: number | null) => {
+  const handleSelectPromo = (typeId: number, promoId: number | null): void => {
+    if (promoId !== null && Object.entries(selectedPromos).some(([key, value]) => Number(key) !== typeId && value === promoId)) {
+      toast.error('โค้ดนี้ใช้ได้กับประเภทห้องเดียว กรุณาเลือกโค้ดอื่น');
+      return;
+    }
     setSelectedPromos(prev => ({ ...prev, [typeId]: promoId }));
   };
 
-  const calculateDiscount = (typeId: number, basePrice: number) => {
+  const calculateDiscount = (typeId: number, basePrice: number): number => {
     const promoId = selectedPromos[typeId];
     if (!promoId) return 0;
     const promo = promotions.find(p => p.id === promoId);
     if (!promo) return 0;
     
-    let discount = 0;
-    if (promo.discount_type === 'percent') {
-      discount = basePrice * (promo.discount_value / 100);
-      if (promo.max_discount) discount = Math.min(discount, promo.max_discount);
-    } else {
-      discount = Math.min(promo.discount_value, basePrice);
-    }
-    return Math.round(discount);
+    return roomPromotionDiscount(promo, basePrice);
   };
 
   const grandTotalBase = groups.reduce((sum, g) => sum + g.totalBasePrice, 0);
   const totalDiscount = groups.reduce((sum, g) => sum + calculateDiscount(g.typeId, g.totalBasePrice), 0);
   const netTotal = grandTotalBase - totalDiscount;
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
+    if (!checkIn || !checkOut || !Number.isFinite(nights) || nights < 1 || (cart && (cart.check_in !== checkIn || cart.check_out !== checkOut))) {
+      toast.error('กรุณาเลือกวันที่เข้าพักและออกให้ตรงกับรายการในตะกร้า');
+      return;
+    }
+    if (childAges.length !== childrenCount || childAges.some(age => !Number.isInteger(age) || age < 0 || age > 17)) {
+      toast.error('กรุณาระบุอายุของเด็กแต่ละคนให้ครบ');
+      return;
+    }
+    for (const group of groups) {
+      const promoId = selectedPromos[group.typeId];
+      const promo = promotions.find(item => item.id === promoId);
+      if (promoId && (!promo || !eligibleRoomPromotion(promo, group.totalBasePrice, nights, group.typeId, group.rooms.length))) {
+        toast.error('โปรโมชั่นที่เลือกไม่ตรงกับเงื่อนไข กรุณาเลือกใหม่หรือไม่ใช้โปรโมชั่น');
+        return;
+      }
+    }
     if (!firstName || !lastName || !email || !phone) {
       toast.error('กรุณากรอกข้อมูลผู้ติดต่อให้ครบถ้วน');
       return;
@@ -207,7 +186,7 @@ function BookingDetailsContent() {
         check_out_date: checkOut,
         adults: adults,
         children: childrenCount,
-        child_ages: childAgesStr ? childAgesStr.split(',').map(Number) : [],
+        child_ages: childAges,
         special_requests: specialReqStr,
         items: payloadItems,
         guest_name: `${firstName} ${lastName}`,
@@ -216,7 +195,6 @@ function BookingDetailsContent() {
       });
       
       setRoomCart(null);
-      console.log("Response from server:", res.data);
       const bId = res.data?.data?.room_booking_id || res.data?.data?.id || res.data?.data?.booking_id || res.data?.room_booking_id || res.data?.id;
       if (!bId) {
         toast.error("ไม่สามารถระบุรหัสการจองได้ (Booking ID is undefined)");
@@ -415,12 +393,12 @@ function BookingDetailsContent() {
                             onChange={e => handleSelectPromo(group.typeId, e.target.value ? Number(e.target.value) : null)}
                             className="w-full text-xs font-bold text-forest-800 bg-white border border-stone-200 rounded-lg p-2 focus:ring-forest-500 focus:border-forest-500 truncate"
                           >
-                            {promotions.filter(p => !(p.min_nights && nights < p.min_nights)).length === 0 && <option value="">ไม่ใช้โปรโมชั่น</option>}
+                            <option value="">ไม่ใช้โปรโมชั่น</option>
                             {promotions.map(p => {
-                              if (p.min_nights && nights < p.min_nights) return null; // Hide ineligible
+                              if (!eligibleRoomPromotion(p, group.totalBasePrice, nights, group.typeId, group.rooms.length)) return null;
                               return (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} (ลด {p.discount_type === 'percent' ? `${p.discount_value}%` : `฿${p.discount_value.toLocaleString()}`})
+                                <option key={p.id} value={p.id} disabled={Object.entries(selectedPromos).some(([key, value]) => Number(key) !== group.typeId && value === p.id)}>
+                                  {p.name} (ลด {p.discount_type === 'percent' ? `${p.discount_value}%` : `฿${Number(p.discount_value).toLocaleString()}`})
                                 </option>
                               );
                             })}

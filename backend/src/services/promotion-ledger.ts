@@ -118,7 +118,8 @@ export async function persistBookingPromotions(
     result: ApplyResult;
   }
 ): Promise<void> {
-  for (const line of args.result.lines) {
+  // Both applying and restoring multiple codes acquire quota rows in this order.
+  for (const line of [...args.result.lines].sort((a, b) => a.promotion_id - b.promotion_id)) {
     await client.query(
       `INSERT INTO booking_promotions (
          promotion_id, member_id, member_promotion_id,
@@ -192,11 +193,12 @@ export async function restoreBookingPromotions(
      RETURNING promotion_id, member_id, member_promotion_id`,
     [args.roomBookingId ?? null, args.boatBookingId ?? null]
   );
-  for (const row of rows.rows as Array<{
+  const restored = rows.rows as Array<{
     promotion_id: number;
     member_id: number;
     member_promotion_id: number | null;
-  }>) {
+  }>;
+  for (const row of restored.sort((a, b) => a.promotion_id - b.promotion_id)) {
     await client.query(
       `UPDATE promotions
        SET usage_count = GREATEST(usage_count - 1, 0), updated_at = NOW()

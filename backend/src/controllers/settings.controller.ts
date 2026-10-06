@@ -126,7 +126,7 @@ export const deleteBankAccount = async (req: Request, res: Response): Promise<vo
 
 // คอลัมน์ของ resort_info ที่ endpoint สาธารณะส่งออกได้ (ไม่ใช้ SELECT * เพื่อไม่ให้ข้อมูลอื่นรั่ว)
 const RESORT_PUBLIC_COLUMNS =
-  'id, name, address, coordinates, phone, email, facebook, line_id, operating_days, operating_hours, additional_terms, payment_due_days, bank_account_no, bank_account_name, promptpay_id, facilities, checkin_time_from, checkin_time_to, checkout_time, important_info, kids_policy, parking_info';
+  'id, name, address, coordinates, phone, email, facebook, line_id, operating_days, operating_hours, additional_terms, payment_due_days, bank_account_no, bank_account_name, promptpay_id, facilities, checkin_time_from, checkin_time_to, checkout_time, important_info, kids_policy, parking_info, infant_max_age_exclusive';
 
 // ─── Resort Info (รวม contact + site info ใน table resort_info) ────────────────
 
@@ -164,10 +164,14 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
 
 export const upsertResortInfo = async (req: Request, res: Response): Promise<void> => {
   try {
-    // ดึง id จาก URL params หรือ request body
-    // เฉพาะ admin ที่ระบุ id แถวเองได้ พนักงานอื่นใช้แถวเริ่มต้นตามชื่อ/ประเภท
-    const isAdminWriter = (req as AuthRequest).user?.role === 'admin';
-    const rawId = req.params.id ?? (isAdminWriter ? req.body.id : undefined);
+    const role = (req as AuthRequest).user?.role;
+    const isAdmin = role === 'admin';
+    const staffTargetId = role === 'room_staff' ? 4 : role === 'boat_staff' ? 5 : null;
+    if (!isAdmin && staffTargetId === null) {
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+    const rawId = req.params.id ?? req.body.id;
     let targetId: number | null = null;
     if (rawId !== undefined && rawId !== null && rawId !== '') {
       targetId = parsePositiveInt(rawId);
@@ -178,8 +182,16 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
     }
     const targetName = typeof req.body.name === 'string' ? req.body.name : '';
 
-    // 🎯 Mapping ID อัตโนมัติตามประเภท หากไม่ได้ส่ง id มาตรงๆ
-    // ไม่มีทั้ง id และ name → ใช้สถานที่หลัก (id 3) แทนการ INSERT แถวใหม่ทุกครั้ง
+    // Staff are scoped by role; editable names never select another resort row.
+    if (!isAdmin) {
+      if (targetId !== null && targetId !== staffTargetId) {
+        res.status(403).json({ success: false, message: 'ไม่มีสิทธิ์แก้ไขจุดบริการนี้' });
+        return;
+      }
+      targetId = staffTargetId;
+    }
+
+    // Preserve legacy admin name mapping when no explicit row was supplied.
     if (!targetId) {
       if (!targetName) {
         targetId = 3;
@@ -192,21 +204,39 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       }
     }
 
+    if (![3, 4, 5].includes(targetId)) {
+      res.status(400).json({ success: false, message: 'Invalid resort id' });
+      return;
+    }
+
+    if (req.body.infant_max_age_exclusive !== undefined) {
+      if (!isAdmin) {
+        res.status(403).json({ success: false, message: 'เฉพาะผู้ดูแลระบบที่แก้ไขเกณฑ์อายุเด็กเล็กได้' });
+        return;
+      }
+      const rawAge = req.body.infant_max_age_exclusive;
+      const age = typeof rawAge === 'number' || (typeof rawAge === 'string' && /^\d+$/.test(rawAge))
+        ? Number(rawAge) : NaN;
+      if (targetId !== 3 || !Number.isInteger(age) || age < 0 || age > 18) {
+        res.status(400).json({ success: false, message: 'เกณฑ์อายุเด็กเล็กต้องเป็นจำนวนเต็ม 0–18 และกำหนดที่สถานที่หลักเท่านั้น' });
+        return;
+      }
+    }
+
     const allowed = [
       'name', 'address', 'coordinates', 'phone', 'email', 'facebook', 'line_id',
       'operating_days', 'operating_hours', 'additional_terms', 'payment_due_days',
       'promptpay_id', 'bank_account_no', 'bank_account_name',
-      'checkin_time_from', 'checkin_time_to', 'checkout_time', 'important_info', 'kids_policy', 'parking_info',
+      'checkin_time_from', 'checkin_time_to', 'checkout_time', 'important_info', 'kids_policy', 'parking_info', 'infant_max_age_exclusive',
     ];
 
-    const isAdmin = (req as AuthRequest).user?.role === 'admin';
-    const updates: { col: string; val: any }[] = [];
+    const updates: { col: string; val: unknown }[] = [];
     for (const col of allowed) {
       if (req.body[col] === undefined) continue;
       if (!isAdmin && ADMIN_ONLY_RESORT_FIELDS.includes(col)) continue;
       // ค่าว่างเป็น NULL ตามเดิม แต่ค่าตัวเลข 0 และ false ต้องคงไว้
       const raw = req.body[col];
-      updates.push({ col, val: raw === '' ? null : (raw ?? null) });
+      updates.push({ col, val: col === 'infant_max_age_exclusive' ? Number(raw) : raw === '' ? null : (raw ?? null) });
     }
 
     if (updates.length === 0) {
