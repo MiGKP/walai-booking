@@ -1466,7 +1466,13 @@ export const createBoatAddon = async (
 
     const seatCount = Number(boatType.seat_count || 1);
     const minBoatCount = boatsNeeded(numPassengers, seatCount);
-    const boatCount = Number(body.boat_count) >= minBoatCount ? Number(body.boat_count) : minBoatCount;
+    const requestedBoats = body.boat_count == null ? null : Number(body.boat_count);
+    if (requestedBoats !== null && !Number.isInteger(requestedBoats)) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: "จำนวนเรือต้องเป็นจำนวนเต็ม" });
+      return;
+    }
+    const boatCount = requestedBoats !== null && requestedBoats >= minBoatCount ? requestedBoats : minBoatCount;
 
     if (boatCount > ticketInfo.balance) {
       await safeRollback(client);
@@ -1538,6 +1544,8 @@ export const createBoatAddon = async (
       return;
     }
     const priceCharged = ticketInfo.mode === "paid" ? ticketInfo.unitPrice * boatCount : 0;
+    // ราคาต่อหน่วยในบรรทัดต้องตรงกับ subtotal: โหมดขายใช้ราคาบัตรเสริม, โหมดฟรีคงราคาเรือปกติไว้อ้างอิง
+    const lineUnitPrice = ticketInfo.mode === "paid" ? ticketInfo.unitPrice : Number(boatType.price);
     const initialStatus = room.room_status === "approved" ? "approved" : "pending";
 
     const headerRes = await client.query(
@@ -1565,7 +1573,7 @@ export const createBoatAddon = async (
       `INSERT INTO booking_boat (
          boat_booking_id, boat_type_id, boat_round_id, num_passengers, boat_count, unit_price, subtotal, status
        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [header.boat_booking_id, boatTypeId, boatRoundId, numPassengers, boatCount, boatType.price, priceCharged, initialStatus],
+      [header.boat_booking_id, boatTypeId, boatRoundId, numPassengers, boatCount, lineUnitPrice, priceCharged, initialStatus],
     );
 
     try {
