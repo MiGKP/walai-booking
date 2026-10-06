@@ -169,7 +169,7 @@ export async function persistBookingPromotions(
       // expired ไม่ถูกเขียนทับ (คงสถานะหมดอายุไว้)
       await client.query(
         `UPDATE member_promotions
-         SET status = $1, used_at = CASE WHEN $1 = 'used' THEN NOW() ELSE NULL END
+         SET status = $1, used_at = CASE WHEN $1 = 'used' THEN COALESCE(used_at, NOW()) ELSE NULL END
          WHERE member_promotion_id = $2 AND status <> 'expired'`,
         [next, line.member_promotion_id]
       );
@@ -222,7 +222,7 @@ export async function restoreBookingPromotions(
       // expired ไม่ถูกเขียนทับ: คืนได้เฉพาะสลับระหว่าง saved/used
       await client.query(
         `UPDATE member_promotions
-         SET status = $1, used_at = CASE WHEN $1 = 'used' THEN NOW() ELSE NULL END
+         SET status = $1, used_at = CASE WHEN $1 = 'used' THEN COALESCE(used_at, NOW()) ELSE NULL END
          WHERE member_promotion_id = $2 AND status <> 'expired'`,
         [next, row.member_promotion_id]
       );
