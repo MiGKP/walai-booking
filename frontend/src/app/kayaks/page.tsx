@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users, X, ChevronLeft, ChevronRight, ChevronDown, ImageIcon } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
+import { isBoatSlotBookable } from '@/lib/boat-time-policy';
 import { resolveMediaUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
 import BookingCalendar, { DayStatus } from '@/components/booking/BookingCalendar';
@@ -305,7 +306,12 @@ function KayaksPageContent(): React.ReactElement {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const today = todayISO();
+  const today = new Date(Date.now() + 7 * 60 * 60_000).toISOString().slice(0, 10);
+  const [clockNow, setClockNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   
   // ดึงข้อมูลวันที่เข้าพักจาก query parameters (กรณีมาจากหน้า Payment Success)
   const roomBookingId = searchParams.get('room_booking_id');
@@ -340,15 +346,15 @@ function KayaksPageContent(): React.ReactElement {
   }, []);
 
   // คำนวณ cutoff วันนี้จากข้อมูลจริง (fallback 18:00 ถ้ายังไม่มีข้อมูล)
-  const todayDow = new Date().getDay();
+  const bangkokNow = new Date(clockNow + 7 * 60 * 60_000);
+  const todayDow = bangkokNow.getUTCDay();
   const todayHour = boatHours.find(h => h.day_of_week === todayDow);
   const isTodayClosed = todayHour ? !todayHour.is_open : false;
   const cutoffHHMM = todayHour?.close_time?.slice(0, 5) ?? '18:00';
   const [cutH, cutM] = cutoffHHMM.split(':').map(Number);
-  const nowRef = new Date();
   const pastCutoffToday = isTodayClosed ||
-    nowRef.getHours() > cutH ||
-    (nowRef.getHours() === cutH && nowRef.getMinutes() >= cutM);
+    bangkokNow.getUTCHours() > cutH ||
+    (bangkokNow.getUTCHours() === cutH && bangkokNow.getUTCMinutes() >= cutM);
   const closedTodayHint = isTodayClosed
     ? 'ปิดบริการวันนี้'
     : `ปิดรับจองแล้ว (หมดรอบหลัง ${cutoffHHMM} น.)`;
@@ -463,19 +469,10 @@ function KayaksPageContent(): React.ReactElement {
       .then((lists) => {
         if (cancelled) return;
         let merged = mergeSharedSlots(lists);
-        // กรองรอบที่ใกล้เกินไปออก (เฉพาะวันนี้) ตามระยะเวลาจองล่วงหน้าที่ตั้งไว้
-        if (selectedDate === today) {
-          const advanceMs = (todayHour?.advance_booking_minutes ?? 60) * 60_000;
-          const nowMs = Date.now();
-          merged = merged.map((slot) => {
-            const [h, m] = String(slot.start_time).slice(0, 5).split(':').map(Number);
-            const slotMs = new Date().setHours(h, m, 0, 0);
-            if (slotMs - nowMs < advanceMs) {
-              return { ...slot, available: false, remaining: 0 };
-            }
-            return slot;
-          });
-        }
+        const day = boatHours.find(hour => hour.day_of_week === new Date(`${selectedDate}T12:00:00+07:00`).getUTCDay());
+        const advanceMinutes = day?.advance_booking_minutes ?? boatHours[0]?.advance_booking_minutes ?? 60;
+        merged = merged.map(slot => isBoatSlotBookable(selectedDate, slot.start_time, slot.end_time, day, advanceMinutes, clockNow)
+          ? slot : { ...slot, available: false, remaining: 0 });
         setSlots(merged);
       })
       .catch(() => {
@@ -488,7 +485,7 @@ function KayaksPageContent(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [boats, selectedDate, todayHour]);
+  }, [boats, selectedDate, boatHours, clockNow]);
 
   const selectedSlot = useMemo(
     () => slots.find((slot) => slot.key === selectedSlotKey) ?? null,
@@ -596,6 +593,11 @@ function KayaksPageContent(): React.ReactElement {
     }
     if (selectedDate === today && pastCutoffToday) {
       toast.error(closedTodayHint);
+      return;
+    }
+    const day = boatHours.find(hour => hour.day_of_week === new Date(`${selectedDate}T12:00:00+07:00`).getUTCDay());
+    if (!isBoatSlotBookable(selectedDate, selectedSlot.start_time, selectedSlot.end_time, day, day?.advance_booking_minutes ?? boatHours[0]?.advance_booking_minutes ?? 60)) {
+      toast.error('รอบที่เลือกอยู่นอกเวลาทำการหรือใกล้เวลาออกเรือเกินไป กรุณาเลือกรอบใหม่');
       return;
     }
     if (cartLines.length === 0) {

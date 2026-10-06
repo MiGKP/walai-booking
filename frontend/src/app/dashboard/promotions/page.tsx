@@ -9,6 +9,7 @@ import DashboardTabs from '@/components/dashboard/DashboardTabs';
 import { PromoVoucher, PromoBookingLinks } from '@/components/promotions/PromoVoucher';
 import {
   walletStatusLabel,
+  canUseWalletPromotion,
   type WalletPromo,
   type WalletStatus,
 } from '@/lib/promotions';
@@ -46,8 +47,7 @@ export default function CouponsPage(): React.ReactElement | null {
       expired: [],
     };
     for (const item of wallet) {
-      const status: WalletStatus =
-        item.status === 'used' || item.status === 'expired' ? item.status : 'saved';
+      const status: WalletStatus = canUseWalletPromotion(item.status, item.remaining) ? 'saved' : item.status === 'expired' ? 'expired' : 'used';
       buckets[status].push(item);
     }
     return buckets;
@@ -137,10 +137,10 @@ export default function CouponsPage(): React.ReactElement | null {
                   endDate={item.end_date}
                   stackable={Boolean(item.stackable)}
                   appliesTo={item.applies_to}
-                  muted={item.status !== 'saved'}
-                  badge={walletStatusLabel(item.status)}
+                  muted={!canUseWalletPromotion(item.status, item.remaining)}
+                  badge={canUseWalletPromotion(item.status, item.remaining) ? 'พร้อมใช้งาน' : walletStatusLabel(item.status)}
                   footer={
-                    item.status === 'saved' ? (
+                    canUseWalletPromotion(item.status, item.remaining) ? (
                       <>
                         <PromoBookingLinks
                           code={item.code}
@@ -148,7 +148,7 @@ export default function CouponsPage(): React.ReactElement | null {
                           roomLabel="ใช้กับห้องพัก"
                           kayakLabel="ใช้กับเรือ"
                         />
-                        <button
+                        {item.status === 'saved' && <button
                           type="button"
                           className="text-xs font-medium text-charcoal-400 hover:text-red-600"
                           disabled={removingId === item.promotion_id}
@@ -157,7 +157,7 @@ export default function CouponsPage(): React.ReactElement | null {
                           }}
                         >
                           เอาออก
-                        </button>
+                        </button>}
                         {item.remaining != null ? (
                           <span className="ml-auto text-xs text-charcoal-400">
                             เหลือ {item.remaining} ครั้ง

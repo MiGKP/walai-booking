@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { CreditCard, Upload, CheckCircle, ArrowLeft, XCircle, Receipt, Landmark, QrCode, Info, MessageSquare } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { formatThaiDate, formatTimeRange, nightsBetween, toISODate } from '@/lib/date';
+import { formatThaiDate, formatTimeRange, nightsBetween } from '@/lib/date';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
@@ -266,16 +266,16 @@ function PaymentContent() {
         )}
 
         <div className="mt-7 flex flex-col gap-3">
-          {payment?.booking_type === 'room' && payment?.has_boat_tickets && (
+          {payment?.booking_type === 'room' && payment?.has_boat_tickets && !isRejected && bookingStatus !== 'cancelled' && bookingStatus !== 'checked_out' && (
              <div className="rounded-xl border border-forest-300 bg-gradient-to-br from-forest-50 to-forest-100 p-4 text-center mb-2 shadow-md animate-fade-in relative overflow-hidden">
                <h3 className="font-sans text-base font-bold text-forest-900 relative z-10 flex items-center justify-center gap-1.5">
                  ยินดีด้วย! คุณได้รับสิทธิ์พิเศษ
                </h3>
                <p className="text-sm text-forest-800 mt-1.5 mb-4 leading-relaxed relative z-10 font-medium">
-                 คุณใช้โปรโมชั่นได้รับบริการเรือฟรี<br/>โปรดจองรอบเวลาเรือที่ต้องการได้ในลิงก์นี้
+                 คุณมีสิทธิ์บริการเรือจากโปรโมชั่นห้องพัก<br/>เลือกห้องและตรวจสอบสิทธิ์ก่อนจองรอบเวลา
                </p>
-               <Link href={`/kayaks?room_booking_id=${payment.booking_id}${bookingDetail?.check_in_date ? `&check_in=${toISODate(new Date(bookingDetail.check_in_date))}` : ''}${bookingDetail?.check_out_date ? `&check_out=${toISODate(new Date(bookingDetail.check_out_date))}` : ''}`} className="flex items-center justify-center gap-2 w-full rounded-xl bg-forest-900 py-3 text-sm font-bold text-white transition-colors hover:bg-forest-800 shadow-md">
-                 จองเรือฟรีตอนนี้
+               <Link href={`/kayaks/room-addon?room_booking_id=${payment.booking_id}`} className="flex items-center justify-center gap-2 w-full rounded-xl bg-forest-900 py-3 text-sm font-bold text-white transition-colors hover:bg-forest-800 shadow-md">
+                 เลือกสิทธิ์และจองรอบเรือ
                </Link>
              </div>
           )}

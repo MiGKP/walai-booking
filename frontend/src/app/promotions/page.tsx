@@ -228,6 +228,7 @@ export default function PromotionsPage(): React.ReactElement {
                           code={promo.code}
                           loading={collectingId === promo.id}
                           status={promo.wallet_status}
+                          remaining={promo.wallet_remaining}
                           isCollectible={promo.is_collectible}
                           isCustomer={Boolean(user && user.role === 'customer')}
                           isAuthenticated={isAuthenticated}

@@ -5,6 +5,8 @@ import { Anchor, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useConfirmStore } from '@/hooks/useConfirmStore';
+import type { RoomBoatAddonInfo } from '@/lib/room-boat-addon';
+import RoomBoatAddonForm from './RoomBoatAddonForm';
 
 interface BoatAddon {
   boat_booking_id: number;
@@ -21,8 +23,7 @@ interface BoatAddon {
   num_passengers: number | null;
 }
 
-interface AddonInfoResponse {
-  room_status: string;
+interface AddonInfoResponse extends RoomBoatAddonInfo {
   existing_addons: BoatAddon[];
 }
 
@@ -86,19 +87,22 @@ interface BoatAddonSectionProps {
   bookingRoomId: number;
   roomBookingStatus: string;
   onChanged?: () => void;
+  allowBooking?: boolean;
 }
 
 // แสดงบัตรเสริม (เรือ) ของห้องพักหนึ่งห้อง และให้ลูกค้ายกเลิกได้เมื่อยังไม่ได้รับเรือ
-export default function BoatAddonSection({ bookingRoomId, roomBookingStatus, onChanged }: BoatAddonSectionProps) {
+export default function BoatAddonSection({ bookingRoomId, roomBookingStatus, onChanged, allowBooking = false }: BoatAddonSectionProps) {
   const [addons, setAddons] = useState<BoatAddon[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [info, setInfo] = useState<AddonInfoResponse | null>(null);
 
   const fetchAddons = useCallback(async (): Promise<void> => {
     try {
       const res = await api.get(`/kayaks/room-addon/${bookingRoomId}`);
       const data = res.data?.data as AddonInfoResponse | undefined;
       setAddons(data?.existing_addons ?? []);
+      setInfo(data ?? null);
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'ไม่สามารถโหลดบัตรเสริมเรือได้'));
     } finally {
@@ -155,7 +159,7 @@ export default function BoatAddonSection({ bookingRoomId, roomBookingStatus, onC
   if (loading) {
     return <div className="h-12 animate-pulse rounded-xl bg-stone-100" />;
   }
-  if (addons.length === 0) {
+  if (addons.length === 0 && !allowBooking) {
     return null;
   }
 
@@ -164,6 +168,10 @@ export default function BoatAddonSection({ bookingRoomId, roomBookingStatus, onC
       <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-forest-900">
         <Anchor size={13} /> บัตรเสริมเรือ
       </p>
+      {allowBooking && info && <RoomBoatAddonForm bookingRoomId={bookingRoomId} info={info} onCreated={async () => { await fetchAddons(); onChanged?.(); }} />}
+      {allowBooking && info && info.balance <= 0 && <p className="mb-3 text-xs text-charcoal-500">ห้องนี้ไม่มีสิทธิ์เรือที่ยังไม่ได้ใช้</p>}
+      {allowBooking && info && info.balance > 0 && (!info.valid_from || !info.valid_to) && <p className="mb-3 text-xs text-charcoal-500">ช่วงเข้าพักนี้ไม่มีวันใช้สิทธิ์เรือระหว่างวันเช็คอินและเช็คเอาต์</p>}
+      {allowBooking && info?.mode === 'paid' && info.room_status !== 'pending' && <p className="mb-3 text-xs text-charcoal-500">สิทธิ์เรือแบบเสียเงินต้องเลือกก่อนชำระค่าห้องพัก</p>}
       <ul className="space-y-2">
         {addons.map((addon) => {
           const dateLabel = new Date(addon.booking_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });

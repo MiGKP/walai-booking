@@ -1,3 +1,6 @@
+import { restoreBoatTicketRedemptions } from '../services/boat-booking-lifecycle';
+import { validateBoatBookingTime } from '../services/boat-booking-time';
+export { restoreBoatTicketRedemptions } from '../services/boat-booking-lifecycle';
 import { parsePagination, paginationMeta } from '../utils/pagination';
 import { Request, Response } from "express";
 import { safeRollback } from '../utils/safe-rollback';
@@ -258,22 +261,6 @@ export async function redeemRoomBoatTickets(
 }
 
 // คืนบัตรพายเรือ (ฟรีหรือเสริม) ที่เคยใช้กับการจองนี้ (เรียกตอนยกเลิก/ปฏิเสธการจอง)
-export async function restoreBoatTicketRedemptions(
-  client: { query: typeof pool.query },
-  boatBookingId: number,
-): Promise<void> {
-  const redemptions = await client.query(
-    `DELETE FROM boat_ticket_redemptions WHERE boat_booking_id = $1 RETURNING member_boat_ticket_id, quantity`,
-    [boatBookingId],
-  );
-  for (const row of redemptions.rows) {
-    await client.query(
-      `UPDATE member_boat_tickets SET used_tickets = used_tickets - $1 WHERE id = $2`,
-      [row.quantity, row.member_boat_ticket_id],
-    );
-  }
-}
-
 async function replaceRoundBoats(
   client: PoolClient,
   roundId: number,
@@ -893,6 +880,12 @@ export const createKayakBooking = async (
     }
 
     const prepared: PreparedLine[] = [];
+    const timeError = await validateBoatBookingTime(client, booking_date, startTime, endTime);
+    if (timeError) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: timeError });
+      return;
+    }
     let poolSlots: number | null = null;
 
     // Lock types in ascending id order to reduce deadlock risk
@@ -1266,7 +1259,7 @@ export const getBoatAddonInfo = async (
     }
 
     const roomRes = await pool.query(
-      `SELECT br.booking_room_id, rb.room_booking_id, rb.member_id, rb.check_in::text AS check_in, rb.check_out::text AS check_out, rb.status AS room_status
+      `SELECT br.booking_room_id, br.status AS room_line_status, rb.room_booking_id, rb.member_id, rb.check_in::text AS check_in, rb.check_out::text AS check_out, rb.status AS room_status
        FROM booking_room br
        JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
        WHERE br.booking_room_id = $1`,
@@ -1304,6 +1297,7 @@ export const getBoatAddonInfo = async (
       success: true,
       data: {
         room_status: room.room_status,
+        room_line_status: room.room_line_status,
         balance: ticketInfo?.balance ?? 0,
         mode: ticketInfo?.mode ?? "free",
         unit_price: ticketInfo?.unitPrice ?? 0,
@@ -1366,7 +1360,7 @@ export const createBoatAddon = async (
     }
 
     const roomRes = await client.query(
-      `SELECT br.booking_room_id, rb.room_booking_id, rb.member_id, rb.check_in::text AS check_in, rb.check_out::text AS check_out, rb.status AS room_status
+      `SELECT br.booking_room_id, br.status AS room_line_status, rb.room_booking_id, rb.member_id, rb.check_in::text AS check_in, rb.check_out::text AS check_out, rb.status AS room_status
        FROM booking_room br
        JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
        WHERE br.booking_room_id = $1
@@ -1387,6 +1381,12 @@ export const createBoatAddon = async (
     if (!["pending", "paid", "approved"].includes(room.room_status)) {
       await safeRollback(client);
       res.status(400).json({ success: false, message: "ห้องพักนี้ไม่สามารถใช้บัตรเสริมได้แล้ว" });
+      return;
+    }
+
+    if (!["pending", "paid", "approved", "checked_in"].includes(room.room_line_status ?? room.room_status)) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: "ห้องที่สิ้นสุดการเข้าพักแล้วไม่สามารถจองเรือเสริมได้" });
       return;
     }
 
@@ -1424,6 +1424,12 @@ export const createBoatAddon = async (
       return;
     }
     const selectedWindow = roundLookup.rows[0];
+    const timeError = await validateBoatBookingTime(client, bookingDate, String(selectedWindow.start_time), String(selectedWindow.end_time));
+    if (timeError) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: timeError });
+      return;
+    }
     const roundRes = await client.query(
       `SELECT br.boat_round_id, br.start_time, br.end_time, br.total_slots, br.is_active
        FROM boat_rounds br

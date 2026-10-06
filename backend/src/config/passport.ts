@@ -1,3 +1,4 @@
+import { legacyAuthEmail } from '../services/auth-email';
 import passport from 'passport';
 import { Profile, Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
@@ -59,10 +60,10 @@ passport.use(
 
         const existing = await pool.query(
           `SELECT * FROM members
-           WHERE google_id = $1 OR LOWER(email) = LOWER($2)
-           ORDER BY CASE WHEN google_id = $1 THEN 0 ELSE 1 END
+           WHERE google_id = $1 OR ((google_id IS NULL OR google_id = $1) AND (LOWER(email) = LOWER($2) OR (LOWER(email) = LOWER($3) AND NOT EXISTS (SELECT 1 FROM members exact WHERE LOWER(exact.email) = LOWER($2)))))
+           ORDER BY CASE WHEN google_id = $1 THEN 0 WHEN LOWER(email) = LOWER($2) THEN 1 ELSE 2 END
            LIMIT 1`,
-          [profile.id, email]
+          [profile.id, email, legacyAuthEmail(email ?? "")]
         );
 
         if (existing.rows.length > 0) {
@@ -102,9 +103,9 @@ passport.use(
           const email = extractGoogleEmail(profile);
           const retry = await pool.query(
             `SELECT * FROM members
-             WHERE google_id = $1 OR ($2::text IS NOT NULL AND LOWER(email) = LOWER($2))
+             WHERE google_id = $1 OR ($2::text IS NOT NULL AND google_id IS NULL AND (LOWER(email) = LOWER($2) OR (LOWER(email) = LOWER($3) AND NOT EXISTS (SELECT 1 FROM members exact WHERE LOWER(exact.email) = LOWER($2)))))
              LIMIT 1`,
-            [profile.id, email]
+            [profile.id, email, legacyAuthEmail(email ?? "")]
           );
           if (retry.rows.length > 0) {
             return done(null, retry.rows[0]);

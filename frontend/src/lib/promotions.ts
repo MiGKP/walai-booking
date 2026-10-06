@@ -24,6 +24,7 @@ export interface CatalogPromo {
   stackable: boolean;
   applies_to?: PromoAppliesTo | string | null;
   wallet_status: WalletStatus | null;
+  wallet_remaining?: number | null;
 }
 
 export interface WalletPromo {
@@ -106,4 +107,11 @@ export function walletStatusLabel(status: WalletStatus): string {
   if (status === 'saved') return 'พร้อมใช้งาน';
   if (status === 'used') return 'ใช้แล้ว';
   return 'หมดอายุ';
+}
+
+export function canUseWalletPromotion(status: WalletStatus | null | undefined, remaining?: number | null): boolean {
+  if (status !== 'saved' && status !== 'used') return false;
+  if (remaining === null) return true;
+  if (remaining !== undefined) return Number(remaining) > 0;
+  return status === 'saved';
 }

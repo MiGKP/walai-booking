@@ -10,7 +10,7 @@ import { AuthPayload } from '../types';
 import { sendPaymentSlipNotificationEmail } from '../services/mail.service';
 import { mapDbError } from '../utils/db-errors';
 import { parsePositiveInt } from '../utils/ids';
-import { approveBoatAddonsForRoomBooking } from './booking.controller';
+import { approveBoatAddonsForRoomBooking } from '../services/boat-booking-lifecycle';
 import {
   CloudinaryUploadResult,
   deleteCloudinaryImage,
@@ -24,6 +24,7 @@ interface PaymentBookingRow {
   status: string;
   reject_reason?: string | null;
   has_boat_tickets?: boolean;
+  is_addon?: boolean;
 }
 
 // สร้างข้อมูลสำหรับหน้าชำระเงินของการจองห้องหรือเรือ โดยดึงยอดจริงจากฐานข้อมูลและสร้าง PromptPay QR Code แบบ Data URL
@@ -56,7 +57,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       booking = result.rows[0];
     } else if (booking_type === 'kayak') {
       const result = await pool.query(
-        'SELECT total_price, payment_status, payment_slip, status FROM boat_bookings WHERE boat_booking_id = $1 AND member_id = $2',
+        'SELECT total_price, payment_status, payment_slip, status, is_addon FROM boat_bookings WHERE boat_booking_id = $1 AND member_id = $2',
         [booking_id, user.id]
       );
       if (result.rows.length === 0) {
@@ -69,6 +70,10 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    if (booking.is_addon) {
+      res.status(400).json({ success: false, message: 'กรุณาชำระค่าเรือเสริมผ่านบิลห้องพัก' });
+      return;
+    }
     const qrData = generatePayload(bankInfo.promptpay, { amount: Number(booking.total_price) });
     const qrCodeDataUrl = await QRCode.toDataURL(qrData, { errorCorrectionLevel: 'M', width: 300 });
 
@@ -135,7 +140,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
         [bId, user.id]
       )
       : await pool.query(
-        `SELECT bb.status, bb.total_price, m.first_name, m.last_name
+        `SELECT bb.status, bb.total_price, bb.is_addon, m.first_name, m.last_name
          FROM boat_bookings bb
          JOIN members m ON bb.member_id = m.member_id
          WHERE bb.boat_booking_id = $1 AND bb.member_id = $2`,
@@ -148,6 +153,10 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     }
 
     const booking = existing.rows[0];
+    if (booking.is_addon) {
+      res.status(400).json({ success: false, message: 'กรุณาชำระค่าเรือเสริมผ่านบิลห้องพัก' });
+      return;
+    }
     if (booking.status !== 'pending') {
       res.status(400).json({
         success: false,
@@ -200,7 +209,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
         );
       } else {
         const slipUpdate = await client.query(
-          `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3 AND status = 'pending'`,
+          `UPDATE boat_bookings SET payment_slip = $1, payment_status = 'paid', status = 'paid' WHERE boat_booking_id = $2 AND member_id = $3 AND status = 'pending' AND is_addon = false`,
           [uploadedSlip.url, bId, user.id]
         );
         if (slipUpdate.rowCount === 0) {
