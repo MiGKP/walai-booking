@@ -27,6 +27,8 @@ import { PageHeader, Panel, Modal } from "@/components/admin/ui";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
+import { isPromoExpired } from "@/lib/promotions";
+import { useAuth } from "@/hooks/useAuth";
 import {
   appliesToLabel,
   parseAppliesTo,
@@ -196,6 +198,9 @@ const formatDateForInput = (dateStr?: string) => {
 
 export default function PromotionsPage() {
   const { ready } = useAuthGuard({ allowedRoles: ["admin", "room_staff"] });
+  const { user } = useAuth();
+  // พนักงานห้องพักดูและดูผู้ใช้โปรได้ แต่สร้าง แก้ ลบ หรือเปิดปิดไม่ได้
+  const canEdit = user?.role === "admin";
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -412,6 +417,7 @@ export default function PromotionsPage() {
         description="สร้างและจัดการโค้ดส่วนลดและแพ็คเกจห้องพักพร้อมโปรโมชั่นพายเรือ" 
         actions={
           <button
+            disabled={!canEdit}
             onClick={openCreate}
             className="inline-flex items-center justify-center gap-2 bg-[#0b3b2c] hover:bg-[#07271d] text-white px-4 py-2.5 rounded-xl font-medium shadow-2xs transition-all text-sm active:scale-95 cursor-pointer"
           >
@@ -484,7 +490,7 @@ export default function PromotionsPage() {
                 {
                   promotions.filter((p) => {
                     const isExpired =
-                      p.end_date && new Date(p.end_date) < new Date();
+                      isPromoExpired(p.end_date);
                     const isFull =
                       p.usage_limit && p.usage_count >= p.usage_limit;
                     return isExpired || isFull;
@@ -688,7 +694,7 @@ export default function PromotionsPage() {
                       <td className="px-5 py-4 whitespace-nowrap">
                         {(() => {
                           const isExpired =
-                            p.end_date && new Date(p.end_date) < new Date();
+                            isPromoExpired(p.end_date);
                           const isLimitReached =
                             p.usage_limit && p.usage_count >= p.usage_limit;
 
@@ -708,6 +714,7 @@ export default function PromotionsPage() {
                           }
                           return (
                             <button
+                              disabled={!canEdit}
                               onClick={() => handleToggle(p)}
                               className="inline-flex items-center focus:outline-none transition-transform active:scale-95 cursor-pointer"
                             >
@@ -743,6 +750,7 @@ export default function PromotionsPage() {
                             <Users size={16} />
                           </button>
                           <button
+                            disabled={!canEdit}
                             onClick={() => openEdit(p)}
                             className="p-1.5 text-stone-400 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all cursor-pointer"
                             title="แก้ไข"
@@ -750,6 +758,7 @@ export default function PromotionsPage() {
                             <Edit2 size={16} />
                           </button>
                           <button
+                            disabled={!canEdit}
                             onClick={() => setDeletingPromotion(p)}
                             className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
                             title="ลบ"
@@ -997,7 +1006,7 @@ export default function PromotionsPage() {
                         placeholder="เช่น 200"
                       />
                       <p className="text-xs text-stone-400 mt-1">
-                        ราคานี้จะถูกบวกเพิ่มในยอดชำระห้องพัก เมื่อลูกค้าเลือกใช้บัตรเสริมจริง
+                        ราคานี้จะถูกบวกเพิ่มในยอดชำระห้องพัก เมื่อลูกค้าเลือกใช้บัตรเสริมจริง การแก้ราคาภายหลังไม่กระทบบัตรที่แจกไปแล้ว
                       </p>
                     </div>
                   )}
@@ -1049,7 +1058,7 @@ export default function PromotionsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-stone-600 mb-1">
-                    จองขั้นต่ำ (คืน)
+                    จองขั้นต่ำ (คืน) — ใช้กับห้องพักเท่านั้น เรือไม่นับ
                   </label>
                   <input
                     type="number"
@@ -1142,7 +1151,7 @@ export default function PromotionsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-stone-600 mb-1">
-                    จำกัดต่อสมาชิก (ครั้ง)
+                    จำกัดต่อสมาชิก (ครั้ง) — ต้องไม่มากกว่าจำกัดจำนวนรวม
                   </label>
                   <input
                     type="number"
@@ -1176,7 +1185,7 @@ export default function PromotionsPage() {
                       setForm((f) => ({ ...f, stackable: e.target.checked }))
                     }
                   />
-                  ใช้ร่วมโค้ดอื่นได้
+                  ใช้ร่วมโค้ดอื่นได้ (ทุกโค้ดที่ใช้พร้อมกันต้องเปิดไว้)
                 </label>
               </div>
 

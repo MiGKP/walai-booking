@@ -6,7 +6,7 @@ import { Ticket, SlidersHorizontal, X, Star, Sailboat, Home, Check } from 'lucid
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { setPostLoginRedirect } from '@/lib/auth-redirect';
-import { type CatalogPromo, parseAppliesTo } from '@/lib/promotions';
+import { type CatalogPromo, parseAppliesTo, STACKING_NOTE } from '@/lib/promotions';
 import { PromoCollectAction, PromoVoucher } from '@/components/promotions/PromoVoucher';
 import toast from 'react-hot-toast';
 
@@ -59,7 +59,10 @@ export default function PromotionsPage(): React.ReactElement {
   const filtered = useMemo(() => {
     return promos.filter((p) => {
       const scope = parseAppliesTo(p.applies_to);
-      if (appliesFilter !== 'all' && scope !== appliesFilter) return false;
+      // โปร "ห้องพักและเรือ" ต้องแสดงในตัวกรองห้องพักและเรือด้วย เพราะใช้ได้กับทั้งสองอย่าง
+      if (appliesFilter === 'all') return true;
+      if (appliesFilter === 'room' || appliesFilter === 'kayak') return scope === appliesFilter || scope === 'both';
+      return scope === appliesFilter;
       return true;
     });
   }, [promos, appliesFilter]);
@@ -178,6 +181,9 @@ export default function PromotionsPage(): React.ReactElement {
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">
+            <p className="mb-4 rounded-xl border border-forest-100 bg-forest-50/60 px-4 py-2.5 text-xs text-forest-800">
+              {STACKING_NOTE}
+            </p>
             {/* Result count + active chips */}
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <p className="text-sm text-charcoal-400">

@@ -405,6 +405,27 @@ export const getPromotionRedemptions = async (
   }
 };
 
+// กติกาความสมเหตุสมผลของโปรโมชั่น ใช้ทั้งตอนสร้างและแก้ไข — คืนข้อความ error หรือ null เมื่อผ่าน
+function promoRuleError(rule: {
+  start: string | null;
+  end: string | null;
+  usageLimit: number | null;
+  perMember: number | null;
+  addonMode: 'free' | 'paid';
+  addonPrice: number | null;
+}): string | null {
+  if (rule.start && rule.end && rule.start > rule.end) {
+    return 'วันเริ่มต้องไม่อยู่หลังวันสิ้นสุด';
+  }
+  if (rule.usageLimit != null && rule.perMember != null && rule.perMember > rule.usageLimit) {
+    return 'จำกัดต่อสมาชิกต้องไม่มากกว่าจำกัดจำนวนรวม';
+  }
+  if (rule.addonMode === 'paid' && !(rule.addonPrice != null && rule.addonPrice > 0)) {
+    return 'บัตรเสริมแบบขายต้องระบุราคาต่อครั้งมากกว่า 0 บาท';
+  }
+  return null;
+}
+
 export const createPromotion = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
@@ -430,6 +451,18 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
     }
     if (discount_type === 'percent' && discountValue > 100) {
       res.status(400).json({ success: false, message: 'ส่วนลดเป็นเปอร์เซ็นต์ต้องไม่เกิน 100' });
+      return;
+    }
+    const ruleError = promoRuleError({
+      start: start_date ? String(start_date).slice(0, 10) : null,
+      end: end_date ? String(end_date).slice(0, 10) : null,
+      usageLimit: usage_limit ? Number(usage_limit) : null,
+      perMember: usage_limit_per_member ? Number(usage_limit_per_member) : null,
+      addonMode: boat_addon_mode === 'paid' ? 'paid' : 'free',
+      addonPrice: boat_addon_price != null && boat_addon_price !== '' ? Number(boat_addon_price) : null,
+    });
+    if (ruleError) {
+      res.status(400).json({ success: false, message: ruleError });
       return;
     }
     const existing = await pool.query('SELECT id FROM promotions WHERE UPPER(code) = UPPER($1)', [code]);
@@ -520,6 +553,18 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
     }
     if (discountType === 'percent' && discountValue > 100) {
       res.status(400).json({ success: false, message: 'ส่วนลดเป็นเปอร์เซ็นต์ต้องไม่เกิน 100' });
+      return;
+    }
+    const ruleError = promoRuleError({
+      start: textOrCurrent('start_date')?.slice(0, 10) ?? null,
+      end: textOrCurrent('end_date')?.slice(0, 10) ?? null,
+      usageLimit: numOrCurrent('usage_limit'),
+      perMember: numOrCurrent('usage_limit_per_member'),
+      addonMode: (has('boat_addon_mode') ? body.boat_addon_mode : current.boat_addon_mode) === 'paid' ? 'paid' : 'free',
+      addonPrice: numOrCurrent('boat_addon_price'),
+    });
+    if (ruleError) {
+      res.status(400).json({ success: false, message: ruleError });
       return;
     }
 

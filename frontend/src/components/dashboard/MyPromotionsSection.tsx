@@ -6,7 +6,7 @@ import { Ticket } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { PromoVoucher, PromoBookingLinks } from '@/components/promotions/PromoVoucher';
-import { walletStatusLabel, type WalletPromo, type WalletStatus } from '@/lib/promotions';
+import { promoDaysLeft, walletStatusLabel, type WalletPromo, type WalletStatus } from '@/lib/promotions';
 
 type FilterTab = 'saved' | 'used' | 'expired';
 
@@ -133,7 +133,16 @@ export default function MyCouponsSection(): React.ReactElement {
                         footer={
                           item.status === 'saved' ? (
                             <>
-                              <PromoBookingLinks 
+                              {(() => {
+                                const daysLeft = promoDaysLeft(item.end_date);
+                                if (daysLeft === null || daysLeft < 0 || daysLeft > 3) return null;
+                                return (
+                                  <p className="w-full text-xs font-semibold text-amber-700">
+                                    {daysLeft === 0 ? 'หมดอายุวันนี้ ใช้ได้ถึงเที่ยงคืน' : `เหลืออีก ${daysLeft} วันก่อนหมดอายุ`}
+                                  </p>
+                                );
+                              })()}
+                              <PromoBookingLinks
                                 code={item.code} 
                                 appliesTo={item.applies_to}
                                 roomLabel="ใช้จองห้องพัก"

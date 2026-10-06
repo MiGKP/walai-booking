@@ -142,6 +142,28 @@ async function peakReservedBoats(
   return Number(result.rows[0].n);
 }
 
+// ตรวจนโยบายจองเรือล่วงหน้า (resort_info id = 5) — คืนข้อความ 400 เมื่อจองวันนี้ใกล้เวลาเริ่มรอบเกินไป หรือรอบเริ่มไปแล้ว
+async function advanceBookingError(
+  client: PoolClient,
+  bookingDate: string,
+  startTime: string,
+): Promise<string | null> {
+  if (bookingDate !== bangkokToday()) return null;
+  const policy = await client.query(
+    `SELECT COALESCE((SELECT boat_advance_booking_minutes FROM resort_info WHERE id = 5), 60) AS minutes`,
+  );
+  const minutes = Number(policy.rows[0].minutes);
+  const timing = await client.query(
+    `SELECT EXTRACT(EPOCH FROM (($1::date + $2::time) AT TIME ZONE 'Asia/Bangkok') - NOW()) / 60 AS minutes_until`,
+    [bookingDate, startTime],
+  );
+  const minutesUntil = Number(timing.rows[0].minutes_until);
+  if (minutesUntil < minutes) {
+    return `ต้องจองล่วงหน้าอย่างน้อย ${minutes} นาทีก่อนเวลาเริ่มรอบ`;
+  }
+  return null;
+}
+
 // บวก/ลบวันจากสตริงวันที่ล้วน (YYYY-MM-DD) โดยไม่ยุ่งกับ timezone ของเครื่อง — ใช้ UTC เที่ยงคืนเสมอ กันวันเพี้ยน
 function addDaysToDateStr(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
@@ -879,6 +901,13 @@ export const createKayakBooking = async (
       return;
     }
 
+    const advanceError = await advanceBookingError(client, booking_date, startTime);
+    if (advanceError) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: advanceError });
+      return;
+    }
+
     interface PreparedLine {
       boat_type_id: number;
       boat_round_id: number;
@@ -1435,6 +1464,13 @@ export const createBoatAddon = async (
     if (!round) {
       await safeRollback(client);
       res.status(409).json({ success: false, message: "รอบเวลาที่เลือกเปลี่ยนไปแล้ว กรุณาเลือกอีกครั้ง" });
+      return;
+    }
+
+    const addonAdvanceError = await advanceBookingError(client, bookingDate, String(round.start_time));
+    if (addonAdvanceError) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: addonAdvanceError });
       return;
     }
 

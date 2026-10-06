@@ -107,3 +107,25 @@ export function walletStatusLabel(status: WalletStatus): string {
   if (status === 'used') return 'ใช้แล้ว';
   return 'หมดอายุ';
 }
+
+// วันปัจจุบันตามเวลาไทย (YYYY-MM-DD) ให้ตรงกับที่ backend ใช้ตัดสินวันหมดอายุ
+export function bangkokTodayIso(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+}
+
+// หมดอายุเมื่อผ่านวันสิ้นสุดตามเวลาไทยแล้ว (วันสิ้นสุดยังใช้ได้ทั้งวัน)
+export function isPromoExpired(endDate: string | null | undefined): boolean {
+  if (!endDate) return false;
+  return toIsoDay(endDate) < bangkokTodayIso();
+}
+
+// จำนวนวันที่เหลือก่อนหมดอายุ (0 = วันนี้เป็นวันสุดท้าย) หรือ null ถ้าไม่มีวันหมดอายุ
+export function promoDaysLeft(endDate: string | null | undefined): number | null {
+  if (!endDate) return null;
+  const end = new Date(`${toIsoDay(endDate)}T00:00:00+07:00`).getTime();
+  const today = new Date(`${bangkokTodayIso()}T00:00:00+07:00`).getTime();
+  return Math.round((end - today) / 86_400_000);
+}
+
+export const STACKING_NOTE =
+  'ใช้หลายโค้ดพร้อมกันในการจองเดียวได้ เฉพาะเมื่อทุกโค้ดเปิดตัวเลือก "ใช้ร่วมโค้ดอื่นได้" เท่านั้น';

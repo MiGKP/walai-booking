@@ -59,9 +59,9 @@ router.delete(
 );
 
 router.get('/', authenticate, authorize('admin', 'room_staff'), getAllPromotions);
-router.post('/', authenticate, authorize('admin', 'room_staff'), createPromotionValidator, validate, createPromotion);
-router.put('/:id', authenticate, authorize('admin', 'room_staff'), updatePromotionValidator, validate, updatePromotion);
-router.delete('/:id', authenticate, authorize('admin', 'room_staff'), deletePromotion);
-router.put('/:id/toggle', authenticate, authorize('admin', 'room_staff'), togglePromotion);
+router.post('/', authenticate, authorize('admin'), createPromotionValidator, validate, createPromotion);
+router.put('/:id', authenticate, authorize('admin'), updatePromotionValidator, validate, updatePromotion);
+router.delete('/:id', authenticate, authorize('admin'), deletePromotion);
+router.put('/:id/toggle', authenticate, authorize('admin'), togglePromotion);
 
 export default router;
