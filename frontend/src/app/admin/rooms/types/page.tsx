@@ -285,11 +285,12 @@ export default function RoomTypesPage() {
   const handleDelete = async () => {
     if (!deleteTargetId) return;
     try {
-      await api.delete(`/rooms/${deleteTargetId}`);
-      notify.success("ลบประเภทห้องพักสำเร็จ");
+      // backend ปิดใช้งานประเภทห้องแทนการลบ (คงประวัติการจอง) จึงแสดงข้อความตามที่ backend ตอบกลับ
+      const res = await api.delete(`/rooms/${deleteTargetId}`);
+      notify.success(res.data?.message ?? "ปิดใช้งานประเภทห้องแล้ว");
       fetchData();
-    } catch {
-      notify.error("ลบไม่สำเร็จ กรุณาตรวจสอบว่ามีห้องพักย่อยผูกอยู่หรือไม่");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "ปิดใช้งานไม่สำเร็จ"));
     } finally {
       setDeleteTargetId(null);
     }
@@ -643,9 +644,10 @@ export default function RoomTypesPage() {
                         </button>
                         <button
                           type="button"
+                          disabled={!rt.status}
                           onClick={() => confirmDelete(rt.id)}
-                          className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                          title="ลบประเภทห้อง"
+                          className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all disabled:opacity-40 disabled:pointer-events-none"
+                          title={rt.status ? "ปิดใช้งานประเภทห้อง" : "ปิดใช้งานอยู่แล้ว"}
                         >
                           <Trash2 size={16} />
                         </button>
@@ -1644,11 +1646,11 @@ export default function RoomTypesPage() {
             </div>
             <div>
               <h3 className="text-base font-bold text-stone-900">
-                ยืนยันการลบประเภทห้องพัก
+                ยืนยันการปิดใช้งานประเภทห้องพัก
               </h3>
               <p className="text-xs text-stone-500 mt-1 leading-relaxed">
-                คุณแน่ใจหรือไม่ที่จะลบประเภทห้องพักนี้? <br />
-                หากยังมีห้องพักรายห้องผูกอยู่อาจลบไม่สำเร็จ
+                ประเภทห้องพักนี้จะถูกปิดใช้งาน ไม่แสดงให้ลูกค้าจอง <br />
+                ข้อมูลและประวัติการจองยังคงอยู่ ไม่ได้ลบถาวร
               </p>
             </div>
             <div className="flex gap-2 pt-2">
@@ -1664,7 +1666,7 @@ export default function RoomTypesPage() {
                 onClick={handleDelete}
                 className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer"
               >
-                ลบข้อมูล
+                ปิดใช้งาน
               </button>
             </div>
           </div>

@@ -621,7 +621,6 @@ function KayaksPageContent(): React.ReactElement {
           free_tickets_used: line.free_tickets_used,
         })),
       });
-      toast.success('จองเรือสำเร็จ!');
       router.push(
         `/payment?booking_type=kayak&booking_id=${res.data.data.boat_booking_id}`
       );

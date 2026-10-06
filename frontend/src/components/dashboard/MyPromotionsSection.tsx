@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Ticket } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
-import toast from 'react-hot-toast';
+import { PromoNotice, usePromoNotice } from '@/components/promotions/PromoNotice';
 import { PromoVoucher, PromoBookingLinks } from '@/components/promotions/PromoVoucher';
 import { promoDaysLeft, walletStatusLabel, type WalletPromo, type WalletStatus } from '@/lib/promotions';
 
@@ -17,13 +17,14 @@ export default function MyCouponsSection(): React.ReactElement {
   const [filter, setFilter] = useState<FilterTab>('saved');
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [boatTicketBalance, setBoatTicketBalance] = useState(0);
+  const { notice, showNotice } = usePromoNotice();
 
   const loadWallet = useCallback(async (): Promise<void> => {
     try {
       const res = await api.get<{ data: WalletPromo[] }>('/promotions/mine');
       setWallet(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'โหลดโปรโมชั่นไม่สำเร็จ'));
+      showNotice('error', getApiErrorMessage(error, 'โหลดโปรโมชั่นไม่สำเร็จ'));
     } finally {
       setLoading(false);
     }
@@ -52,10 +53,10 @@ export default function MyCouponsSection(): React.ReactElement {
     setRemovingId(promotionId);
     try {
       await api.delete(`/promotions/${promotionId}/collect`);
-      toast.success('เอาโปรโมชั่นออกจากกระเป๋าแล้ว');
+      showNotice('success', 'เอาโปรโมชั่นออกจากกระเป๋าแล้ว');
       await loadWallet();
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'เอาออกไม่สำเร็จ'));
+      showNotice('error', getApiErrorMessage(error, 'เอาออกไม่สำเร็จ'));
     } finally {
       setRemovingId(null);
     }
@@ -91,6 +92,7 @@ export default function MyCouponsSection(): React.ReactElement {
         ))}
       </div>
 
+      <PromoNotice notice={notice} />
       <EmailPreferenceToggle />
 
       {loading ? (
@@ -182,6 +184,7 @@ export default function MyCouponsSection(): React.ReactElement {
 function EmailPreferenceToggle(): React.ReactElement {
   const [optOut, setOptOut] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { notice, showNotice } = usePromoNotice();
 
   useEffect(() => {
     api.get<{ data: { opt_out: boolean } }>('/promotions/email-preference')
@@ -197,15 +200,17 @@ function EmailPreferenceToggle(): React.ReactElement {
         { opt_out: !optOut }
       );
       setOptOut(res.data?.data?.opt_out === true);
-      toast.success(res.data?.message ?? 'บันทึกแล้ว');
+      showNotice('success', res.data?.message ?? 'บันทึกแล้ว');
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'บันทึกการตั้งค่าไม่สำเร็จ'));
+      showNotice('error', getApiErrorMessage(error, 'บันทึกการตั้งค่าไม่สำเร็จ'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
+    <>
+    <PromoNotice notice={notice} />
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm">
       <span className="text-charcoal-500">
         {optOut
@@ -221,5 +226,6 @@ function EmailPreferenceToggle(): React.ReactElement {
         {optOut ? 'เปิดรับอีเมล' : 'ปิดรับอีเมล'}
       </button>
     </div>
+    </>
   );
 }

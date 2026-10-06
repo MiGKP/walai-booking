@@ -8,6 +8,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useAuth } from '@/hooks/useAuth';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { PromoNotice, usePromoNotice } from '@/components/promotions/PromoNotice';
 import { formatThaiDate, nightsBetween } from '@/lib/date';
 import { chooseRoomPromotions, eligibleRoomPromotion, resolveCheckoutDetails, roomPromotionDiscount } from '@/lib/booking-checkout';
 import type { CheckoutPromotion } from '@/lib/booking-checkout';
@@ -46,6 +47,7 @@ function BookingDetailsContent() {
 
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [selectedPromos, setSelectedPromos] = useState<Record<number, number | null>>({}); // typeId -> promoId
+  const { notice: promoNotice, showNotice: showPromoNotice } = usePromoNotice();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -120,7 +122,7 @@ function BookingDetailsContent() {
 
   const handleSelectPromo = (typeId: number, promoId: number | null): void => {
     if (promoId !== null && Object.entries(selectedPromos).some(([key, value]) => Number(key) !== typeId && value === promoId)) {
-      toast.error('โค้ดนี้ใช้ได้กับประเภทห้องเดียว กรุณาเลือกโค้ดอื่น');
+      showPromoNotice('error', 'โค้ดนี้ใช้ได้กับประเภทห้องเดียว กรุณาเลือกโค้ดอื่น');
       return;
     }
     setSelectedPromos(prev => ({ ...prev, [typeId]: promoId }));
@@ -152,7 +154,7 @@ function BookingDetailsContent() {
       const promoId = selectedPromos[group.typeId];
       const promo = promotions.find(item => item.id === promoId);
       if (promoId && (!promo || !eligibleRoomPromotion(promo, group.totalBasePrice, nights, group.typeId, group.rooms.length))) {
-        toast.error('โปรโมชั่นที่เลือกไม่ตรงกับเงื่อนไข กรุณาเลือกใหม่หรือไม่ใช้โปรโมชั่น');
+        showPromoNotice('error', 'โปรโมชั่นที่เลือกไม่ตรงกับเงื่อนไข กรุณาเลือกใหม่หรือไม่ใช้โปรโมชั่น');
         return;
       }
     }
@@ -363,6 +365,7 @@ function BookingDetailsContent() {
                 {/* Rooms & Promos */}
                 <div className="space-y-4">
                   <h3 className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">ห้องพักที่เลือก</h3>
+                  <PromoNotice notice={promoNotice} />
                   {groups.map(group => {
                     const discount = calculateDiscount(group.typeId, group.totalBasePrice);
                     return (

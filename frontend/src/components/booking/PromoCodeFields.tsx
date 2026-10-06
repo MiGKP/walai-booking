@@ -6,7 +6,8 @@ import { useSearchParams } from 'next/navigation';
 import { Loader2, Tag, X } from 'lucide-react';
 import axios from 'axios';
 import api, { getApiErrorMessage } from '@/lib/api';
-import toast from 'react-hot-toast';
+import { STACKING_NOTE } from '@/lib/promotions';
+import { PromoNotice, usePromoNotice } from '@/components/promotions/PromoNotice';
 
 export interface PromoLinePreview {
   id: number;
@@ -102,6 +103,7 @@ function PromoCodeFieldsInner({
   const searchParams = useSearchParams();
   const urlPromo = (searchParams.get('promo') ?? '').trim().toUpperCase();
   const [promoCode, setPromoCode] = useState(urlPromo);
+  const { notice, showNotice } = usePromoNotice();
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<PromoPreview | null>(null);
   const [collectId, setCollectId] = useState<number | null>(null);
@@ -169,11 +171,14 @@ function PromoCodeFieldsInner({
       if (needId != null) {
         setCollectId(needId);
         setPromoCode(trimmed);
-        toast.error(getApiErrorMessage(error, 'ต้องเก็บโค้ดนี้ก่อนใช้'));
+        showNotice('error', getApiErrorMessage(error, 'ต้องเก็บโค้ดนี้ก่อนใช้'));
       } else {
         setCollectId(null);
         setPromoCode(trimmed);
-        toast.error(getApiErrorMessage(error, 'โค้ดส่วนลดไม่ถูกต้องหรือหมดอายุ'));
+        const message = getApiErrorMessage(error, 'โค้ดส่วนลดไม่ถูกต้องหรือหมดอายุ');
+        // ใช้หลายโค้ดพร้อมกันไม่ได้ ให้อธิบายเงื่อนไขการใช้ร่วมกันในการแจ้งเตือนแทนข้อความสั้น
+        const stackingBlocked = message.includes('ใช้ร่วมกับโปรโมชั่นอื่นไม่ได้');
+        showNotice('error', stackingBlocked ? `${message} ${STACKING_NOTE}` : message);
       }
     } finally {
       setLoading(false);
@@ -228,10 +233,10 @@ function PromoCodeFieldsInner({
     setLoading(true);
     try {
       await api.post(`/promotions/${collectId}/collect`);
-      toast.success('เก็บโค้ดแล้ว');
+      showNotice('success', 'เก็บโค้ดแล้ว');
       await applyByCode(promoCode || urlPromo, false);
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'เก็บโค้ดไม่สำเร็จ'));
+      showNotice('error', getApiErrorMessage(error, 'เก็บโค้ดไม่สำเร็จ'));
       setLoading(false);
     }
   };
@@ -259,7 +264,7 @@ function PromoCodeFieldsInner({
         });
         applyPayload(data);
       } catch (error: unknown) {
-        toast.error(getApiErrorMessage(error, 'ลบโค้ดไม่สำเร็จ'));
+        showNotice('error', getApiErrorMessage(error, 'ลบโค้ดไม่สำเร็จ'));
       } finally {
         setLoading(false);
       }
@@ -268,6 +273,7 @@ function PromoCodeFieldsInner({
 
   return (
     <div className="space-y-2">
+      <PromoNotice notice={notice} />
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-semibold text-charcoal-500 flex items-center gap-1">
           <Tag size={12} aria-hidden="true" />

@@ -405,26 +405,6 @@ const toLocalISODate = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 // ตัวเลือกกรองวันที่แบบด่วน: วันนี้ / สัปดาห์นี้ (จันทร์-อาทิตย์) / เดือนนี้
-const getQuickDateRange = (kind: "today" | "week" | "month"): { from: string; to: string } => {
-  const now = new Date();
-  if (kind === "today") {
-    const iso = toLocalISODate(now);
-    return { from: iso, to: iso };
-  }
-  if (kind === "week") {
-    const day = now.getDay();
-    const diffToMonday = day === 0 ? 6 : day - 1;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - diffToMonday);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    return { from: toLocalISODate(monday), to: toLocalISODate(sunday) };
-  }
-  const first = new Date(now.getFullYear(), now.getMonth(), 1);
-  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { from: toLocalISODate(first), to: toLocalISODate(last) };
-};
-
 // ฟังก์ชันช่วยคำนวณจำนวนคืนที่พัก
 const calculateNights = (checkIn?: string, checkOut?: string) => {
   if (!checkIn || !checkOut) return 0;
@@ -462,20 +442,6 @@ function RoomStaffDashboardContent() {
   // Search Debounce State
   const [searchInput, setSearchInput] = useState(searchParam);
 
-  // การเรียงลำดับตาราง (คลิกหัวคอลัมน์ "ลำดับ"/"ยอดรวม"/"ระยะเวลาเข้าพัก" เพื่อสลับ asc/desc)
-  // ค่าเริ่มต้น (sortKey = null) จะเรียงตามวันที่จองใหม่สุดก่อน (backend ORDER BY created_at DESC อยู่แล้ว)
-  const [sortKey, setSortKey] = useState<"check_in" | "total_price" | "created_at" | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-
-  const toggleSort = (key: "check_in" | "total_price" | "created_at") => {
-    updateQueryParams({ page: 1 });
-    if (sortKey === key) {
-      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("desc");
-    }
-  };
 
   // Modal สลิป และ รายละเอียด
   const [slipModal, setSlipModal] = useState<{
@@ -580,7 +546,7 @@ function RoomStaffDashboardContent() {
       const res = await api.get("/bookings", { params: { page: currentPage, limit: itemsPerPage,
         filter, search: searchParam.trim() || undefined,
         room_type: roomType === "all" ? undefined : roomType,
-        date_from: dateFrom || undefined, date_to: dateTo || undefined, sort: sortKey || undefined, sort_dir: sortDir,
+        date_from: dateFrom || undefined, date_to: dateTo || undefined,
       } });
       if (id !== requestId.current) return;
       setBookings(res.data?.data || []);
@@ -592,7 +558,7 @@ function RoomStaffDashboardContent() {
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [ready, currentPage, filter, roomType, dateFrom, dateTo, searchParam, updateQueryParams, sortKey, sortDir]);
+  }, [ready, currentPage, filter, roomType, dateFrom, dateTo, searchParam, updateQueryParams]);
 
   useEffect(() => { fetchBookings(); }, [fetchBookings]);
   useEffect(() => {
@@ -753,6 +719,13 @@ function RoomStaffDashboardContent() {
             border: none !important;
             background: #ffffff !important;
           }
+          .fixed,
+          [role="dialog"] {
+            position: static !important;
+            max-height: none !important;
+            overflow: visible !important;
+            box-shadow: none !important;
+          }
           .printable-modal-overlay {
             position: absolute !important;
             background: transparent !important;
@@ -862,33 +835,7 @@ function RoomStaffDashboardContent() {
               />
             </div>
 
-            <div className="flex items-center gap-1">
-              {(
-                [
-                  ["today", "วันนี้"],
-                  ["week", "สัปดาห์นี้"],
-                  ["month", "เดือนนี้"],
-                ] as const
-              ).map(([kind, label]) => {
-                const range = getQuickDateRange(kind);
-                const active = dateFrom === range.from && dateTo === range.to;
-                return (
-                  <button
-                    key={kind}
-                    type="button"
-                    onClick={() => handleDateChange(range.from, range.to)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                      active
-                        ? "bg-[#0b3b2c] text-white shadow-xs"
-                        : "bg-stone-100/80 text-stone-600 hover:bg-stone-200/70"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-
+            
             <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
               <CalendarDays size={15} className="text-[#0b3b2c]" />
               <span className="font-medium text-stone-500 whitespace-nowrap">
@@ -941,65 +888,14 @@ function RoomStaffDashboardContent() {
           <table className="w-full text-left text-xs md:text-sm">
             <thead>
               <tr className="border-b border-charcoal-100 text-charcoal-400 bg-cream-50 font-bold text-xs tracking-wider uppercase">
-                <th className="px-5 py-4">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort("created_at")}
-                    className="flex items-center gap-1 hover:text-[#0b3b2c] transition-colors"
-                    title="เรียงตามวันที่จอง (เก่า-ใหม่)"
-                  >
-                    ลำดับ
-                    <ChevronDown
-                      size={12}
-                      className={`transition-transform ${
-                        sortKey === "created_at"
-                          ? sortDir === "asc"
-                            ? "rotate-180 text-[#0b3b2c]"
-                            : "text-[#0b3b2c]"
-                          : "text-stone-300"
-                      }`}
-                    />
-                  </button>
-                </th>
+                <th className="px-5 py-4">รหัสการจอง</th>
                 <th className="px-5 py-4">ลูกค้า</th>
                 <th className="px-5 py-4">ห้องพัก</th>
                 <th className="px-5 py-4">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort("check_in")}
-                    className="flex items-center gap-1 hover:text-[#0b3b2c] transition-colors"
-                  >
-                    ระยะเวลาเข้าพัก
-                    <ChevronDown
-                      size={12}
-                      className={`transition-transform ${
-                        sortKey === "check_in"
-                          ? sortDir === "asc"
-                            ? "rotate-180 text-[#0b3b2c]"
-                            : "text-[#0b3b2c]"
-                          : "text-stone-300"
-                      }`}
-                    />
-                  </button>
+                  ระยะเวลาเข้าพัก
                 </th>
                 <th className="px-5 py-4">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort("total_price")}
-                    className="flex items-center gap-1 hover:text-[#0b3b2c] transition-colors"
-                  >
-                    ยอดรวม
-                    <ChevronDown
-                      size={12}
-                      className={`transition-transform ${
-                        sortKey === "total_price"
-                          ? sortDir === "asc"
-                            ? "rotate-180 text-[#0b3b2c]"
-                            : "text-[#0b3b2c]"
-                          : "text-stone-300"
-                      }`}
-                    />
-                  </button>
+                  ยอดรวม
                 </th>
                 <th className="px-5 py-4">สถานะ</th>
                 <th className="px-5 py-4 text-center">สลิปโอนเงิน</th>
@@ -1033,7 +929,6 @@ function RoomStaffDashboardContent() {
               ) : (
                 paginatedBookings.map((b: any, idx: number) => {
                   const bookingId = b.room_booking_id || b.id;
-                  const rowNumber = (currentPage - 1) * itemsPerPage + idx + 1;
                   const nights = calculateNights(b.check_in, b.check_out);
                   const cfg = statusConfig[b.status] || {
                     bg: "bg-stone-100 text-stone-600 border-stone-200",
@@ -1044,7 +939,7 @@ function RoomStaffDashboardContent() {
                   return (
                     <tr key={bookingId} className="hover:bg-cream-100/60 border-b border-charcoal-50 last:border-0 transition-colors group">
                       <td className="px-5 py-4 text-stone-400 font-mono text-xs font-semibold">
-                        {rowNumber}
+                        #{bookingId}
                       </td>
 
                       <td className="px-5 py-4">

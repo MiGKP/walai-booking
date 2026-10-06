@@ -122,7 +122,7 @@ async function peakReservedBoats(
        JOIN boat_rounds br ON br.boat_round_id = bnb.boat_round_id
        WHERE bnb.boat_type_id = $1
          AND ($2::int IS NULL OR bnb.boat_round_id = $2)
-         AND bnb.status NOT IN ('cancelled', 'rejected', 'checked_out')
+         AND bnb.status NOT IN ('cancelled', 'rejected')
      ), events AS (
        SELECT booking_date, start_time AS event_time, boat_count AS delta FROM reservations
        UNION ALL
@@ -462,7 +462,12 @@ export const checkKayakAvailability = async (
     const total = typeCapacity(fleet, roundQuantity);
     const total_slots = roundRes.rows[0]?.total_slots ?? null;
     const pool_booked = Number(poolRes.rows[0].total_booked);
-    const remaining = remainingBoats({
+    // รอบที่จองไม่ได้ตามนโยบายล่วงหน้า (เช่น เริ่มไปแล้วหรือเหลือเวลาน้อยกว่าที่กำหนด) ให้ถือว่าเหลือ 0
+    const bookableRes = roundRes.rows[0]?.start_time
+      ? await pool.query(`SELECT ${bookableSql("$1::date", "$2::time")} AS bookable`, [booking_date, roundRes.rows[0].start_time])
+      : null;
+    const isBookable = bookableRes == null || bookableRes.rows[0]?.bookable !== false;
+    const remaining = !isBookable ? 0 : remainingBoats({
       fleetQuantity: fleet,
       roundQuantity,
       typeBooked: booked,
@@ -489,6 +494,13 @@ export const checkKayakAvailability = async (
 
 const MAX_CALENDAR_DAYS = 62;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+// นโยบายจองเรือล่วงหน้า (resort_info id = 5) — รอบของวันนี้ที่เหลือเวลาน้อยกว่าที่กำหนดหรือเริ่มไปแล้วจะจองไม่ได้
+const ADVANCE_MINUTES_SQL = `COALESCE((SELECT boat_advance_booking_minutes FROM resort_info WHERE id = 5), 60)`;
+function bookableSql(dayExpr: string, timeExpr: string): string {
+  return `NOT (${dayExpr} = (NOW() AT TIME ZONE 'Asia/Bangkok')::date
+    AND EXTRACT(EPOCH FROM ((${dayExpr} + ${timeExpr}) AT TIME ZONE 'Asia/Bangkok') - NOW()) / 60 < ${ADVANCE_MINUTES_SQL})`;
+}
 
 interface KayakCalendarDay {
   date: string;
@@ -597,6 +609,7 @@ export const getKayakCalendar = async (
            r.boat_round_id,
            r.total_slots,
            r.quantity,
+           ${bookableSql("d.day", "r.start_time")} AS bookable,
            COALESCE((
              SELECT SUM(bnb.boat_count) FROM booking_boat bnb
              JOIN boat_bookings bb ON bb.boat_booking_id = bnb.boat_booking_id
@@ -622,7 +635,7 @@ export const getKayakCalendar = async (
          to_char(g.day, 'YYYY-MM-DD') AS date,
          COUNT(*)::int AS rounds_total,
          COUNT(*) FILTER (
-           WHERE LEAST(
+           WHERE g.bookable AND LEAST(
              GREATEST(g.quantity - g.type_booked, 0),
              CASE WHEN g.total_slots IS NULL THEN GREATEST(g.quantity - g.type_booked, 0)
                   ELSE GREATEST(g.total_slots - g.pool_booked, 0) END
@@ -714,6 +727,7 @@ export const getKayakDayRounds = async (
          br.end_time,
          br.total_slots,
          (SELECT COALESCE(quantity, 0)::int FROM boat_types WHERE boat_type_id = $1::int) AS fleet,
+         ${bookableSql("$2::date", "br.start_time")} AS bookable,
          (${roundQtySql})::int AS round_qty,
          COALESCE((
            SELECT SUM(bnb.boat_count) FROM booking_boat bnb
@@ -749,7 +763,7 @@ export const getKayakDayRounds = async (
         row.total_slots === null ? null : Number(row.total_slots);
       const poolBooked = Number(row.pool_booked);
       const total = typeCapacity(fleet, roundQuantity);
-      const remaining = remainingBoats({
+      const remaining = row.bookable !== true ? 0 : remainingBoats({
         fleetQuantity: fleet,
         roundQuantity,
         typeBooked: booked,
@@ -791,6 +805,10 @@ export const getKayakSchedule = async (
 ): Promise<void> => {
   try {
     const { kayak_id } = req.query;
+    if (kayak_id && !(Number.isInteger(Number(kayak_id)) && Number(kayak_id) > 0)) {
+      res.status(400).json({ success: false, message: "kayak_id ไม่ถูกต้อง", code: "INVALID_KAYAK" });
+      return;
+    }
     let query = `SELECT * FROM boat_rounds br WHERE br.is_active = true`;
     const params: string[] = [];
     if (kayak_id) {
@@ -1710,16 +1728,25 @@ export const handOutBoatAddon = async (
       res.status(400).json({ success: false, message: "Invalid boat booking id" });
       return;
     }
+    // มอบได้เฉพาะบัตรที่อนุมัติแล้ว และห้องพักต้องอนุมัติแล้ว (กันมอบบัตรก่อนลูกค้าชำระค่าห้อง)
     // ไม่เขียนทับ handed_out_at ถ้าเคยมอบแล้ว (เรียกซ้ำได้โดยไม่เปลี่ยนเวลาเดิม)
     const result = await pool.query(
       `UPDATE boat_bookings SET handed_out_at = COALESCE(handed_out_at, NOW()), printed_at = COALESCE(printed_at, NOW())
-       WHERE boat_booking_id = $1 AND is_addon = true AND status NOT IN ('cancelled', 'rejected')
+       WHERE boat_booking_id = $1 AND is_addon = true AND status = 'approved'
+         AND EXISTS (
+           SELECT 1 FROM room_bookings rb
+           WHERE rb.room_booking_id = boat_bookings.room_booking_id AND rb.status = 'approved'
+         )
        RETURNING *`,
       [boatBookingId],
     );
     if (result.rows.length === 0) {
       const blocked = await findActiveAddonError(boatBookingId);
-      res.status(blocked?.status ?? 404).json({ success: false, message: blocked?.message ?? "ไม่พบบัตรเสริมนี้" });
+      if (blocked) {
+        res.status(blocked.status).json({ success: false, message: blocked.message });
+        return;
+      }
+      res.status(400).json({ success: false, message: "มอบบัตรเสริมได้เมื่อการจองห้องพักได้รับการอนุมัติแล้ว" });
       return;
     }
     res.json({ success: true, data: result.rows[0] });
@@ -2048,12 +2075,34 @@ export const createKayak = async (
       gallery_images,
     } = req.body;
 
+    // ตรวจค่าก่อนบันทึก: quantity = 0 ต้องคงเป็น 0 (เดิม quantity || 1 ทำให้กลายเป็น 1)
+    const typeName = typeof name === "string" ? name.trim() : "";
+    if (!typeName) {
+      res.status(400).json({ success: false, message: "กรุณาระบุชื่อประเภทเรือ" });
+      return;
+    }
+    const seats = Number(capacity);
+    if (!Number.isInteger(seats) || seats < 1) {
+      res.status(400).json({ success: false, message: "จำนวนที่นั่งต้องเป็นจำนวนเต็มอย่างน้อย 1" });
+      return;
+    }
+    const price = Number(price_per_hour);
+    if (!Number.isFinite(price) || price < 0) {
+      res.status(400).json({ success: false, message: "ราคาต้องเป็นตัวเลขที่ไม่ติดลบ" });
+      return;
+    }
+    const fleetQty = quantity == null || quantity === "" ? 1 : Number(quantity);
+    if (!Number.isInteger(fleetQty) || fleetQty < 1) {
+      res.status(400).json({ success: false, message: "จำนวนลำต้องเป็นจำนวนเต็มอย่างน้อย 1" });
+      return;
+    }
+
     await client.query("BEGIN");
 
     const result = await client.query(
       `INSERT INTO boat_types (type_name, description, seat_count, price, quantity, is_active)
        VALUES ($1, $2, $3, $4, $5, true) RETURNING boat_type_id as id`,
-      [name, description, capacity, price_per_hour, quantity || 1],
+      [typeName, description ?? null, seats, price, fleetQty],
     );
 
     const boatTypeId = result.rows[0].id;
@@ -2447,7 +2496,7 @@ export const deleteKayak = async (
       await safeRollback(client);
       res.status(400).json({
         success: false,
-        message: "ไม่สามารถลบได้ เนื่องจากมีการจองที่ยังค้างอยู่",
+        message: "ไม่สามารถลบได้ เนื่องจากมีประวัติการจองของเรือนี้แล้ว ใช้การปิดใช้งานแทนได้",
       });
       return;
     }
@@ -2631,6 +2680,33 @@ export const updateKayak = async (
       }
     });
 
+    // ตรวจค่าที่ส่งมาก่อนเขียนลงฐาน (เฉพาะฟิลด์ที่ส่งมา)
+    if (body.name !== undefined || body.type_name !== undefined) {
+      const newName = String(body.name ?? body.type_name ?? "").trim();
+      if (!newName) {
+        res.status(400).json({ success: false, message: "กรุณาระบุชื่อประเภทเรือ" });
+        return;
+      }
+    }
+    if (body.capacity !== undefined || body.seat_count !== undefined) {
+      const seats = Number(body.capacity ?? body.seat_count);
+      if (!Number.isInteger(seats) || seats < 1) {
+        res.status(400).json({ success: false, message: "จำนวนที่นั่งต้องเป็นจำนวนเต็มอย่างน้อย 1" });
+        return;
+      }
+    }
+    if (body.price_per_hour !== undefined || body.price !== undefined) {
+      const price = Number(body.price_per_hour ?? body.price);
+      if (!Number.isFinite(price) || price < 0) {
+        res.status(400).json({ success: false, message: "ราคาต้องเป็นตัวเลขที่ไม่ติดลบ" });
+        return;
+      }
+    }
+    if (body.is_active !== undefined && typeof body.is_active !== "boolean") {
+      res.status(400).json({ success: false, message: "is_active ต้องเป็น true หรือ false" });
+      return;
+    }
+
     // รูปที่ถูกนำออกจะลบจาก Cloudinary หลัง COMMIT เท่านั้น (ถ้า rollback แถวใน DB ยังชี้ไฟล์เดิมอยู่)
     let removedImagePaths: string[] = [];
 
@@ -2638,9 +2714,9 @@ export const updateKayak = async (
 
     if (body.quantity !== undefined) {
       const newQuantity = Number(body.quantity);
-      if (!Number.isInteger(newQuantity) || newQuantity < 0) {
+      if (!Number.isInteger(newQuantity) || newQuantity < 1) {
         await safeRollback(client);
-        res.status(400).json({ success: false, message: "จำนวนเรือต้องเป็นจำนวนเต็มไม่ติดลบ" });
+        res.status(400).json({ success: false, message: "จำนวนเรือต้องเป็นจำนวนเต็มอย่างน้อย 1" });
         return;
       }
       await client.query('SELECT boat_type_id FROM boat_types WHERE boat_type_id = $1 FOR UPDATE', [id]);
@@ -2860,6 +2936,22 @@ export const updateBoatRound = async (
         res.status(400).json({ success: false, message: "เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด" });
         return;
       }
+      // การจองเก็บเวลาไว้ในหัวบิลแล้ว การย้ายช่วงเวลาของรอบที่มีการจองจะทำให้ข้อมูลไม่ตรงกัน จึงไม่อนุญาต
+      const changed = startSql !== String(current.rows[0].start_time) || endSql !== String(current.rows[0].end_time);
+      if (changed) {
+        const activeRes = await client.query(
+          `SELECT COUNT(*)::int AS n FROM booking_boat WHERE boat_round_id = $1 AND status NOT IN ('cancelled', 'rejected')`,
+          [id],
+        );
+        if (Number(activeRes.rows[0].n) > 0) {
+          await safeRollback(client);
+          res.status(400).json({
+            success: false,
+            message: "เปลี่ยนเวลาของรอบนี้ไม่ได้ เนื่องจากมีการจองในรอบนี้อยู่ ใช้การปิดใช้งานรอบแทนได้",
+          });
+          return;
+        }
+      }
     }
 
     if (updates.length > 0) {
@@ -2954,7 +3046,7 @@ export const deleteBoatRound = async (
       await safeRollback(client);
       res.status(400).json({
         success: false,
-        message: "Cannot delete round with active bookings",
+        message: "ไม่สามารถลบรอบเวลาได้ เนื่องจากมีประวัติการจองแล้ว ใช้การปิดใช้งานแทนได้",
       });
       return;
     }

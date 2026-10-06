@@ -25,6 +25,7 @@ import { useInfantAgePolicy } from "@/hooks/useInfantAgePolicy";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import toast from "react-hot-toast";
+import { PromoNotice, usePromoNotice } from "@/components/promotions/PromoNotice";
 import BookingCalendar, {
   DateRange,
   DayStatus,
@@ -177,6 +178,7 @@ function RoomsPageContent(): React.ReactElement {
   const [expandedPromoId, setExpandedPromoId] = useState<number | null>(null);
   const [collectedPromos, setCollectedPromos] = useState<Set<number>>(new Set());
   const [collectingId, setCollectingId] = useState<number | null>(null);
+  const { notice: promoNotice, showNotice: showPromoNotice } = usePromoNotice();
 
   const pickerRef = useRef<HTMLDivElement>(null);
   const nights = range ? nightsBetween(range.start, range.end) : 0;
@@ -238,7 +240,7 @@ function RoomsPageContent(): React.ReactElement {
 
   const handleCollectPromo = async (promoId: number): Promise<void> => {
     if (!user) {
-      toast.error('กรุณาเข้าสู่ระบบก่อนเก็บโปรโมชั่น');
+      showPromoNotice('error', 'กรุณาเข้าสู่ระบบก่อนเก็บโปรโมชั่น');
       router.push('/auth/login');
       return;
     }
@@ -246,14 +248,14 @@ function RoomsPageContent(): React.ReactElement {
     try {
       await api.post(`/promotions/${promoId}/collect`);
       setCollectedPromos((prev) => new Set(prev).add(promoId));
-      toast.success('เก็บโปรโมชั่นสำเร็จ อย่าลืมกดใช้ในหน้าชำระเงินนะ', { duration: 4000 });
+      showPromoNotice('success', 'เก็บโปรโมชั่นสำเร็จ อย่าลืมกดใช้ในหน้าชำระเงินนะ');
     } catch (err: unknown) {
       const msg = getApiErrorMessage(err, 'ไม่สามารถเก็บโปรโมชั่นได้');
       if (msg.includes('เก็บโปรโมชั่นนี้ไปแล้ว') || msg.includes('already collected') || msg.includes('ซ้ำ')) {
          setCollectedPromos((prev) => new Set(prev).add(promoId));
-         toast('คุณมีโปรโมชั่นนี้ในกระเป๋าแล้วครับ');
+         showPromoNotice('success', 'คุณมีโปรโมชั่นนี้ในกระเป๋าแล้วครับ');
       } else {
-         toast.error(msg || 'ไม่สามารถเก็บโปรโมชั่นได้');
+         showPromoNotice('error', msg || 'ไม่สามารถเก็บโปรโมชั่นได้');
       }
     } finally {
       setCollectingId(null);
@@ -447,6 +449,7 @@ function RoomsPageContent(): React.ReactElement {
       <div id="rooms-list" className="container mx-auto px-4 lg:py-2">
         <div className="flex flex-col gap-8 lg:flex-row">
           <section className="flex-1">
+            <PromoNotice notice={promoNotice} />
             {loading && rooms.length === 0 ? (
               <div className="grid gap-6">{[0, 1].map((index) => <div key={index} className="h-64 w-full animate-pulse rounded-2xl border border-stone-100 bg-white" />)}</div>
             ) : roomsByType.length === 0 && !loading ? (

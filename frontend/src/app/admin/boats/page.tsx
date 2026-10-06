@@ -43,6 +43,7 @@ import {
   EmptyState,
 } from "@/components/admin/ui";
 import api, { getApiErrorMessage } from "@/lib/api";
+import { pickResortInfo, type ResortInfoRecord } from "@/lib/resort-info";
 import { toISODate } from "@/lib/date";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -439,6 +440,19 @@ function BoatStaffDashboardContent() {
     booking: any | null;
   }>({ open: false, booking: null });
 
+  const [resort, setResort] = useState<ResortInfoRecord | null>(null);
+  // ข้อควรทราบของเรือแยกจากของห้องพัก (แถว boat id 5)
+  const [boatTerms, setBoatTerms] = useState<string | null>(null);
+  useEffect(() => {
+    if (!detailsModal.open || resort) return;
+    api.get("/settings/resort")
+      .then((res) => {
+        setResort(pickResortInfo(res.data?.data, "main"));
+        setBoatTerms(pickResortInfo(res.data?.data, "boat").additional_terms ?? null);
+      })
+      .catch(() => undefined);
+  }, [detailsModal.open, resort]);
+
   // Modal ยืนยันการทำงานทั่วไป
   const [confirmModal, setConfirmModal] = useState<{
     open: boolean;
@@ -741,6 +755,13 @@ function BoatStaffDashboardContent() {
             border: none !important;
             background: #ffffff !important;
           }
+          .fixed,
+          [role="dialog"] {
+            position: static !important;
+            max-height: none !important;
+            overflow: visible !important;
+            box-shadow: none !important;
+          }
           .printable-modal-overlay {
             position: absolute !important;
             background: transparent !important;
@@ -751,7 +772,7 @@ function BoatStaffDashboardContent() {
 
       {/* Header Bar */}
       <PageHeader
-        title="จัดการรายการจองเรือและคายัค"
+        title="แดชบอร์ดเรือ"
         description="ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจองเรือ และรับคืนเรือ"
       />
 
@@ -880,17 +901,27 @@ function BoatStaffDashboardContent() {
             )}
           </div>
 
-          
+          <button
+            onClick={fetchBookings}
+            className="px-3.5 py-2 text-stone-700 bg-white hover:bg-stone-100/80 rounded-xl border border-stone-200 shadow-xs transition-all text-xs font-medium flex items-center gap-2 active:scale-95 ml-auto"
+            title="รีเฟรชข้อมูล"
+          >
+            <RefreshCw
+              size={14}
+              className={loading ? "animate-spin text-[#0b3b2c]" : "text-stone-500"}
+            />
+            <span>รีเฟรชข้อมูล</span>
+          </button>
         </div>
       </div>
 
       {/* Bookings Table Card */}
-      <Panel title="รายการจองเรือและคายัค" className="print:hidden p-0 overflow-hidden">
+      <Panel title="รายการจองเรือ" className="print:hidden p-0 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs md:text-sm">
             <thead>
               <tr className="border-b border-charcoal-100 text-charcoal-400 bg-cream-50 font-bold text-xs tracking-wider uppercase">
-                <th className="px-5 py-4">ID</th>
+                <th className="px-5 py-4">รหัสการจอง</th>
                 <th className="px-5 py-4">ลูกค้า</th>
                 <th className="px-5 py-4">ประเภทเรือ</th>
                 <th className="px-5 py-4">วันที่จอง</th>
@@ -1296,6 +1327,27 @@ function BoatStaffDashboardContent() {
                   </div>
                 )}
               </div>
+
+              <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 space-y-1.5 print:bg-white print:border-charcoal-200">
+                <div className="flex items-center gap-2 font-semibold text-charcoal-800 text-sm mb-2">
+                  <span>สถานที่และการติดต่อ</span>
+                </div>
+                <p><strong className="text-charcoal-700">สถานที่:</strong> {resort?.name || "-"}</p>
+                {resort?.address && <p><strong className="text-charcoal-700">ที่อยู่:</strong> {resort.address}</p>}
+                {resort?.coordinates && (
+                  <p><strong className="text-charcoal-700">พิกัดแผนที่:</strong> <a className="underline text-forest-800" href={`https://maps.google.com/?q=${encodeURIComponent(resort.coordinates)}`} target="_blank" rel="noreferrer">เปิดในแผนที่</a></p>
+                )}
+                {resort?.phone && <p><strong className="text-charcoal-700">โทร:</strong> <span className="font-mono">{resort.phone}</span></p>}
+                {resort?.line_id && <p><strong className="text-charcoal-700">LINE:</strong> {resort.line_id}</p>}
+                {resort?.facebook && <p><strong className="text-charcoal-700">Facebook:</strong> {resort.facebook}</p>}
+              </div>
+
+              {boatTerms && (
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-1 text-amber-900 print:bg-white print:border-amber-300">
+                  <span className="font-semibold">ข้อควรทราบ</span>
+                  <p className="whitespace-pre-line text-xs leading-relaxed">{boatTerms}</p>
+                </div>
+              )}
 
               <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 flex items-center justify-between print:bg-white print:border-charcoal-200">
                 <span className="font-semibold text-charcoal-700">สถานะรายการ:</span>

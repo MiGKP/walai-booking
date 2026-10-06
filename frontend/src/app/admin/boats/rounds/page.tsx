@@ -478,6 +478,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
       await fetchData();
     } catch (error: unknown) {
       notify.error(getApiErrorMessage(error, "เกิดข้อผิดพลาดในการลบ"));
+      setDeleteRoundId(null);
     }
   };
 

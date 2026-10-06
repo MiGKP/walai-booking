@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Tag, Loader2, CheckCircle2 } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
-import toast from 'react-hot-toast';
+import { PromoNotice, usePromoNotice } from '@/components/promotions/PromoNotice';
 
 interface PromotionItem {
   id: number;
@@ -34,6 +34,7 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
   const [myPromos, setMyPromos] = useState<WalletPromotion[]>([]);
   const [loading, setLoading] = useState(false);
   const [collectingId, setCollectingId] = useState<number | null>(null);
+  const { notice, showNotice } = usePromoNotice();
 
   useEffect(() => {
     if (isOpen) {
@@ -68,10 +69,10 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
     setCollectingId(id);
     try {
       await api.post(`/promotions/${id}/collect`);
-      toast.success('เก็บโปรโมชั่นสำเร็จ');
+      showNotice('success', 'เก็บโปรโมชั่นสำเร็จ');
       await fetchCoupons();
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'ไม่สามารถเก็บโปรโมชั่นได้'));
+      showNotice('error', getApiErrorMessage(error, 'ไม่สามารถเก็บโปรโมชั่นได้'));
     } finally {
       setCollectingId(null);
     }
@@ -81,7 +82,6 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
 
   const myPromoIds = new Set(myPromos.map((p) => p.promotion_id));
   const availableToCollect = activePromos.filter(p => p.is_collectible && !myPromoIds.has(p.id));
-  const globalPromos = activePromos.filter(p => !p.is_collectible);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-stone-900/50 backdrop-blur-sm transition-opacity sm:items-center">
@@ -99,6 +99,7 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
         </div>
 
         <div className="overflow-y-auto p-5 space-y-6">
+          <PromoNotice notice={notice} />
           {loading ? (
             <div className="flex justify-center py-10">
               <Loader2 className="animate-spin text-forest-800" size={32} />
@@ -107,21 +108,12 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
             <>
               <div>
                 <h3 className="text-sm font-bold text-charcoal-800 mb-3">โปรโมชั่นในกระเป๋าของฉัน</h3>
-                {myPromos.length === 0 && globalPromos.length === 0 ? (
+                {myPromos.length === 0 ? (
                   <div className="text-center py-6 text-sm text-stone-400 border border-dashed rounded-xl border-stone-200">
                     ยังไม่มีโปรโมชั่นในกระเป๋า
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {globalPromos.map(p => (
-                      <PromotionCard 
-                        key={p.id} 
-                        promo={p} 
-                        isCollected={true}
-                        isActive={currentPromoCode === p.code}
-                        onApply={() => { onApply(p.code); onClose(); }} 
-                      />
-                    ))}
                     {myPromos.map(p => (
                       <PromotionCard 
                         key={p.promotion_id} 
