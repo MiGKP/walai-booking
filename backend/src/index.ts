@@ -27,6 +27,7 @@ import memberRoutes from './routes/member.routes';
 
 import './config/passport';
 import { startReviewReminderJob } from './services/review-reminder.service';
+import { startPromotionExpiryReminderJob } from './services/promotion-expiry-reminder.service';
 import { startAutoCancelJob } from './services/auto-cancel.service';
 
 const app = express();
@@ -146,6 +147,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 app.listen(PORT, () => {
   console.log(`🌊 Walai Booking API running on port ${PORT}`);
   startReviewReminderJob();
+  startPromotionExpiryReminderJob();
   startAutoCancelJob();
 });
 

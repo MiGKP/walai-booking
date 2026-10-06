@@ -91,6 +91,8 @@ export default function MyCouponsSection(): React.ReactElement {
         ))}
       </div>
 
+      <EmailPreferenceToggle />
+
       {loading ? (
         <div className="space-y-3">
           {[1, 2].map((key) => <div key={key} className="h-28 animate-pulse rounded-2xl bg-stone-100" />)}
@@ -172,6 +174,52 @@ export default function MyCouponsSection(): React.ReactElement {
             ))}
           </div>
       )}
+    </div>
+  );
+}
+
+// ปิด/เปิดการรับอีเมลแจ้งเตือนโปรโมชั่นใกล้หมดอายุ
+function EmailPreferenceToggle(): React.ReactElement {
+  const [optOut, setOptOut] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api.get<{ data: { opt_out: boolean } }>('/promotions/email-preference')
+      .then((res) => setOptOut(res.data?.data?.opt_out === true))
+      .catch(() => undefined);
+  }, []);
+
+  const toggle = async (): Promise<void> => {
+    setSaving(true);
+    try {
+      const res = await api.put<{ message?: string; data: { opt_out: boolean } }>(
+        '/promotions/email-preference',
+        { opt_out: !optOut }
+      );
+      setOptOut(res.data?.data?.opt_out === true);
+      toast.success(res.data?.message ?? 'บันทึกแล้ว');
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, 'บันทึกการตั้งค่าไม่สำเร็จ'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm">
+      <span className="text-charcoal-500">
+        {optOut
+          ? 'ปิดการรับอีเมลแจ้งเตือนโปรโมชั่นใกล้หมดอายุอยู่'
+          : 'รับอีเมลแจ้งเตือนเมื่อโปรโมชั่นในกระเป๋าใกล้หมดอายุ (ก่อน 3 วันและก่อน 1 วัน)'}
+      </span>
+      <button
+        type="button"
+        onClick={() => void toggle()}
+        disabled={saving}
+        className="text-xs font-semibold text-forest-800 underline disabled:opacity-50"
+      >
+        {optOut ? 'เปิดรับอีเมล' : 'ปิดรับอีเมล'}
+      </button>
     </div>
   );
 }

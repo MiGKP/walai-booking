@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { body } from 'express-validator';
 import {
   getActivePromotions,
   getAllPromotions,
@@ -12,6 +13,8 @@ import {
   getMyPromotions,
   getMyBoatTickets,
   getPromotionRedemptions,
+  getPromoEmailPreference,
+  setPromoEmailPreference,
 } from '../controllers/promotion.controller';
 import { authenticate, authorize, optionalAuthenticate } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
@@ -34,6 +37,8 @@ router.post(
 );
 
 router.get('/mine', authenticate, getMyPromotions);
+router.get('/email-preference', authenticate, getPromoEmailPreference);
+router.put('/email-preference', authenticate, body('opt_out').isBoolean().withMessage('opt_out must be a boolean'), validate, setPromoEmailPreference);
 router.get('/boat-tickets/mine', authenticate, getMyBoatTickets);
 router.get(
   '/:id/redemptions',

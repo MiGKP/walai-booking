@@ -47,7 +47,12 @@ export default function PromotionsPage(): React.ReactElement {
     setCollectingId(id);
     try {
       await api.post(`/promotions/${id}/collect`);
-      toast.success('เก็บโปรโมชั่นแล้ว');
+      toast.success(
+        <span>
+          เก็บโปรโมชั่นแล้ว ·{' '}
+          <a href="/dashboard/promotions" className="font-semibold underline">ดูในกระเป๋าโปร</a>
+        </span>
+      );
       await loadPromos();
     } catch (error: unknown) {
       toast.error(getApiErrorMessage(error, 'เก็บโปรโมชั่นไม่สำเร็จ'));

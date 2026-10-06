@@ -194,13 +194,6 @@ export const collectPromotion = async (req: Request, res: Response): Promise<voi
       res.status(404).json({ success: false, message: 'ไม่พบข้อมูลโปรโมชั่น' });
       return;
     }
-    if (!promo.is_collectible) {
-      res.status(409).json({
-        success: false,
-        message: 'โปรโมชั่นนี้ไม่ต้องเก็บโค้ด',
-      });
-      return;
-    }
     if (!isPromoInWindow(promo, new Date())) {
       res.status(409).json({ success: false, message: 'โปรโมชั่นหมดอายุแล้ว' });
       return;
@@ -487,7 +480,7 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
         usage_limit || null, is_active !== false,
         room_type_id || null, room_count || 1, boat_ticket_count || 0,
         usage_limit_per_member || null,
-        is_collectible === true,
+        true, // ทุกโปรต้องเก็บก่อนใช้
         stackable === true,
         parseAppliesTo(applies_to),
         boat_addon_mode === 'paid' ? 'paid' : 'free',
@@ -609,7 +602,7 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
         numOrCurrent('room_count', 1),
         numOrCurrent('boat_ticket_count', 0),
         numOrCurrent('usage_limit_per_member'),
-        boolOrCurrent('is_collectible'),
+        true, // ทุกโปรต้องเก็บก่อนใช้
         boolOrCurrent('stackable'),
         appliesTo,
         boatAddonMode,
@@ -688,6 +681,46 @@ export const togglePromotion = async (req: Request, res: Response): Promise<void
     res.json({ success: true, message: active ? 'เปิดใช้งานโปรโมชั่นแล้ว' : 'ปิดใช้งานโปรโมชั่นแล้ว', data: result.rows[0] });
   } catch (error) {
     console.error('Toggle promotion error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// การตั้งค่าการรับอีเมลแจ้งเตือนโปรโมชั่นของลูกค้า
+export const getPromoEmailPreference = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = requireCustomer(req, res);
+    if (!user) return;
+    const result = await pool.query(
+      'SELECT promo_email_opt_out FROM members WHERE member_id = $1',
+      [user.id]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'ไม่พบข้อมูลสมาชิก' });
+      return;
+    }
+    res.json({ success: true, data: { opt_out: result.rows[0].promo_email_opt_out === true } });
+  } catch (error) {
+    console.error('Get promo email preference error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const setPromoEmailPreference = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = requireCustomer(req, res);
+    if (!user) return;
+    const optOut = req.body.opt_out === true || req.body.opt_out === 'true';
+    await pool.query(
+      'UPDATE members SET promo_email_opt_out = $1, updated_at = NOW() WHERE member_id = $2',
+      [optOut, user.id]
+    );
+    res.json({
+      success: true,
+      message: optOut ? 'ปิดการรับอีเมลแจ้งเตือนโปรโมชั่นแล้ว' : 'เปิดการรับอีเมลแจ้งเตือนโปรโมชั่นแล้ว',
+      data: { opt_out: optOut },
+    });
+  } catch (error) {
+    console.error('Set promo email preference error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

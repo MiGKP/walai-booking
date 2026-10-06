@@ -1170,12 +1170,13 @@ export default function PromotionsPage() {
                 <label className="flex items-center gap-2 text-xs font-semibold text-stone-700 pt-6">
                   <input
                     type="checkbox"
-                    checked={form.is_collectible}
+                    checked
+                    disabled
                     onChange={(e) =>
                       setForm((f) => ({ ...f, is_collectible: e.target.checked }))
                     }
                   />
-                  ต้องเก็บโค้ดก่อนใช้
+                  ต้องเก็บโค้ดก่อนใช้ (ทุกโปรโมชั่นบังคับเก็บก่อนใช้)
                 </label>
                 <label className="flex items-center gap-2 text-xs font-semibold text-stone-700 pt-6">
                   <input

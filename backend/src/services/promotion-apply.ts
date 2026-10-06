@@ -195,11 +195,10 @@ export function applyPromotionList(
     if (!promoAllowsScope(row.applies_to, ctx.scope)) {
       throw new PromoApplyError(promoScopeError(row.applies_to));
     }
-    if (row.is_collectible) {
-      const wallet = ctx.walletsByPromoId[row.id];
-      if (wallet == null || wallet.status !== 'saved') {
-        throw new PromoApplyError('ต้องเก็บโค้ดนี้ก่อนใช้');
-      }
+    // ทุกโปรต้องเก็บเข้ากระเป๋าก่อนใช้ จึงต้องมี wallet สถานะ saved เสมอ
+    const wallet = ctx.walletsByPromoId[row.id];
+    if (wallet == null || wallet.status !== 'saved') {
+      throw new PromoApplyError('ต้องเก็บโค้ดนี้ก่อนใช้');
     }
     const used = ctx.memberUsedCountByPromoId[row.id] ?? 0;
     if (
@@ -214,12 +213,9 @@ export function applyPromotionList(
       ctx.nights
     );
     remaining = nextTotal;
-    const wallet = ctx.walletsByPromoId[row.id];
     lines.push({
       promotion_id: row.id,
-      member_promotion_id: row.is_collectible
-        ? (wallet?.member_promotion_id ?? null)
-        : null,
+      member_promotion_id: wallet.member_promotion_id,
       discount_amount: discountAmount,
     });
   }
