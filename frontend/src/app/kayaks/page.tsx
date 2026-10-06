@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users } from 'lucide-react';
+import { AlertCircle, Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users, X, ChevronLeft, ChevronRight, ChevronDown, ImageIcon } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveMediaUrl } from '@/lib/avatar';
@@ -10,8 +10,10 @@ import toast from 'react-hot-toast';
 import BookingCalendar, { DayStatus } from '@/components/booking/BookingCalendar';
 import {
   KayakRound,
+  KayakScheduleSlot,
   fetchKayakCalendar,
   fetchKayakRounds,
+  fetchKayakSchedule,
   toKayakDayStatus,
 } from '@/lib/booking-calendar';
 import {
@@ -35,9 +37,15 @@ import {
 
 const CARD = 'rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)] p-5 sm:p-6';
 
-// รอบเรือทั้งหมดจบก่อน 18:00 น. — หลังเวลานี้ปิดรับจองสำหรับ "วันนี้" เพราะไม่มีรอบเหลือให้บริการแล้วจริงๆ
-const BOOKING_CUTOFF_HOUR = 18;
-const CLOSED_TODAY_HINT = `ปิดรับจองแล้ว (หมดรอบหลัง ${BOOKING_CUTOFF_HOUR}:00 น.)`;
+// เวลาปิดรับจองสำหรับ "วันนี้" ดึงจาก boat_operating_hours (close_time) แทน hardcode
+// fallback 18:00 ถ้า API ยังโหลดไม่เสร็จหรือไม่มีข้อมูล
+interface DayHour {
+  day_of_week: number;
+  open_time: string;
+  close_time: string;
+  is_open: boolean;
+  advance_booking_minutes?: number;
+}
 
 function SectionHeading({ icon, title, hint }: { icon: React.ReactNode; title: string; hint?: string }): React.ReactElement {
   return (
@@ -106,7 +114,9 @@ interface BoatType {
   type: string;
   capacity: number;
   price_per_hour: number;
+  quantity?: number;
   image?: string | null;
+  images?: string[];
   is_available: boolean;
 }
 
@@ -125,6 +135,83 @@ const TYPE_LABELS: Record<string, string> = {
   double: 'เรือคู่',
   tandem: 'เรือครอบครัว',
 };
+
+function ImageModal({ images, initialIndex, onClose }: { images: string[]; initialIndex: number; onClose: () => void }) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  if (images.length === 0) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md transition-opacity duration-300" 
+      onClick={onClose}
+    >
+      {/* Header / Top Bar */}
+      <div className="absolute left-0 top-0 z-[101] flex w-full items-center justify-between bg-gradient-to-b from-black/80 to-transparent p-4 sm:p-6 pb-12 pointer-events-none">
+        <div className="text-sm font-semibold tracking-widest text-white/80">
+          {currentIndex + 1} / {images.length}
+        </div>
+        <button 
+          className="pointer-events-auto rounded-full bg-white/10 p-2.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95" 
+          onClick={onClose} 
+          aria-label="Close gallery"
+        >
+          <X size={24} />
+        </button>
+      </div>
+      
+      {/* Previous Button */}
+      {images.length > 1 && (
+        <button 
+          className="absolute left-3 sm:left-8 top-1/2 z-[101] -translate-y-1/2 rounded-full bg-white/10 p-3.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
+          onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1)); }}
+          aria-label="Previous image"
+        >
+          <ChevronLeft size={28} />
+        </button>
+      )}
+
+      {/* Main Image Container */}
+      <div 
+        className="relative flex max-h-[85vh] max-w-[90vw] items-center justify-center lg:max-w-5xl"
+        onClick={(e) => e.stopPropagation()} // Click on the image itself won't close
+      >
+        <img 
+          src={resolveMediaUrl(images[currentIndex])} 
+          alt={`Gallery image ${currentIndex + 1}`} 
+          className="max-h-[85vh] w-auto rounded-xl object-contain shadow-2xl ring-1 ring-white/10 select-none animate-in fade-in duration-300" 
+        />
+      </div>
+
+      {/* Next Button */}
+      {images.length > 1 && (
+        <button 
+          className="absolute right-3 sm:right-8 top-1/2 z-[101] -translate-y-1/2 rounded-full bg-white/10 p-3.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
+          onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0)); }}
+          aria-label="Next image"
+        >
+          <ChevronRight size={28} />
+        </button>
+      )}
+
+      {/* Thumbnails / Pagination */}
+      {images.length > 1 && (
+        <div 
+          className="absolute bottom-8 left-1/2 z-[101] flex -translate-x-1/2 gap-2.5 rounded-full bg-black/60 px-5 py-3 backdrop-blur-md ring-1 ring-white/15"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {images.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentIndex(idx)}
+              className={`h-2 rounded-full transition-all duration-300 ${idx === currentIndex ? 'w-8 bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]' : 'w-2 bg-white/40 hover:bg-white/80'}`}
+              aria-label={`Go to image ${idx + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function mergeDayStatus(dayMaps: Array<Record<string, DayStatus>>): Record<string, DayStatus> {
   const merged: Record<string, DayStatus> = {};
@@ -181,7 +268,7 @@ function mergeSharedSlots(
   return Array.from(byKey.entries())
     .map(([key, value]) => {
       const remainings = Object.values(value.remainingByType);
-      const remaining = remainings.length ? Math.min(...remainings) : 0;
+      const remaining = remainings.length ? Math.max(...remainings) : 0;
       return {
         key,
         start_time: value.start_time,
@@ -219,53 +306,99 @@ function KayaksPageContent(): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
   const today = todayISO();
-
+  
   // ดึงข้อมูลวันที่เข้าพักจาก query parameters (กรณีมาจากหน้า Payment Success)
   const roomBookingId = searchParams.get('room_booking_id');
   let promoCheckIn = searchParams.get('check_in');
   if (promoCheckIn === 'undefined' || promoCheckIn === 'null') promoCheckIn = null;
   let promoCheckOut = searchParams.get('check_out');
   if (promoCheckOut === 'undefined' || promoCheckOut === 'null') promoCheckOut = null;
-
+  
   // หากมีวันเข้าพัก ให้บังคับเลือกได้แค่วันที่เช็คอิน ถึง วันก่อนเช็คเอาต์
   const isValidISO = (iso: string | null) => /^\d{4}-\d{2}-\d{2}$/.test(iso || "");
   const minAllowedISO = promoCheckIn && isValidISO(promoCheckIn) && promoCheckIn >= today ? promoCheckIn : today;
   let maxAllowedISO: string | undefined = undefined;
   if (promoCheckIn && promoCheckOut && isValidISO(promoCheckOut)) {
-    const outDate = new Date(promoCheckOut);
-    outDate.setDate(outDate.getDate() - 1);
-    maxAllowedISO = outDate.toISOString().split('T')[0];
+    maxAllowedISO = addDaysISO(promoCheckOut, -1);
   }
 
-  // วันนี้เกินตัดรอบการจองหรือยัง?
-  const pastCutoffToday = new Date().getHours() >= BOOKING_CUTOFF_HOUR;
+  // ดึงเวลาทำการเรือจาก boat_operating_hours (public API)
+  const [boatHours, setBoatHours] = useState<DayHour[]>([]);
+  const [boatTerms, setBoatTerms] = useState<string>('');
+
+  useEffect(() => {
+    api.get('/settings/boat-hours').then(res => {
+      const data: DayHour[] = res.data?.data || [];
+      if (data.length > 0) setBoatHours(data);
+    }).catch(() => { /* ใช้ fallback 18:00 */ });
+
+    api.get('/settings/resort?id=5').then(res => {
+      if (res.data?.data?.additional_terms) {
+        setBoatTerms(res.data.data.additional_terms);
+      }
+    }).catch(() => {});
+  }, []);
+
+  // คำนวณ cutoff วันนี้จากข้อมูลจริง (fallback 18:00 ถ้ายังไม่มีข้อมูล)
+  const todayDow = new Date().getDay();
+  const todayHour = boatHours.find(h => h.day_of_week === todayDow);
+  const isTodayClosed = todayHour ? !todayHour.is_open : false;
+  const cutoffHHMM = todayHour?.close_time?.slice(0, 5) ?? '18:00';
+  const [cutH, cutM] = cutoffHHMM.split(':').map(Number);
+  const nowRef = new Date();
+  const pastCutoffToday = isTodayClosed ||
+    nowRef.getHours() > cutH ||
+    (nowRef.getHours() === cutH && nowRef.getMinutes() >= cutM);
+  const closedTodayHint = isTodayClosed
+    ? 'ปิดบริการวันนี้'
+    : `ปิดรับจองแล้ว (หมดรอบหลัง ${cutoffHHMM} น.)`;
 
   const [boats, setBoats] = useState<BoatType[]>([]);
   const [boatsLoading, setBoatsLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [galleryBoat, setGalleryBoat] = useState<BoatType | null>(null);
+
+  // รอบเวลา shell (ไม่ต้องการ booking_date) — แสดงก่อนเลือกวัน
+  const [scheduleSlots, setScheduleSlots] = useState<KayakScheduleSlot[]>([]);
+  useEffect(() => {
+    fetchKayakSchedule().then(setScheduleSlots).catch(() => {});
+  }, []);
 
   const [cursor, setCursor] = useState<MonthCursor>(() => monthCursorFromISO(minAllowedISO));
   const [dayStatus, setDayStatus] = useState<Record<string, DayStatus>>({});
-  const [ticketBalance, setTicketBalance] = useState(0);
 
-  useEffect(() => {
-    if (user) {
-      api.get('/kayaks/ticket-balance').then(res => setTicketBalance(res.data.balance || 0)).catch(() => {});
-    }
-  }, [user]);
 
   const [calendarLoading, setCalendarLoading] = useState(false);
 
-  // ยังไม่กดอะไรก็โชว์รอบเรือ+เรือทั้งหมดของวันแรกที่จองได้ไปเลย ไม่ต้องรอผู้ใช้เลือกวันเอง
   const [selectedDate, setSelectedDate] = useState<string | null>(() => {
     if (minAllowedISO === today && pastCutoffToday) return addDaysISO(today, 1);
     return minAllowedISO;
   });
   const [slots, setSlots] = useState<SharedSlot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
-  const [selectedSlotKey, setSelectedSlotKey] = useState<string | null>(null);
+  const [selectedSlotKey, setSelectedSlotKey] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try { return sessionStorage.getItem('kayak_slot') ?? null; } catch { return null; }
+  });
 
-  const [boatCountByType, setBoatCountByType] = useState<Record<number, number>>({});
+  // persist ค่าเรือที่เลือก (boatCountByType) ข้าม refresh ด้วย sessionStorage
+  const [boatCountByType, setBoatCountByType] = useState<Record<number, number>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = sessionStorage.getItem('kayak_cart');
+      return raw ? (JSON.parse(raw) as Record<number, number>) : {};
+    } catch { return {}; }
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem('kayak_cart', JSON.stringify(boatCountByType)); } catch {}
+  }, [boatCountByType]);
+  useEffect(() => {
+    try {
+      if (selectedSlotKey) sessionStorage.setItem('kayak_slot', selectedSlotKey);
+      else sessionStorage.removeItem('kayak_slot');
+    } catch {}
+  }, [selectedSlotKey]);
+
   const [bookingLoading, setBookingLoading] = useState(false);
 
   useEffect(() => {
@@ -292,9 +425,9 @@ function KayaksPageContent(): React.ReactElement {
       .then((lists) => {
         if (cancelled) return;
         const merged = mergeDayStatus(lists.map((days) => toKayakDayStatus(days)));
-        // วันนี้หลัง 18:00 น. ถือว่าหมดรอบเสมอ ไม่ว่า backend จะรายงานว่ายังมีที่ว่างหรือไม่
+        // วันนี้เกิน close_time หรือปิดบริการ — ถือว่าหมดรอบ ไม่ว่า backend จะรายงานยังไง
         if (pastCutoffToday) {
-          merged[today] = { tone: 'full', hint: CLOSED_TODAY_HINT };
+          merged[today] = { tone: 'full', hint: closedTodayHint };
         }
         setDayStatus(merged);
       })
@@ -316,11 +449,9 @@ function KayaksPageContent(): React.ReactElement {
       return;
     }
 
+
     let cancelled = false;
     setSlotsLoading(true);
-    setSelectedSlotKey(null);
-    setBoatCountByType({});
-
 
     Promise.all(
       boats.map((boat) =>
@@ -331,7 +462,21 @@ function KayaksPageContent(): React.ReactElement {
     )
       .then((lists) => {
         if (cancelled) return;
-        setSlots(mergeSharedSlots(lists));
+        let merged = mergeSharedSlots(lists);
+        // กรองรอบที่ใกล้เกินไปออก (เฉพาะวันนี้) ตามระยะเวลาจองล่วงหน้าที่ตั้งไว้
+        if (selectedDate === today) {
+          const advanceMs = (todayHour?.advance_booking_minutes ?? 60) * 60_000;
+          const nowMs = Date.now();
+          merged = merged.map((slot) => {
+            const [h, m] = String(slot.start_time).slice(0, 5).split(':').map(Number);
+            const slotMs = new Date().setHours(h, m, 0, 0);
+            if (slotMs - nowMs < advanceMs) {
+              return { ...slot, available: false, remaining: 0 };
+            }
+            return slot;
+          });
+        }
+        setSlots(merged);
       })
       .catch(() => {
         if (!cancelled) toast.error('ไม่สามารถโหลดรอบเวลาได้');
@@ -343,7 +488,7 @@ function KayaksPageContent(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [boats, selectedDate]);
+  }, [boats, selectedDate, todayHour]);
 
   const selectedSlot = useMemo(
     () => slots.find((slot) => slot.key === selectedSlotKey) ?? null,
@@ -382,7 +527,7 @@ function KayaksPageContent(): React.ReactElement {
       .map((boat) => {
         const boatCount = Number(boatCountByType[boat.id] || 0);
         if (boatCount < 1) return null;
-
+        
         return {
           boat_type_id: boat.id,
           name: boat.name,
@@ -394,24 +539,27 @@ function KayaksPageContent(): React.ReactElement {
         };
       })
       .filter((line): line is KayakCartLine => line != null);
-  }, [boats, boatCountByType, ticketBalance]);
+  }, [boats, boatCountByType]);
 
   const totalPrice = cartTotal(cartLines);
   const totalPassengers = cartPassengerTotal(cartLines);
   const totalBoats = cartBoatTotal(cartLines);
 
-  // ลบ useEffect ที่ล้างการเลือกรอบทิ้ง (Silent Deselection) เพื่อให้ผู้ใช้รู้ว่าทำไมถึงจองไม่ได้ แทนที่จะปิดการเลือกไปดื้อๆ
+  // เมื่อ slots โหลดใหม่ (เปลี่ยนวัน) → ถ้า slot ที่เลือกไว้ไม่อยู่ในวันใหม่ ให้ล้าง slot แต่คงจำนวนเรือไว้
+  useEffect(() => {
+    if (selectedSlotKey && slots.length > 0) {
+      const stillExists = slots.some(s => s.key === selectedSlotKey);
+      if (!stillExists) setSelectedSlotKey(null);
+    }
+  }, [slots, selectedSlotKey]);
 
   const handleSelectDate = (date: string | null): void => {
-    // กันไว้อีกชั้นเผื่อกดก่อนปฏิทินโหลดสถานะ "หมดรอบ" เสร็จ
     if (date === today && pastCutoffToday) {
-      toast.error(CLOSED_TODAY_HINT);
+      toast.error(closedTodayHint);
       return;
     }
     setSelectedDate(date);
-    setSelectedSlotKey(null);
-    setBoatCountByType({});
-
+    // ไม่ล้าง boatCountByType — คงจำนวนเรือที่เลือกไว้เมื่อเปลี่ยนวัน
   };
 
   const handleSelectSlot = (key: string): void => {
@@ -421,7 +569,7 @@ function KayaksPageContent(): React.ReactElement {
   const handleBoatCountChange = (boatId: number, raw: number): void => {
     if (!Number.isFinite(raw)) return;
     const nextCount = Math.max(0, raw);
-
+    
     setBoatCountByType((prev) => {
       const next = { ...prev };
       if (nextCount === 0) {
@@ -447,7 +595,7 @@ function KayaksPageContent(): React.ReactElement {
       return;
     }
     if (selectedDate === today && pastCutoffToday) {
-      toast.error(CLOSED_TODAY_HINT);
+      toast.error(closedTodayHint);
       return;
     }
     if (cartLines.length === 0) {
@@ -486,20 +634,17 @@ function KayaksPageContent(): React.ReactElement {
 
   return (
     <div className="min-h-screen bg-cream-100 pb-24 pt-4">
+      {galleryBoat && (
+        <ImageModal 
+          images={galleryBoat.images?.length ? galleryBoat.images : (galleryBoat.image ? [galleryBoat.image] : [])} 
+          initialIndex={0} 
+          onClose={() => setGalleryBoat(null)} 
+        />
+      )}
       <div className="container mx-auto px-4 pt-16 sm:pt-20">
-        <div className="mb-6 flex items-center gap-2.5">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700">
-            <Anchor size={18} />
-          </span>
-          <h1 className="font-sans text-2xl font-semibold leading-tight text-forest-900 sm:text-3xl">จองเรือคายัค</h1>
-        </div>
+        
 
-        {pastCutoffToday && (
-          <div className="mb-6 flex items-start gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-xs font-medium text-bamboo-800">
-            <Clock3 size={16} className="mt-0.5 shrink-0" />
-            <p>วันนี้{CLOSED_TODAY_HINT.replace('ปิดรับจองแล้ว ', '')} — กรุณาเลือกวันถัดไปในปฏิทิน</p>
-          </div>
-        )}
+
 
 
         <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:items-start">
@@ -508,32 +653,61 @@ function KayaksPageContent(): React.ReactElement {
             <section className={CARD}>
               <SectionHeading
                 icon={<Anchor size={16} />}
-                title="เลือกวันที่ รอบเวลา และจำนวนผู้โดยสาร"
-                hint={!selectedDate ? 'เลือกวันที่ต้องการพายเรือ' : formatThaiDateLong(selectedDate)}
+                title="บริการเรือ และข้อกำหนดการจอง"
               />
 
               <div className="mt-5 flex flex-col gap-5 lg:flex-row">
-                <div className="w-full shrink-0 rounded-xl border border-stone-200 p-3 lg:w-[300px] lg:p-4">
-                  <BookingCalendar
-                    mode="single"
-                    value={selectedDate}
-                    onSelect={handleSelectDate}
-                    cursor={cursor}
-                    onCursorChange={setCursor}
-                    dayStatus={dayStatus}
-                    loading={calendarLoading || boatsLoading}
-                    minISO={minAllowedISO}
-                    maxISO={maxAllowedISO}
-                    visibleMonths={1}
-                  />
+                <div className="w-full shrink-0 flex flex-col gap-4 lg:w-[300px]">
+                  <div className="rounded-xl border border-stone-200 p-3 lg:p-4">
+                    <BookingCalendar
+                      mode="single"
+                      value={selectedDate}
+                      onSelect={handleSelectDate}
+                      cursor={cursor}
+                      onCursorChange={setCursor}
+                      dayStatus={dayStatus}
+                      loading={calendarLoading || boatsLoading}
+                      minISO={minAllowedISO}
+                      maxISO={maxAllowedISO}
+                      visibleMonths={1}
+                    />
+                  </div>
+                  
+                  <div className="rounded-xl bg-forest-50/50 p-4 text-sm text-forest-900/80 border border-forest-100">
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>ต้องจองล่วงหน้าอย่างน้อย {boatHours[0] ? ((boatHours[0].advance_booking_minutes ?? 60) % 60 === 0 ? `${(boatHours[0].advance_booking_minutes ?? 60) / 60} ชั่วโมง` : `${boatHours[0].advance_booking_minutes ?? 60} นาที`) : '1 ชั่วโมง'}</li>
+                      {boatTerms && (
+                        <li className="whitespace-pre-wrap">{boatTerms}</li>
+                      )}
+                    </ul>
+                  </div>
                 </div>
 
                 <div className="min-w-0 flex-1 space-y-5">
-                  {/* รอบเวลา — เลื่อนดูซ้ายขวาได้ เพราะมีไม่กี่รอบต่อวัน แสดงจำนวนเรือที่เหลือให้จองต่อรอบด้วย */}
+                  {/* รอบเวลา — แสดง shell จาก schedule ก่อนเลือกวัน (ไม่มีตัวเลขเรือ) */}
                   <div>
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-charcoal-300">เลือกรอบเวลา</p>
                     {!selectedDate ? (
-                      <p className="text-xs text-charcoal-400">เลือกวันที่ก่อน</p>
+                      // shell preview — กดไม่ได้ แต่เห็นว่ามีรอบไหนบ้าง
+                      <div className="space-y-1.5">
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                          {scheduleSlots.length === 0
+                            ? [0, 1, 2].map((i) => <div key={i} className="h-14 w-28 shrink-0 animate-pulse rounded-xl bg-stone-100" />)
+                            : scheduleSlots.map((s) => (
+                              <div
+                                key={s.boat_round_id}
+                                className="shrink-0 cursor-not-allowed rounded-xl border border-stone-100 bg-stone-50/60 px-4 py-2.5 opacity-60"
+                              >
+                                <span className="block text-xs font-semibold tabular-nums text-charcoal-400">
+                                  {formatTimeRange(s.start_time, s.end_time)}
+                                </span>
+                                <span className="block text-xs text-stone-400">เลือกวันที่ก่อน</span>
+                              </div>
+                            ))
+                          }
+                        </div>
+                        <p className="text-xs text-charcoal-400">เลือกวันในปฏิทินเพื่อดูจำนวนเรือที่ว่าง</p>
+                      </div>
                     ) : slotsLoading ? (
                       <div className="flex gap-2 overflow-x-auto pb-1">
                         {[0, 1, 2].map((i) => <div key={i} className="h-14 w-28 shrink-0 animate-pulse rounded-xl bg-stone-100" />)}
@@ -564,16 +738,13 @@ function KayaksPageContent(): React.ReactElement {
                                 <span className={`block text-xs font-semibold tabular-nums ${isSelected ? (fits ? 'text-cream-100' : 'text-rose-700') : 'text-forest-900'}`}>
                                   {formatTimeRange(slot.start_time, slot.end_time)}
                                 </span>
-                                <span className={`block text-xs ${isSelected ? (fits ? 'text-cream-200' : 'text-rose-600') : fits ? 'text-charcoal-400' : 'text-stone-400 line-through'}`}>
-                                  {fits ? `เหลือ ${slot.remaining} ลำ` : !slot.available ? 'เต็ม' : 'เรือไม่พอ'}
+                                <span className={`block text-[11px] font-medium mt-0.5 ${isSelected ? (fits ? 'text-cream-200' : 'text-rose-200') : fits ? 'text-forest-600' : 'text-stone-400'}`}>
+                                  {fits ? 'ว่าง' : !slot.available ? 'เต็ม' : 'เรือไม่พอ'}
                                 </span>
                               </button>
                             );
                           })}
                         </div>
-                        {cartLines.length === 0 && (
-                          <p className="mt-1.5 text-xs text-charcoal-400">ใส่จำนวนผู้โดยสารด้านล่างก่อน เพื่อกรองเฉพาะรอบที่มีเรือว่างพอ</p>
-                        )}
                       </>
                     )}
                   </div>
@@ -582,40 +753,26 @@ function KayaksPageContent(): React.ReactElement {
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-300">จำนวนผู้โดยสารต่อประเภทเรือ</p>
                     {typeOptions.length > 1 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setTypeFilter('all')}
-                          className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                            typeFilter === 'all'
-                              ? 'border-forest-800 bg-forest-800 text-cream-100'
-                              : 'border-stone-200 text-charcoal-500 hover:border-forest-300 hover:bg-forest-50'
-                          }`}
+                      <div className="relative w-36">
+                        <select
+                          value={typeFilter}
+                          onChange={(e) => setTypeFilter(e.target.value)}
+                          className="w-full appearance-none rounded-xl border border-stone-200 bg-white px-3 py-1.5 pr-8 text-xs font-semibold text-charcoal-500 outline-none transition-colors hover:border-forest-300 focus:border-forest-500 focus:ring-2 focus:ring-forest-500/20"
                         >
-                          ทุกประเภท
-                        </button>
-                        {typeOptions.map((type) => (
-                          <button
-                            key={type}
-                            type="button"
-                            onClick={() => setTypeFilter(type)}
-                            className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                              typeFilter === type
-                                ? 'border-forest-800 bg-forest-800 text-cream-100'
-                                : 'border-stone-200 text-charcoal-500 hover:border-forest-300 hover:bg-forest-50'
-                            }`}
-                          >
-                            {TYPE_LABELS[type] || type}
-                          </button>
-                        ))}
+                          <option value="all">ทุกประเภท</option>
+                          {typeOptions.map((type) => (
+                            <option key={type} value={type}>
+                              {TYPE_LABELS[type] || type}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400">
+                          <ChevronDown size={14} />
+                        </div>
                       </div>
                     )}
                   </div>
-                  {!selectedDate ? (
-                    <p className="rounded-xl border border-dashed border-stone-200 px-4 py-8 text-center text-xs text-charcoal-400">
-                      เลือกวันในปฏิทินก่อน แล้วใส่จำนวนคนต่อประเภทเรือ
-                    </p>
-                  ) : boatsLoading || slotsLoading ? (
+                  {boatsLoading ? (
                     <div className="space-y-2">
                       {[0, 1].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-stone-100" />)}
                     </div>
@@ -630,65 +787,119 @@ function KayaksPageContent(): React.ReactElement {
                   ) : (
                     <div className="space-y-3">
                       {filteredBoats.map((boat) => {
-                        const hasRound = hasAnyRoundByType[boat.id];
-                        const remainingInSlot = selectedSlotKey
+                        // ถ้ายังไม่มี date: ไม่รู้ availability → ใช้ fleet max จาก boat.quantity
+                        // ถ้ามี date แต่ไม่มี slot: ใช้ max ของวัน (maxRemainingByType)
+                        // ถ้ามี slot: ใช้ remaining ของรอบนั้น
+                        const noDateYet = !selectedDate;
+                        const fleetMax: number = boat.quantity ?? 99;
+                        const dayMax = maxRemainingByType[boat.id] ?? 0;
+                        const slotRemaining = selectedSlotKey
                           ? slots.find(s => s.key === selectedSlotKey)?.remainingByType[boat.id] ?? 0
-                          : maxRemainingByType[boat.id] ?? 0;
+                          : null;
+
+                        const stepperMax = noDateYet ? fleetMax : (slotRemaining !== null ? slotRemaining : dayMax);
+                        const isFull = !noDateYet && stepperMax < 1;
+                        const hasRound = noDateYet || hasAnyRoundByType[boat.id];
 
                         const boatCount = boatCountByType[boat.id] || 0;
-                        const disabled = !hasRound || remainingInSlot < 1;
+
+                        // hint ด้านขวาของชื่อเรือ
+                        let availHint: string | null = null;
+                        if (!noDateYet) {
+                          if (!hasRound) availHint = 'ไม่มีรอบในวันนี้';
+                          else if (isFull) availHint = 'เต็ม';
+                          else if (slotRemaining !== null) availHint = `รอบนี้เหลือ ${slotRemaining} ลำ`;
+                          else availHint = `เหลือสูงสุด ${dayMax} ลำ/รอบ`;
+                        }
 
                         return (
                           <div
                             key={boat.id}
-                            className={`overflow-hidden rounded-xl border transition-colors ${
-                              disabled ? 'border-stone-100 bg-stone-50/50 opacity-60' : 'border-stone-200/80 bg-white'
+                            className={`group relative overflow-hidden rounded-2xl border transition-all ${
+                              isFull || (!hasRound && !noDateYet) 
+                                ? 'border-stone-100 bg-stone-50/40 opacity-75' 
+                                : 'border-stone-200/80 bg-white hover:border-forest-300 hover:shadow-sm'
                             }`}
                           >
-                            <div className="flex flex-wrap gap-3 p-3">
-                              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-lagoon-50">
-                                {boat.image ? (
-                                  <img src={resolveMediaUrl(boat.image)} alt={boat.name} className="h-full w-full object-cover" />
-                                ) : (
-                                  <div className="grid h-full w-full place-items-center text-lagoon-600">
-                                    <Sailboat size={22} />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <span className="mb-1 inline-block rounded-full bg-lagoon-50 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-lagoon-700">
-                                  {TYPE_LABELS[boat.type] || 'อื่นๆ'}
-                                </span>
-                                <p className="truncate text-sm font-semibold text-forest-900">{boat.name}</p>
-                                {boat.description && (
-                                  <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-charcoal-400">{boat.description}</p>
-                                )}
-                                <p className="mt-1 flex items-center gap-1 text-xs text-charcoal-500">
-                                  <Users size={12} className="text-forest-400" />
-                                  นั่งได้สูงสุด {boat.capacity} คน/ลำ · ฿{Number(boat.price_per_hour).toLocaleString()}/ลำ
-                                  {disabled && ` · ${!hasRound ? 'ไม่มีรอบในวันนี้' : 'เต็ม'}`}
-                                  {!disabled && (
-                                    <span className="text-forest-600 font-medium ml-1">
-                                      · {selectedSlotKey ? `รอบนี้เหลือ ${remainingInSlot} ลำ` : `เหลือสูงสุด ${remainingInSlot} ลำ/รอบ`}
-                                    </span>
+                            <div className="flex flex-col sm:flex-row sm:items-stretch">
+                              {/* Image Section */}
+                              <div className="relative h-40 w-full shrink-0 overflow-hidden bg-stone-100 sm:w-48 sm:h-auto">
+                                <div className="absolute inset-0">
+                                  {boat.image ? (
+                                    <>
+                                      <img src={resolveMediaUrl(boat.image)} alt={boat.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60 pointer-events-none" />
+                                      
+                                      {boat.images && boat.images.length > 0 && (
+                                        <button 
+                                          type="button"
+                                          onClick={() => setGalleryBoat(boat)}
+                                          className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg bg-black/50 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur-md transition hover:bg-black/70 hover:scale-105 active:scale-95"
+                                          aria-label="ดูรูปทั้งหมด"
+                                        >
+                                          <ImageIcon size={14} />
+                                          {boat.images.length > 1 && <span>1/{boat.images.length}</span>}
+                                        </button>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <div className="grid h-full w-full place-items-center text-stone-300">
+                                      <Sailboat size={32} />
+                                    </div>
                                   )}
-                                </p>
+                                </div>
                               </div>
-
-                              {!disabled && (
-                                <div className="ml-auto flex shrink-0 flex-col items-end gap-2 text-right">
+                              
+                              {/* Content Section */}
+                              <div className="flex flex-1 flex-col p-4 sm:p-5">
+                                <div className="mb-1 flex items-start justify-between gap-2">
                                   <div>
-                                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-charcoal-300">จำนวนลำ</p>
+                                    <span className="mb-1.5 inline-block rounded-full bg-forest-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-forest-700 ring-1 ring-inset ring-forest-200/50">
+                                      {TYPE_LABELS[boat.type] || 'อื่นๆ'}
+                                    </span>
+                                    <h3 className="text-base font-bold text-forest-900">{boat.name}</h3>
+                                  </div>
+                                  
+                                  {/* Mobile Stepper / Price (if we wanted to move it, but keeping it simple) */}
+                                </div>
+                                
+                                {boat.description && (
+                                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-charcoal-400">{boat.description}</p>
+                                )}
+                                
+                                <div className="mt-4 flex flex-wrap items-end justify-between gap-4 border-t border-stone-100 pt-4 sm:mt-auto">
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center gap-1.5 text-xs font-medium text-charcoal-500">
+                                      <Users size={14} className="text-forest-500" />
+                                      <span>นั่งได้สูงสุด {boat.capacity} คน/ลำ</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-1.5">
+                                      <span className="text-lg font-extrabold tracking-tight text-forest-900">
+                                        ฿{Number(boat.price_per_hour).toLocaleString()}
+                                      </span>
+                                      <span className="text-xs font-medium text-charcoal-500">/ลำ</span>
+                                      {availHint && (
+                                        <div className="ml-2 flex items-center gap-1.5 border-l border-stone-200 pl-3">
+                                          <span className={`text-xs font-bold ${isFull || !hasRound ? 'text-rose-500' : 'text-forest-600'}`}>
+                                            {availHint}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex flex-col items-end gap-1.5">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-charcoal-300">ระบุจำนวน</p>
                                     <Stepper
                                       value={boatCount}
                                       min={0}
-                                      max={remainingInSlot}
+                                      max={stepperMax}
                                       ariaLabel={`จำนวนลำ ${boat.name}`}
                                       onChange={(v) => handleBoatCountChange(boat.id, v)}
                                     />
                                   </div>
                                 </div>
-                              )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -760,6 +971,17 @@ function KayaksPageContent(): React.ReactElement {
                 </div>
               )}
 
+              {/* banner เตือนเรือไม่พอ — แสดง realtime ไม่ต้องรอกดปุ่ม */}
+              {selectedSlot && cartLines.length > 0 && !slotFitsCart(selectedSlot, cartLines) && (
+                <div className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-xs text-rose-700">
+                  <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                  <p>
+                    รอบ {formatTimeRange(selectedSlot.start_time, selectedSlot.end_time)} มีเรือว่างไม่พอสำหรับจำนวนที่เลือก
+                    — ลดจำนวนลำหรือเลือกรอบอื่น
+                  </p>
+                </div>
+              )}
+
               <div className="mt-5 flex items-center justify-between rounded-xl bg-forest-900 px-4 py-3.5">
                 <span className="text-sm font-bold text-cream-100">ราคารวม</span>
                 <span className="font-sans text-2xl font-extrabold leading-none text-cream-100">
@@ -771,21 +993,30 @@ function KayaksPageContent(): React.ReactElement {
                 const isDateInvalid = !selectedDate || (selectedDate === today && pastCutoffToday);
                 const hasNoCart = cartLines.length === 0;
                 const hasNoSlot = !selectedSlot;
+                const isSlotClosed = selectedSlot && !selectedSlot.available;
+                const isSlotFull = selectedSlot && selectedSlot.available && selectedSlot.remaining === 0;
                 const slotNotFit = selectedSlot && !slotFitsCart(selectedSlot, cartLines);
-                const isDisabled = bookingLoading || isDateInvalid || hasNoSlot || hasNoCart || slotNotFit;
-
+                
+                const isDisabled = bookingLoading || isDateInvalid || hasNoSlot || isSlotClosed || isSlotFull || hasNoCart || slotNotFit;
+                
                 let btnText = 'ยืนยันการจองเรือ';
                 if (bookingLoading) btnText = 'กำลังจอง...';
                 else if (isDateInvalid) btnText = 'กรุณาเลือกวันที่';
                 else if (hasNoSlot) btnText = 'กรุณาเลือกรอบเวลา';
-                else if (hasNoCart) btnText = 'กรุณาระบุจำนวนผู้โดยสาร';
+                else if (isSlotClosed) btnText = 'รอบเวลานี้ปิดรับจองแล้ว';
+                else if (isSlotFull) btnText = 'รอบเวลานี้เต็มแล้ว';
+                else if (hasNoCart) btnText = 'กรุณาระบุจำนวนเรือ';
                 else if (slotNotFit) btnText = 'เรือในรอบที่เลือกไม่พอ';
 
                 return (
                   <button
                     type="submit"
                     disabled={!!isDisabled}
-                    className={`btn-primary mt-5 w-full disabled:cursor-not-allowed ${slotNotFit ? 'disabled:bg-rose-100 disabled:text-rose-600 disabled:opacity-100' : 'disabled:opacity-50'}`}
+                    className={`btn-primary mt-5 w-full disabled:cursor-not-allowed ${
+                      (slotNotFit || isSlotClosed || isSlotFull) 
+                        ? 'disabled:bg-rose-100 disabled:text-rose-600 disabled:opacity-100' 
+                        : 'disabled:opacity-50'
+                    }`}
                   >
                     {btnText}
                   </button>

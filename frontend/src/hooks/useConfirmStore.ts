@@ -23,15 +23,15 @@ export const useConfirmStore = create<ConfirmState>((set) => ({
   cancelText: 'ยกเลิก',
   danger: true,
   onConfirm: () => {},
-
-  openConfirm: (options) => set({
-    isOpen: true,
+  
+  openConfirm: (options) => set({ 
+    isOpen: true, 
     ...options,
     confirmText: options.confirmText || 'ยืนยัน',
     cancelText: options.cancelText || 'ยกเลิก',
     danger: options.danger ?? true,
     description: options.description || 'การกระทำนี้ไม่สามารถย้อนกลับได้ คุณแน่ใจหรือไม่?'
   }),
-
+  
   closeConfirm: () => set({ isOpen: false }),
 }));

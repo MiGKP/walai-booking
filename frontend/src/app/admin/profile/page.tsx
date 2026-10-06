@@ -13,10 +13,10 @@ import {
   Facebook,
   MapPin,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 
 export default function AdminProfilePage() {
   const router = useRouter();
@@ -59,9 +59,9 @@ export default function AdminProfilePage() {
     try {
       const res = await api.put("/auth/profile", profile);
       updateUser(res.data.data);
-      toast.success("บันทึกข้อมูลสำเร็จ");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "บันทึกไม่สำเร็จ");
+      notify.success("บันทึกข้อมูลสำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "บันทึกไม่สำเร็จ"));
     } finally {
       setSaving(false);
     }
@@ -70,11 +70,11 @@ export default function AdminProfilePage() {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwords.new_password !== passwords.confirm) {
-      toast.error("รหัสผ่านใหม่ไม่ตรงกัน");
+      notify.error("รหัสผ่านใหม่ไม่ตรงกัน");
       return;
     }
     if (passwords.new_password.length < 6) {
-      toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+      notify.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
       return;
     }
     setChangingPw(true);
@@ -83,10 +83,10 @@ export default function AdminProfilePage() {
         current_password: passwords.current_password,
         new_password: passwords.new_password,
       });
-      toast.success("เปลี่ยนรหัสผ่านสำเร็จ");
+      notify.success("เปลี่ยนรหัสผ่านสำเร็จ");
       setPasswords({ current_password: "", new_password: "", confirm: "" });
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "เปลี่ยนรหัสผ่านไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "เปลี่ยนรหัสผ่านไม่สำเร็จ"));
     } finally {
       setChangingPw(false);
     }

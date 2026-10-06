@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { CalendarDays, Anchor, XCircle, CreditCard, Timer, Star, LayoutGrid, Clock3, ChevronDown, RefreshCw, CheckCircle2, Tag, MessageSquareWarning, AlertTriangle, LogIn, LogOut, Wallet, Users } from 'lucide-react';
-import api from '@/lib/api';
+import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { toastConfirm } from '@/lib/toastConfirm';
 import Link from 'next/link';
+import { toISODate } from '@/lib/date';
+import BoatAddonSection from '@/components/booking/BoatAddonSection';
 
 type BookingType = 'room' | 'kayak';
 type TabKey = 'all' | BookingType;
@@ -23,15 +25,54 @@ function DeadlineCell({ createdAt, dueDays }: { createdAt: string; dueDays: numb
 }
 
 const statusLabel: Record<string, string> = { pending: 'รอดำเนินการ', paid: 'รอตรวจสอบชำระเงิน', approved: 'ยืนยันแล้ว', cancelled: 'ยกเลิก', rejected: 'ถูกปฏิเสธ', checked_out: 'เช็คเอาต์แล้ว' };
-const statusClass: Record<string, string> = { pending: 'bg-orange-50 text-orange-700', paid: 'bg-blue-50 text-blue-700', approved: 'bg-forest-50 text-forest-700', cancelled: 'bg-stone-100 text-stone-500', rejected: 'bg-red-50 text-red-600', checked_out: 'bg-bamboo-50 text-bamboo-600' };
+const statusClass: Record<string, string> = { pending: 'bg-orange-50 text-orange-700', paid: 'bg-lagoon-50 text-lagoon-700', approved: 'bg-forest-50 text-forest-700', cancelled: 'bg-stone-100 text-stone-500', rejected: 'bg-red-50 text-red-600', checked_out: 'bg-bamboo-50 text-bamboo-600' };
 const paymentStatusLabel: Record<string, string> = { pending: 'ยังไม่ชำระ', paid: 'ชำระแล้ว' };
 
 // payment_status ค้างเป็น 'paid' ตลอดหลังส่งสลิป ไม่ถูกอัปเดตเมื่อเจ้าหน้าที่ปฏิเสธ/ยกเลิกภายหลัง
 // ถ้าโชว์คู่กับป้ายสถานะ "ถูกปฏิเสธ"/"ยกเลิก" จะดูขัดแย้งกันเอง จึงซ่อนไว้เมื่อ booking จบสถานะแล้วแบบนี้
 const isPaymentStatusStale = (status: string): boolean => status === 'rejected' || status === 'cancelled';
 
-function bookingId(b: any): number {
-  return b.id || b.room_booking_id || b.boat_booking_id;
+interface BookingRecord {
+  id?: number;
+  room_booking_id?: number;
+  boat_booking_id?: number;
+  room_name?: string;
+  kayak_name?: string;
+  status: string;
+  payment_status?: string | null;
+  payment_date?: string | null;
+  created_at: string;
+  check_in_date?: string;
+  check_out_date?: string;
+  check_in?: string;
+  check_out?: string;
+  booking_date?: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  total_price?: number | string;
+  reject_reason?: string | null;
+  checkin_at?: string | null;
+  checkout_at?: string | null;
+  special_request?: string | null;
+  adults?: number;
+  children?: number;
+  num_passengers?: number;
+  guests?: number;
+  guest_count?: number;
+  has_unused_boat_tickets?: boolean;
+  rooms?: Array<{ booking_room_id: number; room_name: string; room_number: string; status: string; type_name?: string }>;
+  boats?: Array<{ booking_boat_id: number; type_name?: string; num_passengers?: number; boat_count?: number }>;
+  promotions?: Array<{ name?: string; code?: string; discount_amount: number }>;
+}
+
+interface ReviewRecord {
+  room_booking_id: number;
+  type_name?: string | null;
+  room_name?: string | null;
+}
+
+function bookingId(b: BookingRecord): number {
+  return b.id || b.room_booking_id || b.boat_booking_id || 0;
 }
 
 // แถวรายละเอียด label + value ใช้จัด grid ให้อ่านง่าย
@@ -51,8 +92,8 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
 // stickyTabs: ใช้เมื่อ panel นี้อยู่ในกล่องที่ overflow-y-auto ของตัวเอง (เช่นหน้า /dashboard) เพื่อให้แถบ filter ทั้งหมด/ห้องพัก/เรือ ค้างอยู่ด้านบนเวลาเลื่อนรายการ
 export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: boolean; stickyTabs?: boolean }) {
   const [tab, setTab] = useState<TabKey>('all');
-  const [roomBookings, setRoomBookings] = useState<any[]>([]);
-  const [kayakBookings, setKayakBookings] = useState<any[]>([]);
+  const [roomBookings, setRoomBookings] = useState<BookingRecord[]>([]);
+  const [kayakBookings, setKayakBookings] = useState<BookingRecord[]>([]);
   const [paymentDueDays, setPaymentDueDays] = useState<number>(3);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,8 +127,8 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
       setRoomBookings(roomRes.data?.data || []);
       setKayakBookings(kayakRes.data?.data || []);
       const typesByBooking = new Map<number, Set<string>>();
-      (reviewsRes.data?.data || []).forEach((r: any) => {
-        const typeKey = r.type_name || r.room_name;
+      (reviewsRes.data?.data || []).forEach((r: ReviewRecord) => {
+        const typeKey = r.type_name || r.room_name || '';
         if (!typesByBooking.has(r.room_booking_id)) typesByBooking.set(r.room_booking_id, new Set());
         typesByBooking.get(r.room_booking_id)!.add(typeKey);
       });
@@ -112,8 +153,8 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
           else await api.put(`/kayaks/bookings/${id}/cancel`);
           toast.success('ยกเลิกการจองสำเร็จ');
           fetchBookings();
-        } catch (err: any) {
-          toast.error(err.response?.data?.message || 'ยกเลิกไม่สำเร็จ');
+        } catch (err: unknown) {
+          toast.error(getApiErrorMessage(err, 'ยกเลิกไม่สำเร็จ'));
         }
       }
     });
@@ -126,16 +167,16 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
   const sortedRooms = [...roomBookings].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const sortedKayaks = [...kayakBookings].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  const bookings: any[] = tab === 'all' ? combined : tab === 'room' ? sortedRooms : sortedKayaks;
+  const bookings: BookingRecord[] = tab === 'all' ? combined : tab === 'room' ? sortedRooms : sortedKayaks;
 
-  const renderBookingCard = (b: any, type: BookingType) => {
+  const renderBookingCard = (b: BookingRecord, type: BookingType) => {
     const bid = bookingId(b);
     const key = `${type}-${bid}`;
     const isExpanded = expandedIds.has(key);
     const briefDate =
       type === 'room'
-        ? `${new Date(b.check_in_date || b.check_in).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(b.check_out_date || b.check_out).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}`
-        : `${new Date(b.booking_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} · ${b.start_time?.slice(0, 5)} - ${b.end_time?.slice(0, 5)} น.`;
+        ? `${new Date(b.check_in_date || b.check_in || '').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(b.check_out_date || b.check_out || '').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}`
+        : `${new Date(b.booking_date ?? '').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} · ${b.start_time?.slice(0, 5)} - ${b.end_time?.slice(0, 5)} น.`;
 
     return (
       <div key={key} className="rounded-2xl border border-stone-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(18,60,48,0.02)]">
@@ -181,12 +222,12 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
                   <DetailRow
                     icon={<LogIn size={13} />}
                     label="เช็คอิน"
-                    value={new Date(b.check_in_date || b.check_in).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    value={new Date(b.check_in_date || b.check_in || '').toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
                   />
                   <DetailRow
                     icon={<LogOut size={13} />}
                     label="เช็คเอาต์"
-                    value={new Date(b.check_out_date || b.check_out).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    value={new Date(b.check_out_date || b.check_out || '').toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
                   />
                   <DetailRow
                     icon={<Users size={13} />}
@@ -223,7 +264,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
                   <DetailRow
                     icon={<CalendarDays size={13} />}
                     label="วันที่"
-                    value={new Date(b.booking_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    value={new Date(b.booking_date ?? '').toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
                   />
                   <DetailRow icon={<Clock3 size={13} />} label="เวลา" value={`${b.start_time?.slice(0, 5)} - ${b.end_time?.slice(0, 5)} น.`} />
                   <DetailRow icon={<Users size={13} />} label="ผู้โดยสาร" value={`${b.num_passengers} คน`} />
@@ -252,6 +293,15 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
                 ))}
               </ul>
             )}
+            {/* บัตรเสริมเรือของแต่ละห้อง — แสดงเฉพาะบิลที่ยังไม่จบ */}
+            {type === 'room' && ['pending', 'paid', 'approved'].includes(b.status) && Array.isArray(b.rooms) && b.rooms.map((line) => (
+              <BoatAddonSection
+                key={`addon-${line.booking_room_id}`}
+                bookingRoomId={line.booking_room_id}
+                roomBookingStatus={b.status}
+                onChanged={() => fetchBookings(true)}
+              />
+            ))}
             {type === 'kayak' && Array.isArray(b.boats) && b.boats.length > 0 && (
               <ul className="space-y-1 text-xs text-charcoal-500">
                 {b.boats.map((line: { booking_boat_id: number; type_name?: string; num_passengers?: number; boat_count?: number }) => (
@@ -316,6 +366,19 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
               </div>
               );
             })()}
+          </div>
+        )}
+
+                {b.has_unused_boat_tickets && b.status !== 'cancelled' && b.status !== 'rejected' && (
+          <div className="mt-4 border-t border-stone-100 pt-4">
+             <div className="rounded-xl border border-forest-300 bg-gradient-to-br from-forest-50 to-forest-100 p-4 text-center shadow-sm relative overflow-hidden">
+               <h3 className="font-sans text-sm font-bold text-forest-900 relative z-10 flex items-center justify-center gap-1.5 mb-2">
+                 คุณมีสิทธิ์จองเรือฟรี (จากโปรโมชั่นที่ใช้)
+               </h3>
+               <Link href={`/kayaks?room_booking_id=${bid}${b.check_in_date ? `&check_in=${toISODate(new Date(b.check_in_date))}` : ''}${b.check_out_date ? `&check_out=${toISODate(new Date(b.check_out_date))}` : ''}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-forest-900 px-6 py-2.5 text-xs font-bold text-white transition-colors hover:bg-forest-800 shadow-sm w-full">
+                 จองคิวเรือตอนนี้
+               </Link>
+             </div>
           </div>
         )}
 

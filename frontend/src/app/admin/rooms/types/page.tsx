@@ -23,10 +23,11 @@ import {
   Power,
   ChevronDown,
 } from "lucide-react";
-import api from "@/lib/api";
+import { PageHeader, Panel, Modal, EmptyState } from "@/components/admin/ui";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 import Link from "next/link";
 
 const VALID_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -101,7 +102,7 @@ export default function RoomTypesPage() {
       setRoomTypes(rtRes.data?.data || []);
       setAmenities(amRes.data?.data || []);
     } catch {
-      toast.error("ไม่สามารถโหลดข้อมูลได้");
+      notify.error("ไม่สามารถโหลดข้อมูลได้");
     } finally {
       setLoading(false);
     }
@@ -110,22 +111,22 @@ export default function RoomTypesPage() {
   const handleToggleStatus = async (id: number, currentStatus: boolean) => {
     try {
       await api.patch(`/rooms/${id}/status`, { status: !currentStatus });
-      toast.success(
+      notify.success(
         `เปลี่ยนสถานะเป็น ${!currentStatus ? "เปิดใช้งาน" : "ปิดใช้งาน"} เรียบร้อย`,
       );
       fetchData();
     } catch {
-      toast.error("เปลี่ยนสถานะไม่สำเร็จ");
+      notify.error("เปลี่ยนสถานะไม่สำเร็จ");
     }
   };
 
   const validateFile = (file: File) => {
     if (!VALID_IMAGE_TYPES.includes(file.type)) {
-      toast.error(`ไฟล์ ${file.name} ต้องเป็น JPG, PNG หรือ WEBP เท่านั้น`);
+      notify.error(`ไฟล์ ${file.name} ต้องเป็น JPG, PNG หรือ WEBP เท่านั้น`);
       return false;
     }
     if (file.size > MAX_FILE_SIZE) {
-      toast.error(`ไฟล์ ${file.name} มีขนาดเกิน 5MB`);
+      notify.error(`ไฟล์ ${file.name} มีขนาดเกิน 5MB`);
       return false;
     }
     return true;
@@ -174,7 +175,7 @@ export default function RoomTypesPage() {
   const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (galleryFiles.length + selectedFiles.length > MAX_GALLERY_COUNT) {
-      toast.error(
+      notify.error(
         `เพิ่มรูป Gallery ได้สูงสุด ${MAX_GALLERY_COUNT} รูปเท่านั้น`,
       );
       return;
@@ -240,14 +241,14 @@ export default function RoomTypesPage() {
     e.preventDefault();
 
     if (!coverFile) {
-      toast.error("กรุณาเลือกรูปปกห้องพัก");
+      notify.error("กรุณาเลือกรูปปกห้องพัก");
       return;
     }
 
     const numericPrice = Number(form.price);
     // ตรวจสอบราคาบังคับ
     if (!form.price || Number.isNaN(numericPrice) || numericPrice <= 0) {
-      toast.error("กรุณาระบุราคาห้องพักให้ถูกต้อง");
+      notify.error("กรุณาระบุราคาห้องพักให้ถูกต้อง");
       return;
     }
 
@@ -266,12 +267,12 @@ export default function RoomTypesPage() {
         gallery_images: galleryImages,
       });
 
-      toast.success("สร้างประเภทห้องพักสำเร็จ");
+      notify.success("สร้างประเภทห้องพักสำเร็จ");
       resetCreateForm();
       setShowCreateModal(false);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "สร้างประเภทห้องพักไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "สร้างประเภทห้องพักไม่สำเร็จ"));
     } finally {
       setSubmitting(false);
     }
@@ -285,10 +286,10 @@ export default function RoomTypesPage() {
     if (!deleteTargetId) return;
     try {
       await api.delete(`/rooms/${deleteTargetId}`);
-      toast.success("ลบประเภทห้องพักสำเร็จ");
+      notify.success("ลบประเภทห้องพักสำเร็จ");
       fetchData();
     } catch {
-      toast.error("ลบไม่สำเร็จ กรุณาตรวจสอบว่ามีห้องพักย่อยผูกอยู่หรือไม่");
+      notify.error("ลบไม่สำเร็จ กรุณาตรวจสอบว่ามีห้องพักย่อยผูกอยู่หรือไม่");
     } finally {
       setDeleteTargetId(null);
     }
@@ -332,7 +333,7 @@ export default function RoomTypesPage() {
       selectedFiles.length;
 
     if (currentTotal > MAX_GALLERY_COUNT) {
-      toast.error(
+      notify.error(
         `รวมรูปเดิมและรูปใหม่แล้วไม่สามารถเกิน ${MAX_GALLERY_COUNT} รูปได้`,
       );
       return;
@@ -395,7 +396,7 @@ export default function RoomTypesPage() {
         gallery_images: finalGallery,
         status: editingRoom.status,
       });
-      toast.success("แก้ไขประเภทห้องพักสำเร็จ");
+      notify.success("แก้ไขประเภทห้องพักสำเร็จ");
 
       if (editCoverPreview) URL.revokeObjectURL(editCoverPreview);
       editGalleryPreviews.forEach((url) => URL.revokeObjectURL(url));
@@ -407,8 +408,8 @@ export default function RoomTypesPage() {
       setEditGalleryFiles([]);
       setEditGalleryPreviews([]);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "แก้ไขไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "แก้ไขไม่สำเร็จ"));
     } finally {
       setEditUploading(false);
     }
@@ -426,51 +427,41 @@ export default function RoomTypesPage() {
   if (!ready) return null;
 
   return (
-    <div className="w-full min-h-screen flex flex-col font-sans space-y-6 pb-12 text-stone-800">
+    <div className="space-y-6 pb-12">
       {/* Header & Page Title */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-stone-200/80">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 bg-[#0b3b2c]/10 text-[#0b3b2c] rounded-xl">
-              <BedDouble size={20} />
-            </span>
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-              จัดการประเภทห้องพัก
-            </h1>
-          </div>
-          <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            เพิ่ม ดู และแก้ไขประเภทห้องพักหลักในระบบสวนวลัยรุกขเวช
-          </p>
-        </div>
+      <PageHeader
+        title="จัดการประเภทห้องพัก"
+        description="เพิ่ม ดู และแก้ไขประเภทห้องพักหลักในระบบสวนวลัยรุกขเวช"
+        actions={
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2.5 bg-[#0b3b2c] hover:bg-[#07271d] text-white rounded-xl font-bold text-xs shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer active:scale-98"
+            >
+              <Plus size={16} />
+              เพิ่มประเภทห้องพัก
+            </button>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2.5 bg-[#0b3b2c] hover:bg-[#07271d] text-white rounded-xl font-bold text-xs shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer active:scale-98"
-          >
-            <Plus size={16} />
-            เพิ่มประเภทห้องพัก
-          </button>
-
-          <div className="px-3.5 py-2 bg-white rounded-xl border border-stone-200/80 shadow-xs flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
-              <Layers size={18} />
-            </div>
-            <div>
-              <span className="text-xs font-semibold text-stone-400 block leading-tight">
-                ประเภทห้องทั้งหมด
-              </span>
-              <span className="text-xs font-bold text-[#0b3b2c]">
-                {roomTypes.length} รายการ
-              </span>
+            <div className="px-3.5 py-2 bg-white rounded-xl border border-stone-200/80 shadow-xs flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
+                <Layers size={18} />
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-stone-400 block leading-tight">
+                  ประเภทห้องทั้งหมด
+                </span>
+                <span className="text-xs font-bold text-[#0b3b2c]">
+                  {roomTypes.length} รายการ
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Table List Section */}
-      <div className="bg-white border border-stone-200/80 rounded-2xl shadow-xs overflow-hidden flex flex-col min-h-[500px]">
+      <Panel className="!p-0 min-h-[500px] overflow-hidden flex flex-col">
         {/* Header & Search */}
         <div className="p-4 sm:p-5 border-b border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-50/50">
           <div className="flex items-center gap-2.5">
@@ -478,7 +469,7 @@ export default function RoomTypesPage() {
             <h2 className="text-base font-bold text-stone-800">
               รายการประเภทห้องพักทั้งหมด
             </h2>
-            <span className="px-2.5 py-0.5 bg-emerald-50 text-[#0b3b2c] border border-emerald-100 rounded-full text-xs font-bold">
+            <span className="px-2.5 py-0.5 bg-forest-50 text-[#0b3b2c] border border-forest-100 rounded-full text-xs font-bold">
               {filteredRoomTypes.length}
             </span>
           </div>
@@ -533,17 +524,8 @@ export default function RoomTypesPage() {
                 </tr>
               ) : filteredRoomTypes.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center text-stone-400">
-                    <Layers
-                      size={40}
-                      className="mx-auto mb-3 text-stone-300 stroke-[1.5]"
-                    />
-                    <p className="text-sm font-semibold text-stone-600">
-                      ไม่พบประเภทห้องพัก
-                    </p>
-                    <p className="text-xs text-stone-400 mt-1">
-                      ลองเปลี่ยนคำค้นหา หรือกดเพิ่มประเภทห้องพักใหม่
-                    </p>
+                  <td colSpan={7} className="p-0">
+                    <EmptyState title="ไม่พบประเภทห้องพัก" description="ลองเปลี่ยนคำค้นหา หรือกดเพิ่มประเภทห้องพักใหม่" />
                   </td>
                 </tr>
               ) : (
@@ -598,7 +580,7 @@ export default function RoomTypesPage() {
                     <td className="px-4 py-3.5 whitespace-nowrap">
                       <Link
                         href={`/admin/rooms/single?type_id=${rt.id}`}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-[#0b3b2c] hover:bg-emerald-100 border border-emerald-200/60 transition-all group"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-forest-50 text-[#0b3b2c] hover:bg-forest-100 border border-forest-200/60 transition-all group"
                         title="เปิดหน้าจัดการห้อง — แสดงโซนและเลขห้องถัดไปของประเภทนี้"
                       >
                         <DoorClosed size={13} />
@@ -638,13 +620,13 @@ export default function RoomTypesPage() {
                         onClick={() => handleToggleStatus(rt.id, rt.status)}
                         className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                           rt.status
-                            ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                            ? "bg-forest-100 text-forest-800 hover:bg-forest-200"
                             : "bg-stone-200 text-stone-600 hover:bg-stone-300"
                         }`}
                         title="คลิกเพื่อเปิด/ปิดการใช้งาน"
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full ${rt.status ? "bg-emerald-600" : "bg-stone-400"}`}
+                          className={`w-1.5 h-1.5 rounded-full ${rt.status ? "bg-forest-600" : "bg-stone-400"}`}
                         />
                         {rt.status ? "เปิดใช้งาน" : "ปิดใช้งาน"}
                       </button>
@@ -675,55 +657,21 @@ export default function RoomTypesPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Panel>
 
       {/* Modal: Create Room Type */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[85vh]">
-            {/* Header */}
-            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#0b3b2c] flex items-center justify-center font-bold">
-                  <PlusCircle size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-800">
-                    เพิ่มประเภทห้องพักใหม่
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    กรอกข้อมูลเพื่อสร้างประเภทห้องพักในระบบ
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreateModal(false);
-                  resetCreateForm();
-                }}
-                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Form Content */}
-            <form
-              onSubmit={handleSubmit}
-              className="flex flex-col flex-1 overflow-hidden"
-            >
-              <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">
+      <Modal open={showCreateModal} title="เพิ่มประเภทห้องพักใหม่" onClose={() => { setShowCreateModal(false); resetCreateForm(); }}>
+        <form onSubmit={handleSubmit} className="flex flex-col space-y-5">
                 {/* 1. ชื่อประเภทห้อง */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  <label className="block text-xs font-semibold text-charcoal-700 mb-2">
                     ชื่อประเภทห้อง <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     placeholder="เช่น วิลล่าริมน้ำ, เต็นท์โดม VIP"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-4 focus:ring-[#0b3b2c]/10 transition-all"
+                    className="w-full px-4 py-3 bg-charcoal-50 border border-charcoal-200 rounded-xl text-sm font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-4 focus:ring-[#0b3b2c]/10 transition-all"
                     value={form.type_name}
                     onChange={(e) =>
                       setForm({ ...form, type_name: e.target.value })
@@ -733,12 +681,12 @@ export default function RoomTypesPage() {
 
                 {/* 2. รายละเอียด */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  <label className="block text-xs font-semibold text-charcoal-700 mb-2">
                     รายละเอียด
                   </label>
                   <textarea
                     placeholder="บรรยากาศห้องพัก วิว และคำอธิบายเพิ่มเติม..."
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-4 focus:ring-[#0b3b2c]/10 transition-all resize-none"
+                    className="w-full px-4 py-3 bg-charcoal-50 border border-charcoal-200 rounded-xl text-sm font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-4 focus:ring-[#0b3b2c]/10 transition-all resize-none"
                     rows={3}
                     value={form.description}
                     onChange={(e) =>
@@ -750,10 +698,10 @@ export default function RoomTypesPage() {
                 {/* 3. ผู้เข้าพัก & ราคา */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-2">
+                    <label className="block text-xs font-semibold text-charcoal-700 mb-2">
                       ผู้เข้าพัก (คน) <span className="text-rose-500">*</span>
                     </label>
-                    <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#0b3b2c] focus-within:ring-4 focus-within:ring-[#0b3b2c]/10 transition-all">
+                    <div className="flex items-center bg-charcoal-50 border border-charcoal-200 rounded-xl overflow-hidden focus-within:border-[#0b3b2c] focus-within:ring-4 focus-within:ring-[#0b3b2c]/10 transition-all">
                       <button
                         type="button"
                         onClick={() =>
@@ -762,7 +710,7 @@ export default function RoomTypesPage() {
                             capacity: Math.max(1, (form.capacity || 1) - 1),
                           })
                         }
-                        className="px-3 py-3 text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors font-bold text-sm cursor-pointer border-r border-slate-200 select-none"
+                        className="px-3 py-3 text-charcoal-500 hover:text-charcoal-800 hover:bg-charcoal-200/60 transition-colors font-bold text-sm cursor-pointer border-r border-charcoal-200 select-none"
                       >
                         -
                       </button>
@@ -770,7 +718,7 @@ export default function RoomTypesPage() {
                         type="number"
                         required
                         min="1"
-                        className="w-full text-center bg-transparent py-3 text-sm font-medium text-slate-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-full text-center bg-transparent py-3 text-sm font-medium text-charcoal-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         value={form.capacity}
                         onChange={(e) =>
                           setForm({
@@ -787,21 +735,21 @@ export default function RoomTypesPage() {
                             capacity: (form.capacity || 0) + 1,
                           })
                         }
-                        className="px-3 py-3 text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors font-bold text-sm cursor-pointer border-l border-slate-200 select-none"
+                        className="px-3 py-3 text-charcoal-500 hover:text-charcoal-800 hover:bg-charcoal-200/60 transition-colors font-bold text-sm cursor-pointer border-l border-charcoal-200 select-none"
                       >
                         +
                       </button>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-2">
+                    <label className="block text-xs font-semibold text-charcoal-700 mb-2">
                       ราคา/คืน (บาท) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
                       required
                       min="0"
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-4 focus:ring-[#0b3b2c]/10 transition-all"
+                      className="w-full px-4 py-3 bg-charcoal-50 border border-charcoal-200 rounded-xl text-sm font-medium text-charcoal-800 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-4 focus:ring-[#0b3b2c]/10 transition-all"
                       value={form.price}
                       onChange={(e) =>
                         setForm({ ...form, price: e.target.value })
@@ -813,7 +761,7 @@ export default function RoomTypesPage() {
                 {/* 4. สิ่งอำนวยความสะดวก */}
                 <div className="relative">
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-xs font-semibold text-charcoal-700">
                       สิ่งอำนวยความสะดวก
                     </label>
                     <Link
@@ -829,7 +777,7 @@ export default function RoomTypesPage() {
                     onClick={() =>
                       setIsAmenityDropdownOpen(!isAmenityDropdownOpen)
                     }
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 flex items-center justify-between cursor-pointer hover:bg-slate-100/80 transition-all"
+                    className="w-full px-4 py-3 bg-charcoal-50 border border-charcoal-200 rounded-xl text-xs font-medium text-charcoal-700 flex items-center justify-between cursor-pointer hover:bg-charcoal-100/80 transition-all"
                   >
                     <span>
                       {form.amenities.length > 0
@@ -838,7 +786,7 @@ export default function RoomTypesPage() {
                     </span>
                     <ChevronDown
                       size={16}
-                      className={`text-slate-400 transition-transform ${isAmenityDropdownOpen ? "rotate-180" : ""}`}
+                      className={`text-charcoal-400 transition-transform ${isAmenityDropdownOpen ? "rotate-180" : ""}`}
                     />
                   </button>
 
@@ -850,7 +798,7 @@ export default function RoomTypesPage() {
                         .map((a) => (
                           <span
                             key={a.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-[#0b3b2c] text-xs font-semibold rounded-lg border border-emerald-100"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-forest-50 text-[#0b3b2c] text-xs font-semibold rounded-lg border border-forest-100"
                           >
                             {a.name}
                             <button
@@ -867,15 +815,15 @@ export default function RoomTypesPage() {
 
                   {/* Floating Dropdown */}
                   {isAmenityDropdownOpen && (
-                    <div className="absolute z-20 left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl max-h-56 overflow-y-auto p-2 space-y-1">
+                    <div className="absolute z-20 left-0 right-0 mt-2 bg-white border border-charcoal-100 rounded-2xl shadow-xl max-h-56 overflow-y-auto p-2 space-y-1">
                       {/* ตัวเลือก: เลือกทั้งหมด / ยกเลิกทั้งหมด */}
                       {amenities.length > 0 && (
                         <>
                           <label
                             className={`flex items-center gap-3 p-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                               form.amenities.length === amenities.length
-                                ? "bg-emerald-100/60 text-[#0b3b2c]"
-                                : "text-slate-800 hover:bg-slate-100"
+                                ? "bg-forest-100/60 text-[#0b3b2c]"
+                                : "text-charcoal-800 hover:bg-charcoal-100"
                             }`}
                           >
                             <input
@@ -893,7 +841,7 @@ export default function RoomTypesPage() {
                                 : "เลือกทั้งหมด"}
                             </span>
                           </label>
-                          <div className="my-1 border-b border-slate-100" />
+                          <div className="my-1 border-b border-charcoal-100" />
                         </>
                       )}
 
@@ -905,8 +853,8 @@ export default function RoomTypesPage() {
                             key={am.id}
                             className={`flex items-center gap-3 p-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                               checked
-                                ? "bg-emerald-50 text-[#0b3b2c]"
-                                : "text-slate-700 hover:bg-slate-50"
+                                ? "bg-forest-50 text-[#0b3b2c]"
+                                : "text-charcoal-700 hover:bg-charcoal-50"
                             }`}
                           >
                             <input
@@ -926,10 +874,10 @@ export default function RoomTypesPage() {
                 {/* 5. โซนจัดการรูปภาพ (Hybrid Grid + Dynamic Add Button) */}
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-xs font-semibold text-charcoal-700">
                       รูปภาพห้องพัก <span className="text-rose-500">*</span>
                     </label>
-                    <span className="text-xs font-medium text-slate-400">
+                    <span className="text-xs font-medium text-charcoal-400">
                       รูปปก + รูปประกอบ ({galleryPreviews.length}/
                       {MAX_GALLERY_COUNT})
                     </span>
@@ -938,7 +886,7 @@ export default function RoomTypesPage() {
                   {/* Hybrid Grid Container */}
                   <div className="grid grid-cols-3 gap-2">
                     {/* ฝั่งซ้าย: รูปปกหลัก (กินพื้นที่ 2 คอลัมน์) */}
-                    <div className="col-span-2 relative h-40 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 group">
+                    <div className="col-span-2 relative h-40 rounded-2xl overflow-hidden border border-charcoal-200 bg-charcoal-50 group">
                       {coverPreview ? (
                         <>
                           <img
@@ -946,10 +894,10 @@ export default function RoomTypesPage() {
                             alt="Cover Preview"
                             className="w-full h-full object-cover"
                           />
-                          <span className="absolute top-2 left-2 bg-slate-900/70 text-white text-xs font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                          <span className="absolute top-2 left-2 bg-charcoal-900/70 text-white text-xs font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
                             รูปปกหลัก
                           </span>
-                          <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <div className="absolute inset-0 bg-charcoal-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <button
                               type="button"
                               onClick={() => {
@@ -971,18 +919,18 @@ export default function RoomTypesPage() {
                           onDrop={handleDropCover}
                           className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed rounded-2xl transition-all cursor-pointer p-3 text-center ${
                             isDraggingCover
-                              ? "border-[#0b3b2c] bg-emerald-50/50"
-                              : "border-slate-200 hover:border-slate-300 bg-slate-50/50 hover:bg-slate-50"
+                              ? "border-[#0b3b2c] bg-forest-50/50"
+                              : "border-charcoal-200 hover:border-charcoal-300 bg-charcoal-50/50 hover:bg-charcoal-50"
                           }`}
                         >
                           <UploadCloud
                             size={22}
-                            className="text-slate-400 mb-1"
+                            className="text-charcoal-400 mb-1"
                           />
-                          <p className="text-xs font-semibold text-slate-700">
+                          <p className="text-xs font-semibold text-charcoal-700">
                             อัปโหลดรูปปกหลัก
                           </p>
-                          <p className="text-xs text-slate-400 mt-0.5">
+                          <p className="text-xs text-charcoal-400 mt-0.5">
                             ลากไฟล์มาวาง หรือคลิกที่นี่
                           </p>
                           <input
@@ -1007,7 +955,7 @@ export default function RoomTypesPage() {
                           return (
                             <div
                               key={idx}
-                              className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50 group h-full"
+                              className="relative rounded-xl overflow-hidden border border-charcoal-200 bg-charcoal-50 group h-full"
                             >
                               <img
                                 src={url}
@@ -1017,7 +965,7 @@ export default function RoomTypesPage() {
                               <button
                                 type="button"
                                 onClick={() => removeGalleryFile(idx)}
-                                className="absolute inset-0 bg-slate-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                                className="absolute inset-0 bg-charcoal-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
                               >
                                 <X size={14} />
                               </button>
@@ -1032,7 +980,7 @@ export default function RoomTypesPage() {
                           return (
                             <label
                               key={idx}
-                              className="flex flex-col items-center justify-center w-full h-full border border-dashed border-slate-300 hover:border-[#0b3b2c] rounded-xl bg-slate-50/50 hover:bg-emerald-50/30 cursor-pointer text-slate-500 hover:text-[#0b3b2c] transition-all"
+                              className="flex flex-col items-center justify-center w-full h-full border border-dashed border-charcoal-300 hover:border-[#0b3b2c] rounded-xl bg-charcoal-50/50 hover:bg-forest-50/30 cursor-pointer text-charcoal-500 hover:text-[#0b3b2c] transition-all"
                             >
                               <PlusCircle size={18} />
                               <span className="text-xs font-semibold mt-1">
@@ -1052,7 +1000,7 @@ export default function RoomTypesPage() {
                         return (
                           <div
                             key={idx}
-                            className="rounded-xl border border-slate-100 bg-slate-50/30 h-full"
+                            className="rounded-xl border border-charcoal-100 bg-charcoal-50/30 h-full"
                           />
                         );
                       })}
@@ -1068,7 +1016,7 @@ export default function RoomTypesPage() {
                         return (
                           <div
                             key={idx}
-                            className="relative h-20 rounded-xl overflow-hidden border border-slate-200 group"
+                            className="relative h-20 rounded-xl overflow-hidden border border-charcoal-200 group"
                           >
                             <img
                               src={url}
@@ -1078,7 +1026,7 @@ export default function RoomTypesPage() {
                             <button
                               type="button"
                               onClick={() => removeGalleryFile(idx)}
-                              className="absolute inset-0 bg-slate-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                              className="absolute inset-0 bg-charcoal-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
                             >
                               <X size={14} />
                             </button>
@@ -1088,7 +1036,7 @@ export default function RoomTypesPage() {
 
                       {/* ปุ่มเพิ่มรูปภาพในแถบล่าง (แสดงเมื่อมีรูป >= 2 และยังไม่ครบจำนวนสูงสุด) */}
                       {galleryPreviews.length < MAX_GALLERY_COUNT && (
-                        <label className="flex flex-col items-center justify-center h-20 border border-dashed border-slate-300 hover:border-[#0b3b2c] rounded-xl bg-slate-50/50 hover:bg-emerald-50/30 cursor-pointer text-slate-500 hover:text-[#0b3b2c] transition-all">
+                        <label className="flex flex-col items-center justify-center h-20 border border-dashed border-charcoal-300 hover:border-[#0b3b2c] rounded-xl bg-charcoal-50/50 hover:bg-forest-50/30 cursor-pointer text-charcoal-500 hover:text-[#0b3b2c] transition-all">
                           <PlusCircle size={18} />
                           <span className="text-xs font-semibold mt-1">
                             เพิ่มรูป
@@ -1105,17 +1053,14 @@ export default function RoomTypesPage() {
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Footer */}
-              <div className="p-5 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
+              <div className="flex gap-3 w-full mt-6">
                 <button
                   type="button"
                   onClick={() => {
                     setShowCreateModal(false);
                     resetCreateForm();
                   }}
-                  className="flex-1 py-3 px-4 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-xs"
+                  className="flex-1 py-3 px-4 bg-white hover:bg-charcoal-100 border border-charcoal-200 text-charcoal-700 text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-xs"
                 >
                   ยกเลิก
                 </button>
@@ -1130,59 +1075,24 @@ export default function RoomTypesPage() {
                     "สร้างประเภทห้องพัก"
                   )}
                 </button>
-              </div>
-            </form>
-          </div>
         </div>
-      )}
+      </form>
+      </Modal>
 
       {/* Modal: Edit Room Type */}
-      {showEditModal && editingRoom && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
-            {/* Header */}
-            <div className="p-5 pb-4 border-b border-slate-100 flex items-start justify-between bg-white shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-emerald-50 text-[#0b3b2c] flex items-center justify-center shrink-0 border border-emerald-100/60">
-                  <Edit3 size={18} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-800">
-                    แก้ไขประเภทห้องพัก
-                  </h3>
-                  <p className="text-xs text-slate-400 font-medium mt-0.5">
-                    แก้ไขข้อมูลประเภทห้องพักในระบบ
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingRoom(null);
-                }}
-                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Form Content */}
-            <form
-              onSubmit={handleUpdateRoom}
-              className="flex flex-col flex-1 overflow-hidden"
-            >
-              <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+      {editingRoom && (
+      <Modal open={showEditModal} title="แก้ไขประเภทห้องพัก" onClose={() => { setShowEditModal(false); setEditingRoom(null); }}>
+        <form onSubmit={handleUpdateRoom} className="flex flex-col space-y-4">
                 {/* 1. ชื่อประเภทห้อง */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-charcoal-700 mb-1.5">
                     ชื่อประเภทห้อง <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     placeholder="เช่น วิลล่าริมน้ำ, เต็นท์โดม VIP"
-                    className="w-full px-4 py-2.5 bg-[#f8fafc] border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-2 focus:ring-[#0b3b2c]/10 transition-all"
+                    className="w-full px-4 py-2.5 bg-[#f8fafc] border border-charcoal-200/80 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-2 focus:ring-[#0b3b2c]/10 transition-all"
                     value={editingRoom.type_name || ""}
                     onChange={(e) =>
                       setEditingRoom({
@@ -1195,12 +1105,12 @@ export default function RoomTypesPage() {
 
                 {/* 2. รายละเอียด */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-charcoal-700 mb-1.5">
                     รายละเอียด
                   </label>
                   <textarea
                     placeholder="บรรยากาศห้องพัก วิว และคำอธิบายเพิ่มเติม..."
-                    className="w-full px-4 py-2.5 bg-[#f8fafc] border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-2 focus:ring-[#0b3b2c]/10 transition-all resize-none"
+                    className="w-full px-4 py-2.5 bg-[#f8fafc] border border-charcoal-200/80 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-2 focus:ring-[#0b3b2c]/10 transition-all resize-none"
                     rows={3}
                     value={editingRoom.description || ""}
                     onChange={(e) =>
@@ -1215,10 +1125,10 @@ export default function RoomTypesPage() {
                 {/* 3. ผู้เข้าพัก & ราคา */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    <label className="block text-xs font-semibold text-charcoal-700 mb-1.5">
                       ผู้เข้าพัก (คน) <span className="text-rose-500">*</span>
                     </label>
-                    <div className="flex items-center bg-[#f8fafc] border border-slate-200/80 rounded-xl overflow-hidden focus-within:border-[#0b3b2c] focus-within:ring-2 focus-within:ring-[#0b3b2c]/10 transition-all">
+                    <div className="flex items-center bg-[#f8fafc] border border-charcoal-200/80 rounded-xl overflow-hidden focus-within:border-[#0b3b2c] focus-within:ring-2 focus-within:ring-[#0b3b2c]/10 transition-all">
                       <button
                         type="button"
                         onClick={() =>
@@ -1230,7 +1140,7 @@ export default function RoomTypesPage() {
                             ),
                           })
                         }
-                        className="px-3 py-2.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors font-bold text-xs cursor-pointer border-r border-slate-200/80 select-none"
+                        className="px-3 py-2.5 text-charcoal-500 hover:text-charcoal-800 hover:bg-charcoal-200/60 transition-colors font-bold text-xs cursor-pointer border-r border-charcoal-200/80 select-none"
                       >
                         -
                       </button>
@@ -1239,7 +1149,7 @@ export default function RoomTypesPage() {
                         required
                         min="1"
                         placeholder="1"
-                        className="w-full text-center bg-transparent py-2.5 text-xs font-medium text-slate-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-full text-center bg-transparent py-2.5 text-xs font-medium text-charcoal-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         value={editingRoom.capacity || ""}
                         onChange={(e) =>
                           setEditingRoom({
@@ -1256,14 +1166,14 @@ export default function RoomTypesPage() {
                             capacity: (editingRoom.capacity || 0) + 1,
                           })
                         }
-                        className="px-3 py-2.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors font-bold text-xs cursor-pointer border-l border-slate-200/80 select-none"
+                        className="px-3 py-2.5 text-charcoal-500 hover:text-charcoal-800 hover:bg-charcoal-200/60 transition-colors font-bold text-xs cursor-pointer border-l border-charcoal-200/80 select-none"
                       >
                         +
                       </button>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    <label className="block text-xs font-semibold text-charcoal-700 mb-1.5">
                       ราคา/คืน (บาท) <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -1271,7 +1181,7 @@ export default function RoomTypesPage() {
                       required
                       min="0"
                       placeholder="ระบุราคาห้องพัก"
-                      className="w-full px-4 py-2.5 bg-[#f8fafc] border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-2 focus:ring-[#0b3b2c]/10 transition-all"
+                      className="w-full px-4 py-2.5 bg-[#f8fafc] border border-charcoal-200/80 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:bg-white focus:border-[#0b3b2c] focus:ring-2 focus:ring-[#0b3b2c]/10 transition-all"
                       value={editingRoom.price || ""}
                       onChange={(e) =>
                         setEditingRoom({
@@ -1284,12 +1194,12 @@ export default function RoomTypesPage() {
                 </div>
 
                 {/* 4. สถานะการใช้งาน (Toggle Switch) */}
-                <div className="flex items-center justify-between p-3.5 bg-[#f8fafc] border border-slate-200/80 rounded-xl">
+                <div className="flex items-center justify-between p-3.5 bg-[#f8fafc] border border-charcoal-200/80 rounded-xl">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 cursor-pointer">
+                    <label className="block text-xs font-semibold text-charcoal-700 cursor-pointer">
                       สถานะการใช้งาน
                     </label>
-                    <p className="text-xs font-medium text-slate-400 mt-0.5">
+                    <p className="text-xs font-medium text-charcoal-400 mt-0.5">
                       {editingRoom.status
                         ? "เปิดใช้งาน (ลูกค้าเห็นและจองได้)"
                         : "ปิดใช้งาน (ซ่อนจากหน้าแสดงผลฝั่งลูกค้า)"}
@@ -1307,7 +1217,7 @@ export default function RoomTypesPage() {
                       })
                     }
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      editingRoom.status ? "bg-[#0b3b2c]" : "bg-slate-300"
+                      editingRoom.status ? "bg-[#0b3b2c]" : "bg-charcoal-300"
                     }`}
                   >
                     <span
@@ -1321,7 +1231,7 @@ export default function RoomTypesPage() {
                 {/* 5. สิ่งอำนวยความสะดวก */}
                 <div className="relative">
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-xs font-semibold text-charcoal-700">
                       สิ่งอำนวยความสะดวก
                     </label>
                     <Link
@@ -1337,7 +1247,7 @@ export default function RoomTypesPage() {
                     onClick={() =>
                       setIsAmenityDropdownOpen(!isAmenityDropdownOpen)
                     }
-                    className="w-full px-4 py-2.5 bg-[#f8fafc] border border-slate-200/80 rounded-xl text-xs font-medium text-slate-500 flex items-center justify-between cursor-pointer hover:bg-slate-100/80 transition-all"
+                    className="w-full px-4 py-2.5 bg-[#f8fafc] border border-charcoal-200/80 rounded-xl text-xs font-medium text-charcoal-500 flex items-center justify-between cursor-pointer hover:bg-charcoal-100/80 transition-all"
                   >
                     <span>
                       {(editingRoom.amenities || editingRoom.amenity_ids || [])
@@ -1347,7 +1257,7 @@ export default function RoomTypesPage() {
                     </span>
                     <ChevronDown
                       size={16}
-                      className={`text-slate-400 transition-transform ${
+                      className={`text-charcoal-400 transition-transform ${
                         isAmenityDropdownOpen ? "rotate-180" : ""
                       }`}
                     />
@@ -1368,7 +1278,7 @@ export default function RoomTypesPage() {
                         .map((a: any) => (
                           <span
                             key={a.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-[#0b3b2c] text-xs font-semibold rounded-lg border border-emerald-100"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-forest-50 text-[#0b3b2c] text-xs font-semibold rounded-lg border border-forest-100"
                           >
                             {a.name}
                             <button
@@ -1389,7 +1299,7 @@ export default function RoomTypesPage() {
 
                   {/* Dropdown Menu */}
                   {isAmenityDropdownOpen && (
-                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
+                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-charcoal-200 rounded-xl shadow-xl max-h-48 overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar">
                       {amenities.map((am: any) => {
                         const checked = (
                           editingRoom.amenities ||
@@ -1401,8 +1311,8 @@ export default function RoomTypesPage() {
                             key={am.id}
                             className={`flex items-center gap-2.5 p-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                               checked
-                                ? "bg-emerald-50/70 text-[#0b3b2c] font-semibold"
-                                : "text-slate-700 hover:bg-slate-50"
+                                ? "bg-forest-50/70 text-[#0b3b2c] font-semibold"
+                                : "text-charcoal-700 hover:bg-charcoal-50"
                             }`}
                           >
                             <input
@@ -1426,10 +1336,10 @@ export default function RoomTypesPage() {
                 {/* 6. รูปภาพห้องพัก (Hybrid Layout ตรงตามแบบ) */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-xs font-semibold text-charcoal-700">
                       รูปภาพห้องพัก <span className="text-rose-500">*</span>
                     </label>
-                    <span className="text-xs font-medium text-slate-400">
+                    <span className="text-xs font-medium text-charcoal-400">
                       รูปปก + รูปประกอบ (
                       {(editingRoom.existing_gallery?.length || 0) +
                         editGalleryPreviews.length}
@@ -1439,7 +1349,7 @@ export default function RoomTypesPage() {
 
                   <div className="grid grid-cols-3 gap-2.5">
                     {/* ฝั่งซ้าย: รูปปกหลัก */}
-                    <div className="col-span-2 relative h-36 rounded-2xl overflow-hidden border border-slate-200/80 bg-[#f8fafc] group">
+                    <div className="col-span-2 relative h-36 rounded-2xl overflow-hidden border border-charcoal-200/80 bg-[#f8fafc] group">
                       {editCoverPreview || editingRoom.room_image ? (
                         <>
                           <img
@@ -1450,11 +1360,11 @@ export default function RoomTypesPage() {
                             alt="Cover Preview"
                             className="w-full h-full object-cover"
                           />
-                          <span className="absolute top-2 left-2 bg-slate-900/70 text-white text-xs font-semibold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                          <span className="absolute top-2 left-2 bg-charcoal-900/70 text-white text-xs font-semibold px-2 py-0.5 rounded-md backdrop-blur-xs">
                             {editCoverPreview ? "รูปปกใหม่" : "รูปปกปัจจุบัน"}
                           </span>
-                          <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <label className="bg-white/90 hover:bg-white text-slate-800 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
+                          <div className="absolute inset-0 bg-charcoal-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <label className="bg-white/90 hover:bg-white text-charcoal-800 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
                               <UploadCloud
                                 size={14}
                                 className="text-[#0b3b2c]"
@@ -1470,14 +1380,14 @@ export default function RoomTypesPage() {
                           </div>
                         </>
                       ) : (
-                        <label className="flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-slate-200 hover:border-slate-300 bg-[#f8fafc] hover:bg-slate-50 rounded-2xl transition-all cursor-pointer p-3 text-center">
-                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center mb-1 text-slate-400 shadow-xs">
+                        <label className="flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-charcoal-200 hover:border-charcoal-300 bg-[#f8fafc] hover:bg-charcoal-50 rounded-2xl transition-all cursor-pointer p-3 text-center">
+                          <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center mb-1 text-charcoal-400 shadow-xs">
                             <UploadCloud size={16} />
                           </div>
-                          <p className="text-xs font-semibold text-slate-700">
+                          <p className="text-xs font-semibold text-charcoal-700">
                             อัปโหลดรูปปกหลัก
                           </p>
-                          <p className="text-xs text-slate-400 mt-0.5">
+                          <p className="text-xs text-charcoal-400 mt-0.5">
                             ลากไฟล์มาวาง หรือคลิกที่นี่
                           </p>
                           <input
@@ -1522,7 +1432,7 @@ export default function RoomTypesPage() {
                               return (
                                 <div
                                   key={idx}
-                                  className="relative rounded-xl overflow-hidden border border-slate-200/80 bg-slate-50 group h-full"
+                                  className="relative rounded-xl overflow-hidden border border-charcoal-200/80 bg-charcoal-50 group h-full"
                                 >
                                   <img
                                     src={item.url}
@@ -1544,7 +1454,7 @@ export default function RoomTypesPage() {
                                         removeEditGalleryFile(item.index!);
                                       }
                                     }}
-                                    className="absolute inset-0 bg-slate-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                                    className="absolute inset-0 bg-charcoal-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
                                   >
                                     <X size={14} />
                                   </button>
@@ -1556,13 +1466,13 @@ export default function RoomTypesPage() {
                               return (
                                 <label
                                   key={idx}
-                                  className="flex flex-col items-center justify-center w-full h-full border border-dashed border-slate-200 hover:border-[#0b3b2c] rounded-xl bg-[#f8fafc] hover:bg-emerald-50/20 cursor-pointer text-slate-500 hover:text-[#0b3b2c] transition-all"
+                                  className="flex flex-col items-center justify-center w-full h-full border border-dashed border-charcoal-200 hover:border-[#0b3b2c] rounded-xl bg-[#f8fafc] hover:bg-forest-50/20 cursor-pointer text-charcoal-500 hover:text-[#0b3b2c] transition-all"
                                 >
                                   <PlusCircle
                                     size={18}
-                                    className="text-slate-400"
+                                    className="text-charcoal-400"
                                   />
-                                  <span className="text-xs font-medium text-slate-600 mt-0.5">
+                                  <span className="text-xs font-medium text-charcoal-600 mt-0.5">
                                     เพิ่มรูป
                                   </span>
                                   <input
@@ -1579,7 +1489,7 @@ export default function RoomTypesPage() {
                             return (
                               <div
                                 key={idx}
-                                className="rounded-xl border border-dashed border-slate-200/60 bg-[#f8fafc]/50 h-full"
+                                className="rounded-xl border border-dashed border-charcoal-200/60 bg-[#f8fafc]/50 h-full"
                               />
                             );
                           })}
@@ -1616,7 +1526,7 @@ export default function RoomTypesPage() {
                           return (
                             <div
                               key={idx}
-                              className="relative h-20 rounded-xl overflow-hidden border border-slate-200/80 group"
+                              className="relative h-20 rounded-xl overflow-hidden border border-charcoal-200/80 group"
                             >
                               <img
                                 src={item.url}
@@ -1638,7 +1548,7 @@ export default function RoomTypesPage() {
                                     removeEditGalleryFile(item.index!);
                                   }
                                 }}
-                                className="absolute inset-0 bg-slate-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                                className="absolute inset-0 bg-charcoal-900/50 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
                               >
                                 <X size={14} />
                               </button>
@@ -1647,9 +1557,9 @@ export default function RoomTypesPage() {
                         })}
 
                         {combinedGallery.length < (MAX_GALLERY_COUNT || 5) && (
-                          <label className="flex flex-col items-center justify-center h-20 border border-dashed border-slate-200 hover:border-[#0b3b2c] rounded-xl bg-[#f8fafc] hover:bg-emerald-50/20 cursor-pointer text-slate-500 hover:text-[#0b3b2c] transition-all">
-                            <PlusCircle size={18} className="text-slate-400" />
-                            <span className="text-xs font-medium text-slate-600 mt-0.5">
+                          <label className="flex flex-col items-center justify-center h-20 border border-dashed border-charcoal-200 hover:border-[#0b3b2c] rounded-xl bg-[#f8fafc] hover:bg-forest-50/20 cursor-pointer text-charcoal-500 hover:text-[#0b3b2c] transition-all">
+                            <PlusCircle size={18} className="text-charcoal-400" />
+                            <span className="text-xs font-medium text-charcoal-600 mt-0.5">
                               เพิ่มรูป
                             </span>
                             <input
@@ -1665,17 +1575,14 @@ export default function RoomTypesPage() {
                     );
                   })()}
                 </div>
-              </div>
-
-              {/* Footer Actions */}
-              <div className="p-5 bg-white border-t border-slate-100 flex items-center gap-3 shrink-0">
+              <div className="flex gap-3 w-full mt-6">
                 <button
                   type="button"
                   onClick={() => {
                     setShowEditModal(false);
                     setEditingRoom(null);
                   }}
-                  className="flex-1 py-3 px-4 bg-white hover:bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer text-center"
+                  className="flex-1 py-3 px-4 bg-white hover:bg-charcoal-50 border border-charcoal-200/80 text-charcoal-700 text-xs font-semibold rounded-xl transition-all cursor-pointer text-center"
                 >
                   ยกเลิก
                 </button>
@@ -1690,10 +1597,9 @@ export default function RoomTypesPage() {
                     "บันทึกการแก้ไข"
                   )}
                 </button>
-              </div>
-            </form>
-          </div>
         </div>
+      </form>
+      </Modal>
       )}
 
       {/* Lightbox Modal */}

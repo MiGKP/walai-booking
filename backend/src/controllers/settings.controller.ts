@@ -1,5 +1,36 @@
 import { Request, Response } from 'express';
+import { safeRollback } from '../utils/safe-rollback';
 import pool from '../config/database';
+import { AuthRequest } from '../middleware/auth.middleware';
+import type { PoolClient } from 'pg';
+import { parsePositiveInt } from '../utils/ids';
+
+// คืนค่า rollback แบบเงียบ เพื่อไม่ให้ error ของ ROLLBACK บดบัง error เดิม
+const rollbackQuietly = async (client: PoolClient): Promise<void> => {
+  try {
+    await safeRollback(client);
+  } catch (rollbackError) {
+    console.error('Rollback error:', rollbackError);
+  }
+};
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const isValidIsoDate = (value: string): boolean => {
+  if (!ISO_DATE_PATTERN.test(value)) return false;
+  const d = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+};
+
+// คืน undefined ถ้าไม่ได้ส่งค่ามา, คืน null ถ้าไม่ใช่จำนวนเต็มในช่วงที่กำหนด
+const parseQueryInt = (value: unknown, min: number, max: number): number | null | undefined => {
+  if (value === undefined || value === '') return undefined;
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) return null;
+  const n = Number(value);
+  return n >= min && n <= max ? n : null;
+};
+
+// ฟิลด์การชำระเงินที่ใช้เป็นปลายทางโอนเงิน แก้ไขได้เฉพาะ admin
+const ADMIN_ONLY_RESORT_FIELDS = ['promptpay_id', 'bank_account_no', 'bank_account_name'];
 
 // ─── Bank Accounts ─────────────────────────────────────────────────────────────
 
@@ -14,43 +45,64 @@ export const getBankAccounts = async (req: Request, res: Response): Promise<void
 };
 
 export const createBankAccount = async (req: Request, res: Response): Promise<void> => {
+  let client: PoolClient | null = null;
   try {
+    client = await pool.connect();
     const { bank_name, account_number, account_name, promptpay_id, is_primary } = req.body;
+    await client.query('BEGIN');
     if (is_primary) {
-      await pool.query(`UPDATE bank_accounts SET is_primary = false`);
+      await client.query(`UPDATE bank_accounts SET is_primary = false`);
     }
-    const result = await pool.query(
+    const result = await client.query(
       `INSERT INTO bank_accounts (bank_name, account_number, account_name, promptpay_id, is_primary)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [bank_name, account_number, account_name, promptpay_id || null, is_primary ?? false]
     );
+    await client.query('COMMIT');
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
+    if (client) await rollbackQuietly(client);
     console.error('Create bank account error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    client?.release();
   }
 };
 
 export const updateBankAccount = async (req: Request, res: Response): Promise<void> => {
+  let client: PoolClient | null = null;
   try {
+    client = await pool.connect();
     const { id } = req.params;
     const { bank_name, account_number, account_name, promptpay_id, is_primary } = req.body;
-    if (is_primary) {
-      await pool.query(`UPDATE bank_accounts SET is_primary = false`);
+    await client.query('BEGIN');
+
+    // ยืนยันว่ามีรายการที่จะแก้ไขจริงก่อน จึงค่อยล้างค่าหลักของรายการอื่น
+    const target = await client.query(
+      `SELECT bank_account_id FROM bank_accounts WHERE bank_account_id=$1 FOR UPDATE`,
+      [id]
+    );
+    if (target.rows.length === 0) {
+      await rollbackQuietly(client);
+      res.status(404).json({ success: false, message: 'Bank account not found' });
+      return;
     }
-    const result = await pool.query(
+    if (is_primary) {
+      await client.query(`UPDATE bank_accounts SET is_primary = false WHERE bank_account_id <> $1`, [id]);
+    }
+    const result = await client.query(
       `UPDATE bank_accounts SET bank_name=$1, account_number=$2, account_name=$3, promptpay_id=$4, is_primary=$5
        WHERE bank_account_id=$6 RETURNING *`,
       [bank_name, account_number, account_name, promptpay_id || null, is_primary ?? false, id]
     );
-    if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: 'Bank account not found' });
-      return;
-    }
+    await client.query('COMMIT');
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
+    if (client) await rollbackQuietly(client);
     console.error('Update bank account error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    client?.release();
   }
 };
 
@@ -72,6 +124,10 @@ export const deleteBankAccount = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// คอลัมน์ของ resort_info ที่ endpoint สาธารณะส่งออกได้ (ไม่ใช้ SELECT * เพื่อไม่ให้ข้อมูลอื่นรั่ว)
+const RESORT_PUBLIC_COLUMNS =
+  'id, name, address, coordinates, phone, email, facebook, line_id, operating_days, operating_hours, additional_terms, payment_due_days, bank_account_no, bank_account_name, promptpay_id, facilities, checkin_time_from, checkin_time_to, checkout_time, important_info, kids_policy, parking_info, infant_max_age_exclusive, boat_advance_booking_minutes';
+
 // ─── Resort Info (รวม contact + site info ใน table resort_info) ────────────────
 
 // ─── Resort Info (รวม contact + site info ใน table resort_info) ────────────────
@@ -82,7 +138,7 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
 
     // 1. ถ้าส่ง ?id=4 หรือ ?id=5 มา
     if (id) {
-      const result = await pool.query(`SELECT * FROM resort_info WHERE id = $1 LIMIT 1`, [id]);
+      const result = await pool.query(`SELECT ${RESORT_PUBLIC_COLUMNS} FROM resort_info WHERE id = $1 LIMIT 1`, [id]);
       res.json({ success: true, data: result.rows[0] || null });
       return;
     }
@@ -90,7 +146,7 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
     // 2. ถ้าส่ง ?name=ห้องพัก มา
     if (name) {
       const result = await pool.query(
-        `SELECT * FROM resort_info WHERE name LIKE $1 LIMIT 1`,
+        `SELECT ${RESORT_PUBLIC_COLUMNS} FROM resort_info WHERE name LIKE $1 LIMIT 1`,
         [`%${name}%`]
       );
       res.json({ success: true, data: result.rows[0] || null });
@@ -98,7 +154,7 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
     }
 
     // 3. ถ้าไม่ระบุ ให้คืนค่าทุกแถว (สถานที่หลัก=3, ห้องพัก=4, เรือ=5)
-    const result = await pool.query(`SELECT * FROM resort_info ORDER BY id ASC`);
+    const result = await pool.query(`SELECT ${RESORT_PUBLIC_COLUMNS} FROM resort_info ORDER BY id ASC`);
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get resort info error:', error);
@@ -108,13 +164,38 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
 
 export const upsertResortInfo = async (req: Request, res: Response): Promise<void> => {
   try {
-    // ดึง id จาก URL params หรือ request body
-    let targetId = req.params.id ? Number(req.params.id) : req.body.id ? Number(req.body.id) : null;
-    const targetName = req.body.name;
+    const role = (req as AuthRequest).user?.role;
+    const isAdmin = role === 'admin';
+    const staffTargetId = role === 'room_staff' ? 4 : role === 'boat_staff' ? 5 : null;
+    if (!isAdmin && staffTargetId === null) {
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
+    const rawId = req.params.id ?? req.body.id;
+    let targetId: number | null = null;
+    if (rawId !== undefined && rawId !== null && rawId !== '') {
+      targetId = parsePositiveInt(rawId);
+      if (targetId === null) {
+        res.status(400).json({ success: false, message: 'Invalid id' });
+        return;
+      }
+    }
+    const targetName = typeof req.body.name === 'string' ? req.body.name : '';
 
-    // 🎯 Mapping ID อัตโนมัติตามประเภท หากไม่ได้ส่ง id มาตรงๆ
-    if (!targetId && targetName) {
-      if (targetName.includes('ห้อง') || targetName.includes('room')) {
+    // Staff are scoped by role; editable names never select another resort row.
+    if (!isAdmin) {
+      if (targetId !== null && targetId !== staffTargetId) {
+        res.status(403).json({ success: false, message: 'ไม่มีสิทธิ์แก้ไขจุดบริการนี้' });
+        return;
+      }
+      targetId = staffTargetId;
+    }
+
+    // Preserve legacy admin name mapping when no explicit row was supplied.
+    if (!targetId) {
+      if (!targetName) {
+        targetId = 3;
+      } else if (targetName.includes('ห้อง') || targetName.includes('room')) {
         targetId = 4; // ID จุดบริการห้องพัก
       } else if (targetName.includes('เรือ') || targetName.includes('boat')) {
         targetId = 5; // ID จุดบริการเรือ
@@ -123,18 +204,49 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       }
     }
 
+    if (![3, 4, 5].includes(targetId)) {
+      res.status(400).json({ success: false, message: 'Invalid resort id' });
+      return;
+    }
+
+    if (req.body.infant_max_age_exclusive !== undefined) {
+      if (!isAdmin) {
+        res.status(403).json({ success: false, message: 'เฉพาะผู้ดูแลระบบที่แก้ไขเกณฑ์อายุเด็กเล็กได้' });
+        return;
+      }
+      const rawAge = req.body.infant_max_age_exclusive;
+      const age = typeof rawAge === 'number' || (typeof rawAge === 'string' && /^\d+$/.test(rawAge))
+        ? Number(rawAge) : NaN;
+      if (targetId !== 3 || !Number.isInteger(age) || age < 0 || age > 18) {
+        res.status(400).json({ success: false, message: 'เกณฑ์อายุเด็กเล็กต้องเป็นจำนวนเต็ม 0–18 และกำหนดที่สถานที่หลักเท่านั้น' });
+        return;
+      }
+    }
+
     const allowed = [
       'name', 'address', 'coordinates', 'phone', 'email', 'facebook', 'line_id',
       'operating_days', 'operating_hours', 'additional_terms', 'payment_due_days',
       'promptpay_id', 'bank_account_no', 'bank_account_name',
-      'checkin_time_from', 'checkin_time_to',
+      'checkin_time_from', 'checkin_time_to', 'checkout_time', 'important_info', 'kids_policy', 'parking_info',
+      'boat_advance_booking_minutes', 'infant_max_age_exclusive',
     ];
 
-    const updates: { col: string; val: any }[] = [];
-    for (const col of allowed) {
-      if (req.body[col] !== undefined) {
-        updates.push({ col, val: req.body[col] || null });
+    if (req.body.boat_advance_booking_minutes !== undefined) {
+      const rawMinutes = req.body.boat_advance_booking_minutes;
+      const minutes = typeof rawMinutes === 'number' || (typeof rawMinutes === 'string' && /^\d+$/.test(rawMinutes))
+        ? Number(rawMinutes) : NaN;
+      if (targetId !== 5 || !Number.isInteger(minutes) || minutes < 0 || minutes > 10080) {
+        res.status(400).json({ success: false, message: 'จองล่วงหน้าขั้นต่ำต้องเป็นจำนวนเต็มระหว่าง 0 ถึง 10080 นาที' });
+        return;
       }
+    }
+    const updates: { col: string; val: unknown }[] = [];
+    for (const col of allowed) {
+      if (req.body[col] === undefined) continue;
+      if (!isAdmin && ADMIN_ONLY_RESORT_FIELDS.includes(col)) continue;
+      // ค่าว่างเป็น NULL ตามเดิม แต่ค่าตัวเลข 0 และ false ต้องคงไว้
+      const raw = req.body[col];
+      updates.push({ col, val: ['infant_max_age_exclusive', 'boat_advance_booking_minutes'].includes(col) ? Number(raw) : raw === '' ? null : (raw ?? null) });
     }
 
     if (updates.length === 0) {
@@ -182,7 +294,11 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
 
 export const getBoatHours = async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await pool.query(`SELECT * FROM boat_operating_hours ORDER BY day_of_week ASC`);
+    const result = await pool.query(
+      `SELECT h.*, COALESCE((SELECT boat_advance_booking_minutes FROM resort_info WHERE id=5),60)
+         AS advance_booking_minutes
+       FROM boat_operating_hours h ORDER BY day_of_week ASC`
+    );
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get boat hours error:', error);
@@ -199,7 +315,9 @@ export const upsertBoatHours = async (req: Request, res: Response): Promise<void
     let result;
     if (existing.rows.length > 0) {
       result = await pool.query(
-        `UPDATE boat_operating_hours SET open_time=$1, close_time=$2, is_open=$3 WHERE day_of_week=$4 RETURNING *`,
+        `UPDATE boat_operating_hours
+         SET open_time=$1, close_time=$2, is_open=$3
+         WHERE day_of_week=$4 RETURNING *`,
         [open_time, close_time, is_open ?? true, day_of_week]
       );
     } else {
@@ -257,17 +375,30 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
   try {
     const { period, date, month, year } = req.query;
 
+    // ตรวจค่าก่อนนำไปใช้ใน SQL: date = YYYY-MM-DD, year/month = จำนวนเต็มในช่วงที่สมเหตุสมผล
+    const dateProvided = date !== undefined && date !== '';
+    if (dateProvided && (typeof date !== 'string' || !isValidIsoDate(date))) {
+      res.status(400).json({ success: false, message: 'date ต้องเป็นวันที่รูปแบบ YYYY-MM-DD' });
+      return;
+    }
+    const yearParam = parseQueryInt(year, 1970, 2100);
+    const monthParam = parseQueryInt(month, 1, 12);
+    if (yearParam === null || monthParam === null) {
+      res.status(400).json({ success: false, message: 'year และ month ต้องเป็นจำนวนเต็มที่อยู่ในช่วงที่ถูกต้อง' });
+      return;
+    }
+
     const summaryParams: any[] = [];
     const chartParams: any[] = [];
     let whereClause = '';
     let chartWhereClause = '';
 
-    if (period === 'day' && date) {
+    if (period === 'day' && typeof date === 'string' && date) {
       summaryParams.push(date);
       whereClause = `WHERE DATE(created_at) = $1`;
     } else {
-      const y = (period === 'month' && year) ? Number(year) : new Date().getFullYear();
-      const m = (period === 'month' && month) ? Number(month) : new Date().getMonth() + 1;
+      const y = (period === 'month' && yearParam !== undefined) ? yearParam : new Date().getFullYear();
+      const m = (period === 'month' && monthParam !== undefined) ? monthParam : new Date().getMonth() + 1;
       summaryParams.push(y, m);
       chartParams.push(y, m);
       whereClause = `WHERE EXTRACT(YEAR FROM created_at) = $1 AND EXTRACT(MONTH FROM created_at) = $2`;
@@ -333,6 +464,39 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error) {
     console.error('Get stats error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// นโยบายคืนเงินบัตรเสริมที่ชำระแล้ว: คืนเต็มจำนวนถ้ายกเลิกก่อนเข้าพัก full_refund_hours ชั่วโมง ที่เหลือคืน late_refund_percent
+export const getCancellationPolicy = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await pool.query(
+      `SELECT full_refund_hours, late_refund_percent, updated_at FROM cancellation_policies WHERE id = 1`
+    );
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('Get cancellation policy error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const upsertCancellationPolicy = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const body = req.body as Record<string, unknown>;
+    const result = await pool.query(
+      `INSERT INTO cancellation_policies (id, full_refund_hours, late_refund_percent, updated_at)
+       VALUES (1, $1, $2, NOW())
+       ON CONFLICT (id) DO UPDATE
+         SET full_refund_hours = EXCLUDED.full_refund_hours,
+             late_refund_percent = EXCLUDED.late_refund_percent,
+             updated_at = NOW()
+       RETURNING full_refund_hours, late_refund_percent, updated_at`,
+      [Number(body.full_refund_hours), Number(body.late_refund_percent)]
+    );
+    res.json({ success: true, message: 'บันทึกนโยบายการคืนเงินสำเร็จ', data: result.rows[0] });
+  } catch (error) {
+    console.error('Upsert cancellation policy error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

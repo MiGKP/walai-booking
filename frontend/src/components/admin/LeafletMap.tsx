@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Search, Loader2, Navigation, MapPin } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { notify } from "@/lib/admin-notify";
 
 const customIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -17,7 +17,7 @@ const customIcon = new L.Icon({
 const PRESET_LOCATIONS = [
   {
     name: 'สถาบันฯ (สถานีบ้านเกิ้ง)',
-    coords: [16.219313, 103.329219] as [number, number], // 📍 689H+RM8
+    coords: [16.219313, 103.329219] as [number, number], // 689H+RM8
   },
   {
     name: 'สถาบันฯ (สถานีนาดูน)',
@@ -96,10 +96,10 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
         const lon = parseFloat(data[0].lon);
         setPosition([lat, lon]);
       } else {
-        toast.error('ไม่พบสถานที่ดังกล่าว ลองพิมพ์ชื่ออำเภอ/จังหวัด');
+        notify.error('ไม่พบสถานที่ดังกล่าว ลองพิมพ์ชื่ออำเภอ/จังหวัด');
       }
     } catch {
-      toast.error('เกิดข้อผิดพลาดในการค้นหา');
+      notify.error('เกิดข้อผิดพลาดในการค้นหา');
     } finally {
       setSearching(false);
     }
@@ -111,14 +111,14 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
         (pos) => {
           setPosition([pos.coords.latitude, pos.coords.longitude]);
         },
-        () => toast.error('ไม่สามารถดึงตำแหน่งปัจจุบันของคุณได้')
+        () => notify.error('ไม่สามารถดึงตำแหน่งปัจจุบันของคุณได้')
       );
     }
   };
 
   return (
     <div className="relative w-full h-full">
-      {/* 🔍 ส่วนค้นหาและปุ่มลัดสถานที่สำคัญ */}
+      {/* ส่วนค้นหาและปุ่มลัดสถานที่สำคัญ */}
       <div className="absolute top-3 left-3 right-3 z-[1000] flex flex-col gap-2 max-w-lg mx-auto">
         
         {/* ช่องค้นหา + ปุ่ม GPS */}
@@ -137,10 +137,10 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
             <button
               type="submit"
               disabled={searching}
-              className="text-stone-500 hover:text-emerald-800 p-1 cursor-pointer"
+              className="text-stone-500 hover:text-forest-800 p-1 cursor-pointer"
             >
               {searching ? (
-                <Loader2 className="w-4 h-4 animate-spin text-emerald-700" />
+                <Loader2 className="w-4 h-4 animate-spin text-forest-700" />
               ) : (
                 <Search className="w-4 h-4" />
               )}
@@ -151,13 +151,13 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
             type="button"
             onClick={handleCurrentLocation}
             title="ตำแหน่งปัจจุบัน"
-            className="p-2.5 bg-white/95 backdrop-blur-xs text-stone-700 hover:text-emerald-800 rounded-xl shadow-md border border-stone-200 flex items-center justify-center cursor-pointer shrink-0"
+            className="p-2.5 bg-white/95 backdrop-blur-xs text-stone-700 hover:text-forest-800 rounded-xl shadow-md border border-stone-200 flex items-center justify-center cursor-pointer shrink-0"
           >
             <Navigation className="w-4 h-4" />
           </button>
         </div>
 
-        {/* 🌟 ปุ่มลัดตำแหน่งที่ใช้บ่อย (Quick Preset Buttons) */}
+        {/* ปุ่มลัดตำแหน่งที่ใช้บ่อย (Quick Preset Buttons) */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           <span className="text-xs font-semibold text-stone-600 bg-white/90 px-2 py-1 rounded-lg border border-stone-200 shrink-0 shadow-2xs">
             ทางลัด:
@@ -167,7 +167,7 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
               key={loc.name}
               type="button"
               onClick={() => setPosition(loc.coords)}
-              className="text-xs font-medium bg-emerald-800/90 hover:bg-emerald-900 text-white px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+              className="text-xs font-medium bg-forest-800/90 hover:bg-forest-900 text-white px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0 cursor-pointer"
             >
               <MapPin className="w-3 h-3" />
               {loc.name}

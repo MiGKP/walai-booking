@@ -6,9 +6,15 @@ import {
   assertGuestsFitCapacity,
   lineSubtotal,
   sumSubtotals,
+  countCapacityChildren,
 } from './booking-room.math';
 
 describe('booking-room.math', () => {
+  it('uses the configured inclusive boundary and preserves zero', () => {
+    assert.equal(countCapacityChildren([0, 4, 5, 6], 5), 2);
+    assert.equal(countCapacityChildren([0, 4, 5, 6], 0), 4);
+    assert.equal(countCapacityChildren([0, 4, 5, 6], 18), 0);
+  });
   it('returns empty-safe nights for adjacent dates as 1', () => {
     assert.equal(nightsBetween('2026-08-20', '2026-08-21'), 1);
   });

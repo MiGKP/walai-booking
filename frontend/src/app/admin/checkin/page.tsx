@@ -22,9 +22,10 @@ import {
   Ship,
   Check,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast, { Toaster } from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
+import { PageHeader, StatCard, Panel, EmptyState, Modal } from "@/components/admin/ui";
 
 interface RoomLine {
   booking_room_id: number;
@@ -151,7 +152,7 @@ function AdminCheckinContent() {
       const res = await api.get("/bookings");
       setBookings(res.data?.data || []);
     } catch {
-      toast.error("ไม่สามารถโหลดข้อมูลการจองได้");
+      notify.error("ไม่สามารถโหลดข้อมูลการจองได้");
     } finally {
       setLoading(false);
     }
@@ -185,9 +186,9 @@ function AdminCheckinContent() {
       setCheckinFrom(settingsDraft.from);
       setCheckinTo(settingsDraft.to);
       setSettingsOpen(false);
-      toast.success("บันทึกช่วงเวลาเช็คอินแล้ว");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "บันทึกไม่สำเร็จ");
+      notify.success("บันทึกช่วงเวลาเช็คอินแล้ว");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "บันทึกไม่สำเร็จ"));
     } finally {
       setSavingSettings(false);
     }
@@ -285,17 +286,17 @@ function AdminCheckinContent() {
       open: true,
       title: `ยืนยันเช็คอินห้อง #${line.room_number}?`,
       text: outsideWindow
-        ? `${line.user_name || "ลูกค้า"} — ${line.room_name} — ⚠️ ตอนนี้อยู่นอกเวลาเช็คอินปกติ (${checkinFrom}-${checkinTo} น.) ยืนยันว่าอนุญาตให้เช็คอินได้`
+        ? `${line.user_name || "ลูกค้า"} — ${line.room_name} —ตอนนี้อยู่นอกเวลาเช็คอินปกติ (${checkinFrom}-${checkinTo} น.) ยืนยันว่าอนุญาตให้เช็คอินได้`
         : `${line.user_name || "ลูกค้า"} — ${line.room_name} — ยืนยันว่าลูกค้ามาถึงและรับกุญแจห้องนี้แล้ว`,
       confirmText: "เช็คอิน",
       confirmColor: outsideWindow ? "bg-amber-600" : "bg-[#0b3b2c]",
       onConfirm: async () => {
         try {
           await api.put(`/bookings/booking-rooms/${line.booking_room_id}/checkin`);
-          toast.success("เช็คอินสำเร็จ");
+          notify.success("เช็คอินสำเร็จ");
           fetchBookings();
-        } catch (err: any) {
-          toast.error(err.response?.data?.message || "เช็คอินไม่สำเร็จ");
+        } catch (err: unknown) {
+          notify.error(getApiErrorMessage(err, "เช็คอินไม่สำเร็จ"));
         }
       },
     });
@@ -307,24 +308,32 @@ function AdminCheckinContent() {
       title: `ยืนยันเช็คเอาต์ห้อง #${line.room_number}?`,
       text: `${line.user_name || "ลูกค้า"} — ${line.room_name} — คืนสถานะห้องนี้เป็นว่าง`,
       confirmText: "เช็คเอาต์",
-      confirmColor: "bg-emerald-700",
+      confirmColor: "bg-forest-700",
       onConfirm: async () => {
         try {
           await api.put(`/bookings/booking-rooms/${line.booking_room_id}/checkout`);
-          toast.success("เช็คเอาต์สำเร็จ");
+          notify.success("เช็คเอาต์สำเร็จ");
           fetchBookings();
-        } catch (err: any) {
-          toast.error(err.response?.data?.message || "เช็คเอาต์ไม่สำเร็จ");
+        } catch (err: unknown) {
+          notify.error(getApiErrorMessage(err, "เช็คเอาต์ไม่สำเร็จ"));
         }
       },
     });
   };
 
-  // พิมพ์บัตรเสริมเรือคายัคเป็นสลิปกระดาษให้ลูกค้า (มีรอบวันที่/เวลาระบุชัดเจน)
+  // พิมพ์บัตรเสริมเรือเป็นสลิปกระดาษให้ลูกค้า (มีรอบวันที่/เวลาระบุชัดเจน)
   const printAddonTicket = (addon: BoatAddon, line: FlatLine) => {
     const w = window.open("", "_blank", "width=420,height=640");
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>บัตรเสริมเรือคายัค</title>
+    // ค่าที่มาจากผู้ใช้ต้อง escape ก่อนใส่ลงใน document.write เพื่อป้องกัน HTML injection
+    const esc = (value: unknown): string =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    w.document.write(`<!DOCTYPE html><html><head><title>บัตรเสริมเรือ</title>
       <meta charset="utf-8" />
       <style>
         body { font-family: 'Sarabun', 'Segoe UI', sans-serif; padding: 28px; color: #1c1c1c; }
@@ -337,12 +346,12 @@ function AdminCheckinContent() {
         .footer { margin-top: 18px; font-size: 10.5px; color: #999; text-align: center; }
       </style>
       </head><body>
-        <h1>บัตรเสริมเรือคายัค</h1>
+        <h1>บัตรเสริมเรือ</h1>
         <p class="sub">สวนลัยรุกเวช — โปรดนำบัตรนี้มาแสดงที่ท่าเรือ</p>
         <div class="box">
-          <div class="row"><div class="label">ลูกค้า</div><div class="value">${line.user_name || "-"}</div></div>
-          <div class="row"><div class="label">ห้องพัก</div><div class="value">${line.room_name} #${line.room_number}</div></div>
-          <div class="row"><div class="label">ประเภทเรือ</div><div class="value">${addon.boat_type_name}</div></div>
+          <div class="row"><div class="label">ลูกค้า</div><div class="value">${esc(line.user_name || "-")}</div></div>
+          <div class="row"><div class="label">ห้องพัก</div><div class="value">${esc(line.room_name)} #${esc(line.room_number)}</div></div>
+          <div class="row"><div class="label">ประเภทเรือ</div><div class="value">${esc(addon.boat_type_name)}</div></div>
           <div class="row"><div class="label">วันที่ / เวลา</div><div class="value">${formatThaiDate(String(addon.booking_date).slice(0, 10))} · ${String(addon.start_time).slice(0, 5)}-${String(addon.end_time).slice(0, 5)} น.</div></div>
           <div class="row"><div class="label">จำนวนเรือ / ผู้โดยสาร</div><div class="value">${addon.boat_count} ลำ / ${addon.num_passengers} คน</div></div>
           <div class="row"><div class="label">ประเภทบัตร</div><div class="value">${addon.mode === "paid" ? `เสริม (ชำระแล้ว ฿${Number(addon.price).toLocaleString()})` : "แถมฟรีจากโปรโมชั่น"}</div></div>
@@ -371,10 +380,10 @@ function AdminCheckinContent() {
     printAddonTicket(addon, line);
     try {
       await api.put(`/kayaks/room-addon/${addon.boat_booking_id}/hand-out`);
-      toast.success("มอบบัตรเสริมเรือแล้ว");
+      notify.success("มอบบัตรเสริมเรือแล้ว");
       fetchBookings();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "บันทึกการมอบบัตรไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "บันทึกการมอบบัตรไม่สำเร็จ"));
     }
   };
 
@@ -385,21 +394,21 @@ function AdminCheckinContent() {
         {line.boat_addons.map((addon) => (
           <div
             key={addon.boat_booking_id}
-            className="flex items-center justify-between gap-2 text-xs bg-sky-50 border border-sky-200/70 rounded-md px-2 py-1"
+            className="flex items-center justify-between gap-2 text-xs bg-lagoon-50 border border-lagoon-200/70 rounded-md px-2 py-1"
           >
-            <span className="flex items-center gap-1 text-sky-800">
+            <span className="flex items-center gap-1 text-lagoon-800">
               <Ship size={11} />
               {addon.boat_type_name} · {formatThaiDate(String(addon.booking_date).slice(0, 10))} ·{" "}
               {String(addon.start_time).slice(0, 5)}-{String(addon.end_time).slice(0, 5)} · {addon.boat_count} ลำ
             </span>
             {addon.handed_out_at ? (
-              <span className="inline-flex items-center gap-1 text-teal-700 font-semibold shrink-0">
+              <span className="inline-flex items-center gap-1 text-lagoon-700 font-semibold shrink-0">
                 <Check size={11} /> มอบแล้ว
               </span>
             ) : (
               <button
                 onClick={() => handlePrintAndHandOut(addon, line)}
-                className="inline-flex items-center gap-1 text-sky-700 hover:text-sky-900 font-semibold shrink-0"
+                className="inline-flex items-center gap-1 text-lagoon-700 hover:text-lagoon-900 font-semibold shrink-0"
               >
                 <Printer size={11} />
                 พิมพ์ + มอบบัตร
@@ -414,112 +423,84 @@ function AdminCheckinContent() {
   if (!ready) return null;
 
   return (
-    <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
-      <Toaster position="top-right" />
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-stone-200/60">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-              เช็คอิน-เช็คเอาต์
-            </h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#0b3b2c]/10 text-[#0b3b2c]">
-              Staff
-            </span>
-          </div>
-          <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            หน้าเคาน์เตอร์สำหรับรับเช็คอินและคืนกุญแจเช็คเอาต์ผู้เข้าพัก
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
+    <div className="space-y-6 pb-12">
+      <PageHeader
+        title="เช็คอิน-เช็คเอาต์"
+        description="หน้าเคาน์เตอร์สำหรับรับเช็คอินและคืนกุญแจเช็คเอาต์ผู้เข้าพัก"
+        actions={
+          <>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setSettingsDraft({ from: checkinFrom, to: checkinTo });
+                  setSettingsOpen((v) => !v);
+                }}
+                className="px-3.5 py-2 text-charcoal-700 bg-white hover:bg-charcoal-50 rounded-xl border border-charcoal-200 shadow-sm transition-all text-sm font-medium flex items-center gap-2 active:scale-95"
+                title="ตั้งค่าช่วงเวลาเช็คอิน"
+              >
+                <Clock size={16} className="text-charcoal-500" />
+                <span>{checkinFrom}-{checkinTo} น.</span>
+                <Settings size={14} className="text-charcoal-400" />
+              </button>
+              {settingsOpen && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-charcoal-200 rounded-2xl shadow-xl z-50 p-4">
+                  <p className="text-sm font-bold text-charcoal-800 mb-2">ช่วงเวลาเช็คอินปกติ</p>
+                  <p className="text-xs text-charcoal-500 mb-4">
+                    ใช้แสดงเตือนเฉยๆ ไม่ได้ปิดกั้นการเช็คอิน พนักงานยังยืนยันเช็คอินนอกเวลาได้ตามดุลยพินิจ
+                  </p>
+                  <div className="flex items-center gap-2 mb-4">
+                    <input
+                      type="time"
+                      value={settingsDraft.from}
+                      onChange={(e) => setSettingsDraft((s) => ({ ...s, from: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg border border-charcoal-200 text-sm focus:outline-none focus:ring-2 focus:ring-forest-500/20"
+                    />
+                    <span className="text-charcoal-400">–</span>
+                    <input
+                      type="time"
+                      value={settingsDraft.to}
+                      onChange={(e) => setSettingsDraft((s) => ({ ...s, to: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg border border-charcoal-200 text-sm focus:outline-none focus:ring-2 focus:ring-forest-500/20"
+                    />
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => setSettingsOpen(false)}
+                      className="px-4 py-2 text-xs font-semibold text-charcoal-600 bg-charcoal-50 hover:bg-charcoal-100 rounded-lg transition-colors"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      onClick={handleSaveSettings}
+                      disabled={savingSettings}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-forest-700 hover:bg-forest-800 rounded-lg transition-colors disabled:opacity-60"
+                    >
+                      <Save size={14} />
+                      บันทึก
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             <button
-              onClick={() => {
-                setSettingsDraft({ from: checkinFrom, to: checkinTo });
-                setSettingsOpen((v) => !v);
-              }}
-              className="px-3.5 py-2 text-stone-700 bg-white hover:bg-stone-100/80 rounded-xl border border-stone-200 shadow-xs transition-all text-xs font-medium flex items-center gap-2 active:scale-95"
-              title="ตั้งค่าช่วงเวลาเช็คอิน"
+              onClick={fetchBookings}
+              className="px-3.5 py-2 text-charcoal-700 bg-white hover:bg-charcoal-50 rounded-xl border border-charcoal-200 shadow-sm transition-all text-sm font-medium flex items-center gap-2 active:scale-95"
             >
-              <Clock size={14} className="text-stone-500" />
-              <span>{checkinFrom}-{checkinTo} น.</span>
-              <Settings size={12} className="text-stone-400" />
+              <RefreshCw size={16} className={loading ? "animate-spin text-forest-700" : "text-charcoal-500"} />
+              <span>รีเฟรชข้อมูล</span>
             </button>
-            {settingsOpen && (
-              <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-stone-200 rounded-2xl shadow-xl z-50 p-4">
-                <p className="text-xs font-bold text-stone-700 mb-3">ช่วงเวลาเช็คอินปกติ</p>
-                <p className="text-xs text-stone-400 mb-3">
-                  ใช้แสดงเตือนเฉยๆ ไม่ได้ปิดกั้นการเช็คอิน พนักงานยังยืนยันเช็คอินนอกเวลาได้ตามดุลยพินิจ
-                </p>
-                <div className="flex items-center gap-2 mb-3">
-                  <input
-                    type="time"
-                    value={settingsDraft.from}
-                    onChange={(e) => setSettingsDraft((s) => ({ ...s, from: e.target.value }))}
-                    className="w-full px-2 py-1.5 rounded-lg border border-stone-200 text-xs"
-                  />
-                  <span className="text-stone-300">–</span>
-                  <input
-                    type="time"
-                    value={settingsDraft.to}
-                    onChange={(e) => setSettingsDraft((s) => ({ ...s, to: e.target.value }))}
-                    className="w-full px-2 py-1.5 rounded-lg border border-stone-200 text-xs"
-                  />
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => setSettingsOpen(false)}
-                    className="px-3 py-1.5 text-xs font-semibold text-stone-600 bg-stone-100 hover:bg-stone-200/80 rounded-lg transition-colors"
-                  >
-                    ยกเลิก
-                  </button>
-                  <button
-                    onClick={handleSaveSettings}
-                    disabled={savingSettings}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0b3b2c] hover:bg-[#0b3b2c]/90 rounded-lg transition-colors disabled:opacity-60"
-                  >
-                    <Save size={12} />
-                    บันทึก
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-          <button
-            onClick={fetchBookings}
-            className="px-3.5 py-2 text-stone-700 bg-white hover:bg-stone-100/80 rounded-xl border border-stone-200 shadow-xs transition-all text-xs font-medium flex items-center gap-2 active:scale-95"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin text-[#0b3b2c]" : "text-stone-500"} />
-            <span>รีเฟรชข้อมูล</span>
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: "มาถึงวันนี้", count: counts.arrivalsToday, icon: <LogIn size={15} />, color: "text-[#0b3b2c]", bg: "bg-[#0b3b2c]/10", border: "border-[#0b3b2c]/20", bar: "bg-[#0b3b2c]" },
-          { label: "กำลังพักอยู่", count: counts.inHouse, icon: <Home size={15} />, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100", bar: "bg-indigo-500" },
-          { label: "ออกวันนี้", count: counts.departingToday, icon: <LogOut size={15} />, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100", bar: "bg-teal-500" },
-          { label: "เลยกำหนดออก", count: counts.overdue, icon: <AlertTriangle size={15} />, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-100", bar: "bg-rose-500" },
-        ].map((c) => (
-          <div key={c.label} className="bg-white pl-3 pr-2.5 py-2.5 rounded-xl border border-stone-200/80 shadow-xs relative overflow-hidden">
-            <span className={`absolute left-0 top-0 bottom-0 w-1 ${c.bar}`} />
-            <div className="flex items-center justify-between gap-2 relative pl-1">
-              <div className="min-w-0">
-                <span className="text-xs font-medium text-stone-500 leading-tight block truncate">{c.label}</span>
-                <p className={`text-lg font-extrabold tracking-tight font-mono leading-tight ${c.color}`}>{c.count}</p>
-              </div>
-              <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${c.bg} ${c.border} ${c.color}`}>
-                {c.icon}
-              </div>
-            </div>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="มาถึงวันนี้" value={counts.arrivalsToday} icon={<LogIn />} tone="forest" />
+        <StatCard label="กำลังพักอยู่" value={counts.inHouse} icon={<Home />} tone="lagoon" />
+        <StatCard label="ออกวันนี้" value={counts.departingToday} icon={<LogOut />} tone="bamboo" />
+        <StatCard label="เลยกำหนดออก" value={counts.overdue} icon={<AlertTriangle />} tone="rose" />
       </div>
 
-      {/* Search */}
       <div className="relative w-full sm:w-80">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
         <input
@@ -541,13 +522,10 @@ function AdminCheckinContent() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {/* Arrivals */}
-        <div className="bg-white rounded-2xl border border-stone-200/80 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100">
-            <h2 className="font-bold text-stone-800 text-sm flex items-center gap-2">
-              <LogIn size={16} className="text-[#0b3b2c]" />
-              รอเช็คอิน
-            </h2>
-            <div className="flex items-center gap-1">
+        <Panel
+          title="รอเช็คอิน"
+          actions={
+            <div className="flex items-center gap-1 bg-charcoal-50 p-1 rounded-lg">
               {(
                 [
                   ["today", "วันนี้"],
@@ -558,25 +536,26 @@ function AdminCheckinContent() {
                 <button
                   key={key}
                   onClick={() => setArrivalFilter(key)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                     arrivalFilter === key
-                      ? "bg-[#0b3b2c] text-white"
-                      : "bg-stone-100 text-stone-600 hover:bg-stone-200/70"
+                      ? "bg-white text-forest-700 shadow-sm"
+                      : "text-charcoal-500 hover:text-charcoal-700"
                   }`}
                 >
                   {label}
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="divide-y divide-stone-100 max-h-[650px] overflow-y-auto">
+          }
+          className="flex flex-col"
+        >
+          <div className="divide-y divide-charcoal-50 max-h-[650px] overflow-y-auto -mx-5 px-5">
             {loading ? (
               <div className="py-16 flex justify-center">
-                <RefreshCw size={24} className="animate-spin text-[#0b3b2c]" />
+                <RefreshCw size={24} className="animate-spin text-forest-700" />
               </div>
             ) : arrivals.length === 0 ? (
-              <div className="py-16 text-center text-stone-400 text-sm">ไม่มีรายการรอเช็คอิน</div>
+              <EmptyState title="ไม่มีรายการรอเช็คอิน" />
             ) : (
               arrivals.map((line) => {
                 const actionable = isCheckinActionable(line);
@@ -637,24 +616,17 @@ function AdminCheckinContent() {
               })
             )}
           </div>
-        </div>
+        </Panel>
 
         {/* In-house */}
-        <div className="bg-white rounded-2xl border border-stone-200/80 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-stone-100">
-            <h2 className="font-bold text-stone-800 text-sm flex items-center gap-2">
-              <Home size={16} className="text-indigo-600" />
-              กำลังพักอยู่ในรีสอร์ท
-            </h2>
-          </div>
-
-          <div className="divide-y divide-stone-100 max-h-[650px] overflow-y-auto">
+        <Panel title="กำลังพักอยู่ในรีสอร์ท" className="flex flex-col">
+          <div className="divide-y divide-charcoal-50 max-h-[650px] overflow-y-auto -mx-5 px-5">
             {loading ? (
               <div className="py-16 flex justify-center">
-                <RefreshCw size={24} className="animate-spin text-[#0b3b2c]" />
+                <RefreshCw size={24} className="animate-spin text-forest-700" />
               </div>
             ) : inHouse.length === 0 ? (
-              <div className="py-16 text-center text-stone-400 text-sm">ไม่มีผู้เข้าพักในขณะนี้</div>
+              <EmptyState title="ไม่มีผู้เข้าพักในขณะนี้" />
             ) : (
               inHouse.map((line) => {
                 const isToday = localDateStr(line.check_out) === today;
@@ -679,7 +651,7 @@ function AdminCheckinContent() {
                               <AlertTriangle size={10} /> เลยกำหนดออก {formatThaiDate(line.check_out)}
                             </span>
                           ) : isToday ? (
-                            <span className="inline-flex items-center gap-1 text-teal-700 font-semibold bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded-md">
+                            <span className="inline-flex items-center gap-1 text-lagoon-700 font-semibold bg-lagoon-50 border border-lagoon-200 px-1.5 py-0.5 rounded-md">
                               <CalendarCheck size={10} /> ออกวันนี้
                             </span>
                           ) : (
@@ -701,7 +673,7 @@ function AdminCheckinContent() {
                     </div>
                     <button
                       onClick={() => handleCheckout(line)}
-                      className="inline-flex items-center gap-1.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3.5 py-2 rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
+                      className="inline-flex items-center gap-1.5 text-xs bg-forest-700 hover:bg-forest-800 text-white font-semibold px-3.5 py-2 rounded-xl shadow-xs transition-all active:scale-95 shrink-0"
                     >
                       <LogOut size={13} />
                       <span>เช็คเอาต์</span>
@@ -711,35 +683,36 @@ function AdminCheckinContent() {
               })
             )}
           </div>
-        </div>
+        </Panel>
       </div>
 
       {/* Confirm Modal */}
-      {confirmModal?.open && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
-            <h3 className="font-bold text-stone-800 text-base mb-2">{confirmModal.title}</h3>
-            <p className="text-sm text-stone-500 mb-5">{confirmModal.text}</p>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setConfirmModal(null)}
-                className="px-4 py-2 text-xs font-semibold text-stone-600 bg-stone-100 hover:bg-stone-200/80 rounded-xl transition-colors"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={() => {
-                  confirmModal.onConfirm();
-                  setConfirmModal(null);
-                }}
-                className={`px-4 py-2 text-xs font-semibold text-white rounded-xl transition-colors ${confirmModal.confirmColor}`}
-              >
-                {confirmModal.confirmText}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={!!confirmModal?.open}
+        title={confirmModal?.title || ""}
+        onClose={() => setConfirmModal(null)}
+        footer={
+          <>
+            <button
+              onClick={() => setConfirmModal(null)}
+              className="px-4 py-2 text-sm font-medium text-charcoal-600 bg-charcoal-50 hover:bg-charcoal-100 rounded-lg transition-colors"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={() => {
+                confirmModal?.onConfirm();
+                setConfirmModal(null);
+              }}
+              className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${confirmModal?.confirmColor}`}
+            >
+              {confirmModal?.confirmText}
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-charcoal-600">{confirmModal?.text}</p>
+      </Modal>
     </div>
   );
 }

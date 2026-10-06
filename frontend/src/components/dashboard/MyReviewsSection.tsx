@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Star, MessageSquare, PenLine, Trash2, X, Check } from 'lucide-react';
-import api from '@/lib/api';
+import { Star, MessageSquare, PenLine, Trash2, X, Check, Waves } from 'lucide-react';
+import api, { getApiErrorMessage } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import toast from 'react-hot-toast';
 import { toastConfirm } from '@/lib/toastConfirm';
@@ -113,8 +113,8 @@ export default function MyReviewsSection(): React.ReactElement {
       toast.success('รีวิวสำเร็จ!');
       setCreating(null);
       fetchAll();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'รีวิวไม่สำเร็จ');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'รีวิวไม่สำเร็จ'));
     } finally {
       setSubmitting(false);
     }
@@ -134,8 +134,8 @@ export default function MyReviewsSection(): React.ReactElement {
       toast.success('แก้ไขรีวิวสำเร็จ');
       setEditing(null);
       fetchAll();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'แก้ไขไม่สำเร็จ');
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'แก้ไขไม่สำเร็จ'));
     } finally {
       setEditSubmitting(false);
     }
@@ -198,7 +198,7 @@ export default function MyReviewsSection(): React.ReactElement {
                   {booking.room_image ? (
                     <img src={resolveMediaUrl(booking.room_image)} alt={booking.room_name} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="grid h-full w-full place-items-center text-forest-300">🌊</div>
+                    <div className="grid h-full w-full place-items-center text-forest-300"><Waves size={28} /></div>
                   )}
                 </div>
                 <div className="flex-1">
@@ -232,7 +232,7 @@ export default function MyReviewsSection(): React.ReactElement {
                   {review.room_image ? (
                     <img src={resolveMediaUrl(review.room_image)} alt={review.room_name} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="grid h-full w-full place-items-center text-forest-300">🌊</div>
+                    <div className="grid h-full w-full place-items-center text-forest-300"><Waves size={28} /></div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">

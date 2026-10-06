@@ -122,6 +122,7 @@ export interface AuthPayload {
   id: number;
   email: string;
   role: string;
+  issued_at_ms?: number;
 }
 
 export interface ApiResponse<T = any> {

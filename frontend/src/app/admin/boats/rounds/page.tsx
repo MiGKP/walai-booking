@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast, { Toaster } from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
+import { PageHeader, Panel, Modal, EmptyState } from "@/components/admin/ui";
 
 export interface BoatType {
   boat_type_id?: number;
@@ -56,7 +57,7 @@ function boatTypeLabel(bt: BoatType): string {
 }
 
 // -------------------------------------------------------------
-// 🕒 CUSTOM TIME PICKER COMPONENT (เวลาไทย 24 ชม.)
+// CUSTOM TIME PICKER COMPONENT (เวลาไทย 24 ชม.)
 // -------------------------------------------------------------
 interface ThaiTimePickerProps {
   label: string;
@@ -301,7 +302,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
       setRounds(formattedRounds);
     } catch (error: unknown) {
       console.error("Fetch data error:", error);
-      toast.error(getApiErrorMessage(error, "ไม่สามารถดึงข้อมูลได้"));
+      notify.error(getApiErrorMessage(error, "ไม่สามารถดึงข้อมูลได้"));
     } finally {
       setLoading(false);
     }
@@ -357,7 +358,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     const selectedBoatEntries = Object.entries(selectedBoatsMap);
 
     if (selectedBoatEntries.length === 0) {
-      toast.error("กรุณาเลือกประเภทเรืออย่างน้อย 1 ประเภท");
+      notify.error("กรุณาเลือกประเภทเรืออย่างน้อย 1 ประเภท");
       return;
     }
 
@@ -377,15 +378,15 @@ export default function BoatRoundsPage(): React.ReactElement | null {
 
       if (editingRoundId) {
         await api.put(`/kayaks/rounds/${editingRoundId}`, payload);
-        toast.success("อัปเดตรอบเวลาเรียบร้อย");
+        notify.success("อัปเดตรอบเวลาเรียบร้อย");
       } else {
         await api.post("/kayaks/rounds", payload);
-        toast.success("เพิ่มรอบเวลาสำเร็จ");
+        notify.success("เพิ่มรอบเวลาสำเร็จ");
       }
       handleResetForm();
       await fetchData();
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, "เกิดข้อผิดพลาดในการบันทึก"));
+      notify.error(getApiErrorMessage(error, "เกิดข้อผิดพลาดในการบันทึก"));
     }
   };
 
@@ -404,7 +405,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
         return (
           <span
             key={b.boat_type_id ?? idx}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-900 border border-emerald-200/80 rounded-lg text-xs font-semibold shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-forest-50 text-forest-900 border border-forest-200/80 rounded-lg text-xs font-semibold shadow-2xs"
           >
             <Ship size={13} className="text-[#0b3b2c]" />
             <span>{name}</span>
@@ -429,7 +430,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
       const total = round.total_slots || round.max_booking || 1;
 
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-900 border border-emerald-200/80 rounded-lg text-xs font-semibold shadow-2xs">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-forest-50 text-forest-900 border border-forest-200/80 rounded-lg text-xs font-semibold shadow-2xs">
           <Ship size={13} className="text-[#0b3b2c]" />
           <span>{name}</span>
           <span className="px-1.5 py-0.5 bg-[#0b3b2c] text-white rounded-md text-xs font-bold">
@@ -472,52 +473,41 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     if (!deleteRoundId) return;
     try {
       await api.delete(`/kayaks/rounds/${deleteRoundId}`);
-      toast.success("ลบรอบเวลาเรียบร้อยแล้ว");
+      notify.success("ลบรอบเวลาเรียบร้อยแล้ว");
       setDeleteRoundId(null);
       await fetchData();
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, "เกิดข้อผิดพลาดในการลบ"));
+      notify.error(getApiErrorMessage(error, "เกิดข้อผิดพลาดในการลบ"));
     }
   };
 
   if (!ready) return null;
 
   return (
-    <div className="w-full min-h-screen flex flex-col font-sans space-y-6 pb-12 text-stone-800">
-      <Toaster position="top-center" />
+    <div className="space-y-6 pb-12">
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-stone-200/80">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 bg-[#0b3b2c]/10 text-[#0b3b2c] rounded-xl">
-              <Clock size={20} />
-            </span>
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-              จัดการรอบเวลาพายเรือ
-            </h1>
+      <PageHeader 
+        title="จัดการรอบเวลาพายเรือ" 
+        description="รอบหนึ่งช่วงเวลา เลือกได้หลายประเภท — จำนวนลำคือเพดานจองในรอบนั้น"
+        actions={
+          <div className="px-3.5 py-2 bg-white rounded-xl border border-stone-200/80 shadow-xs flex items-center gap-3 w-fit">
+            <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
+              <Clock size={18} />
+            </div>
+            <div>
+              <span className="text-xs font-semibold text-stone-400 block leading-tight">
+                รอบเปิดบริการ
+              </span>
+              <span className="text-xs font-bold text-[#0b3b2c]">
+                {rounds.length} รอบเวลา
+              </span>
+            </div>
           </div>
-          <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            รอบหนึ่งช่วงเวลา เลือกได้หลายประเภท — จำนวนลำคือเพดานจองในรอบนั้น
-          </p>
-        </div>
+        }
+      />
 
-        <div className="px-3.5 py-2 bg-white rounded-xl border border-stone-200/80 shadow-xs flex items-center gap-3 w-fit">
-          <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
-            <Clock size={18} />
-          </div>
-          <div>
-            <span className="text-xs font-semibold text-stone-400 block leading-tight">
-              รอบเปิดบริการ
-            </span>
-            <span className="text-xs font-bold text-[#0b3b2c]">
-              {rounds.length} รอบเวลา
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 📥 FORM */}
+      {/* FORM */}
       <form
         ref={formRef}
         onSubmit={handleSubmitForm}
@@ -723,8 +713,8 @@ export default function BoatRoundsPage(): React.ReactElement | null {
         </div>
       </form>
 
-      {/* 📋 TABLE LIST */}
-      <div className="bg-white rounded-2xl border border-stone-200/80 shadow-xs overflow-hidden">
+      {/* TABLE LIST */}
+      <Panel>
         <div className="p-4 bg-stone-50/80 border-b border-stone-200/80 flex items-center justify-between">
           <h3 className="font-bold text-stone-900 text-sm md:text-base flex items-center gap-2">
             <Clock size={16} className="text-[#0b3b2c]" />
@@ -757,7 +747,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                       round.is_active
-                        ? "bg-emerald-100/80 text-emerald-800 border-emerald-200/60"
+                        ? "bg-forest-100/80 text-forest-800 border-forest-200/60"
                         : "bg-stone-100 text-stone-500 border-stone-200"
                     }`}
                   >
@@ -793,47 +783,44 @@ export default function BoatRoundsPage(): React.ReactElement | null {
               </div>
             ))
           ) : (
-            <div className="p-8 text-center text-xs text-stone-400">
-              ไม่พบข้อมูลรอบเวลา
+            <div className="p-8">
+              <EmptyState title="ไม่พบข้อมูลรอบเวลา" />
             </div>
           )}
         </div>
-      </div>
+      </Panel>
 
       {/* MODAL DELETE */}
-      {deleteRoundId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
-              <AlertTriangle size={24} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-stone-900">
-                ยืนยันการลบรอบเวลา
-              </h3>
-              <p className="text-xs text-stone-500 mt-1">
-                ต้องการลบรอบเวลานี้ใช่หรือไม่?
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setDeleteRoundId(null)}
-                className="px-4 py-2 bg-stone-100 text-stone-700 rounded-xl text-xs font-bold w-full cursor-pointer"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteConfirm}
-                className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold w-full cursor-pointer"
-              >
-                ยืนยันการลบ
-              </button>
-            </div>
+      <Modal
+        open={!!deleteRoundId}
+        title="ยืนยันการลบรอบเวลา"
+        onClose={() => setDeleteRoundId(null)}
+      >
+        <div className="text-center space-y-4 py-2">
+          <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+            <AlertTriangle size={24} />
+          </div>
+          <p className="text-xs text-stone-500">
+            ต้องการลบรอบเวลานี้ใช่หรือไม่?
+          </p>
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setDeleteRoundId(null)}
+              className="px-4 py-2 bg-stone-100 text-stone-700 rounded-xl text-xs font-bold w-full cursor-pointer"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteConfirm}
+              className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold w-full cursor-pointer"
+            >
+              ยืนยันการลบ
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Save, Phone, Mail, MessageCircle, MapPin, Clock } from 'lucide-react';
-import api from '@/lib/api';
+import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import toast from 'react-hot-toast';
+import { notify } from "@/lib/admin-notify";
 import Link from 'next/link';
 import { pickResortInfo } from '@/lib/resort-info';
+import { PageHeader, Panel } from '@/components/admin/ui';
 
 export default function ContactInfoPage() {
   const { ready, user } = useAuthGuard({ allowedRoles: ['admin', 'room_staff', 'boat_staff'] });
@@ -15,6 +16,7 @@ export default function ContactInfoPage() {
     address: '', operating_days: '', operating_hours: '',
   });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const backPath = user?.role === 'admin' ? '/admin' : user?.role === 'room_staff' ? '/staff/rooms/dashboard' : '/staff/boats/dashboard';
@@ -31,7 +33,7 @@ export default function ContactInfoPage() {
           operating_hours: d.operating_hours || '',
         });
       }
-    }).catch(() => toast.error('โหลดข้อมูลไม่สำเร็จ')).finally(() => setLoading(false));
+    }).catch(() => { setLoadError(true); notify.error('โหลดข้อมูลไม่สำเร็จ'); }).finally(() => setLoading(false));
   }, [ready]);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -39,13 +41,9 @@ export default function ContactInfoPage() {
     setSaving(true);
     try {
       await api.put('/settings/resort', { id: 3, ...form });
-      toast.success('บันทึกข้อมูลติดต่อสำเร็จ');
+      notify.success('บันทึกข้อมูลติดต่อสำเร็จ');
     } catch (err: unknown) {
-      toast.error(
-        err && typeof err === 'object' && 'response' in err
-          ? String((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'บันทึกไม่สำเร็จ')
-          : 'บันทึกไม่สำเร็จ'
-      );
+      notify.error(getApiErrorMessage(err, 'บันทึกไม่สำเร็จ'));
     } finally {
       setSaving(false);
     }
@@ -54,20 +52,22 @@ export default function ContactInfoPage() {
   if (!ready) return null;
 
   return (
-    <div className="min-h-screen pt-16 bg-gray-50">
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <div className="flex items-center gap-4 mb-8">
-          <Link href={backPath} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-            <ArrowLeft size={20} className="text-gray-600" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">ข้อมูลติดต่อ</h1>
-            <p className="text-gray-500 mt-0.5">แก้ไขช่องทางติดต่อที่แสดงในเว็บไซต์</p>
-          </div>
+    <div className="space-y-6 pb-12">
+      <div className="flex items-start gap-4">
+        <Link href={backPath} className="p-2 hover:bg-gray-200 rounded-full transition-colors mt-1">
+          <ArrowLeft size={20} className="text-gray-600" />
+        </Link>
+        <div className="flex-1">
+          <PageHeader 
+            title="ข้อมูลติดต่อ" 
+            description="แก้ไขช่องทางติดต่อที่แสดงในเว็บไซต์" 
+          />
         </div>
+      </div>
 
-        {loading ? <div className="card h-64 animate-pulse bg-gray-100" /> : (
-          <form onSubmit={handleSave} className="card p-6 space-y-5">
+      {loading ? <div className="card h-64 animate-pulse bg-gray-100" /> : (
+        <Panel>
+          <form onSubmit={handleSave} className="p-6 space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1"><Phone size={13} /> เบอร์โทรศัพท์</label>
@@ -100,12 +100,12 @@ export default function ContactInfoPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1"><Clock size={13} /> เวลาทำการ</label>
               <input className="input-field" value={form.operating_hours} onChange={e => setForm(f => ({ ...f, operating_hours: e.target.value }))} placeholder="เช่น 08:00 – 20:00 น." />
             </div>
-            <button type="submit" disabled={saving} className="btn-primary w-full flex items-center justify-center gap-2">
+            <button type="submit" disabled={saving || loading || loadError} className="btn-primary w-full flex items-center justify-center gap-2">
               <Save size={16} /> {saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
             </button>
           </form>
-        )}
-      </div>
+        </Panel>
+      )}
     </div>
   );
 }

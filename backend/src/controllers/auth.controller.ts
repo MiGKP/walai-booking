@@ -6,6 +6,7 @@ import { QueryResult } from 'pg';
 import pool from '../config/database';
 import { sendPasswordResetEmail } from '../services/mail.service';
 import { AuthPayload } from '../types';
+import { mapDbError } from '../utils/db-errors';
 import {
   CloudinaryUploadResult,
   deleteCloudinaryImage,
@@ -22,7 +23,8 @@ interface AvatarUpdateRow {
 const generateToken = (payload: AuthPayload): string => {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error('JWT_SECRET environment variable is not set');
-  return jwt.sign(payload, secret, {
+  const issuedAtMs = Date.now();
+  return jwt.sign({ ...payload, issued_at_ms: issuedAtMs, iat: Math.floor(issuedAtMs / 1000) }, secret, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   } as jwt.SignOptions);
 };
@@ -64,6 +66,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     res.status(201).json({ success: true, message: 'Registration successful', data: { user: userSafe, token } });
   } catch (error) {
     console.error('Registration error:', error);
+    const registerError = mapDbError(error);
+    if (registerError) {
+      res.status(registerError.status).json({ success: false, message: registerError.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -74,12 +81,16 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const { email, password } = req.body;
 
     // Check staff first
-    let result = await pool.query('SELECT * FROM staff WHERE email = $1 AND status = true', [email]);
+    let result = await pool.query('SELECT * FROM staff WHERE LOWER(email) = LOWER($1) AND status = true', [email]);
     if (result.rows.length > 0) {
       const staff = result.rows[0];
+      if (!staff.password) {
+        res.status(401).json({ success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
+        return;
+      }
       const isValid = await bcrypt.compare(password, staff.password);
       if (!isValid) {
-        res.status(401).json({ success: false, message: 'Invalid email or password' });
+        res.status(401).json({ success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
         return;
       }
       const token = generateToken({ id: staff.staff_id, email: staff.email, role: staff.role });
@@ -113,7 +124,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Check members
     result = await pool.query('SELECT * FROM members WHERE LOWER(email) = LOWER($1)', [email]);
     if (result.rows.length === 0) {
-      res.status(401).json({ success: false, message: 'Invalid email or password' });
+      res.status(401).json({ success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
       return;
     }
 
@@ -125,7 +136,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const isValid = await bcrypt.compare(password, member.password);
     if (!isValid) {
-      res.status(401).json({ success: false, message: 'Invalid email or password' });
+      res.status(401).json({ success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
+      return;
+    }
+
+    // ตรวจสถานะบัญชีหลังยืนยันรหัสผ่านแล้วเท่านั้น เพื่อไม่เปิดเผยว่าอีเมลนี้มีอยู่ในระบบ
+    if (member.is_active === false) {
+      res.status(401).json({ success: false, message: 'บัญชีนี้ถูกปิดการใช้งาน กรุณาติดต่อเจ้าหน้าที่' });
       return;
     }
 
@@ -195,10 +212,11 @@ export const initAdmin = async (req: Request, res: Response): Promise<void> => {
     let first_name = name;
     let last_name = '';
     if (name && name.includes(' ')) {
-      [first_name, last_name] = name.split(' ', 2);
+      first_name = String(name).trim().split(' ')[0] || '';
+      last_name = String(name).trim().split(' ').slice(1).join(' ');
     }
 
-    const existing = await pool.query('SELECT staff_id FROM staff WHERE email = $1', [email]);
+    const existing = await pool.query('SELECT staff_id FROM staff WHERE LOWER(email) = LOWER($1)', [email]);
     if (existing.rows.length > 0) {
       res.status(400).json({ success: false, message: 'Email already registered' });
       return;
@@ -231,10 +249,11 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
     let first_name = name;
     let last_name = '';
     if (name && name.includes(' ')) {
-      [first_name, last_name] = name.split(' ', 2);
+      first_name = String(name).trim().split(' ')[0] || '';
+      last_name = String(name).trim().split(' ').slice(1).join(' ');
     }
 
-    const existing = await pool.query('SELECT staff_id FROM staff WHERE email = $1', [email]);
+    const existing = await pool.query('SELECT staff_id FROM staff WHERE LOWER(email) = LOWER($1)', [email]);
     if (existing.rows.length > 0) {
       res.status(400).json({ success: false, message: 'Email already registered' });
       return;
@@ -250,6 +269,11 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
     res.status(201).json({ success: true, message: 'Staff created successfully', data: result.rows[0] });
   } catch (error) {
     console.error('Create staff error:', error);
+    const createError = mapDbError(error);
+    if (createError) {
+      res.status(createError.status).json({ success: false, message: createError.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -327,6 +351,10 @@ export const toggleStaffStatus = async (req: Request, res: Response): Promise<vo
 
     const { id } = req.params;
     const { status } = req.body; // boolean
+    if (typeof status !== 'boolean') {
+      res.status(400).json({ success: false, message: 'status must be boolean' });
+      return;
+    }
 
     // Don't allow changing own status
     if (Number(id) === authUser.id) {
@@ -360,17 +388,61 @@ export const updateStaff = async (req: Request, res: Response): Promise<void> =>
       return;
     }
     const { id } = req.params;
-    const { name, email, phone, role, address, subdistrict, district, province, postal_code } = req.body;
+    const body = req.body as Record<string, unknown>;
+    const STAFF_ROLES = ['admin', 'room_staff', 'boat_staff'];
 
-    const nameParts = String(name || '').trim().split(' ');
-    const first_name = nameParts[0] || '';
-    const last_name = nameParts.slice(1).join(' ') || '';
+    const currentRes = await pool.query('SELECT * FROM staff WHERE staff_id = $1', [id]);
+    if (currentRes.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Staff not found' });
+      return;
+    }
+    const current = currentRes.rows[0] as Record<string, unknown>;
+
+    const has = (key: string): boolean => Object.prototype.hasOwnProperty.call(body, key);
+    const textOrCurrent = (key: string): string | null => {
+      if (!has(key)) return current[key] == null ? null : String(current[key]);
+      const raw = body[key];
+      return raw === null || raw === undefined || raw === '' ? null : String(raw);
+    };
+
+    // role ต้องเป็นบทบาทของ staff เท่านั้น ห้ามกำหนดเป็น customer หรือค่าอื่น
+    const role = has('role') ? String(body.role) : String(current.role);
+    if (!STAFF_ROLES.includes(role)) {
+      res.status(400).json({ success: false, message: 'Invalid staff role' });
+      return;
+    }
+    // กันแอดมินลดสิทธิ์ตัวเองจนเข้าระบบแอดมินไม่ได้
+    if (Number(id) === Number(authUser.id) && role !== 'admin') {
+      res.status(400).json({ success: false, message: 'ไม่สามารถลดสิทธิ์ของตัวเองได้' });
+      return;
+    }
+
+    let firstName = String(current.first_name ?? '');
+    let lastName = String(current.last_name ?? '');
+    if (has('name')) {
+      const nameParts = String(body.name ?? '').trim().split(' ');
+      firstName = nameParts[0] || '';
+      lastName = nameParts.slice(1).join(' ') || '';
+    }
+    const email = has('email') && body.email ? String(body.email) : String(current.email);
 
     const result = await pool.query(
       `UPDATE staff SET first_name=$1, last_name=$2, email=$3, phone=$4, role=$5,
        address=$6, subdistrict=$7, district=$8, province=$9, postal_code=$10
        WHERE staff_id=$11 RETURNING staff_id, first_name, last_name, email, phone, role, address, subdistrict, district, province, postal_code`,
-      [first_name, last_name, email, phone || null, role, address || null, subdistrict || null, district || null, province || null, postal_code || null, id]
+      [
+        firstName,
+        lastName,
+        email,
+        textOrCurrent('phone'),
+        role,
+        textOrCurrent('address'),
+        textOrCurrent('subdistrict'),
+        textOrCurrent('district'),
+        textOrCurrent('province'),
+        textOrCurrent('postal_code'),
+        id,
+      ]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'Staff not found' });
@@ -379,6 +451,11 @@ export const updateStaff = async (req: Request, res: Response): Promise<void> =>
     res.json({ success: true, message: 'Staff updated', data: result.rows[0] });
   } catch (error) {
     console.error('Update staff error:', error);
+    const updateError = mapDbError(error);
+    if (updateError) {
+      res.status(updateError.status).json({ success: false, message: updateError.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -619,13 +696,24 @@ export const setPassword = async (req: Request, res: Response): Promise<void> =>
 
     if (authUser.role === 'customer') {
       const result = await pool.query('SELECT password FROM members WHERE member_id = $1', [authUser.id]);
+      if (result.rows.length === 0) {
+        res.status(404).json({ success: false, message: 'Member not found' });
+        return;
+      }
       if (result.rows[0]?.password) {
         res.status(400).json({ success: false, message: 'Password is already set. Please use change password.' });
         return;
       }
 
       const password_hash = await bcrypt.hash(new_password, 12);
-      await pool.query('UPDATE members SET password = $1 WHERE member_id = $2', [password_hash, authUser.id]);
+      const updated = await pool.query(
+        'UPDATE members SET password = $1, password_changed_at = NOW() WHERE member_id = $2 AND password IS NULL',
+        [password_hash, authUser.id]
+      );
+      if (updated.rowCount === 0) {
+        res.status(409).json({ success: false, message: 'Password is already set. Please use change password.' });
+        return;
+      }
     } else {
       res.status(400).json({ success: false, message: 'Staff already have passwords.' });
       return;
@@ -643,7 +731,7 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
     const authUser = req.user as AuthPayload;
     const { current_password, new_password } = req.body;
 
-    let user;
+    let user: { password: string | null } | undefined;
     if (authUser.role === 'customer') {
       const result = await pool.query('SELECT password FROM members WHERE member_id = $1', [authUser.id]);
       user = result.rows[0];
@@ -652,7 +740,16 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
       user = result.rows[0];
     }
 
-    const isValid = await bcrypt.compare(current_password, user.password);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+    if (!user.password) {
+      res.status(400).json({ success: false, message: 'บัญชีนี้ยังไม่มีรหัสผ่าน กรุณาตั้งรหัสผ่านก่อน' });
+      return;
+    }
+
+    const isValid = typeof current_password === 'string' && (await bcrypt.compare(current_password, user.password));
     if (!isValid) {
       res.status(400).json({ success: false, message: 'Current password is incorrect' });
       return;
@@ -660,9 +757,9 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
 
     const new_password_hash = await bcrypt.hash(new_password, 12);
     if (authUser.role === 'customer') {
-      await pool.query('UPDATE members SET password = $1 WHERE member_id = $2', [new_password_hash, authUser.id]);
+      await pool.query('UPDATE members SET password = $1, password_changed_at = NOW() WHERE member_id = $2', [new_password_hash, authUser.id]);
     } else {
-      await pool.query('UPDATE staff SET password = $1 WHERE staff_id = $2', [new_password_hash, authUser.id]);
+      await pool.query('UPDATE staff SET password = $1, password_changed_at = NOW() WHERE staff_id = $2', [new_password_hash, authUser.id]);
     }
 
     res.json({ success: true, message: 'Password changed successfully' });
@@ -701,6 +798,10 @@ export const toggleMemberStatus = async (req: Request, res: Response): Promise<v
   try {
     const { id } = req.params;
     const { is_active } = req.body;
+    if (typeof is_active !== 'boolean') {
+      res.status(400).json({ success: false, message: 'is_active must be boolean' });
+      return;
+    }
     const result = await pool.query(
       `UPDATE members SET is_active = $1 WHERE member_id = $2 RETURNING member_id, is_active`,
       [is_active, id]
@@ -742,7 +843,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 
     await pool.query(
       `UPDATE members 
-       SET reset_token = $1, reset_token_expires_at = $2 
+       SET reset_token = $1, reset_token_expires_at = $2, reset_attempts = CASE WHEN reset_token_expires_at IS NULL OR reset_token_expires_at < NOW() THEN 0 ELSE reset_attempts END 
        WHERE member_id = $3`,
       [hashedOtp, expiresAt, member.id]
     );
@@ -754,29 +855,14 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
         otpCode,
       });
     } catch (mailError) {
+      // ไม่บอกผู้เรียกว่าส่งไม่สำเร็จ เพื่อไม่ให้รู้ว่าอีเมลนี้มีในระบบหรือไม่
       console.error('Forgot password mail error:', mailError);
-      const mailMessage = mailError instanceof Error ? mailError.message : String(mailError);
-      // Resend ฟรี + onboarding@resend.dev ส่งได้เฉพาะอีเมลเจ้าของบัญชี
-      const isResendRecipientBlocked =
-        /only send testing emails to your own email/i.test(mailMessage) ||
-        /validation_error/i.test(mailMessage);
-
-      res.status(503).json({
-        success: false,
-        code: isResendRecipientBlocked ? 'MAIL_RECIPIENT_BLOCKED' : 'MAIL_SEND_FAILED',
-        message: isResendRecipientBlocked
-          ? 'Resend โหมดทดสอบส่งได้เฉพาะอีเมลที่สมัคร Resend เท่านั้น กรุณาใช้เมลนั้น หรือ verify domain'
-          : 'ไม่สามารถส่งอีเมล OTP ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง หรือติดต่อเจ้าหน้าที่',
-      });
-      return;
     }
 
     res.json({
       success: true,
       message: genericForgotPasswordMessage,
-      data: {
-        email: member.email,
-      },
+      data: null,
     });
   } catch (error) {
     console.error('Forgot password error:', error);
@@ -801,33 +887,50 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     }
 
     const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
-    const resetResult = await pool.query(
-      `SELECT member_id
+    // นับ OTP ที่กรอกผิดต่อบัญชีแบบ atomic เมื่อครบเกณฑ์แล้ว OTP นั้นใช้ไม่ได้ทันที (ต้องขอใหม่)
+    const MAX_OTP_ATTEMPTS = 5;
+    const pending = await pool.query(
+      `SELECT member_id, reset_token
        FROM members
-       WHERE LOWER(email) = $1 AND reset_token = $2 AND reset_token_expires_at > NOW()
+       WHERE LOWER(email) = $1 AND reset_token IS NOT NULL AND reset_token_expires_at > NOW() AND reset_attempts < $2
        LIMIT 1`,
-      [email, hashedOtp]
+      [email, MAX_OTP_ATTEMPTS]
     );
-
-    if (resetResult.rows.length === 0) {
+    const pendingRow = pending.rows[0] as { member_id: number; reset_token: string } | undefined;
+    if (!pendingRow) {
+      res.status(400).json({ success: false, message: 'OTP is invalid or expired' });
+      return;
+    }
+    if (pendingRow.reset_token !== hashedOtp) {
+      // เพิ่มตัวนับในคำสั่งเดียว (atomic) เพื่อไม่ให้ request ขนานทายได้ไม่จำกัด
+      await pool.query(
+        `UPDATE members
+         SET reset_attempts = reset_attempts + 1,
+             reset_token = CASE WHEN reset_attempts + 1 >= $2::int THEN NULL ELSE reset_token END,
+             reset_token_expires_at = CASE WHEN reset_attempts + 1 >= $2::int THEN NULL ELSE reset_token_expires_at END
+         WHERE member_id = $1`,
+        [pendingRow.member_id, MAX_OTP_ATTEMPTS]
+      );
       res.status(400).json({ success: false, message: 'OTP is invalid or expired' });
       return;
     }
 
-    const memberId = resetResult.rows[0].member_id;
     const passwordHash = await bcrypt.hash(newPassword, 12);
-
-    await pool.query(
-      `UPDATE members 
-       SET password = $1, reset_token = NULL, reset_token_expires_at = NULL 
-       WHERE member_id = $2`,
-      [passwordHash, memberId]
+    // ใช้ token ได้ครั้งเดียว: request ขนานที่ผ่านการตรวจแล้วจะได้ 0 แถวในครั้งที่สอง
+    const consumed = await pool.query(
+      `UPDATE members
+       SET password = $1, reset_token = NULL, reset_token_expires_at = NULL, reset_attempts = 0, password_changed_at = NOW()
+       WHERE member_id = $2 AND reset_token = $3 AND reset_token_expires_at > NOW() AND reset_attempts < $4`,
+      [passwordHash, pendingRow.member_id, hashedOtp, MAX_OTP_ATTEMPTS]
     );
+    if ((consumed.rowCount ?? 0) === 0) {
+      res.status(400).json({ success: false, message: 'OTP is invalid or expired' });
+      return;
+    }
 
     res.json({ success: true, message: 'Password reset successfully' });
   } catch (error) {
     console.error('Reset password error:', error);
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    res.status(500).json({ success: false, message });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

@@ -69,9 +69,12 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ['var(--font-pridi)', 'Pridi', 'serif'],
-        body: ['var(--font-sarabun)', 'Sarabun', 'sans-serif'],
-        sans: ['var(--font-sarabun)', 'Sarabun', 'sans-serif'],
+        display: ['var(--font-prompt)', 'Prompt', 'sans-serif'],
+        body: ['var(--font-noto-thai)', 'Noto Sans Thai', 'sans-serif'],
+        sans: ['var(--font-noto-thai)', 'Noto Sans Thai', 'sans-serif'],
+      },
+      boxShadow: {
+        panel: '0 1px 2px rgba(18, 60, 48, 0.04), 0 4px 16px rgba(18, 60, 48, 0.05)',
       },
       keyframes: {
         revealUp: {

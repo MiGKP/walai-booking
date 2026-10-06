@@ -1,14 +1,13 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sailboat, Moon, Layers, CheckCircle2, RotateCcw, Tag, Info } from 'lucide-react';
 import {
   formatPromoDiscount,
   formatPromoWindow,
   bookingPromoHref,
   parseAppliesTo,
-  promoAllowsScope,
   appliesToLabel,
   type CatalogPromo,
   type PromoAppliesTo,
@@ -27,6 +26,10 @@ interface PromoVoucherProps {
   appliesTo?: PromoAppliesTo | string | null;
   muted?: boolean;
   badge?: string;
+  minNights?: number | null;
+  maxDiscount?: number | null;
+  boatTicketCount?: number | null;
+  boatAddonMode?: 'free' | 'paid' | null;
   footer: ReactNode;
 }
 
@@ -42,64 +45,198 @@ export function PromoVoucher({
   appliesTo,
   muted = false,
   badge,
+  minNights,
+  maxDiscount,
+  boatTicketCount,
   footer,
 }: PromoVoucherProps): React.ReactElement {
-  const appliesLabel =
-    parseAppliesTo(appliesTo) === 'both'
-      ? ''
-      : ` · ${appliesToLabel(parseAppliesTo(appliesTo))}`;
+  const [flipped, setFlipped] = useState(false);
+
+  const scope = parseAppliesTo(appliesTo);
+  const scopeLabel = scope === 'both' ? 'ห้องพัก + เรือ' : appliesToLabel(scope);
+  const discountText = formatPromoDiscount(discountType, discountValue);
+  const windowText = formatPromoWindow(startDate, endDate);
+
   return (
-    <article
-      className={`relative flex overflow-hidden rounded-[22px] border bg-cream-100 ${
-        muted ? 'border-stone-200 opacity-70' : 'border-stone-200'
-      }`}
+    <div
+      className={`relative transition-opacity ${muted ? 'opacity-60' : ''} h-full`}
+      style={{ perspective: '1200px' }}
     >
-      <div className="flex w-[7.5rem] shrink-0 flex-col items-center justify-center bg-forest-800 px-3 py-5 text-center text-cream-100 sm:w-36">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-bamboo-300">
-          ส่วนลด
-        </p>
-        <p className="mt-1 font-display text-2xl font-semibold leading-none sm:text-3xl">
-          {formatPromoDiscount(discountType, discountValue)}
-        </p>
-      </div>
       <div
-        className="relative w-4 shrink-0 bg-cream-100"
-        aria-hidden="true"
+        className="grid w-full h-full transition-transform duration-500"
+        style={{
+          transformStyle: 'preserve-3d',
+          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+        }}
       >
-        <span className="absolute -left-2 top-0 h-4 w-4 rounded-full bg-[#FDFBF7]" />
-        <span className="absolute -left-2 bottom-0 h-4 w-4 rounded-full bg-[#FDFBF7]" />
-        <span className="absolute left-1/2 top-5 bottom-5 w-px -translate-x-1/2 border-l border-dashed border-stone-300" />
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-mono text-sm font-semibold tracking-wide text-forest-800">
-              {code}
-            </p>
-            <h2 className="mt-0.5 font-display text-lg text-charcoal">{name}</h2>
-            {description ? (
-              <p className="mt-1 line-clamp-2 text-sm leading-6 text-charcoal-500">
-                {description}
+        {/* ──── FRONT ──── */}
+        <div
+          className="overflow-hidden rounded-2xl border border-forest-100/60 bg-gradient-to-br from-white to-forest-50/30 shadow-sm hover:shadow-md hover:border-forest-200 transition-all"
+          style={{ gridArea: '1/1', backfaceVisibility: 'hidden', minHeight: '160px' }}
+        >
+          <div className="flex h-full">
+            {/* Left: discount slab */}
+            <div
+              className={`flex w-24 shrink-0 flex-col items-center justify-center px-2 py-4 text-center sm:w-28 ${
+                discountType === 'percent' ? 'bg-forest-800' : 'bg-lagoon-800'
+              }`}
+            >
+              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-white/70">ส่วนลด</p>
+              <p
+                className="mt-0.5 font-display font-bold leading-none text-white drop-shadow-sm"
+                style={{ fontSize: discountText.length > 5 ? '1.3rem' : '1.8rem' }}
+              >
+                {discountText}
               </p>
-            ) : null}
+              {boatTicketCount && boatTicketCount > 0 ? (
+                <div className="mt-2 flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-0.5 backdrop-blur-sm shadow-sm">
+                  <Sailboat size={9} className="text-white/90" />
+                  <span className="text-[9px] font-medium text-white">ฟรี ×{boatTicketCount}</span>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Perforation */}
+            <div className="relative w-3 shrink-0" aria-hidden>
+              <span className="absolute -left-1.5 top-0 h-3 w-3 rounded-full bg-cream-100 shadow-inner" />
+              <span className="absolute -left-1.5 bottom-0 h-3 w-3 rounded-full bg-cream-100 shadow-inner" />
+              <span className="absolute bottom-3 left-1/2 top-3 w-px -translate-x-1/2 border-l border-dashed border-forest-200/50" />
+            </div>
+
+            {/* Right body */}
+            <div className="flex min-w-0 flex-1 flex-col justify-between p-3 sm:p-4">
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="rounded bg-forest-50 px-1.5 py-0.5 font-mono text-xs font-bold tracking-wider text-forest-700">
+                        {code}
+                      </span>
+                      {badge ? (
+                        <span className="rounded-full border border-bamboo-200 bg-bamboo-100 px-2 py-0.5 text-[10px] font-semibold text-bamboo-800">
+                          {badge}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1.5 font-display text-sm font-semibold leading-snug text-charcoal sm:text-base">
+                      {name}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFlipped(true)}
+                    title="ดูเงื่อนไข"
+                    className="shrink-0 rounded-lg p-1.5 text-stone-300 hover:bg-forest-50 hover:text-forest-600 transition-colors"
+                  >
+                    <Info size={16} />
+                  </button>
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-charcoal-400">
+                  <span className="flex items-center gap-1"><Tag size={10} />{scopeLabel}</span>
+                  <span className="text-stone-300">·</span>
+                  <span>{windowText}</span>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {footer}
+              </div>
+            </div>
           </div>
-          {badge ? (
-            <span className="shrink-0 rounded-full bg-forest-50 px-2.5 py-1 text-xs font-semibold text-forest-800">
-              {badge}
-            </span>
-          ) : null}
         </div>
-        <p className="text-xs text-charcoal-400">
-          {formatPromoWindow(startDate, endDate)}
-          {stackable ? ' · ใช้ร่วมโค้ดอื่นได้' : ''}
-          {appliesLabel}
-        </p>
-        <div className="mt-auto flex flex-wrap items-center gap-2">{footer}</div>
+
+        {/* ──── BACK ──── */}
+        <div
+          className="overflow-hidden rounded-2xl border border-forest-100 bg-forest-800 shadow-md"
+          style={{
+            gridArea: '1/1',
+            backfaceVisibility: 'hidden',
+            transform: 'rotateY(180deg)',
+            minHeight: '160px',
+          }}
+        >
+          <div className="flex h-full flex-col justify-between p-4">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold uppercase tracking-widest text-cream-200/70">เงื่อนไขการใช้</p>
+                <button
+                  type="button"
+                  onClick={() => setFlipped(false)}
+                  className="rounded-full p-1 text-cream-200/60 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <RotateCcw size={14} />
+                </button>
+              </div>
+
+              {description ? (
+                <p className="mb-3 text-sm leading-relaxed text-cream-100/90">{description}</p>
+              ) : null}
+
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                <li className="flex items-start gap-2 text-xs text-cream-100/80">
+                  <Tag size={12} className="shrink-0 text-bamboo-300" />
+                  <span>ใช้ได้กับ {scopeLabel}</span>
+                </li>
+                {minNights && minNights > 0 ? (
+                  <li className="flex items-start gap-2 text-xs text-cream-100/80">
+                    <Moon size={12} className="shrink-0 text-bamboo-300" />
+                    <span>เข้าพักขั้นต่ำ {minNights} คืน</span>
+                  </li>
+                ) : null}
+                {maxDiscount && maxDiscount > 0 ? (
+                  <li className="flex items-start gap-2 text-xs text-cream-100/80">
+                    <span className="shrink-0 font-semibold text-bamboo-300">฿</span>
+                    <span>ส่วนลดสูงสุด ฿{maxDiscount.toLocaleString()}</span>
+                  </li>
+                ) : null}
+                {boatTicketCount && boatTicketCount > 0 ? (
+                  <li className="flex items-start gap-2 text-xs font-semibold text-bamboo-200">
+                    <Sailboat size={12} className="shrink-0 text-bamboo-300" />
+                    <span>แถมตั๋วเรือฟรี {boatTicketCount} ใบ</span>
+                  </li>
+                ) : null}
+                <li className="flex items-start gap-2 text-xs text-cream-100/70">
+                  <Layers size={12} className="shrink-0 text-bamboo-300" />
+                  <span>{stackable ? 'ใช้ซ้อนกับโค้ดอื่นได้' : 'ไม่สามารถใช้ซ้อนกับโค้ดอื่น'}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
-    </article>
+    </div>
   );
 }
 
+// ─── Booking links: only show kayak if applies_to is explicitly 'kayak' ───
+interface PromoBookingLinksProps {
+  code: string;
+  appliesTo?: PromoAppliesTo | string | null;
+  roomLabel: string;
+  kayakLabel: string;
+}
+
+export function PromoBookingLinks({ code, appliesTo, roomLabel, kayakLabel }: PromoBookingLinksProps): React.ReactElement {
+  const scope = parseAppliesTo(appliesTo);
+  const showRoom = scope === 'room' || scope === 'both';
+  const showKayak = scope === 'kayak'; // strict: only if explicitly kayak
+  return (
+    <>
+      {showRoom ? (
+        <Link href={bookingPromoHref('room', code)} className="btn-primary px-3 py-1.5 text-xs">
+          {roomLabel}
+        </Link>
+      ) : null}
+      {showKayak ? (
+        <Link href={bookingPromoHref('kayak', code)} className="btn-secondary bg-white px-3 py-1.5 text-xs">
+          {kayakLabel}
+        </Link>
+      ) : null}
+    </>
+  );
+}
+
+// ─── Collect / CTA ───
 interface CollectButtonProps {
   code: string;
   loading: boolean;
@@ -110,41 +247,6 @@ interface CollectButtonProps {
   appliesTo?: PromoAppliesTo | string | null;
   onCollect: () => void;
   onLogin: () => void;
-}
-
-interface PromoBookingLinksProps {
-  code: string;
-  appliesTo?: PromoAppliesTo | string | null;
-  roomLabel: string;
-  kayakLabel: string;
-}
-
-export function PromoBookingLinks({
-  code,
-  appliesTo,
-  roomLabel,
-  kayakLabel,
-}: PromoBookingLinksProps): React.ReactElement {
-  const parsed = parseAppliesTo(appliesTo);
-  const showRoom = promoAllowsScope(parsed, 'room');
-  const showKayak = promoAllowsScope(parsed, 'kayak');
-  return (
-    <>
-      {showRoom ? (
-        <Link href={bookingPromoHref('room', code)} className="btn-primary px-4 py-2 text-sm">
-          {roomLabel}
-        </Link>
-      ) : null}
-      {showKayak ? (
-        <Link
-          href={bookingPromoHref('kayak', code)}
-          className={`${showRoom ? 'btn-secondary' : 'btn-primary'} px-4 py-2 text-sm`}
-        >
-          {kayakLabel}
-        </Link>
-      ) : null}
-    </>
-  );
 }
 
 export function PromoCollectAction({
@@ -160,59 +262,49 @@ export function PromoCollectAction({
 }: CollectButtonProps): React.ReactElement {
   if (!isCollectible) {
     return (
-      <PromoBookingLinks
-        code={code}
-        appliesTo={appliesTo}
-        roomLabel="ใช้ตอนจองห้อง"
-        kayakLabel="ใช้ตอนจองเรือ"
-      />
+      <PromoBookingLinks code={code} appliesTo={appliesTo} roomLabel="จองห้องพัก" kayakLabel="จองเรือ" />
     );
   }
 
   if (status === 'saved') {
     return (
       <>
-        <span className="text-sm font-semibold text-forest-800">เก็บแล้ว</span>
-        <PromoBookingLinks
-          code={code}
-          appliesTo={appliesTo}
-          roomLabel="ไปจองห้อง"
-          kayakLabel="ไปจองเรือ"
-        />
+        <span className="flex items-center gap-1 rounded-lg border border-forest-100 bg-forest-50 px-2.5 py-1.5 text-xs font-semibold text-forest-700">
+          <CheckCircle2 size={13} /> เก็บแล้ว
+        </span>
+        <PromoBookingLinks code={code} appliesTo={appliesTo} roomLabel="จองห้องพัก" kayakLabel="จองเรือ" />
       </>
     );
   }
 
   if (status === 'used') {
-    return <span className="text-sm font-semibold text-charcoal-400">ใช้ครบแล้ว</span>;
+    return <span className="rounded-lg bg-stone-100 px-3 py-1.5 text-xs font-medium text-stone-400">ใช้สิทธิ์แล้ว</span>;
   }
 
   if (status === 'expired') {
-    return <span className="text-sm font-semibold text-charcoal-400">หมดอายุ</span>;
+    return <span className="rounded-lg bg-stone-100 px-3 py-1.5 text-xs font-medium text-stone-400">หมดอายุ</span>;
   }
 
   if (!isAuthenticated) {
     return (
-      <button type="button" className="btn-primary px-4 py-2 text-sm" onClick={onLogin}>
+      <button type="button" className="btn-primary px-4 py-1.5 text-xs" onClick={onLogin}>
         เข้าสู่ระบบเพื่อเก็บ
       </button>
     );
   }
 
   if (!isCustomer) {
-    return (
-      <span className="text-sm text-charcoal-400">เก็บได้เฉพาะบัญชีลูกค้า</span>
-    );
+    return <span className="text-xs text-stone-400">เฉพาะลูกค้าสมาชิก</span>;
   }
 
   return (
     <button
       type="button"
-      className="btn-primary px-4 py-2 text-sm disabled:opacity-60"
+      className="btn-primary px-5 py-1.5 text-xs font-semibold disabled:opacity-60"
       onClick={onCollect}
       disabled={loading}
     >
-      {loading ? <Loader2 size={16} className="inline animate-spin" /> : 'เก็บโปรโมชั่น'}
+      {loading ? <Loader2 size={14} className="inline animate-spin" /> : 'เก็บโปรโมชั่น'}
     </button>
   );
 }

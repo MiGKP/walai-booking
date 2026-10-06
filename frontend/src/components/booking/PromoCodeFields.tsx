@@ -162,7 +162,7 @@ function PromoCodeFieldsInner({
         applyPayload(first);
       }
       if (!silent) {
-
+        
       }
     } catch (error: unknown) {
       const needId = collectIdFromError(error);
@@ -287,7 +287,7 @@ function PromoCodeFieldsInner({
           {preview.lines.map((line) => (
             <div
               key={line.id}
-              className="flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+              className="flex items-center justify-between rounded-xl bg-forest-50 px-3 py-2 text-sm text-forest-900"
             >
               <span className="font-mono text-xs font-semibold">{line.code}</span>
               <span className="tabular-nums">-฿{line.discount_amount.toLocaleString()}</span>

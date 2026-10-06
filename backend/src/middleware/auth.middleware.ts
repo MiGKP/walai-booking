@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import pool from '../config/database';
 import { AuthPayload } from '../types';
 
 // ขยาย type ของ Express Request เพื่อให้ middleware แนบข้อมูล user จาก JWT ไปใช้ต่อใน controller ได้อย่างปลอดภัย
@@ -8,7 +9,35 @@ export interface AuthRequest extends Request {
 }
 
 // ตรวจสอบ Bearer token จาก header, ถอดรหัส JWT และแนบ payload ของผู้ใช้ไว้ใน req.user
-export const authenticate = (req: Request, res: Response, next: NextFunction): void => {
+// ตรวจสอบสถานะบัญชี role ล่าสุด และเวลาเปลี่ยนรหัสผ่านจากฐานข้อมูลทุกครั้ง
+// token ที่ออกก่อนเวลาเปลี่ยนรหัสผ่านจะถูกปฏิเสธ (ยกเลิก session เดิมอัตโนมัติ)
+const resolveActiveAccount = async (
+  payload: AuthPayload
+): Promise<{ role: string; passwordChangedAtMs: number | null } | null> => {
+  if (payload.role === 'customer') {
+    const r = await pool.query(
+      'SELECT is_active, password_changed_at FROM members WHERE member_id = $1',
+      [payload.id]
+    );
+    if (r.rows.length === 0 || r.rows[0].is_active === false) return null;
+    return {
+      role: 'customer',
+      passwordChangedAtMs: r.rows[0].password_changed_at ? new Date(r.rows[0].password_changed_at).getTime() : null,
+    };
+  }
+  const r = await pool.query(
+    'SELECT role, status, password_changed_at FROM staff WHERE staff_id = $1',
+    [payload.id]
+  );
+  if (r.rows.length === 0 || r.rows[0].status !== true) return null;
+  return {
+    role: String(r.rows[0].role),
+    passwordChangedAtMs: r.rows[0].password_changed_at ? new Date(r.rows[0].password_changed_at).getTime() : null,
+  };
+};
+
+// ตรวจสอบ Bearer token จาก header, ถอดรหัส JWT, เช็คบัญชีในฐานข้อมูล แล้วแนบ payload ของผู้ใช้ไว้ใน req.user
+export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader?.startsWith('Bearer ')) {
@@ -23,12 +52,41 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
     return;
   }
 
+  let decoded: AuthPayload & { iat?: number };
   try {
-    const decoded = jwt.verify(token, secret) as AuthPayload;
-    (req as AuthRequest).user = decoded;
-    next();
+    decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as AuthPayload & { iat?: number };
   } catch (error) {
     res.status(401).json({ success: false, message: 'Invalid token' });
+    return;
+  }
+
+  try {
+    const account = await resolveActiveAccount(decoded);
+    if (!account) {
+      res.status(401).json({ success: false, message: 'Account is disabled or no longer exists' });
+      return;
+    }
+    // New tokens carry signed millisecond precision. Legacy tokens retain the
+    // conservative second-resolution check, including their entire reset second.
+    const issuedAtSecondsMs = Number(decoded.iat ?? 0) * 1000;
+    if (decoded.issued_at_ms !== undefined && (
+      !Number.isSafeInteger(decoded.issued_at_ms) ||
+      decoded.issued_at_ms < issuedAtSecondsMs ||
+      decoded.issued_at_ms >= issuedAtSecondsMs + 1000
+    )) {
+      res.status(401).json({ success: false, message: 'Invalid token' });
+      return;
+    }
+    const issuedAtMs = decoded.issued_at_ms ?? issuedAtSecondsMs;
+    if (account.passwordChangedAtMs !== null && issuedAtMs <= account.passwordChangedAtMs) {
+      res.status(401).json({ success: false, message: 'Session expired, please login again' });
+      return;
+    }
+    (req as AuthRequest).user = { ...decoded, role: account.role as AuthPayload['role'] };
+    next();
+  } catch (error) {
+    console.error('Authenticate lookup error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
@@ -40,6 +98,12 @@ export const optionalAuthenticate = (
 ): void => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
+    next();
+    return;
+  }
+  try {
+    jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET || '', { algorithms: ['HS256'] });
+  } catch {
     next();
     return;
   }

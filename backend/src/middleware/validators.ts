@@ -40,7 +40,7 @@ export const resetPasswordValidator = [
 
 export const updateProfileValidator = [
   body('first_name').trim().notEmpty().withMessage('First name is required'),
-  body('last_name').trim().notEmpty().withMessage('Last name is required'),
+  body('last_name').optional({ nullable: true }).trim(),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
@@ -91,6 +91,9 @@ export const initAdminValidator = [
 // ─── Room Booking ─────────────────────────────────────────────────────────────
 
 export const createRoomBookingValidator = [
+  body('guest_name').optional({ nullable: true, checkFalsy: true }).trim().isLength({ min: 1, max: 200 }),
+  body('guest_phone').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 30 }).isMobilePhone('any'),
+  body('guest_email').optional({ nullable: true, checkFalsy: true }).trim().isEmail().isLength({ max: 254 }),
   body('check_in_date').isISO8601().withMessage('Valid check_in_date (ISO 8601) is required'),
   body('check_out_date')
     .isISO8601()
@@ -127,6 +130,14 @@ export const createRoomBookingValidator = [
     }
     return true;
   }),
+];
+
+export const resortInfoValidator = [
+  body('id').optional().isInt({ min: 3, max: 5 }).withMessage('Invalid resort id'),
+  body('infant_max_age_exclusive').optional().isInt({ min: 0, max: 18 })
+    .withMessage('อายุที่เริ่มนับความจุต้องเป็นจำนวนเต็ม 0-18 ปี'),
+  body('boat_advance_booking_minutes').optional().isInt({ min: 0, max: 10080 })
+    .withMessage('จองล่วงหน้าขั้นต่ำต้องเป็นจำนวนเต็ม 0-10080 นาที'),
 ];
 
 export const updateRoomBookingStatusValidator = [
@@ -192,6 +203,15 @@ export const createKayakValidator = [
   body('description').optional({ nullable: true, checkFalsy: true }).trim(),
 ];
 
+export const updateKayakValidator = [
+  body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
+  body('capacity').optional().isInt({ min: 1, max: 10 }).withMessage('Capacity must be between 1 and 10'),
+  body('seat_count').optional().isInt({ min: 1, max: 10 }).withMessage('Capacity must be between 1 and 10'),
+  body('price_per_hour').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
+  body('price').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
+  body('quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
+];
+
 export const createBoatRoundValidator = [
   body('start_time').matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage('start_time must be in HH:MM format'),
   body('end_time').matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage('end_time must be in HH:MM format'),
@@ -244,6 +264,8 @@ export const createPromotionValidator = [
   body('stackable').optional().isBoolean().withMessage('stackable must be a boolean'),
   body('applies_to').optional().isIn(['room', 'kayak', 'both']).withMessage('applies_to must be room, kayak, or both'),
   body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
+  body('boat_ticket_count').optional({ nullable: true }).isInt({ min: 0 }).withMessage('boat_ticket_count must be 0 or more'),
+  body('boat_addon_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('boat_addon_price must be 0 or more'),
 ];
 
 export const updatePromotionValidator = [
@@ -263,6 +285,8 @@ export const updatePromotionValidator = [
   body('stackable').optional().isBoolean().withMessage('stackable must be a boolean'),
   body('applies_to').optional().isIn(['room', 'kayak', 'both']).withMessage('applies_to must be room, kayak, or both'),
   body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
+  body('boat_ticket_count').optional({ nullable: true }).isInt({ min: 0 }).withMessage('boat_ticket_count must be 0 or more'),
+  body('boat_addon_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('boat_addon_price must be 0 or more'),
 ];
 
 export const promotionIdParamValidator = [
@@ -285,4 +309,11 @@ export const validatePromoCodeValidator = [
     }
     return true;
   }),
+];
+
+// ─── Cancellation policy ──────────────────────────────────────────────────────
+
+export const cancellationPolicyValidator = [
+  body('full_refund_hours').isInt({ min: 0, max: 8760 }).withMessage('full_refund_hours must be 0 to 8760'),
+  body('late_refund_percent').isFloat({ min: 0, max: 100 }).withMessage('late_refund_percent must be 0 to 100'),
 ];

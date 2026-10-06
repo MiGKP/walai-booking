@@ -49,7 +49,7 @@ const normalizeOrigin = (value?: string): string => (value || '').replace(/\/$/,
 app.use(cors({
   origin: function (origin, callback) {
     const frontendUrl = normalizeOrigin(process.env.FRONTEND_URL);
-    const allowedOrigins = ['http://localhost:3000', 'http://localhost:3001'];
+    const allowedOrigins = process.env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://localhost:3001'];
 
     if (!origin || allowedOrigins.indexOf(origin) !== -1 || frontendUrl === normalizeOrigin(origin)) {
       callback(null, true);
@@ -127,6 +127,10 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err && err.name === 'MulterError') {
+    res.status(400).json({ success: false, message: 'ไฟล์ไม่ถูกต้องหรือมีขนาดใหญ่เกินกำหนด' });
+    return;
+  }
   console.error(err.stack);
   const status = err.status || 500;
   const message = isProduction && status >= 500

@@ -15,9 +15,20 @@ describe("extractGoogleEmail", () => {
     assert.equal(
       extractGoogleEmail({
         id: "1",
-        _json: { email: "66011212078@MSU.ac.th" },
+        _json: { email: "66011212078@MSU.ac.th", email_verified: true },
       }),
       "66011212078@msu.ac.th",
+    );
+  });
+
+  it("rejects unverified emails from emails[] and _json", () => {
+    assert.equal(
+      extractGoogleEmail({
+        id: "1",
+        emails: [{ value: "other@example.com", verified: false }],
+        _json: { email: "json@example.com", email_verified: false },
+      }),
+      null,
     );
   });
 

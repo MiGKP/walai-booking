@@ -36,6 +36,21 @@ api.interceptors.response.use(
 );
 
 /** ดึงข้อความ error จาก backend ที่ตอบรูปแบบ { success, message } โดยไม่ต้องใช้ any */
+/** ข้อความภาษาไทยสำหรับกรณีที่ request ไม่ถึง server หรือไม่ได้รับคำตอบ (เน็ตหลุด, timeout, server ล่ม) */
+export const getNetworkErrorMessage = (error: unknown): string | null => {
+  if (!axios.isAxiosError(error)) return null;
+  if (error.code === 'ECONNABORTED') {
+    return 'การเชื่อมต่อใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง';
+  }
+  if (!error.response) {
+    return 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่';
+  }
+  if (error.response.status >= 500) {
+    return 'เซิร์ฟเวอร์เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง';
+  }
+  return null;
+};
+
 export const getApiErrorMessage = (error: unknown, fallback: string): string => {
   if (axios.isAxiosError(error)) {
     const message = error.response?.data?.message;
@@ -43,7 +58,7 @@ export const getApiErrorMessage = (error: unknown, fallback: string): string => 
       return message;
     }
   }
-  return fallback;
+  return getNetworkErrorMessage(error) ?? fallback;
 };
 
 export default api;

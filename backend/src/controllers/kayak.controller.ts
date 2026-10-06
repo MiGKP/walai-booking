@@ -1,4 +1,8 @@
+import { parsePagination, paginationMeta } from '../utils/pagination';
 import { Request, Response } from "express";
+import { safeRollback } from '../utils/safe-rollback';
+import { bangkokToday } from "../utils/bangkok-date";
+import { assertStatusTransition } from '../services/booking-status';
 import { PoolClient } from "pg";
 import pool from "../config/database";
 import { AuthPayload } from "../types";
@@ -7,6 +11,8 @@ import {
   sendBookingStatusEmail,
 } from "../services/mail.service";
 import { deleteCloudinaryImage } from "../services/cloudinary.service";
+import { mapDbError } from "../utils/db-errors";
+import { parsePositiveInt } from "../utils/ids";
 import {
   boatsNeeded,
   lineSubtotal,
@@ -98,6 +104,44 @@ function normalizeTimePart(value: unknown): string {
   return raw;
 }
 
+// Inventory is reused on different dates and after each time window ends.
+// Group simultaneous event deltas before the running sum so adjacent bookings
+// do not temporarily count the ending reservation and its replacement together.
+async function peakReservedBoats(
+  client: PoolClient,
+  boatTypeId: number,
+  boatRoundId: number | null = null,
+): Promise<number> {
+  const result = await client.query(
+    `WITH reservations AS (
+       SELECT bb.booking_date, bnb.boat_count,
+              COALESCE(bb.start_time, br.start_time) AS start_time,
+              COALESCE(bb.end_time, br.end_time) AS end_time
+       FROM booking_boat bnb
+       JOIN boat_bookings bb ON bb.boat_booking_id = bnb.boat_booking_id
+       JOIN boat_rounds br ON br.boat_round_id = bnb.boat_round_id
+       WHERE bnb.boat_type_id = $1
+         AND ($2::int IS NULL OR bnb.boat_round_id = $2)
+         AND bnb.status NOT IN ('cancelled', 'rejected', 'checked_out')
+     ), events AS (
+       SELECT booking_date, start_time AS event_time, boat_count AS delta FROM reservations
+       UNION ALL
+       SELECT booking_date, end_time AS event_time, -boat_count AS delta FROM reservations
+     ), simultaneous AS (
+       SELECT booking_date, event_time, SUM(delta) AS delta
+       FROM events GROUP BY booking_date, event_time
+     ), demand AS (
+       SELECT SUM(delta) OVER (
+         PARTITION BY booking_date ORDER BY event_time
+         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+       ) AS boats FROM simultaneous
+     )
+     SELECT COALESCE(MAX(boats), 0)::int AS n FROM demand`,
+    [boatTypeId, boatRoundId],
+  );
+  return Number(result.rows[0].n);
+}
+
 // บวก/ลบวันจากสตริงวันที่ล้วน (YYYY-MM-DD) โดยไม่ยุ่งกับ timezone ของเครื่อง — ใช้ UTC เที่ยงคืนเสมอ กันวันเพี้ยน
 function addDaysToDateStr(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
@@ -112,7 +156,7 @@ async function getBoatTicketBalance(
 ): Promise<number> {
   const r = await client.query(
     `SELECT COALESCE(SUM(total_tickets - used_tickets), 0) AS balance
-     FROM member_boat_tickets WHERE member_id = $1`,
+     FROM member_boat_tickets WHERE member_id = $1 AND booking_room_id IS NULL`,
     [memberId],
   );
   return Number(r.rows[0].balance);
@@ -128,8 +172,8 @@ async function redeemBoatTickets(
   if (quantity <= 0) return;
   const grants = await client.query(
     `SELECT id, total_tickets, used_tickets FROM member_boat_tickets
-     WHERE member_id = $1 AND total_tickets > used_tickets
-     ORDER BY created_at ASC
+     WHERE member_id = $1 AND booking_room_id IS NULL AND total_tickets > used_tickets
+     ORDER BY created_at ASC, id ASC
      FOR UPDATE`,
     [memberId],
   );
@@ -175,6 +219,8 @@ export async function getRoomBoatTicketBalance(
   };
 }
 
+const ROOM_BOAT_TICKETS_SHORT_MESSAGE = "บัตรเสริมไม่พอสำหรับห้องนี้";
+
 // หักบัตรเสริมที่ผูกกับห้องพักจริงห้องนั้น แบบ FIFO เหมือนกระเป๋ารวม แต่กรองเฉพาะ booking_room_id นี้
 export async function redeemRoomBoatTickets(
   client: { query: typeof pool.query },
@@ -186,7 +232,7 @@ export async function redeemRoomBoatTickets(
   const grants = await client.query(
     `SELECT id, total_tickets, used_tickets FROM member_boat_tickets
      WHERE booking_room_id = $1 AND total_tickets > used_tickets
-     ORDER BY created_at ASC
+     ORDER BY created_at ASC, id ASC
      FOR UPDATE`,
     [bookingRoomId],
   );
@@ -207,7 +253,7 @@ export async function redeemRoomBoatTickets(
     remaining -= take;
   }
   if (remaining > 0) {
-    throw new Error("บัตรเสริมไม่พอสำหรับห้องนี้");
+    throw new Error(ROOM_BOAT_TICKETS_SHORT_MESSAGE);
   }
 }
 
@@ -226,33 +272,6 @@ export async function restoreBoatTicketRedemptions(
       [row.quantity, row.member_boat_ticket_id],
     );
   }
-}
-
-async function removePaidAddonFromRoomTotal(
-  client: { query: typeof pool.query },
-  booking: {
-    is_addon?: boolean;
-    addon_mode?: string | null;
-    room_booking_id?: number | null;
-    total_price?: string | number | null;
-  },
-): Promise<void> {
-  const addonPrice = Number(booking.total_price) || 0;
-  if (
-    !booking.is_addon ||
-    booking.addon_mode !== "paid" ||
-    !booking.room_booking_id ||
-    addonPrice <= 0
-  ) {
-    return;
-  }
-
-  await client.query(
-    `UPDATE room_bookings
-     SET total_price = GREATEST(0, total_price - $1), updated_at = NOW()
-     WHERE room_booking_id = $2`,
-    [addonPrice, booking.room_booking_id],
-  );
 }
 
 async function replaceRoundBoats(
@@ -290,6 +309,16 @@ function toTimeSql(value: unknown): string {
   return raw.includes("T") ? raw.split("T")[1].slice(0, 8) : raw;
 }
 
+// แปลงเวลารูปแบบ HH:MM หรือ HH:MM:SS เป็นนาทีนับจากเที่ยงคืน; คืน null ถ้ารูปแบบไม่ถูกต้อง
+function timeToMinutes(value: string): number | null {
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(value.trim());
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
 // ดึงรายการประเภทเรือทั้งหมดที่เปิดใช้งานอยู่ พร้อมข้อมูลที่ frontend ใช้แสดง เช่น ความจุ ราคา และรูปหลัก
 export const getAllKayaks = async (
   req: Request,
@@ -299,7 +328,8 @@ export const getAllKayaks = async (
     const result = await pool.query(`
       SELECT bt.boat_type_id as id, bt.type_name as name, bt.description, 
              bt.seat_count as capacity, bt.price as price_per_hour, bt.quantity, bt.is_active,
-             (SELECT image_path FROM boat_images bi WHERE bi.boat_type_id = bt.boat_type_id LIMIT 1) as image
+             (SELECT image_path FROM boat_images bi WHERE bi.boat_type_id = bt.boat_type_id LIMIT 1) as image,
+             (SELECT coalesce(json_agg(image_path), '[]'::json) FROM boat_images bi WHERE bi.boat_type_id = bt.boat_type_id) as images
       FROM boat_types bt 
       WHERE bt.is_active = true
       ORDER BY bt.price ASC
@@ -330,10 +360,14 @@ export const getKayakById = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
     const result = await pool.query(
       `
-      SELECT bt.boat_type_id as id, bt.type_name as name, bt.description, 
+      SELECT bt.boat_type_id as id, bt.type_name as name, bt.description,
              bt.seat_count as capacity, bt.price as price_per_hour, bt.quantity,
              (SELECT json_agg(image_path) FROM boat_images bi WHERE bi.boat_type_id = bt.boat_type_id) as images
       FROM boat_types bt 
@@ -761,6 +795,10 @@ export const createKayakBooking = async (
     const user = req.user as AuthPayload;
     const body = req.body as Record<string, unknown>;
     const booking_date = String(body.booking_date);
+    if (booking_date < bangkokToday()) {
+      res.status(400).json({ success: false, message: "ไม่สามารถจองวันที่ย้อนหลังได้" });
+      return;
+    }
 
     if (user.role !== "customer") {
       res.status(403).json({
@@ -824,7 +862,7 @@ export const createKayakBooking = async (
         [Number(body.boat_round_id)],
       );
       if (roundLookup.rows.length === 0) {
-        await client.query("ROLLBACK");
+        await safeRollback(client);
         res.status(404).json({ success: false, message: "Boat round not found" });
         return;
       }
@@ -833,7 +871,7 @@ export const createKayakBooking = async (
     }
 
     if (!startTime || !endTime) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: "ต้องระบุ start_time และ end_time",
@@ -861,17 +899,17 @@ export const createKayakBooking = async (
     const sortedItems = [...items].sort((a, b) => a.boat_type_id - b.boat_type_id);
 
     const candidateRes = await client.query(
-      `SELECT br.boat_round_id, br.boat_type_id, br.max_booking, br.total_slots,
+      `SELECT br.boat_round_id, br.boat_type_id, br.max_booking, br.total_slots, br.is_active,
               ${MEMBER_TYPE_IDS_SQL} AS member_type_ids
        FROM boat_rounds br
-       WHERE br.is_active = true
-         AND br.start_time = $1::time
+       WHERE br.start_time = $1::time
          AND br.end_time = $2::time
+       ORDER BY br.boat_round_id
        FOR UPDATE OF br`,
       [startTime, endTime],
     );
 
-    const candidates = candidateRes.rows.map((row) => ({
+    const candidates = candidateRes.rows.filter((row: { is_active: boolean }) => row.is_active).map((row) => ({
       boat_round_id: Number(row.boat_round_id),
       boat_type_id: row.boat_type_id == null ? null : Number(row.boat_type_id),
       memberTypeIds: memberTypeIdsFromRow(row),
@@ -891,7 +929,7 @@ export const createKayakBooking = async (
         [item.boat_type_id],
       );
       if (btResult.rows.length === 0) {
-        await client.query("ROLLBACK");
+        await safeRollback(client);
         res.status(404).json({
           success: false,
           message: `ไม่พบประเภทเรือ id ${item.boat_type_id}`,
@@ -914,7 +952,7 @@ export const createKayakBooking = async (
           boatCount = minBoatCount;
         }
       } catch (err) {
-        await client.query("ROLLBACK");
+        await safeRollback(client);
         res.status(400).json({
           success: false,
           message: err instanceof Error ? err.message : "ข้อมูลผู้โดยสารไม่ถูกต้อง",
@@ -926,7 +964,7 @@ export const createKayakBooking = async (
         coveringRoundId ?? pickRoundForType(candidates, item.boat_type_id);
       const round = candidates.find((c) => c.boat_round_id === roundId);
       if (roundId == null || !round) {
-        await client.query("ROLLBACK");
+        await safeRollback(client);
         res.status(409).json({
           success: false,
           message: `ไม่มีรอบเวลาที่เลือกสำหรับเรือ ${boatType.type_name}`,
@@ -968,7 +1006,7 @@ export const createKayakBooking = async (
       );
 
       if (bookedBoats + boatCount > quantity) {
-        await client.query("ROLLBACK");
+        await safeRollback(client);
         res.status(409).json({
           success: false,
           message: `เรือ ${boatType.type_name} เต็มในรอบที่เลือก (ต้องการ ${boatCount} ลำ)`,
@@ -980,7 +1018,7 @@ export const createKayakBooking = async (
       // Shared M2M rounds use round_boats.quantity + total_slots instead.
       const maxBooking = coveringRoundId != null ? null : round.max_booking;
       if (maxBooking != null && totalPassengers + item.num_passengers > maxBooking) {
-        await client.query("ROLLBACK");
+        await safeRollback(client);
         res.status(409).json({
           success: false,
           message: `เกินจำนวนที่รับจองสำหรับเรือ ${boatType.type_name} ในรอบนี้ (สูงสุด ${maxBooking})`,
@@ -1019,7 +1057,7 @@ export const createKayakBooking = async (
       );
       const totalBooked = Number(poolRes.rows[0].total_booked);
       if (totalBooked + requestBoatTotal > poolSlots) {
-        await client.query("ROLLBACK");
+        await safeRollback(client);
         res.status(409).json({
           success: false,
           message: `ท่าเรือเต็มในรอบนี้ (รองรับสูงสุด ${poolSlots} ลำ รวมทุกประเภท)`,
@@ -1048,7 +1086,7 @@ export const createKayakBooking = async (
       }
       if (totalFreeTicketsApplied < totalFreeTicketsRequested) {
         // ขอใช้มากกว่าที่มีจริง (หรือมากกว่าจำนวนเรือของบรรทัดนั้น) — แจ้งเตือนแทนที่จะเงียบๆ ใช้แค่บางส่วน
-        await client.query("ROLLBACK");
+        await safeRollback(client);
         res.status(400).json({ success: false, message: "บัตรพายเรือไม่พอ หรือจำนวนที่ขอใช้เกินจำนวนเรือของบรรทัดนั้น" });
         return;
       }
@@ -1076,7 +1114,7 @@ export const createKayakBooking = async (
         });
         totalPrice = applyResult.totalPrice;
       } catch (err) {
-        await client.query("ROLLBACK");
+        await safeRollback(client);
         res.status(400).json({
           success: false,
           message:
@@ -1145,7 +1183,7 @@ export const createKayakBooking = async (
       try {
         await redeemBoatTickets(client, user.id, Number(header.boat_booking_id), totalFreeTicketsApplied);
       } catch (err) {
-        await client.query("ROLLBACK");
+        await safeRollback(client);
         res.status(400).json({
           success: false,
           message: err instanceof Error ? err.message : "ใช้บัตรพายเรือไม่สำเร็จ",
@@ -1200,7 +1238,12 @@ export const createKayakBooking = async (
       },
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Create kayak booking error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -1216,8 +1259,8 @@ export const getBoatAddonInfo = async (
 ): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
-    const bookingRoomId = Number(req.params.bookingRoomId);
-    if (!Number.isInteger(bookingRoomId) || bookingRoomId < 1) {
+    const bookingRoomId = parsePositiveInt(req.params.bookingRoomId);
+    if (bookingRoomId === null) {
       res.status(400).json({ success: false, message: "Invalid booking_room id" });
       return;
     }
@@ -1283,14 +1326,18 @@ export const createBoatAddon = async (
   const client = await pool.connect();
   try {
     const user = req.user as AuthPayload;
-    const bookingRoomId = Number(req.params.bookingRoomId);
+    const bookingRoomId = parsePositiveInt(req.params.bookingRoomId);
     const body = req.body as Record<string, unknown>;
     const boatTypeId = Number(body.boat_type_id);
     const boatRoundId = Number(body.boat_round_id);
     const bookingDate = String(body.booking_date);
+    if (bookingDate < bangkokToday()) {
+      res.status(400).json({ success: false, message: "ไม่สามารถจองวันที่ย้อนหลังได้" });
+      return;
+    }
     const numPassengers = Math.max(1, Number(body.num_passengers) || 1);
 
-    if (!Number.isInteger(bookingRoomId) || bookingRoomId < 1) {
+    if (bookingRoomId === null) {
       res.status(400).json({ success: false, message: "Invalid booking_room id" });
       return;
     }
@@ -1301,6 +1348,23 @@ export const createBoatAddon = async (
 
     await client.query("BEGIN");
 
+    // Slip submission and room status actions lock the header before its lines.
+    // Match that order, and keep the header locked while checking paid addons so
+    // a slip cannot be accepted against an amount that changes underneath it.
+    const roomHeader = await client.query(
+      `SELECT rb.room_booking_id
+       FROM room_bookings rb
+       WHERE rb.room_booking_id = (
+         SELECT room_booking_id FROM booking_room WHERE booking_room_id = $1
+       ) FOR UPDATE OF rb`,
+      [bookingRoomId],
+    );
+    if (roomHeader.rows.length === 0) {
+      await safeRollback(client);
+      res.status(404).json({ success: false, message: "Booking room not found" });
+      return;
+    }
+
     const roomRes = await client.query(
       `SELECT br.booking_room_id, rb.room_booking_id, rb.member_id, rb.check_in::text AS check_in, rb.check_out::text AS check_out, rb.status AS room_status
        FROM booking_room br
@@ -1310,18 +1374,18 @@ export const createBoatAddon = async (
       [bookingRoomId],
     );
     if (roomRes.rows.length === 0) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(404).json({ success: false, message: "Booking room not found" });
       return;
     }
     const room = roomRes.rows[0];
     if (room.member_id !== user.id) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(403).json({ success: false, message: "Forbidden" });
       return;
     }
     if (!["pending", "paid", "approved"].includes(room.room_status)) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(400).json({ success: false, message: "ห้องพักนี้ไม่สามารถใช้บัตรเสริมได้แล้ว" });
       return;
     }
@@ -1330,7 +1394,7 @@ export const createBoatAddon = async (
     const validFrom = addDaysToDateStr(room.check_in, 1);
     const validTo = addDaysToDateStr(room.check_out, -1);
     if (validFrom > validTo || bookingDate < validFrom || bookingDate > validTo) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: "เลือกวันที่ใช้บัตรเสริมได้เฉพาะช่วงที่พักจริง (ไม่รวมวันเช็คอิน/เช็คเอาต์)",
@@ -1340,46 +1404,72 @@ export const createBoatAddon = async (
 
     const ticketInfo = await getRoomBoatTicketBalance(client, bookingRoomId);
     if (!ticketInfo || ticketInfo.balance <= 0) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(400).json({ success: false, message: "ห้องนี้ไม่มีบัตรเสริมเหลือแล้ว" });
       return;
     }
-    if (ticketInfo.mode === "paid" && room.room_status !== "pending") {
-      await client.query("ROLLBACK");
-      res.status(400).json({
-        success: false,
-        message: "บัตรเสริมแบบเสียเงินต้องเลือกก่อนส่งหลักฐานการชำระเงิน",
-      });
-      return;
-    }
 
-    const roundRes = await client.query(
-      `SELECT boat_round_id, start_time, end_time FROM boat_rounds WHERE boat_round_id = $1 AND is_active = true FOR UPDATE`,
+    // Use the same shared-window lock set and order as normal kayak bookings.
+    // Never lock the selected round first: distinct selected IDs could deadlock
+    // while each request subsequently waits for the other round in this pool.
+    const roundLookup = await client.query(
+      `SELECT br.boat_round_id, br.start_time, br.end_time, br.total_slots
+       FROM boat_rounds br
+       WHERE br.boat_round_id = $1 AND br.is_active = true`,
       [boatRoundId],
     );
-    if (roundRes.rows.length === 0) {
-      await client.query("ROLLBACK");
+    if (roundLookup.rows.length === 0) {
+      await safeRollback(client);
       res.status(404).json({ success: false, message: "ไม่พบรอบเวลาที่เลือก" });
       return;
     }
-    const round = roundRes.rows[0];
+    const selectedWindow = roundLookup.rows[0];
+    const roundRes = await client.query(
+      `SELECT br.boat_round_id, br.start_time, br.end_time, br.total_slots, br.is_active
+       FROM boat_rounds br
+       WHERE br.start_time = $1::time AND br.end_time = $2::time
+       ORDER BY br.boat_round_id FOR UPDATE OF br`,
+      [selectedWindow.start_time, selectedWindow.end_time],
+    );
+    const round = roundRes.rows.find((row: { boat_round_id: number; is_active: boolean }) => row.is_active && Number(row.boat_round_id) === boatRoundId);
+    if (!round) {
+      await safeRollback(client);
+      res.status(409).json({ success: false, message: "รอบเวลาที่เลือกเปลี่ยนไปแล้ว กรุณาเลือกอีกครั้ง" });
+      return;
+    }
 
     const btRes = await client.query(
       `SELECT boat_type_id, type_name, price, quantity, seat_count FROM boat_types WHERE boat_type_id = $1 FOR UPDATE`,
       [boatTypeId],
     );
     if (btRes.rows.length === 0) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(404).json({ success: false, message: "ไม่พบประเภทเรือ" });
       return;
     }
     const boatType = btRes.rows[0];
+
+    // ประเภทเรือต้องอยู่ในรอบเวลาที่เลือก (เหมือนการจองเรือปกติใน createKayakBooking)
+    const memberRes = await client.query(
+      `SELECT 1 FROM boat_rounds br
+       WHERE br.boat_round_id = $1 AND ${roundIncludesTypeSql("br", "$2::int")}`,
+      [boatRoundId, boatTypeId],
+    );
+    if (memberRes.rows.length === 0) {
+      await safeRollback(client);
+      res.status(400).json({
+        success: false,
+        message: `เรือ ${boatType.type_name} ไม่ได้อยู่ในรอบเวลาที่เลือก`,
+      });
+      return;
+    }
+
     const seatCount = Number(boatType.seat_count || 1);
     const minBoatCount = boatsNeeded(numPassengers, seatCount);
     const boatCount = Number(body.boat_count) >= minBoatCount ? Number(body.boat_count) : minBoatCount;
 
     if (boatCount > ticketInfo.balance) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: `บัตรเสริมเหลือไม่พอ (เหลือ ${ticketInfo.balance} ครั้ง ต้องการ ${boatCount} ลำ)`,
@@ -1407,7 +1497,7 @@ export const createBoatAddon = async (
     const quantity = typeCapacity(Number(boatType.quantity || 0), roundQuantity);
 
     if (bookedBoats + boatCount > quantity) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(409).json({
         success: false,
         message: `เรือ ${boatType.type_name} เต็มในรอบที่เลือกแล้ว`,
@@ -1415,6 +1505,38 @@ export const createBoatAddon = async (
       return;
     }
 
+    // ท่าเรือรวมทุกประเภทในช่วงเวลาเดียวกัน (total_slots) ต้องไม่เกินความจุ
+    const poolSlots = round.total_slots == null ? null : Number(round.total_slots);
+    if (poolSlots != null) {
+      const poolRes = await client.query(
+        `SELECT COALESCE(SUM(bnb.boat_count), 0) as total_booked
+         FROM booking_boat bnb
+         JOIN boat_bookings bb ON bb.boat_booking_id = bnb.boat_booking_id
+         WHERE bb.booking_date = $1
+           AND bnb.status NOT IN ('cancelled', 'rejected')
+           AND bnb.boat_round_id IN (
+             SELECT boat_round_id FROM boat_rounds
+             WHERE start_time = $2::time AND end_time = $3::time
+           )`,
+        [bookingDate, round.start_time, round.end_time],
+      );
+      const totalBooked = Number(poolRes.rows[0].total_booked);
+      if (totalBooked + boatCount > poolSlots) {
+        await safeRollback(client);
+        res.status(409).json({
+          success: false,
+          message: `ท่าเรือเต็มในรอบนี้ (รองรับสูงสุด ${poolSlots} ลำ รวมทุกประเภท)`,
+        });
+        return;
+      }
+    }
+
+    // บัตรเสริมแบบชำระเงินเพิ่มได้เฉพาะก่อนชำระค่าห้อง เพื่อไม่ให้ยอดไม่ตรงกับสลิปที่ลูกค้าโอนแล้ว
+    if (ticketInfo.mode === "paid" && (room.room_status === "paid" || room.room_status === "approved")) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: "ไม่สามารถเพิ่มบัตรเสริมแบบชำระเงินหลังชำระค่าห้องแล้ว" });
+      return;
+    }
     const priceCharged = ticketInfo.mode === "paid" ? ticketInfo.unitPrice * boatCount : 0;
     const initialStatus = room.room_status === "approved" ? "approved" : "pending";
 
@@ -1446,7 +1568,16 @@ export const createBoatAddon = async (
       [header.boat_booking_id, boatTypeId, boatRoundId, numPassengers, boatCount, boatType.price, priceCharged, initialStatus],
     );
 
-    await redeemRoomBoatTickets(client, bookingRoomId, header.boat_booking_id, boatCount);
+    try {
+      await redeemRoomBoatTickets(client, bookingRoomId, header.boat_booking_id, boatCount);
+    } catch (redeemError) {
+      if (redeemError instanceof Error && redeemError.message === ROOM_BOAT_TICKETS_SHORT_MESSAGE) {
+        await safeRollback(client);
+        res.status(400).json({ success: false, message: ROOM_BOAT_TICKETS_SHORT_MESSAGE });
+        return;
+      }
+      throw redeemError;
+    }
 
     if (ticketInfo.mode === "paid" && priceCharged > 0) {
       await client.query(
@@ -1468,7 +1599,12 @@ export const createBoatAddon = async (
       },
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Create boat addon error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -1477,24 +1613,40 @@ export const createBoatAddon = async (
 };
 
 // พนักงานกดมอบบัตรเสริม (พิมพ์+มอบให้ลูกค้าพร้อมกุญแจห้องตอนเช็คอิน)
+const CANCELLED_ADDON_MESSAGE = "บัตรเสริมนี้ถูกยกเลิกหรือปฏิเสธแล้ว";
+
+// ตรวจว่าบัตรเสริมมีอยู่และยังใช้งานได้ — คืนข้อความตอบกลับ 404/400 หรือ null เมื่อผ่าน
+async function findActiveAddonError(boatBookingId: number): Promise<{ status: number; message: string } | null> {
+  const found = await pool.query(
+    `SELECT status FROM boat_bookings WHERE boat_booking_id = $1 AND is_addon = true`,
+    [boatBookingId],
+  );
+  if (found.rows.length === 0) return { status: 404, message: "ไม่พบบัตรเสริมนี้" };
+  if (["cancelled", "rejected"].includes(String(found.rows[0].status))) {
+    return { status: 400, message: CANCELLED_ADDON_MESSAGE };
+  }
+  return null;
+}
+
 export const printBoatAddon = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
-    const boatBookingId = Number(req.params.boatBookingId);
-    if (!Number.isInteger(boatBookingId) || boatBookingId < 1) {
+    const boatBookingId = parsePositiveInt(req.params.boatBookingId);
+    if (boatBookingId === null) {
       res.status(400).json({ success: false, message: "Invalid boat booking id" });
       return;
     }
     const result = await pool.query(
       `UPDATE boat_bookings SET printed_at = COALESCE(printed_at, NOW())
-       WHERE boat_booking_id = $1 AND is_addon = true
+       WHERE boat_booking_id = $1 AND is_addon = true AND status NOT IN ('cancelled', 'rejected')
        RETURNING *`,
       [boatBookingId],
     );
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "ไม่พบบัตรเสริมนี้" });
+      const blocked = await findActiveAddonError(boatBookingId);
+      res.status(blocked?.status ?? 404).json({ success: false, message: blocked?.message ?? "ไม่พบบัตรเสริมนี้" });
       return;
     }
     res.json({ success: true, data: result.rows[0] });
@@ -1509,19 +1661,21 @@ export const handOutBoatAddon = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const boatBookingId = Number(req.params.boatBookingId);
-    if (!Number.isInteger(boatBookingId) || boatBookingId < 1) {
+    const boatBookingId = parsePositiveInt(req.params.boatBookingId);
+    if (boatBookingId === null) {
       res.status(400).json({ success: false, message: "Invalid boat booking id" });
       return;
     }
+    // ไม่เขียนทับ handed_out_at ถ้าเคยมอบแล้ว (เรียกซ้ำได้โดยไม่เปลี่ยนเวลาเดิม)
     const result = await pool.query(
-      `UPDATE boat_bookings SET handed_out_at = NOW(), printed_at = COALESCE(printed_at, NOW())
-       WHERE boat_booking_id = $1 AND is_addon = true
+      `UPDATE boat_bookings SET handed_out_at = COALESCE(handed_out_at, NOW()), printed_at = COALESCE(printed_at, NOW())
+       WHERE boat_booking_id = $1 AND is_addon = true AND status NOT IN ('cancelled', 'rejected')
        RETURNING *`,
       [boatBookingId],
     );
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "ไม่พบบัตรเสริมนี้" });
+      const blocked = await findActiveAddonError(boatBookingId);
+      res.status(blocked?.status ?? 404).json({ success: false, message: blocked?.message ?? "ไม่พบบัตรเสริมนี้" });
       return;
     }
     res.json({ success: true, data: result.rows[0] });
@@ -1538,12 +1692,16 @@ export const getKayakBookingById = async (
 ): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
 
     const result = await pool.query(
       `SELECT bb.*, ${BOATS_JSON_SQL} AS boats
        FROM boat_bookings bb
-       WHERE bb.boat_booking_id = $1 AND (bb.member_id = $2 OR $3 IN ('admin', 'boat_staff'))`,
+       WHERE bb.boat_booking_id = $1 AND (($3 = 'customer' AND bb.member_id = $2) OR $3 IN ('admin', 'boat_staff'))`,
       [id, user.id, user.role],
     );
 
@@ -1603,7 +1761,11 @@ export const cancelKayakBooking = async (
   const client = await pool.connect();
   try {
     const user = req.user as AuthPayload;
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
 
     await client.query("BEGIN");
     const booking = await client.query(
@@ -1611,12 +1773,20 @@ export const cancelKayakBooking = async (
       [id, user.id],
     );
     if (booking.rows.length === 0) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(404).json({ success: false, message: "Booking not found" });
       return;
     }
+    if (booking.rows[0].is_addon) {
+      await safeRollback(client);
+      res.status(400).json({
+        success: false,
+        message: "บัตรเสริมต้องยกเลิกผ่านการยกเลิกบัตรเสริมจากหน้าห้องพัก",
+      });
+      return;
+    }
     if (booking.rows[0].status !== "pending") {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: `Cannot cancel booking with status: ${booking.rows[0].status}`,
@@ -1629,7 +1799,6 @@ export const cancelKayakBooking = async (
       boatBookingId: Number(id),
     });
     await restoreBoatTicketRedemptions(client, Number(id));
-    await removePaidAddonFromRoomTotal(client, booking.rows[0]);
 
     await client.query(
       `UPDATE boat_bookings SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`,
@@ -1642,7 +1811,12 @@ export const cancelKayakBooking = async (
     await client.query("COMMIT");
     res.json({ success: true, message: "Boat booking cancelled" });
   } catch (error) {
-    await client.query("ROLLBACK");
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Cancel kayak booking error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -1656,6 +1830,53 @@ export const getAllKayakBookings = async (
   res: Response,
 ): Promise<void> => {
   try {
+    const pagination = parsePagination(req.query);
+    const params: (string | number)[] = [];
+    let where = 'WHERE 1=1';
+    const pendingSlip = "NULLIF(bb.payment_slip, '') IS NOT NULL AND bb.status NOT IN ('approved', 'checked_out', 'rejected', 'cancelled')";
+    const unpaidPending = "NULLIF(bb.payment_slip, '') IS NULL AND bb.status = 'pending'";
+    if (req.query.filter === 'has_slip') where += ` AND (${pendingSlip})`;
+    else if (req.query.filter === 'pending') where += ` AND (${unpaidPending})`;
+    else if (req.query.filter === 'approved' || req.query.filter === 'checked_out') {
+      params.push(req.query.filter); where += ` AND bb.status = $${params.length}`;
+    }
+    if (typeof req.query.status === 'string') { params.push(req.query.status); where += ` AND bb.status = $${params.length}`; }
+    const type = req.query.boat_type;
+    if (typeof type === 'string' && type !== 'all') {
+      params.push(type);
+      where += ` AND EXISTS (SELECT 1 FROM booking_boat bnb JOIN boat_types bt ON bt.boat_type_id = bnb.boat_type_id
+         WHERE bnb.boat_booking_id = bb.boat_booking_id AND bt.type_name = $${params.length})`;
+    }
+    for (const [key, operator] of [['date_from', '>='], ['date_to', '<=']]) {
+      if (typeof req.query[key] === 'string') { params.push(req.query[key] as string); where += ` AND bb.booking_date::date ${operator} $${params.length}::date`; }
+    }
+    if (typeof req.query.search === 'string' && req.query.search.trim()) {
+      params.push(`%${req.query.search.trim()}%`);
+      where += ` AND (bb.boat_booking_id::text ILIKE $${params.length}
+        OR CONCAT_WS(' ', m.first_name, m.last_name) ILIKE $${params.length}
+        OR m.phone ILIKE $${params.length} OR m.email ILIKE $${params.length}
+         OR EXISTS (SELECT 1 FROM booking_boat bnb JOIN boat_types bt ON bt.boat_type_id = bnb.boat_type_id
+          WHERE bnb.boat_booking_id = bb.boat_booking_id AND bt.type_name ILIKE $${params.length}))`;
+    }
+    const from = `FROM boat_bookings bb
+       JOIN members m ON bb.member_id = m.member_id
+       LEFT JOIN staff s ON bb.approved_by_staff_id = s.staff_id`;
+    let extra = {};
+    if (pagination) {
+      const count = await pool.query(`SELECT COUNT(*) AS total ${from} ${where}`, params);
+      const summary = await pool.query(`SELECT COUNT(*) AS "all",
+        COUNT(*) FILTER (WHERE ${pendingSlip}) AS has_slip,
+        COUNT(*) FILTER (WHERE ${unpaidPending}) AS pending,
+        COUNT(*) FILTER (WHERE bb.status = 'approved') AS approved,
+        COUNT(*) FILTER (WHERE bb.status = 'checked_out') AS checked_out,
+        COALESCE(SUM(bb.total_price) FILTER (WHERE bb.status IN ('approved', 'checked_out')), 0) AS "totalRevenue",
+        COALESCE(SUM(bb.total_price) FILTER (WHERE ${pendingSlip}), 0) AS "pendingRevenue"
+        ${from}`);
+      const row = summary.rows[0];
+      extra = { pagination: paginationMeta(pagination, Number(count.rows[0].total)),
+        summary: { all: Number(row.all), has_slip: Number(row.has_slip), pending: Number(row.pending), approved: Number(row.approved),
+          checked_out: Number(row.checked_out), totalRevenue: Number(row.totalRevenue), pendingRevenue: Number(row.pendingRevenue) } };
+    }
     const result = await pool.query(
       `SELECT bb.*,
               (
@@ -1664,16 +1885,15 @@ export const getAllKayakBookings = async (
                 JOIN boat_types bt ON bt.boat_type_id = bnb.boat_type_id
                 WHERE bnb.boat_booking_id = bb.boat_booking_id
               ) as kayak_name,
-              m.first_name || ' ' || m.last_name as user_name, m.email as user_email,
-              s.first_name || ' ' || s.last_name as approved_by_name,
+              CONCAT_WS(' ', m.first_name, m.last_name) as user_name, m.email as user_email, m.phone as user_phone,
+              CONCAT_WS(' ', s.first_name, s.last_name) as approved_by_name,
               ${BOATS_JSON_SQL} AS boats
-       FROM boat_bookings bb
-       JOIN members m ON bb.member_id = m.member_id
-       LEFT JOIN staff s ON bb.approved_by_staff_id = s.staff_id
-       ORDER BY bb.boat_booking_id DESC`,
+       ${from} ${where}
+       ORDER BY bb.created_at DESC, bb.boat_booking_id DESC
+       ${pagination ? `LIMIT $${params.length + 1} OFFSET $${params.length + 2}` : ''}`,
+      pagination ? [...params, pagination.limit, pagination.offset] : params
     );
-
-    res.json({ success: true, data: result.rows });
+    res.json({ success: true, data: result.rows, ...extra });
   } catch (error: unknown) {
     console.error("Get all kayak bookings error:", error);
     res.status(500).json({
@@ -1821,7 +2041,12 @@ export const createKayak = async (
       data: result.rows[0],
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Create kayak error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -1889,7 +2114,7 @@ export const createBoatRound = async (
     await client.query("BEGIN");
 
     if (!(await boatTypesExist(client, typeIds))) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: "มีประเภทเรือที่ไม่ถูกต้องในรายการ",
@@ -1914,7 +2139,12 @@ export const createBoatRound = async (
       data: result.rows[0],
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Create boat round error:", error);
     res.status(500).json({
       success: false,
@@ -1932,10 +2162,14 @@ export const updateKayakBookingStatus = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
     const { status } = req.body;
     const user = req.user as AuthPayload;
 
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
     const allowed = ["approved", "rejected", "pending", "checked_out"];
     if (!allowed.includes(status)) {
       res.status(400).json({ success: false, message: "Invalid status" });
@@ -1944,26 +2178,55 @@ export const updateKayakBookingStatus = async (
 
     await client.query("BEGIN");
 
+    await lockAddonRoomHeader(client, id);
     const current = await client.query(
-      `SELECT status, is_addon, addon_mode, room_booking_id, total_price
-       FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE`,
+      `SELECT status, is_addon FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE`,
       [id],
     );
     if (current.rows.length === 0) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(404).json({ success: false, message: "Booking not found" });
       return;
     }
     const previousStatus = String(current.rows[0].status);
+    const transitionError = assertStatusTransition(previousStatus, status);
+    if (transitionError) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: transitionError });
+      return;
+    }
+    // บัตรเสริมที่ถูกปฏิเสธต้องปรับยอดห้องและบันทึกการคืนเงินเหมือนการยกเลิกโดยลูกค้า
+    if (status === "rejected" && current.rows[0].is_addon) {
+      const addonResult = await cancelBoatAddonInTx(
+        client,
+        Number(id),
+        { id: user.id, role: user.role },
+        "ปฏิเสธโดยเจ้าหน้าที่",
+      );
+      if (!addonResult.ok) {
+        await safeRollback(client);
+        res.status(addonResult.status).json({ success: false, message: addonResult.message });
+        return;
+      }
+      await client.query("COMMIT");
+      res.json({
+        success: true,
+        message: "ปฏิเสธบัตรเสริมสำเร็จ",
+        data: {
+          refund_amount: addonResult.refund,
+          percent_applied: addonResult.percent,
+          room_total_reduction: addonResult.roomTotalReduction,
+        },
+      });
+      return;
+    }
+
     if (status === "rejected" || status === "cancelled") {
       await restoreBookingPromotions(client, {
         previousStatus,
         boatBookingId: Number(id),
       });
       await restoreBoatTicketRedemptions(client, Number(id));
-      if (!["cancelled", "rejected"].includes(previousStatus)) {
-        await removePaidAddonFromRoomTotal(client, current.rows[0]);
-      }
     }
 
     let query = `UPDATE boat_bookings SET status = $1, updated_at = NOW()`;
@@ -1979,7 +2242,7 @@ export const updateKayakBookingStatus = async (
 
     const result = await client.query(query, params);
     if (result.rows.length === 0) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(404).json({ success: false, message: "Booking not found" });
       return;
     }
@@ -2035,7 +2298,12 @@ export const updateKayakBookingStatus = async (
       data: result.rows[0],
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Update kayak booking status error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -2050,7 +2318,11 @@ export const checkoutKayakBooking = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
 
     await client.query("BEGIN");
     const booking = await client.query(
@@ -2058,12 +2330,12 @@ export const checkoutKayakBooking = async (
       [id],
     );
     if (booking.rows.length === 0) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(404).json({ success: false, message: "Booking not found" });
       return;
     }
     if (booking.rows[0].status !== "approved") {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: `ไม่สามารถ checkout ได้ เนื่องจากสถานะปัจจุบันคือ: ${booking.rows[0].status}`,
@@ -2082,7 +2354,12 @@ export const checkoutKayakBooking = async (
     await client.query("COMMIT");
     res.json({ success: true, message: "เช็คเอาต์สำเร็จ" });
   } catch (error) {
-    await client.query("ROLLBACK");
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Checkout kayak booking error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -2095,16 +2372,35 @@ export const deleteKayak = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
+  const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
 
-    const bookingCheck = await pool.query(
+    await client.query("BEGIN");
+
+    // ล็อกแถวประเภทเรือก่อน เพื่อให้การตรวจการจองกับการลบเป็นชุดเดียวกัน (สอดคล้องกับ createKayakBooking)
+    const locked = await client.query(
+      `SELECT boat_type_id FROM boat_types WHERE boat_type_id = $1 FOR UPDATE`,
+      [id],
+    );
+    if (locked.rows.length === 0) {
+      await safeRollback(client);
+      res.status(404).json({ success: false, message: "Boat type not found" });
+      return;
+    }
+
+    const bookingCheck = await client.query(
       `SELECT COUNT(*) as count FROM booking_boat
        WHERE boat_type_id = $1 AND status NOT IN ('cancelled', 'rejected')`,
       [id],
     );
 
     if (Number(bookingCheck.rows[0].count) > 0) {
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: "ไม่สามารถลบได้ เนื่องจากมีการจองที่ยังค้างอยู่",
@@ -2113,22 +2409,15 @@ export const deleteKayak = async (
     }
 
     // ดึงรายการรูปทั้งหมดของเรือลำนี้เตรียมไว้ลบออกจาก Cloudinary
-    const imagesRes = await pool.query(
+    const imagesRes = await client.query(
       `SELECT image_path FROM boat_images WHERE boat_type_id = $1`,
       [id],
     );
 
-    const result = await pool.query(
-      `DELETE FROM boat_types WHERE boat_type_id = $1 RETURNING *`,
-      [id],
-    );
+    await client.query(`DELETE FROM boat_types WHERE boat_type_id = $1`, [id]);
+    await client.query("COMMIT");
 
-    if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Boat type not found" });
-      return;
-    }
-
-    // ลบไฟล์รูปทั้งหมดออกจาก Cloudinary แบบ Cleanup
+    // ลบไฟล์รูปทั้งหมดออกจาก Cloudinary หลัง COMMIT สำเร็จเท่านั้น
     for (const row of imagesRes.rows) {
       if (row.image_path) {
         await deleteCloudinaryImage(row.image_path).catch(
@@ -2144,8 +2433,16 @@ export const deleteKayak = async (
 
     res.json({ success: true, message: "Boat type deleted successfully" });
   } catch (error) {
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Delete kayak error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
+  } finally {
+    client.release();
   }
 };
 
@@ -2155,7 +2452,11 @@ export const getBoatImages = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
     const result = await pool.query(
       `SELECT boat_image_id as id, image_path FROM boat_images WHERE boat_type_id = $1 ORDER BY boat_image_id ASC`,
       [id],
@@ -2173,7 +2474,11 @@ export const addBoatImage = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
     const { image_path } = req.body;
     if (!image_path) {
       res
@@ -2195,6 +2500,11 @@ export const addBoatImage = async (
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Add boat image error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
@@ -2206,10 +2516,16 @@ export const deleteBoatImage = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { imageId } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    const imageId = parsePositiveInt(req.params.imageId);
+    if (id === null || imageId === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
+    // ลบได้เฉพาะรูปที่เป็นของเรือ (boat_type_id) ตาม URL เท่านั้น
     const result = await pool.query(
-      `DELETE FROM boat_images WHERE boat_image_id = $1 RETURNING boat_image_id, image_path`,
-      [imageId],
+      `DELETE FROM boat_images WHERE boat_image_id = $1 AND boat_type_id = $2 RETURNING boat_image_id, image_path`,
+      [imageId, id],
     );
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: "Image not found" });
@@ -2222,6 +2538,11 @@ export const deleteBoatImage = async (
     );
     res.json({ success: true, message: "Image deleted" });
   } catch (error) {
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Delete boat image error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
@@ -2234,7 +2555,11 @@ export const updateKayak = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
     const body = req.body;
     const { boat_image, gallery_images } = body;
 
@@ -2262,12 +2587,34 @@ export const updateKayak = async (
       }
     });
 
+    // รูปที่ถูกนำออกจะลบจาก Cloudinary หลัง COMMIT เท่านั้น (ถ้า rollback แถวใน DB ยังชี้ไฟล์เดิมอยู่)
+    let removedImagePaths: string[] = [];
+
     await client.query("BEGIN");
+
+    if (body.quantity !== undefined) {
+      const newQuantity = Number(body.quantity);
+      if (!Number.isInteger(newQuantity) || newQuantity < 0) {
+        await safeRollback(client);
+        res.status(400).json({ success: false, message: "จำนวนเรือต้องเป็นจำนวนเต็มไม่ติดลบ" });
+        return;
+      }
+      await client.query('SELECT boat_type_id FROM boat_types WHERE boat_type_id = $1 FOR UPDATE', [id]);
+      const activeBoats = await peakReservedBoats(client, id);
+      if (newQuantity < activeBoats) {
+        await safeRollback(client);
+        res.status(400).json({
+          success: false,
+          message: `ลดจำนวนเรือไม่ได้ เนื่องจากมีการจองที่ยังไม่เช็คเอาต์ ${activeBoats} ลำ`,
+        });
+        return;
+      }
+    }
 
     if (updates.length > 0) {
       values.push(id);
       const query = `
-        UPDATE boat_types 
+        UPDATE boat_types
         SET ${updates.join(", ")} 
         WHERE boat_type_id = $${paramIndex}`;
       await client.query(query, values);
@@ -2298,7 +2645,7 @@ export const updateKayak = async (
       }
 
       // 3. เปรียบเทียบหาไฟล์รูปเดิมที่ถูกตัดออก
-      const removedImagePaths = oldImagePaths.filter(
+      removedImagePaths = oldImagePaths.filter(
         (oldPath) => !newImagePaths.includes(oldPath),
       );
 
@@ -2327,18 +2674,24 @@ export const updateKayak = async (
         }
       }
 
-      // 7. สั่งลบรูปที่ไม่ได้ใช้แล้วออกจาก Cloudinary
-      for (const imgPath of removedImagePaths) {
-        await deleteCloudinaryImage(imgPath).catch((cleanupError: unknown) => {
-          console.error("Update kayak Cloudinary cleanup error:", cleanupError);
-        });
-      }
     }
 
     await client.query("COMMIT");
+
+    // 7. สั่งลบรูปที่ไม่ได้ใช้แล้วออกจาก Cloudinary หลัง COMMIT สำเร็จ
+    for (const imgPath of removedImagePaths) {
+      await deleteCloudinaryImage(imgPath).catch((cleanupError: unknown) => {
+        console.error("Update kayak Cloudinary cleanup error:", cleanupError);
+      });
+    }
     res.json({ success: true, message: "Boat type updated" });
   } catch (error) {
-    await client.query("ROLLBACK");
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Update kayak error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -2353,7 +2706,11 @@ export const updateBoatRound = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
     const body = req.body as Record<string, unknown>;
     const hasBoatsPayload =
       Array.isArray(body.boats) || body.boat_type_id != null;
@@ -2380,8 +2737,19 @@ export const updateBoatRound = async (
 
     await client.query("BEGIN");
 
+    // Hold the round before reading reservation demand, matching booking paths.
+    const lockedRound = await client.query(
+      'SELECT boat_round_id FROM boat_rounds WHERE boat_round_id = $1 FOR UPDATE',
+      [id],
+    );
+    if (lockedRound.rows.length === 0) {
+      await safeRollback(client);
+      res.status(404).json({ success: false, message: "Boat round not found" });
+      return;
+    }
+
     if (hasBoatsPayload && !(await boatTypesExist(client, boats.map((b) => b.boat_type_id)))) {
-      await client.query("ROLLBACK");
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: "มีประเภทเรือที่ไม่ถูกต้องในรายการ",
@@ -2424,6 +2792,32 @@ export const updateBoatRound = async (
       updates.push(`boat_type_id = NULL`);
     }
 
+    if (body.start_time !== undefined || body.end_time !== undefined) {
+      const current = await client.query(
+        `SELECT start_time, end_time FROM boat_rounds WHERE boat_round_id = $1`,
+        [id],
+      );
+      if (current.rows.length === 0) {
+        await safeRollback(client);
+        res.status(404).json({ success: false, message: "Boat round not found" });
+        return;
+      }
+      const startSql = body.start_time !== undefined ? toTimeSql(body.start_time) : String(current.rows[0].start_time);
+      const endSql = body.end_time !== undefined ? toTimeSql(body.end_time) : String(current.rows[0].end_time);
+      const startMin = timeToMinutes(startSql);
+      const endMin = timeToMinutes(endSql);
+      if (startMin === null || endMin === null) {
+        await safeRollback(client);
+        res.status(400).json({ success: false, message: "รูปแบบเวลาไม่ถูกต้อง" });
+        return;
+      }
+      if (startMin >= endMin) {
+        await safeRollback(client);
+        res.status(400).json({ success: false, message: "เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด" });
+        return;
+      }
+    }
+
     if (updates.length > 0) {
       values.push(id);
       const query = `
@@ -2433,20 +2827,46 @@ export const updateBoatRound = async (
         RETURNING *`;
       const updated = await client.query(query, values);
       if (updated.rows.length === 0) {
-        await client.query("ROLLBACK");
+        await safeRollback(client);
         res.status(404).json({ success: false, message: "Boat round not found" });
         return;
       }
     }
 
     if (hasBoatsPayload) {
+      const newQuota = new Map<number, number>(boats.map((b) => [b.boat_type_id, Number(b.quantity)]));
+      const existingRes = await client.query(
+        `SELECT boat_type_id FROM round_boats WHERE boat_round_id = $1`,
+        [id],
+      );
+      const typeIds = new Set<number>([
+        ...newQuota.keys(),
+        ...existingRes.rows.map((row: { boat_type_id: number }) => Number(row.boat_type_id)),
+      ]);
+      for (const typeId of typeIds) {
+        const activeBoats = await peakReservedBoats(client, typeId, id);
+        const quota = newQuota.get(typeId) ?? 0;
+        if (quota < activeBoats) {
+          await safeRollback(client);
+          res.status(400).json({
+            success: false,
+            message: `ลดโควตาเรือไม่ได้ เนื่องจากมีการจองที่ยังไม่เช็คเอาต์ ${activeBoats} ลำ`,
+          });
+          return;
+        }
+      }
       await replaceRoundBoats(client, Number(id), boats);
     }
 
     await client.query("COMMIT");
     res.json({ success: true, message: "Boat round updated successfully" });
   } catch (error) {
-    await client.query("ROLLBACK");
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Update boat round error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
@@ -2461,7 +2881,24 @@ export const deleteBoatRound = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
+
+    await client.query("BEGIN");
+
+    // ล็อกแถวรอบเวลาก่อน เพื่อให้การตรวจการจองกับการลบเป็นชุดเดียวกัน (สอดคล้องกับ createKayakBooking)
+    const locked = await client.query(
+      `SELECT boat_round_id FROM boat_rounds WHERE boat_round_id = $1 FOR UPDATE`,
+      [id],
+    );
+    if (locked.rows.length === 0) {
+      await safeRollback(client);
+      res.status(404).json({ success: false, message: "Boat round not found" });
+      return;
+    }
 
     const bookingCheck = await client.query(
       `SELECT COUNT(*) as count FROM booking_boat
@@ -2470,7 +2907,7 @@ export const deleteBoatRound = async (
     );
 
     if (Number(bookingCheck.rows[0].count) > 0) {
-      client.release();
+      await safeRollback(client);
       res.status(400).json({
         success: false,
         message: "Cannot delete round with active bookings",
@@ -2478,26 +2915,187 @@ export const deleteBoatRound = async (
       return;
     }
 
-    await client.query("BEGIN");
     await client.query(`DELETE FROM round_boats WHERE boat_round_id = $1`, [
       id,
     ]);
-    const result = await client.query(
-      `DELETE FROM boat_rounds WHERE boat_round_id = $1 RETURNING *`,
-      [id],
-    );
-
-    if (result.rows.length === 0) {
-      await client.query("ROLLBACK");
-      res.status(404).json({ success: false, message: "Boat round not found" });
-      return;
-    }
+    await client.query(`DELETE FROM boat_rounds WHERE boat_round_id = $1`, [
+      id,
+    ]);
 
     await client.query("COMMIT");
     res.json({ success: true, message: "Boat round deleted successfully" });
   } catch (error) {
-    await client.query("ROLLBACK");
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     console.error("Delete boat round error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  } finally {
+    client.release();
+  }
+};
+// ยกเลิกบัตรเสริม (boat add-on) พร้อมปรับยอดห้องและบันทึกการคืนเงินแยก
+// - ห้องยังไม่ชำระ: ตัดยอดบัตรเสริมออกจากยอดห้องทั้งจำนวน (ยังไม่มีเงินเข้า จึงไม่มีรายการคืน)
+// - ห้องชำระแล้ว: คืนตามนโยบาย (cancellation_policies) และตัดยอดห้องเฉพาะส่วนที่คืน บันทึกใน booking_refunds
+// ฟังก์ชันนี้ไม่เปิด/ปิด transaction เอง ผู้เรียกต้อง BEGIN/COMMIT/ROLLBACK
+type AddonCancelResult =
+  | { ok: true; refund: number; percent: number; roomTotalReduction: number }
+  | { ok: false; status: number; message: string };
+
+// Room approval/payment/cancellation owns the room header before its addons.
+// Acquire that same header first; a joined FOR UPDATE cannot guarantee which
+// relation locks first. Normal standalone boat bookings have no room to lock.
+async function lockAddonRoomHeader(
+  client: PoolClient,
+  boatBookingId: number,
+): Promise<void> {
+  await client.query(
+    `SELECT rb.room_booking_id FROM room_bookings rb
+     WHERE rb.room_booking_id = (
+       SELECT room_booking_id FROM boat_bookings
+       WHERE boat_booking_id = $1 AND is_addon = true
+     ) FOR UPDATE OF rb`,
+    [boatBookingId],
+  );
+}
+
+async function cancelBoatAddonInTx(
+  client: PoolClient,
+  boatBookingId: number,
+  actor: { id: number; role: string },
+  reason: string | null,
+): Promise<AddonCancelResult> {
+  await lockAddonRoomHeader(client, boatBookingId);
+  const addonRes = await client.query(
+    `SELECT bb.boat_booking_id, bb.member_id, bb.room_booking_id, bb.status, bb.total_price,
+            bb.handed_out_at,
+            (EXTRACT(EPOCH FROM ((bb.booking_date + bb.start_time) AT TIME ZONE 'Asia/Bangkok') - NOW()) / 3600)::float8 AS hours_before_start,
+            rb.status AS room_status
+     FROM boat_bookings bb
+     JOIN room_bookings rb ON rb.room_booking_id = bb.room_booking_id
+     WHERE bb.boat_booking_id = $1 AND bb.is_addon = true
+     FOR UPDATE OF bb`,
+    [boatBookingId],
+  );
+  if (addonRes.rows.length === 0) {
+    return { ok: false, status: 404, message: "ไม่พบบัตรเสริม" };
+  }
+  const addon = addonRes.rows[0];
+  if (actor.role === "customer" && Number(addon.member_id) !== actor.id) {
+    return { ok: false, status: 404, message: "ไม่พบบัตรเสริม" };
+  }
+  if (!["pending", "approved"].includes(String(addon.status)) || addon.handed_out_at) {
+    return { ok: false, status: 400, message: "บัตรเสริมนี้ไม่สามารถยกเลิกได้แล้ว" };
+  }
+  if (!["pending", "paid", "approved"].includes(String(addon.room_status))) {
+    return { ok: false, status: 400, message: "ห้องพักนี้ไม่สามารถแก้ไขรายการได้แล้ว" };
+  }
+
+  const roomPaid = addon.room_status === "paid" || addon.room_status === "approved";
+  const charged = Number(addon.total_price) || 0;
+  const hoursBefore = Number(addon.hours_before_start);
+  let percent = 0;
+  let refund = 0;
+  if (charged > 0 && roomPaid) {
+    const policyRes = await client.query(
+      `SELECT full_refund_hours, late_refund_percent FROM cancellation_policies WHERE id = 1`,
+    );
+    const policy = policyRes.rows[0] ?? { full_refund_hours: 48, late_refund_percent: 0 };
+    percent = hoursBefore >= Number(policy.full_refund_hours)
+      ? 100
+      : Number(policy.late_refund_percent);
+    refund = Number(((charged * percent) / 100).toFixed(2));
+  }
+  // ห้องยังไม่ชำระ: ยอดบัตรเสริมยังไม่ได้รับเงิน จึงตัดออกทั้งจำนวน
+  const roomTotalReduction = roomPaid ? refund : charged;
+
+  if (charged > 0 && roomPaid) {
+    await client.query(
+      `INSERT INTO booking_refunds (
+         room_booking_id, boat_booking_id, amount, percent_applied, hours_before_start,
+         reason, cancelled_by_user_id, cancelled_by_role
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        addon.room_booking_id,
+        boatBookingId,
+        refund,
+        percent,
+        Number(hoursBefore.toFixed(2)),
+        reason,
+        actor.id,
+        actor.role,
+      ],
+    );
+  }
+
+  await restoreBookingPromotions(client, {
+    previousStatus: String(addon.status),
+    boatBookingId,
+  });
+  await restoreBoatTicketRedemptions(client, boatBookingId);
+
+  await client.query(
+    `UPDATE boat_bookings SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`,
+    [boatBookingId],
+  );
+  await client.query(
+    `UPDATE booking_boat SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`,
+    [boatBookingId],
+  );
+  if (roomTotalReduction > 0) {
+    await client.query(
+      `UPDATE room_bookings SET total_price = GREATEST(total_price - $1, 0), updated_at = NOW()
+       WHERE room_booking_id = $2`,
+      [roomTotalReduction, addon.room_booking_id],
+    );
+  }
+
+  return { ok: true, refund, percent, roomTotalReduction };
+}
+
+export const cancelBoatAddon = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const client = await pool.connect();
+  try {
+    const user = req.user as AuthPayload;
+    const boatBookingId = parsePositiveInt(req.params.boatBookingId);
+    if (boatBookingId === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
+    const body = req.body as Record<string, unknown>;
+    const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : null;
+
+    await client.query("BEGIN");
+    const result = await cancelBoatAddonInTx(client, boatBookingId, user, reason);
+    if (!result.ok) {
+      await safeRollback(client);
+      res.status(result.status).json({ success: false, message: result.message });
+      return;
+    }
+    await client.query("COMMIT");
+    res.json({
+      success: true,
+      message: "ยกเลิกบัตรเสริมสำเร็จ",
+      data: {
+        refund_amount: result.refund,
+        percent_applied: result.percent,
+        room_total_reduction: result.roomTotalReduction,
+      },
+    });
+  } catch (error) {
+    await safeRollback(client);
+    const mapped = mapDbError(error);
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
+    console.error("Cancel boat addon error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
     client.release();

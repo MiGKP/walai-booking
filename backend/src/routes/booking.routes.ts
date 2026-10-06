@@ -14,12 +14,14 @@ import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
 import { createRoomBookingValidator, updateRoomBookingStatusValidator } from '../middleware/validators';
 
+import { bookingListValidator } from '../middleware/pagination-validator';
+
 const router = Router();
 
-router.post('/', authenticate, createRoomBookingValidator, validate, createRoomBooking);
-router.post('/room', authenticate, createRoomBookingValidator, validate, createRoomBooking);
-router.get('/my', authenticate, getUserRoomBookings);
-router.get('/room/my', authenticate, getUserRoomBookings);
+router.post('/', authenticate, authorize('customer'), createRoomBookingValidator, validate, createRoomBooking);
+router.post('/room', authenticate, authorize('customer'), createRoomBookingValidator, validate, createRoomBooking);
+router.get('/my', authenticate, authorize('customer'), getUserRoomBookings);
+router.get('/room/my', authenticate, authorize('customer'), getUserRoomBookings);
 
 router.put(
   '/booking-rooms/:bookingRoomId/checkin',
@@ -34,7 +36,7 @@ router.put(
   checkoutBookingRoom
 );
 
-router.get('/', authenticate, authorize('admin', 'room_staff'), getAllRoomBookings);
+router.get('/', authenticate, authorize('admin', 'room_staff'), bookingListValidator, validate, getAllRoomBookings);
 router.put(
   '/:id/status',
   authenticate,
@@ -46,6 +48,6 @@ router.put(
 router.put('/:id/checkout', authenticate, authorize('admin', 'room_staff'), checkoutRoomBooking);
 
 router.get('/:id', authenticate, getRoomBookingById);
-router.put('/:id/cancel', authenticate, cancelRoomBooking);
+router.put('/:id/cancel', authenticate, authorize('customer'), cancelRoomBooking);
 
 export default router;

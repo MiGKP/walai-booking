@@ -11,7 +11,8 @@ import Image from "next/image";
 const NAV_LINKS = [
   { href: "/", label: "หน้าแรก" },
   { href: "/rooms", label: "ห้องพัก" },
-  { href: "/kayaks", label: "เรือคายัค" },
+  { href: "/kayaks", label: "เรือ" },
+  { href: "/promotions", label: "โปรโมชั่น" },
 ];
 
 // เส้นระลอกน้ำบางๆ แทนเส้นขอบล่างธรรมดา — ให้ความรู้สึก "ลอยน้ำ"
@@ -29,7 +30,7 @@ export default function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, loading } = useAuth();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const avatarSrc = useMemo(
@@ -131,7 +132,12 @@ export default function Navbar() {
 
           {/* Auth */}
           <div className="hidden md:flex items-center gap-3">
-            {isAuthenticated && user ? (
+            {loading ? (
+              <div className="flex items-center gap-3 animate-pulse px-4 py-2">
+                <div className="w-8 h-8 rounded-full bg-stone-200"></div>
+                <div className="w-20 h-4 rounded bg-stone-200"></div>
+              </div>
+            ) : isAuthenticated && user ? (
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -217,13 +223,6 @@ export default function Navbar() {
                           >
                             แผงควบคุม Admin
                           </Link>
-                          <Link
-                            href="/admin/stats"
-                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-forest-700 hover:bg-forest-50 transition-colors"
-                            onClick={() => setDropdownOpen(false)}
-                          >
-                            รายงานสถิติ
-                          </Link>
                         </>
                       )}
                       {user.role === "room_staff" && (
@@ -261,7 +260,7 @@ export default function Navbar() {
                             แดชบอร์ดเรือ
                           </Link>
                           <Link
-                            href="/admin/boat-hours"
+                            href="/staff/boats/boat-hours"
                             className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-forest-700 hover:bg-forest-50 transition-colors"
                             onClick={() => setDropdownOpen(false)}
                           >
@@ -350,7 +349,11 @@ export default function Navbar() {
               );
             })}
 
-            {isAuthenticated ? (
+            {loading ? (
+              <div className="py-4 flex justify-center">
+                <div className="w-6 h-6 border-2 border-stone-200 border-t-forest-600 rounded-full animate-spin"></div>
+              </div>
+            ) : isAuthenticated ? (
               <>
                 <div className="my-2 border-t border-stone-200" />
                 <Link
@@ -363,7 +366,7 @@ export default function Navbar() {
                 {/* ถ้าเป็นพนักงาน ให้แสดงเมนูสำหรับ staff/admin ใน mobile ด้วย */}
                 {(user?.role === 'admin' || user?.role === 'room_staff' || user?.role === 'boat_staff') && (
                   <Link
-                    href={user.role === 'admin' ? '/admin/dashboard' : '/staff/dashboard'}
+                    href={user.role === 'admin' ? '/admin' : user.role === 'room_staff' ? '/staff/rooms/dashboard' : '/staff/boats/dashboard'}
                     className="block py-3 px-4 rounded-xl text-forest-700 bg-forest-50 hover:bg-forest-100 font-medium transition-colors"
                     onClick={() => setIsOpen(false)}
                   >

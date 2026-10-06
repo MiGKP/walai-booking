@@ -20,12 +20,12 @@ import {
   ChevronDown,
   Search,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast from "react-hot-toast";
-import { Toaster } from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
+import { PageHeader, Panel, Modal } from "@/components/admin/ui";
 
-// 🌟 Component Custom Dropdown
+// Component Custom Dropdown
 function CustomSelect({
   options,
   value,
@@ -93,7 +93,7 @@ function CustomSelect({
                 }}
                 className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors flex items-center justify-between ${
                   isSelected
-                    ? "bg-emerald-50 text-emerald-900 font-bold"
+                    ? "bg-forest-50 text-forest-900 font-bold"
                     : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
                 }`}
               >
@@ -159,7 +159,7 @@ export default function StaffManagementPage() {
       const res = await api.get("/auth/staff");
       setStaffList(res.data?.data || []);
     } catch {
-      toast.error("ไม่สามารถโหลดข้อมูลพนักงานได้");
+      notify.error("ไม่สามารถโหลดข้อมูลพนักงานได้");
     } finally {
       setLoading(false);
     }
@@ -169,7 +169,7 @@ export default function StaffManagementPage() {
     e.preventDefault();
     try {
       await api.post("/auth/staff", staffForm);
-      toast.success("สร้างบัญชีพนักงานสำเร็จ");
+      notify.success("สร้างบัญชีพนักงานสำเร็จ");
       setStaffForm({
         name: "",
         email: "",
@@ -183,24 +183,24 @@ export default function StaffManagementPage() {
         postal_code: "",
       });
       fetchStaff();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "สร้างพนักงานไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "สร้างพนักงานไม่สำเร็จ"));
     }
   };
 
   const handleToggleStatus = async (id: number, currentStatus: boolean) => {
     if (user?.id === id) {
-      toast.error("ไม่สามารถเปลี่ยนสถานะตัวเองได้");
+      notify.error("ไม่สามารถเปลี่ยนสถานะตัวเองได้");
       return;
     }
     try {
       await api.put(`/auth/staff/${id}/status`, { status: !currentStatus });
-      toast.success(
+      notify.success(
         currentStatus ? "ระงับบัญชีสำเร็จ" : "เปิดใช้งานบัญชีสำเร็จ",
       );
       fetchStaff();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "เปลี่ยนสถานะไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "เปลี่ยนสถานะไม่สำเร็จ"));
     }
   };
 
@@ -247,12 +247,12 @@ export default function StaffManagementPage() {
     if (!editingStaff) return;
     try {
       await api.put(`/auth/staff/${editingStaff.id}`, editingStaff);
-      toast.success("แก้ไขข้อมูลพนักงานสำเร็จ");
+      notify.success("แก้ไขข้อมูลพนักงานสำเร็จ");
       setIsEditModalOpen(false);
       setEditingStaff(null);
       fetchStaff();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "แก้ไขข้อมูลไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "แก้ไขข้อมูลไม่สำเร็จ"));
     }
   };
 
@@ -288,15 +288,15 @@ export default function StaffManagementPage() {
         );
       case "room_staff":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-            <Home size={13} className="text-emerald-700" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-forest-50 text-forest-800 border border-forest-200">
+            <Home size={13} className="text-forest-700" />
             จัดการห้องพัก
           </span>
         );
       case "boat_staff":
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200">
-            <Ship size={13} className="text-teal-700" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-lagoon-50 text-lagoon-800 border border-lagoon-200">
+            <Ship size={13} className="text-lagoon-700" />
             จัดการเรือ
           </span>
         );
@@ -312,45 +312,40 @@ export default function StaffManagementPage() {
   if (!ready) return null;
 
   return (
-    <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
+    <div className="space-y-6 pb-12">
       {/* Header & Page Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200/80">
-        <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-            จัดการพนักงาน
-          </h1>
-          <p className="text-stone-400 mt-0.5 text-xs md:text-sm">
-            เพิ่ม ดู และบริหารจัดการสิทธิ์พนักงานในระบบสวนวลัยรุกขเวช
-          </p>
-        </div>
-
-        <div className="p-3 bg-white rounded-2xl border border-stone-200/80 shadow-2xs flex items-center gap-3 self-start sm:self-auto">
-          <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
-            <Users size={18} />
+      <PageHeader
+        title="จัดการพนักงาน"
+        description="เพิ่ม ดู และบริหารจัดการสิทธิ์พนักงานในระบบสวนวลัยรุกขเวช"
+        actions={
+          <div className="p-3 bg-white rounded-2xl border border-stone-200/80 shadow-2xs flex items-center gap-3 self-start sm:self-auto">
+            <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
+              <Users size={18} />
+            </div>
+            <div>
+              <span className="text-xs font-semibold text-stone-400 block leading-tight">
+                พนักงานทั้งหมด
+              </span>
+              <span className="text-sm font-bold text-[#0b3b2c]">
+                {staffList.length} คน
+              </span>
+            </div>
           </div>
-          <div>
-            <span className="text-xs font-semibold text-stone-400 block leading-tight">
-              พนักงานทั้งหมด
-            </span>
-            <span className="text-sm font-bold text-[#0b3b2c]">
-              {staffList.length} คน
-            </span>
-          </div>
-        </div>
-      </div>
+        }
+      />
       {/* Main Grid Content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Form Create Staff Column */}
-        <div className="lg:col-span-5 bg-white border border-stone-200/80 rounded-2xl shadow-2xs overflow-hidden">
+        <Panel className="lg:col-span-5 !p-0 overflow-hidden flex flex-col">
           <div className="p-4 bg-[#0b3b2c] text-white flex items-center gap-3">
             <div className="p-2 bg-white/10 rounded-lg">
-              <UserPlus size={18} className="text-emerald-200" />
+              <UserPlus size={18} className="text-forest-200" />
             </div>
             <div>
               <h2 className="text-base font-semibold tracking-wide">
                 เพิ่มพนักงานใหม่
               </h2>{" "}
-              <p className="text-xs text-emerald-100/80">
+              <p className="text-xs text-forest-100/80">
                 กรอกข้อมูลเพื่อสร้างบัญชีผู้ใช้งานใหม่
               </p>
             </div>
@@ -507,10 +502,10 @@ export default function StaffManagementPage() {
               สร้างบัญชีพนักงาน
             </button>
           </form>
-        </div>
+        </Panel>
 
         {/* Table Staff List Column */}
-        <div className="lg:col-span-7 bg-white border border-stone-200/80 rounded-2xl shadow-2xs overflow-hidden flex flex-col h-[580px]">
+        <Panel className="lg:col-span-7 !p-0 overflow-hidden flex flex-col h-[580px]">
           {" "}
           {/* Header & Tabs & Search/Status Filters */}
           <div className="p-4 border-b border-stone-100 space-y-3 shrink-0">
@@ -523,7 +518,7 @@ export default function StaffManagementPage() {
               </span>
             </div>
 
-            {/* 🔍 เพิ่มช่องค้นหา + กรองสถานะ */}
+            {/* เพิ่มช่องค้นหา + กรองสถานะ */}
             <div className="flex flex-col sm:flex-row items-center gap-2">
               {/* ช่องค้นหา ชื่อ / เบอร์ / อีเมล */}
               <div className="relative flex-1 w-full">
@@ -567,11 +562,11 @@ export default function StaffManagementPage() {
                   onClick={() => setStatusFilter("active")}
                   className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
                     statusFilter === "active"
-                      ? "bg-emerald-50 text-emerald-800 shadow-2xs"
+                      ? "bg-forest-50 text-forest-800 shadow-2xs"
                       : "text-stone-500 hover:text-[#0b3b2c]"
                   }`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-forest-600" />
                   ใช้งาน
                 </button>
                 <button
@@ -625,7 +620,7 @@ export default function StaffManagementPage() {
                 }`}
               >
                 <Ship size={13} />
-                เรือคายัค (
+                เรือ (
                 {staffList.filter((s) => s.role === "boat_staff").length})
               </button>
               <button
@@ -708,10 +703,10 @@ export default function StaffManagementPage() {
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">
                         {s.status ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-forest-50 text-forest-800 border border-forest-200">
                             <CheckCircle2
                               size={11}
-                              className="text-emerald-600"
+                              className="text-forest-600"
                             />
                             ใช้งาน
                           </span>
@@ -748,7 +743,7 @@ export default function StaffManagementPage() {
                               className={`p-1.5 rounded-lg transition-all ${
                                 s.status
                                   ? "text-stone-300 hover:text-rose-600 hover:bg-rose-50"
-                                  : "text-stone-300 hover:text-emerald-600 hover:bg-emerald-50"
+                                  : "text-stone-300 hover:text-forest-600 hover:bg-forest-50"
                               }`}
                               title={s.status ? "ระงับการใช้งาน" : "เปิดใช้งาน"}
                             >
@@ -767,32 +762,21 @@ export default function StaffManagementPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Panel>
       </div>
       {/* MODAL: Edit Staff */}
-      {isEditModalOpen && editingStaff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-xl border border-stone-200 flex flex-col max-h-[90vh]">
-            <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
-              <h3 className="text-sm font-bold text-[#0b3b2c] flex items-center gap-2">
-                <Edit3 size={16} className="text-amber-700" />
-                แก้ไขข้อมูลพนักงาน
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditModalOpen(false);
-                  setEditingStaff(null);
-                }}
-                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
+      <Modal
+        open={isEditModalOpen && !!editingStaff}
+        title="แก้ไขข้อมูลพนักงาน"
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingStaff(null);
+        }}
+      >
+        {editingStaff && (
             <form
               onSubmit={handleUpdateStaff}
-              className="p-5 space-y-3.5 overflow-y-auto"
+              className="space-y-3.5"
             >
               <div>
                 <label className="block text-xs font-bold text-stone-600 mb-1">
@@ -950,28 +934,25 @@ export default function StaffManagementPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+        )}
+      </Modal>
       {/* MODAL: Staff Details */}
-      {isModalOpen && selectedStaff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl border border-stone-200 flex flex-col">
-            <div className="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
-              <h3 className="text-sm font-bold text-[#0b3b2c] flex items-center gap-2">
-                <Eye size={16} className="text-[#0b3b2c]" />
-                รายละเอียดพนักงาน
-              </h3>
-              <button
-                type="button"
-                onClick={closeStaffDetails}
-                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 text-xs text-stone-700 overflow-y-auto">
+      <Modal
+        open={isModalOpen && !!selectedStaff}
+        title="รายละเอียดพนักงาน"
+        onClose={closeStaffDetails}
+        footer={
+          <button
+            type="button"
+            onClick={closeStaffDetails}
+            className="py-2 px-4 bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-bold rounded-xl transition-all"
+          >
+            ปิด
+          </button>
+        }
+      >
+        {selectedStaff && (
+            <div className="space-y-4 text-xs text-stone-700">
               <div className="flex items-center justify-between pb-3 border-b border-stone-100">
                 <div>
                   <h4 className="text-sm font-bold text-stone-900">
@@ -1017,8 +998,8 @@ export default function StaffManagementPage() {
               <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
                 <span className="text-stone-500 font-medium">สถานะบัญชี</span>
                 {selectedStaff.status ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                    <CheckCircle2 size={11} className="text-emerald-600" />{" "}
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-forest-50 text-forest-800 border border-forest-200">
+                    <CheckCircle2 size={11} className="text-forest-600" />{" "}
                     ใช้งาน
                   </span>
                 ) : (
@@ -1029,50 +1010,8 @@ export default function StaffManagementPage() {
                 )}
               </div>
             </div>
-
-            <div className="p-4 bg-stone-50/50 border-t border-stone-100 flex justify-end">
-              <button
-                type="button"
-                onClick={closeStaffDetails}
-                className="py-2 px-4 bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-bold rounded-xl transition-all"
-              >
-                ปิด
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 3500,
-          style: {
-            background: "#0b3b2c",
-            color: "#ffffff",
-            borderRadius: "14px",
-            fontSize: "13px",
-            fontWeight: "600",
-            padding: "12px 16px",
-            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.15)",
-          },
-          success: {
-            iconTheme: {
-              primary: "#34d399", // สีเขียวสว่าง
-              secondary: "#0b3b2c",
-            },
-          },
-          error: {
-            style: {
-              background: "#881337", // โทนสีแดงเข้ม
-              color: "#ffffff",
-            },
-            iconTheme: {
-              primary: "#fb7185",
-              secondary: "#881337",
-            },
-          },
-        }}
-      />
+        )}
+      </Modal>
     </div>
   );
 }

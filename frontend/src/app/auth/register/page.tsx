@@ -136,7 +136,7 @@ export default function RegisterPage(): React.ReactElement | null {
               ริมสายน้ำ
             </h1>
             <p className="mt-3 max-w-md text-sm leading-6 text-cream-100/80 sm:text-base">
-              สมัครสมาชิกเพื่อจองที่พักลอยน้ำและเรือคายัค
+              สมัครสมาชิกเพื่อจองที่พักลอยน้ำและเรือ
               พร้อมติดตามสถานะการจองได้ทุกที่
             </p>
           </div>

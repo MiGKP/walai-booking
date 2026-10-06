@@ -17,6 +17,7 @@ export interface RoomCartState {
   check_out: string;
   adults: number;
   children: number;
+  child_ages?: number[];
   items: RoomCartItem[];
 }
 
@@ -36,6 +37,7 @@ export function loadRoomCart(): RoomCartState | null {
       check_out: parsed.check_out,
       adults: Math.max(1, Number(parsed.adults) || 1),
       children: Math.max(0, Number(parsed.children) || 0),
+      child_ages: Array.isArray(parsed.child_ages) ? parsed.child_ages : [],
       items: parsed.items,
     };
   } catch {

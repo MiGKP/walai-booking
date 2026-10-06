@@ -34,10 +34,19 @@ import {
   Ship,
   Timer,
 } from "lucide-react";
-import api from "@/lib/api";
+import {
+  PageHeader,
+  StatCard,
+  Panel,
+  Modal,
+  BookingStatusBadge,
+  EmptyState,
+} from "@/components/admin/ui";
+import api, { getApiErrorMessage } from "@/lib/api";
+import { toISODate } from "@/lib/date";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast, { Toaster } from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 
 // ตัวเลือกเหตุผลในการปฏิเสธ
 const REJECT_REASONS = [
@@ -62,24 +71,24 @@ const statusLabel: Record<string, string> = {
 const statusConfig: Record<string, { bg: string; text: string; dot: string }> =
   {
     pending: {
-      bg: "bg-cyan-900/10 border-cyan-900/80 text-cyan-900",
+      bg: "bg-lagoon-900/10 border-lagoon-900/80 text-lagoon-900",
       text: "รอดำเนินการ",
       dot: "bg-amber-500",
     },
     paid: {
-      bg: "bg-blue-500/10 border-blue-200/80 text-blue-700",
+      bg: "bg-lagoon-500/10 border-lagoon-200/80 text-lagoon-700",
       text: "รอตรวจสอบสลิป",
-      dot: "bg-blue-500",
+      dot: "bg-lagoon-500",
     },
     approved: {
-      bg: "bg-indigo-500/10 border-indigo-200/80 text-indigo-700",
+      bg: "bg-lagoon-500/10 border-lagoon-200/80 text-lagoon-700",
       text: "อนุมัติแล้ว (รอลงเรือ)",
-      dot: "bg-indigo-500",
+      dot: "bg-lagoon-500",
     },
     checked_out: {
-      bg: "bg-slate-500/10 border-slate-200/80 text-slate-600",
+      bg: "bg-charcoal-500/10 border-charcoal-200/80 text-charcoal-600",
       text: "คืนเรือเรียบร้อย",
-      dot: "bg-slate-400",
+      dot: "bg-charcoal-400",
     },
     cancelled: {
       bg: "bg-stone-500/10 border-stone-200/80 text-stone-600",
@@ -189,7 +198,7 @@ function CustomDatePicker({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-lg border border-stone-200 hover:border-stone-300 text-xs font-mono text-stone-700 transition-all shadow-2xs focus:outline-none focus:ring-2 focus:ring-cyan-700/20"
+        className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-lg border border-stone-200 hover:border-stone-300 text-xs font-mono text-stone-700 transition-all shadow-2xs focus:outline-none focus:ring-2 focus:ring-lagoon-700/20"
       >
         <span>
           {value
@@ -261,9 +270,9 @@ function CustomDatePicker({
                   onClick={() => handleSelectDay(day)}
                   className={`h-7 w-7 rounded-xl text-xs font-medium flex items-center justify-center transition-all ${
                     selected
-                      ? "bg-cyan-800 text-white font-bold shadow-xs scale-105"
+                      ? "bg-lagoon-800 text-white font-bold shadow-xs scale-105"
                       : today
-                        ? "bg-cyan-100 text-cyan-900 font-bold border border-cyan-300"
+                        ? "bg-lagoon-100 text-lagoon-900 font-bold border border-lagoon-300"
                         : "text-stone-700 hover:bg-stone-100"
                   }`}
                 >
@@ -277,11 +286,11 @@ function CustomDatePicker({
             <button
               type="button"
               onClick={() => {
-                const today = new Date().toISOString().split("T")[0];
+                const today = toISODate(new Date());
                 onChange(today);
                 setIsOpen(false);
               }}
-              className="text-cyan-800 font-bold hover:underline"
+              className="text-lagoon-800 font-bold hover:underline"
             >
               วันนี้
             </button>
@@ -344,7 +353,7 @@ function CustomSelect({
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-700/20 shadow-2xs"
+        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 transition-all focus:outline-none focus:ring-2 focus:ring-lagoon-700/20 shadow-2xs"
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
@@ -352,7 +361,7 @@ function CustomSelect({
         <ChevronDown
           size={14}
           className={`text-stone-400 transition-transform duration-200 ${
-            isOpen ? "rotate-180 text-cyan-800" : ""
+            isOpen ? "rotate-180 text-lagoon-800" : ""
           }`}
         />
       </button>
@@ -373,13 +382,13 @@ function CustomSelect({
                 }}
                 className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors flex items-center justify-between ${
                   isSelected
-                    ? "bg-cyan-50 text-cyan-900 font-bold"
+                    ? "bg-lagoon-50 text-lagoon-900 font-bold"
                     : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
                 }`}
               >
                 <span>{opt.label}</span>
                 {isSelected && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-800" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-lagoon-800" />
                 )}
               </button>
             );
@@ -401,6 +410,10 @@ function BoatStaffDashboardContent() {
 
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
+  const [counts, setCounts] = useState({ all: 0, has_slip: 0, pending: 0, approved: 0, checked_out: 0, totalRevenue: 0, pendingRevenue: 0 });
+  const [catalogTypes, setCatalogTypes] = useState<string[]>([]);
+  const requestId = useRef(0);
 
   // อ่านค่า State จาก URL Query Parameters
   const filter = (searchParams.get("filter") as FilterType) || "all";
@@ -408,7 +421,8 @@ function BoatStaffDashboardContent() {
   const dateFrom = searchParams.get("dateFrom") || "";
   const dateTo = searchParams.get("dateTo") || "";
   const searchParam = searchParams.get("search") || "";
-  const currentPage = Number(searchParams.get("page")) || 1;
+  const pageParam = Number(searchParams.get("page"));
+  const currentPage = Number.isSafeInteger(pageParam) && pageParam > 0 ? pageParam : 1;
 
   // Search Debounce State
   const [searchInput, setSearchInput] = useState(searchParam);
@@ -440,7 +454,7 @@ function BoatStaffDashboardContent() {
     text: "",
     icon: "question",
     confirmText: "ยืนยัน",
-    confirmColor: "bg-cyan-800",
+    confirmColor: "bg-lagoon-800",
     onConfirm: () => {},
   });
 
@@ -509,23 +523,37 @@ function BoatStaffDashboardContent() {
     updateQueryParams({ page });
   };
 
-  const fetchBookings = useCallback(async () => {
+  const fetchBookings = useCallback(async (): Promise<void> => {
+    if (!ready) return;
+    const id = ++requestId.current;
     setLoading(true);
     try {
-      const res = await api.get("/kayaks/bookings/all");
+      const res = await api.get("/kayaks/bookings/all", { params: { page: currentPage, limit: itemsPerPage,
+        filter, search: searchParam.trim() || undefined,
+        boat_type: boatType === "all" ? undefined : boatType,
+        date_from: dateFrom || undefined, date_to: dateTo || undefined,
+      } });
+      if (id !== requestId.current) return;
       setBookings(res.data?.data || []);
-    } catch (error: any) {
-      console.error("Fetch bookings error:", error?.response?.data || error);
-      toast.error("ไม่สามารถโหลดข้อมูลการจองได้");
+      setPagination(res.data.pagination);
+      setCounts(res.data.summary);
+      if (currentPage > Math.max(1, res.data.pagination.totalPages)) updateQueryParams({ page: Math.max(1, res.data.pagination.totalPages) });
+    } catch {
+      if (id === requestId.current) notify.error("ไม่สามารถโหลดข้อมูลการจองได้");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  }, []);
+  }, [ready, currentPage, filter, boatType, dateFrom, dateTo, searchParam, updateQueryParams]);
 
+  useEffect(() => { fetchBookings(); }, [fetchBookings]);
   useEffect(() => {
     if (!ready) return;
-    fetchBookings();
-  }, [ready, fetchBookings]);
+    api.get("/kayaks/admin/types").then((res) => {
+      const types: { type_name?: string; room_name?: string; name?: string }[] = res.data?.data || [];
+      setCatalogTypes(Array.from(new Set(types.map((type) => type.name || type.type_name || "").filter(Boolean))));
+    }).catch(() => notify.error("ไม่สามารถโหลดประเภทเรือได้"));
+  }, [ready]);
+
 
   const openConfirmDialog = (
     title: string,
@@ -553,13 +581,13 @@ function BoatStaffDashboardContent() {
       "เมื่ออนุมัติแล้ว สถานะจะเปลี่ยนเป็น 'อนุมัติแล้ว (รอลงเรือ)'",
       "question",
       "อนุมัติการจอง",
-      "bg-cyan-800",
+      "bg-lagoon-800",
       async () => {
         try {
           await api.put(`/kayaks/bookings/${id}/status`, {
             status: "approved",
           });
-          toast.success("อนุมัติการจองเรียบร้อยแล้ว");
+          notify.success("อนุมัติการจองเรียบร้อยแล้ว");
           setBookings((prev) =>
             prev.map((b) =>
               (b.boat_booking_id || b.id) === id
@@ -568,8 +596,8 @@ function BoatStaffDashboardContent() {
             ),
           );
           fetchBookings();
-        } catch (err: any) {
-          toast.error(err.response?.data?.message || "ทำรายการไม่สำเร็จ");
+        } catch (err: unknown) {
+          notify.error(getApiErrorMessage(err, "ทำรายการไม่สำเร็จ"));
         }
       },
     );
@@ -585,7 +613,7 @@ function BoatStaffDashboardContent() {
         : rejectModal.selectedReason;
 
     if (rejectModal.selectedReason === "อื่นๆ" && !finalReason) {
-      toast.error("กรุณาระบุเหตุผลเพิ่มเติม");
+      notify.error("กรุณาระบุเหตุผลเพิ่มเติม");
       return;
     }
 
@@ -594,7 +622,7 @@ function BoatStaffDashboardContent() {
         status: "rejected",
         reject_reason: finalReason || "ข้อมูลหลักฐานไม่ถูกต้อง",
       });
-      toast.success("ปฏิเสธรายการจองเรียบร้อยแล้ว");
+      notify.success("ปฏิเสธรายการจองเรียบร้อยแล้ว");
 
       setBookings((prev) =>
         prev.map((b) =>
@@ -611,8 +639,8 @@ function BoatStaffDashboardContent() {
         customReason: "",
       });
       fetchBookings();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "ปฏิเสธการจองไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "ปฏิเสธการจองไม่สำเร็จ"));
     }
   };
 
@@ -623,11 +651,11 @@ function BoatStaffDashboardContent() {
       "เมื่อยืนยัน สถานะจะเปลี่ยนเป็น 'คืนเรือแล้ว'",
       "warning",
       "ยืนยัน Check-out",
-      "bg-teal-700",
+      "bg-lagoon-700",
       async () => {
         try {
           await api.put(`/kayaks/bookings/${id}/checkout`);
-          toast.success("คืนเรือสำเร็จเรียบร้อย");
+          notify.success("คืนเรือสำเร็จเรียบร้อย");
           setBookings((prev) =>
             prev.map((b) =>
               (b.boat_booking_id || b.id) === id
@@ -640,8 +668,8 @@ function BoatStaffDashboardContent() {
             ),
           );
           fetchBookings();
-        } catch (err: any) {
-          toast.error(err.response?.data?.message || "เช็คเอาต์ไม่สำเร็จ");
+        } catch (err: unknown) {
+          notify.error(getApiErrorMessage(err, "เช็คเอาต์ไม่สำเร็จ"));
         }
       },
     );
@@ -651,14 +679,7 @@ function BoatStaffDashboardContent() {
     window.print();
   };
 
-  const boatTypes = useMemo(() => {
-    const types = new Set<string>();
-    bookings.forEach((b) => {
-      const name = b.kayak_name || b.boat_name;
-      if (name) types.add(name);
-    });
-    return Array.from(types);
-  }, [bookings]);
+  const boatTypes = catalogTypes;
 
   const boatTypeOptions = useMemo(() => {
     return [
@@ -667,102 +688,8 @@ function BoatStaffDashboardContent() {
     ];
   }, [boatTypes]);
 
-  const counts = useMemo(() => {
-    const approvedList = bookings.filter((b) =>
-      ["approved", "checked_out"].includes(b.status),
-    );
-    const pendingSlipList = bookings.filter(
-      (b) =>
-        b.payment_slip &&
-        !["approved", "checked_out", "rejected", "cancelled"].includes(
-          b.status,
-        ),
-    );
-
-    return {
-      has_slip: pendingSlipList.length,
-      pending: bookings.filter((b) => !b.payment_slip && b.status === "pending")
-        .length,
-      approved: bookings.filter((b) => b.status === "approved").length,
-      checked_out: bookings.filter((b) => b.status === "checked_out").length,
-      totalRevenue: approvedList.reduce(
-        (acc, curr) => acc + Number(curr.total_price || 0),
-        0,
-      ),
-      pendingRevenue: pendingSlipList.reduce(
-        (acc, curr) => acc + Number(curr.total_price || 0),
-        0,
-      ),
-    };
-  }, [bookings]);
-
-  const filtered = useMemo(() => {
-    let list = bookings;
-
-    if (filter === "has_slip")
-      list = list.filter(
-        (b) =>
-          b.payment_slip &&
-          !["approved", "checked_out", "rejected", "cancelled"].includes(
-            b.status,
-          ),
-      );
-    else if (filter === "pending")
-      list = list.filter((b) => !b.payment_slip && b.status === "pending");
-    else if (filter === "approved")
-      list = list.filter((b) => b.status === "approved");
-    else if (filter === "checked_out")
-      list = list.filter((b) => b.status === "checked_out");
-
-    if (boatType !== "all") {
-      list = list.filter((b) => (b.kayak_name || b.boat_name) === boatType);
-    }
-
-    if (dateFrom)
-      list = list.filter(
-        (b) =>
-          b.booking_date &&
-          new Date(b.booking_date).toISOString().split("T")[0] >= dateFrom,
-      );
-    if (dateTo)
-      list = list.filter(
-        (b) =>
-          b.booking_date &&
-          new Date(b.booking_date).toISOString().split("T")[0] <= dateTo,
-      );
-
-    if (searchParam.trim()) {
-      const q = searchParam.toLowerCase().trim();
-      list = list.filter((b) => {
-        const bookingId = String(b.boat_booking_id || b.id || "").toLowerCase();
-        const userName = String(b.user_name || "").toLowerCase();
-        const userPhone = String(b.user_phone || b.phone || "").toLowerCase();
-        const userEmail = String(b.user_email || "").toLowerCase();
-        const boatName = String(
-          b.kayak_name || b.boat_name || "",
-        ).toLowerCase();
-
-        return (
-          bookingId.includes(q) ||
-          userName.includes(q) ||
-          userPhone.includes(q) ||
-          userEmail.includes(q) ||
-          boatName.includes(q)
-        );
-      });
-    }
-
-    return list;
-  }, [bookings, filter, boatType, dateFrom, dateTo, searchParam]);
-
-  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
-
-  const paginatedBookings = useMemo(() => {
-    return filtered.slice(
-      (currentPage - 1) * itemsPerPage,
-      currentPage * itemsPerPage,
-    );
-  }, [filtered, currentPage]);
+  const totalPages = Math.max(1, pagination.totalPages);
+  const paginatedBookings = bookings;
 
   const getPaginationRange = () => {
     const delta = 1;
@@ -787,7 +714,7 @@ function BoatStaffDashboardContent() {
   if (!ready) return null;
 
   return (
-    <div className="w-full min-h-screen flex flex-col font-sans space-y-4 pb-10">
+    <div className="space-y-6 pb-12">
       <style jsx global>{`
         @media print {
           body * {
@@ -823,108 +750,24 @@ function BoatStaffDashboardContent() {
       `}</style>
 
       {/* Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-stone-200/60 print:hidden">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-cyan-950 tracking-tight">
-              จัดการรายการจองเรือและคายัค
-            </h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-cyan-900/10 text-cyan-900">
-              Staff
-            </span>
-          </div>
-          <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจองเรือ และรับคืนเรือ
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="จัดการรายการจองเรือและคายัค"
+        description="ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจองเรือ และรับคืนเรือ"
+      />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 print:hidden">
-        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group">
-          <div className="flex items-start justify-between relative">
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-stone-500">
-                รอตรวจสอบสลิป
-              </span>
-              <p className="text-2xl font-extrabold text-blue-600 tracking-tight font-mono">
-                {counts.has_slip}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
-              <FileCheck2 size={18} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group">
-          <div className="flex items-start justify-between relative">
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-stone-500">
-                ยังไม่ชำระเงิน
-              </span>
-              <p className="text-2xl font-extrabold text-cyan-900 tracking-tight font-mono">
-                {counts.pending}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-cyan-900/10 border border-cyan-900/20 flex items-center justify-center text-cyan-900">
-              <Clock size={18} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group">
-          <div className="flex items-start justify-between relative">
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-stone-500">
-                อนุมัติแล้ว (รอลงเรือ)
-              </span>
-              <p className="text-2xl font-extrabold text-indigo-600 tracking-tight font-mono">
-                {counts.approved}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-              <ShieldCheck size={18} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group">
-          <div className="flex items-start justify-between relative">
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-stone-500">
-                คืนเรือแล้ว
-              </span>
-              <p className="text-2xl font-extrabold text-teal-600 tracking-tight font-mono">
-                {counts.checked_out}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600">
-              <Anchor size={18} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs hover:shadow-md transition-shadow relative overflow-hidden group sm:col-span-2 lg:col-span-1">
-          <div className="flex items-start justify-between relative">
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-stone-500">
-                รายได้ที่ยืนยันแล้ว
-              </span>
-              <p className="text-xl font-extrabold text-cyan-900 tracking-tight font-mono">
-                ฿{counts.totalRevenue.toLocaleString()}
-              </p>
-              {counts.pendingRevenue > 0 && (
-                <p className="text-xs text-blue-600 font-medium">
-                  (รอตรวจสอบ: ฿{counts.pendingRevenue.toLocaleString()})
-                </p>
-              )}
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-cyan-900">
-              <Wallet size={18} />
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5 print:hidden">
+        <StatCard label="รอตรวจสอบสลิป" value={counts.has_slip} icon={<FileCheck2 />} tone="lagoon" />
+        <StatCard label="ยังไม่ชำระเงิน" value={counts.pending} icon={<Clock />} tone="charcoal" />
+        <StatCard label="อนุมัติแล้ว (รอลงเรือ)" value={counts.approved} icon={<ShieldCheck />} tone="forest" />
+        <StatCard label="คืนเรือแล้ว" value={counts.checked_out} icon={<Anchor />} tone="bamboo" />
+        <StatCard 
+          label="รายได้ที่ยืนยันแล้ว" 
+          value={`฿${counts.totalRevenue.toLocaleString()}`} 
+          hint={counts.pendingRevenue > 0 ? `รอตรวจสอบ: ฿${counts.pendingRevenue.toLocaleString()}` : undefined}
+          icon={<Wallet />} 
+          tone="forest" 
+        />
       </div>
 
       {/* Control Bar */}
@@ -932,7 +775,7 @@ function BoatStaffDashboardContent() {
         <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5">
           {(
             [
-              ["all", "ทั้งหมด", bookings.length],
+              ["all", "ทั้งหมด", counts.all],
               ["has_slip", "รอตรวจสอบสลิป", counts.has_slip],
               ["pending", "ยังไม่ชำระ", counts.pending],
               ["approved", "อนุมัติแล้ว", counts.approved],
@@ -946,7 +789,7 @@ function BoatStaffDashboardContent() {
                 onClick={() => handleFilterChange(val as FilterType)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
                   active
-                    ? "bg-cyan-800 text-white shadow-xs"
+                    ? "bg-lagoon-800 text-white shadow-xs"
                     : "bg-stone-100/80 text-stone-600 hover:bg-stone-200/70"
                 }`}
               >
@@ -977,7 +820,7 @@ function BoatStaffDashboardContent() {
                 placeholder="ค้นหาชื่อ, เบอร์โทร, ประเภทเรือ, ID..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full bg-stone-50 pl-9 pr-8 py-1.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-cyan-700/20 text-xs font-medium text-stone-800 placeholder:text-stone-400 transition-all"
+                className="w-full bg-stone-50 pl-9 pr-8 py-1.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-lagoon-700/20 text-xs font-medium text-stone-800 placeholder:text-stone-400 transition-all"
               />
               {searchInput && (
                 <button
@@ -1008,7 +851,7 @@ function BoatStaffDashboardContent() {
             </div>
 
             <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
-              <CalendarDays size={15} className="text-cyan-800" />
+              <CalendarDays size={15} className="text-lagoon-800" />
               <span className="font-medium text-stone-500 whitespace-nowrap">
                 วันที่จอง:
               </span>
@@ -1037,28 +880,16 @@ function BoatStaffDashboardContent() {
             )}
           </div>
 
-          <button
-            onClick={fetchBookings}
-            className="px-3.5 py-2 text-stone-700 bg-white hover:bg-stone-100/80 rounded-xl border border-stone-200 shadow-xs transition-all text-xs font-medium flex items-center gap-2 active:scale-95 ml-auto"
-            title="รีเฟรชข้อมูล"
-          >
-            <RefreshCw
-              size={14}
-              className={
-                loading ? "animate-spin text-cyan-800" : "text-stone-500"
-              }
-            />
-            <span>รีเฟรชข้อมูล</span>
-          </button>
+          
         </div>
       </div>
 
       {/* Bookings Table Card */}
-      <div className="bg-white rounded-2xl border border-stone-200/80 shadow-sm overflow-hidden print:hidden">
+      <Panel title="รายการจองเรือและคายัค" className="print:hidden p-0 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs md:text-sm">
             <thead>
-              <tr className="bg-stone-50 border-b border-stone-200/80 text-stone-500 font-bold text-xs tracking-wider uppercase">
+              <tr className="border-b border-charcoal-100 text-charcoal-400 bg-cream-50 font-bold text-xs tracking-wider uppercase">
                 <th className="px-5 py-4">ID</th>
                 <th className="px-5 py-4">ลูกค้า</th>
                 <th className="px-5 py-4">ประเภทเรือ</th>
@@ -1077,7 +908,7 @@ function BoatStaffDashboardContent() {
                     <div className="flex flex-col items-center justify-center gap-3">
                       <RefreshCw
                         size={28}
-                        className="animate-spin text-cyan-800"
+                        className="animate-spin text-lagoon-800"
                       />
                       <span className="text-xs font-medium text-stone-500">
                         กำลังโหลดข้อมูลรายการจอง...
@@ -1087,18 +918,11 @@ function BoatStaffDashboardContent() {
                 </tr>
               ) : paginatedBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center text-stone-400">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 mb-1">
-                        <Filter size={20} />
-                      </div>
-                      <p className="font-semibold text-stone-700 text-sm">
-                        ไม่พบรายการจองเรือ
-                      </p>
-                      <p className="text-xs text-stone-400">
-                        ลองปรับเปลี่ยนข้อความค้นหาหรือเงื่อนไขการกรอง
-                      </p>
-                    </div>
+                  <td colSpan={9} className="py-16">
+                    <EmptyState 
+                      title="ไม่พบรายการจองเรือ" 
+                      description="ลองปรับเปลี่ยนข้อความค้นหาหรือเงื่อนไขการกรอง" 
+                    />
                   </td>
                 </tr>
               ) : (
@@ -1113,7 +937,7 @@ function BoatStaffDashboardContent() {
                   return (
                     <tr
                       key={bookingId}
-                      className="hover:bg-stone-50/80 transition-colors group"
+                      className="hover:bg-cream-100/60 border-b border-charcoal-50 last:border-0 transition-colors group"
                     >
                       <td className="px-5 py-4 text-stone-400 font-mono text-xs font-semibold">
                         #{bookingId}
@@ -1197,20 +1021,13 @@ function BoatStaffDashboardContent() {
                         </div>
                       </td>
 
-                      <td className="px-5 py-4 font-bold text-cyan-900 font-mono text-sm whitespace-nowrap">
+                      <td className="px-5 py-4 font-bold text-lagoon-900 font-mono text-sm whitespace-nowrap">
                         ฿{Number(b.total_price || 0).toLocaleString()}
                       </td>
 
                       <td className="px-5 py-4 whitespace-nowrap">
                         <div className="flex flex-col items-start gap-1">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.bg}`}
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`}
-                            />
-                            {statusLabel[b.status] || b.status}
-                          </span>
+                          <BookingStatusBadge status={b.status} />
                           {b.approved_by_name &&
                             ["approved", "checked_out", "rejected"].includes(
                               b.status,
@@ -1232,7 +1049,7 @@ function BoatStaffDashboardContent() {
                                 name: b.user_name || "slip",
                               })
                             }
-                            className="inline-flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50/80 hover:bg-blue-100 border border-blue-200/80 px-3 py-1.5 rounded-xl font-semibold transition-all active:scale-95 shadow-2xs"
+                            className="inline-flex items-center gap-1.5 text-xs text-lagoon-700 bg-lagoon-50/80 hover:bg-lagoon-100 border border-lagoon-200/80 px-3 py-1.5 rounded-xl font-semibold transition-all active:scale-95 shadow-2xs"
                           >
                             <Eye size={13} />
                             <span>ดูสลิป</span>
@@ -1257,13 +1074,13 @@ function BoatStaffDashboardContent() {
                           </button>
 
                           {b.status === "checked_out" ? (
-                            <span className="text-xs text-teal-700 font-semibold bg-teal-50 border border-teal-200/80 px-3 py-1 rounded-xl inline-block">
+                            <span className="text-xs text-lagoon-700 font-semibold bg-lagoon-50 border border-lagoon-200/80 px-3 py-1 rounded-xl inline-block">
                               เช็คเอาต์แล้ว
                             </span>
                           ) : b.status === "approved" ? (
                             <button
                               onClick={() => handleCheckout(bookingId)}
-                              className="inline-flex items-center gap-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
+                              className="inline-flex items-center gap-1.5 text-xs bg-lagoon-600 hover:bg-lagoon-700 text-white font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
                             >
                               <LogOut size={13} />
                               <span>Check-out</span>
@@ -1280,7 +1097,7 @@ function BoatStaffDashboardContent() {
                             <>
                               <button
                                 onClick={() => handleApprove(bookingId)}
-                                className="inline-flex items-center gap-1 text-xs bg-cyan-700 hover:bg-cyan-800 text-white font-semibold px-3 py-1.5 rounded-xl transition-all shadow-xs active:scale-95"
+                                className="inline-flex items-center gap-1 text-xs bg-lagoon-700 hover:bg-lagoon-800 text-white font-semibold px-3 py-1.5 rounded-xl transition-all shadow-xs active:scale-95"
                               >
                                 <span>อนุมัติ</span>
                               </button>
@@ -1314,7 +1131,7 @@ function BoatStaffDashboardContent() {
         </div>
 
         {/* Pagination Footer */}
-        {filtered.length > 0 && (
+        {pagination.total > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 bg-stone-50/80 border-t border-stone-200/80 text-xs text-stone-500 print:hidden">
             <span>
               แสดง{" "}
@@ -1323,11 +1140,11 @@ function BoatStaffDashboardContent() {
               </strong>{" "}
               ถึง{" "}
               <strong className="text-stone-800 font-mono">
-                {Math.min(currentPage * itemsPerPage, filtered.length)}
+                {Math.min(currentPage * itemsPerPage, pagination.total)}
               </strong>{" "}
               จากทั้งหมด{" "}
               <strong className="text-stone-800 font-mono">
-                {filtered.length}
+                {pagination.total}
               </strong>{" "}
               รายการ
             </span>
@@ -1335,14 +1152,14 @@ function BoatStaffDashboardContent() {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => handlePageChange(1)}
-                disabled={currentPage === 1}
+                disabled={loading || currentPage === 1}
                 className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
               >
                 <ChevronsLeft size={16} />
               </button>
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
+                disabled={loading || currentPage === 1}
                 className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
               >
                 <ChevronLeft size={16} />
@@ -1355,7 +1172,7 @@ function BoatStaffDashboardContent() {
                     onClick={() => handlePageChange(page)}
                     className={`px-3 py-1 rounded-lg text-xs font-semibold font-mono transition-all ${
                       currentPage === page
-                        ? "bg-cyan-800 text-white shadow-2xs"
+                        ? "bg-lagoon-800 text-white shadow-2xs"
                         : "bg-white text-stone-600 border border-stone-200 hover:bg-stone-50"
                     }`}
                   >
@@ -1370,14 +1187,14 @@ function BoatStaffDashboardContent() {
 
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
+                disabled={loading || currentPage >= totalPages}
                 className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
               >
                 <ChevronRight size={16} />
               </button>
               <button
                 onClick={() => handlePageChange(totalPages)}
-                disabled={currentPage === totalPages}
+                disabled={loading || currentPage >= totalPages}
                 className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
               >
                 <ChevronsRight size={16} />
@@ -1385,401 +1202,208 @@ function BoatStaffDashboardContent() {
             </div>
           </div>
         )}
-      </div>
+      </Panel>
+      
 
       {/* Slip Modal */}
-      {slipModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs print:hidden">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 shadow-2xl relative space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-              <h3 className="font-bold text-stone-800 text-base flex items-center gap-2">
-                <FileCheck2 className="text-blue-600" size={18} />
-                หลักฐานการชำระเงิน ({slipModal.name})
-              </h3>
-              <button
-                onClick={() => setSlipModal({ open: false, url: "", name: "" })}
-                className="p-1.5 rounded-full text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="max-h-[70vh] overflow-y-auto flex justify-center bg-stone-50 p-2 rounded-2xl border border-stone-100">
-              <img
-                src={slipModal.url}
-                alt="สลิปการโอนเงิน"
-                className="max-w-full h-auto object-contain rounded-xl shadow-xs"
-              />
-            </div>
-            <div className="flex justify-end">
-              <button
-                onClick={() => setSlipModal({ open: false, url: "", name: "" })}
-                className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-xl transition-colors"
-              >
-                ปิดหน้าต่าง
-              </button>
-            </div>
-          </div>
+      <Modal 
+        open={slipModal.open} 
+        title={`หลักฐานการชำระเงิน (${slipModal.name})`} 
+        onClose={() => setSlipModal({ open: false, url: "", name: "" })}
+        footer={
+          <button
+            onClick={() => setSlipModal({ open: false, url: "", name: "" })}
+            className="rounded-xl bg-charcoal-100 px-4 py-2 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-charcoal-200"
+          >
+            ปิดหน้าต่าง
+          </button>
+        }
+      >
+        <div className="flex justify-center rounded-2xl border border-charcoal-100 bg-cream-50 p-2">
+          <img
+            src={slipModal.url}
+            alt="สลิปการโอนเงิน"
+            className="max-h-[60vh] rounded-xl object-contain shadow-xs"
+          />
         </div>
-      )}
+      </Modal>
 
       {/* Details Modal */}
-      {detailsModal.open &&
-        detailsModal.booking &&
-        (() => {
-          const booking = detailsModal.booking;
-          const isCheckedOut = booking.status === "checked_out";
+      {detailsModal.open && detailsModal.booking && (() => {
+        const booking = detailsModal.booking;
 
-          return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs printable-modal-overlay">
-              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative space-y-4 animate-in fade-in zoom-in-95 duration-200 printable-modal">
-                <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 bg-cyan-900/10 text-cyan-900 rounded-xl print:hidden">
-                      <FileText size={18} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-stone-800 text-base md:text-lg">
-                        ใบยืนยันการจองเรือ
-                      </h3>
-                      <p className="text-stone-400 text-xs font-mono">
-                        หมายเลขอ้างอิง: #{booking.boat_booking_id || booking.id}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() =>
-                      setDetailsModal({ open: false, booking: null })
-                    }
-                    className="p-1.5 rounded-full text-stone-400 hover:bg-stone-100 transition-colors print:hidden"
-                  >
-                    <X size={18} />
-                  </button>
+        return (
+          <Modal
+            open={detailsModal.open}
+            title="ใบยืนยันการจองเรือ"
+            onClose={() => setDetailsModal({ open: false, booking: null })}
+            footer={
+              <div className="flex w-full gap-2">
+                <button
+                  onClick={handlePrintDetails}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-charcoal-100 py-2.5 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-charcoal-200"
+                >
+                  <Printer size={14} /> พิมพ์ใบยืนยัน
+                </button>
+                <button
+                  onClick={() => setDetailsModal({ open: false, booking: null })}
+                  className="flex-1 rounded-xl bg-forest-800 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-forest-900"
+                >
+                  ปิดหน้าต่าง
+                </button>
+              </div>
+            }
+          >
+            <div className="space-y-4 text-sm text-charcoal-600 printable-modal">
+              <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 space-y-1.5 print:bg-white print:border-charcoal-200">
+                <div className="flex items-center gap-2 font-semibold text-charcoal-800 text-sm mb-2">
+                  <User size={15} className="text-charcoal-500 print:hidden" />
+                  <span>ข้อมูลผู้จอง</span>
                 </div>
+                <p><strong className="text-charcoal-700">ชื่อ-สกุล:</strong> {booking.user_name || "ไม่ระบุ"}</p>
+                <p><strong className="text-charcoal-700">เบอร์โทรศัพท์:</strong> <span className="font-mono text-charcoal-800 font-medium">{booking.user_phone || booking.phone || "-"}</span></p>
+                <p><strong className="text-charcoal-700">หมายเลขอ้างอิง:</strong> #{booking.boat_booking_id || booking.id}</p>
+              </div>
 
-                <div className="space-y-3 text-xs text-stone-600">
-                  <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 space-y-1.5 print:bg-white print:border-stone-200">
-                    <div className="flex items-center gap-2 font-semibold text-stone-800 text-sm mb-1">
-                      <User size={15} className="text-stone-500 print:hidden" />
-                      <span>ข้อมูลผู้จอง</span>
-                    </div>
-                    <p>
-                      <strong className="text-stone-700">ชื่อ-สกุล:</strong>{" "}
-                      {booking.user_name || "ไม่ระบุ"}
-                    </p>
-                    <p>
-                      <strong className="text-stone-700">เบอร์โทรศัพท์:</strong>{" "}
-                      <span className="font-mono text-stone-800 font-medium">
-                        {booking.user_phone || booking.phone || "-"}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 space-y-1.5 print:bg-white print:border-stone-200">
-                    <div className="flex items-center gap-2 font-semibold text-stone-800 text-sm mb-1">
-                      <Ship size={15} className="text-stone-500 print:hidden" />
-                      <span>รายละเอียดการใช้งานเรือ</span>
-                    </div>
-                    <p>
-                      <strong className="text-stone-700">ประเภทเรือ:</strong>{" "}
-                      {booking.kayak_name || booking.boat_name}
-                    </p>
-                    {Array.isArray(booking.boats) && booking.boats.length > 0 && (
-                      <ul className="mt-1 space-y-0.5 pl-1 text-stone-600">
-                        {booking.boats.map(
-                          (line: {
-                            booking_boat_id: number;
-                            type_name?: string;
-                            num_passengers?: number;
-                            boat_count?: number;
-                            subtotal?: number;
-                          }) => (
-                            <li key={line.booking_boat_id}>
-                              {line.type_name || "เรือ"} — {line.num_passengers ?? 0}{" "}
-                              คน / {line.boat_count ?? 0} ลำ
-                              {line.subtotal != null
-                                ? ` · ฿${Number(line.subtotal).toLocaleString()}`
-                                : ""}
-                            </li>
-                          ),
-                        )}
-                      </ul>
-                    )}
-                    <p>
-                      <strong className="text-stone-700">วันที่จอง:</strong>{" "}
-                      {booking.booking_date
-                        ? new Date(booking.booking_date).toLocaleDateString(
-                            "th-TH",
-                            {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                            },
-                          )
-                        : "-"}
-                    </p>
-                    <p>
-                      <strong className="text-stone-700">รอบเวลา:</strong>{" "}
-                      {booking.start_time && booking.end_time
-                        ? `${booking.start_time.slice(0, 5)} - ${booking.end_time.slice(0, 5)} น.`
-                        : "-"}
-                    </p>
-
-                    <div className="pt-2 mt-2 border-t border-stone-200/60">
-                      <div className="flex items-center gap-1.5 text-stone-700 font-semibold mb-1">
-                        <MessageSquare
-                          size={13}
-                          className="text-cyan-800 print:hidden"
-                        />
-                        <span>คำขอพิเศษ (Special Request):</span>
-                      </div>
-                      <p className="text-stone-600 bg-white p-2 rounded-xl border border-stone-200/80 leading-relaxed italic print:border-stone-300">
-                        {booking.special_request ||
-                          booking.special_requests ||
-                          "ไม่มีคำขอพิเศษ"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 space-y-1.5 print:bg-white print:border-stone-200">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-stone-700">
-                        สถานะรายการ:
-                      </span>
-
-                      {isCheckedOut ? (
-                        <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 text-xs font-bold print:border print:border-teal-300">
-                          คืนเรือแล้ว
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-0.5 rounded-full bg-cyan-900/10 text-cyan-900 text-xs font-bold print:border print:border-cyan-300">
-                          {statusLabel[booking.status] || booking.status}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {booking.status === "rejected" &&
-                    (booking.reject_reason || booking.reason) && (
-                      <div className="p-3 bg-rose-50 rounded-2xl border border-rose-200/80 space-y-1 text-rose-800 print:bg-white print:border-rose-300">
-                        <span className="font-semibold">เหตุผลที่ปฏิเสธ:</span>
-                        <p className="italic text-rose-700">
-                          {booking.reject_reason || booking.reason}
-                        </p>
-                      </div>
-                    )}
-
-                  <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 flex justify-between items-center print:bg-white print:border-stone-200">
-                    <span className="font-semibold text-stone-700">
-                      ยอดรวมสุทธิ
-                    </span>
-                    <span className="text-base font-extrabold text-cyan-900 font-mono">
-                      ฿{Number(booking.total_price || 0).toLocaleString()}
-                    </span>
-                  </div>
+              <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 space-y-1.5 print:bg-white print:border-charcoal-200">
+                <div className="flex items-center gap-2 font-semibold text-charcoal-800 text-sm mb-2">
+                  <Ship size={15} className="text-charcoal-500 print:hidden" />
+                  <span>รายละเอียดการใช้งานเรือ</span>
                 </div>
+                <p><strong className="text-charcoal-700">ประเภทเรือ:</strong> {booking.kayak_name || booking.boat_name}</p>
+                {Array.isArray(booking.boats) && booking.boats.length > 0 && (
+                  <ul className="mt-1 space-y-0.5 pl-4 list-disc text-charcoal-600">
+                    {booking.boats.map((line: any) => (
+                      <li key={line.booking_boat_id}>
+                        {line.type_name || "เรือ"} — {line.num_passengers ?? 0} คน / {line.boat_count ?? 0} ลำ
+                        {line.subtotal != null ? ` · ฿${Number(line.subtotal).toLocaleString()}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="mt-2"><strong className="text-charcoal-700">วันที่จอง:</strong> {booking.booking_date ? new Date(booking.booking_date).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" }) : "-"}</p>
+                <p><strong className="text-charcoal-700">รอบเวลา:</strong> {booking.start_time && booking.end_time ? `${booking.start_time.slice(0, 5)} - ${booking.end_time.slice(0, 5)} น.` : "-"}</p>
+                
+                {booking.special_request && (
+                  <div className="pt-2 mt-2 border-t border-charcoal-200/60">
+                    <div className="flex items-center gap-1.5 text-charcoal-700 font-semibold mb-1">
+                      <MessageSquare size={13} className="text-forest-800 print:hidden" />
+                      <span>คำขอพิเศษ:</span>
+                    </div>
+                    <p className="text-charcoal-600 bg-white p-2 rounded-xl border border-charcoal-200/80 leading-relaxed italic print:border-charcoal-300">
+                      {booking.special_request}
+                    </p>
+                  </div>
+                )}
+              </div>
 
-                <div className="flex items-center gap-2 pt-2 print:hidden">
-                  <button
-                    onClick={handlePrintDetails}
-                    className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <Printer size={14} />
-                    <span>พิมพ์ใบยืนยัน</span>
-                  </button>
-                  <button
-                    onClick={() =>
-                      setDetailsModal({ open: false, booking: null })
-                    }
-                    className="flex-1 py-2.5 bg-cyan-800 hover:bg-cyan-900 text-white text-xs font-semibold rounded-xl transition-colors shadow-xs"
-                  >
-                    ปิดหน้าต่าง
-                  </button>
+              <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 flex items-center justify-between print:bg-white print:border-charcoal-200">
+                <span className="font-semibold text-charcoal-700">สถานะรายการ:</span>
+                <BookingStatusBadge status={booking.status} />
+              </div>
+
+              {booking.status === "rejected" && (booking.reject_reason || booking.reason) && (
+                <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 space-y-1 text-rose-800 print:bg-white print:border-rose-300">
+                  <span className="font-semibold">เหตุผลที่ปฏิเสธ:</span>
+                  <p className="italic text-rose-700">{booking.reject_reason || booking.reason}</p>
                 </div>
+              )}
+
+              <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 flex justify-between items-center print:bg-white print:border-charcoal-200">
+                <span className="font-semibold text-charcoal-700">ยอดรวมสุทธิ</span>
+                <span className="text-lg font-extrabold text-forest-800 font-mono">฿{Number(booking.total_price || 0).toLocaleString()}</span>
               </div>
             </div>
-          );
-        })()}
+          </Modal>
+        );
+      })()}
 
-      {/* Reject Modal (ระบบเลือกเหตุผลการปฏิเสธ) */}
-      {rejectModal.open && (
-        <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 print:hidden">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-stone-100 text-center space-y-4">
-            {/* ไอคอนแจ้งเตือน */}
-            <div className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center bg-rose-50 border border-rose-100 text-rose-500">
-              <AlertTriangle size={24} />
-            </div>
-
-            {/* หัวข้อ */}
-            <div>
-              <h3 className="text-lg font-bold text-stone-800">
-                ปฏิเสธรายการจองนี้?
-              </h3>
-              <p className="text-xs text-stone-400 mt-1">
-                โปรดเลือกเหตุผลในการปฏิเสธการจอง
-              </p>
-            </div>
-
-            {/* รายการเหตุผลแบบ Radio List */}
-            <div className="space-y-2 text-left">
-              {REJECT_REASONS.map((reason) => {
-                const isSelected = rejectModal.selectedReason === reason;
-                return (
-                  <button
-                    key={reason}
-                    type="button"
-                    onClick={() =>
-                      setRejectModal((prev) => ({
-                        ...prev,
-                        selectedReason: reason,
-                      }))
-                    }
-                    className={`w-full flex items-center justify-between p-3.5 rounded-2xl border text-xs font-semibold transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-rose-50/50 border-rose-400 text-rose-700 shadow-2xs"
-                        : "bg-stone-50/60 border-stone-200/80 text-stone-600 hover:bg-stone-100/70"
-                    }`}
-                  >
-                    <span>{reason}</span>
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                        isSelected
-                          ? "border-rose-500 bg-rose-500"
-                          : "border-stone-300 bg-white"
-                      }`}
-                    >
-                      {isSelected && (
-                        <div className="w-2 h-2 rounded-full bg-white" />
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-
-              {/* ช่องกรอกเพิ่มเติมเฉพาะเมื่อเลือก "อื่นๆ" */}
-              {rejectModal.selectedReason === "อื่นๆ" && (
-                <div className="pt-1 animate-in fade-in duration-150">
-                  <textarea
-                    rows={2}
-                    placeholder="โปรดระบุเหตุผลเพิ่มเติม..."
-                    value={rejectModal.customReason}
-                    onChange={(e) =>
-                      setRejectModal((prev) => ({
-                        ...prev,
-                        customReason: e.target.value,
-                      }))
-                    }
-                    className="w-full p-3 bg-stone-50 rounded-2xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 text-xs text-stone-800 placeholder:text-stone-400 resize-none"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* ปุ่มกดกดยืนยัน / ยกเลิก */}
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setRejectModal({
-                    open: false,
-                    bookingId: null,
-                    selectedReason: REJECT_REASONS[0],
-                    customReason: "",
-                  })
-                }
-                className="flex-1 py-3 rounded-2xl bg-stone-100 hover:bg-stone-200/80 text-stone-600 text-xs font-bold transition-colors"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleRejectSubmit}
-                className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-200 active:scale-95 transition-all"
-              >
-                ยืนยันปฏิเสธ
-              </button>
-            </div>
+      {/* Reject Modal */}
+      <Modal
+        open={rejectModal.open}
+        title="ปฏิเสธรายการจองนี้?"
+        onClose={() => setRejectModal({ open: false, bookingId: null, selectedReason: REJECT_REASONS[0], customReason: "" })}
+        widthClass="max-w-sm"
+        footer={
+          <div className="flex w-full gap-2">
+            <button
+              onClick={() => setRejectModal({ open: false, bookingId: null, selectedReason: REJECT_REASONS[0], customReason: "" })}
+              className="flex-1 rounded-xl bg-charcoal-100 py-2.5 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-charcoal-200"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={handleRejectSubmit}
+              className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-semibold text-white shadow-md transition-all hover:bg-rose-700 active:scale-95"
+            >
+              ยืนยันปฏิเสธ
+            </button>
           </div>
+        }
+      >
+        <p className="mb-4 text-xs text-charcoal-400">โปรดเลือกเหตุผลในการปฏิเสธการจอง</p>
+        <div className="space-y-2">
+          {REJECT_REASONS.map((reason) => {
+            const isSelected = rejectModal.selectedReason === reason;
+            return (
+              <button
+                key={reason}
+                onClick={() => setRejectModal((prev) => ({ ...prev, selectedReason: reason }))}
+                className={`flex w-full items-center justify-between rounded-xl border p-3 text-xs font-semibold transition-all ${
+                  isSelected
+                    ? "border-rose-400 bg-rose-50 text-rose-700 shadow-sm"
+                    : "border-charcoal-200 bg-cream-50 text-charcoal-600 hover:bg-cream-100"
+                }`}
+              >
+                <span>{reason}</span>
+                <div className={`flex h-4 w-4 items-center justify-center rounded-full border ${isSelected ? "border-rose-500 bg-rose-500" : "border-charcoal-300 bg-white"}`}>
+                  {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+                </div>
+              </button>
+            );
+          })}
+          {rejectModal.selectedReason === "อื่นๆ" && (
+            <textarea
+              rows={2}
+              placeholder="โปรดระบุเหตุผลเพิ่มเติม..."
+              value={rejectModal.customReason}
+              onChange={(e) => setRejectModal((prev) => ({ ...prev, customReason: e.target.value }))}
+              className="w-full rounded-xl border border-charcoal-200 bg-cream-50 p-3 text-xs text-charcoal-800 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+            />
+          )}
         </div>
-      )}
+      </Modal>
 
       {/* Confirm Modal */}
-      {confirmModal.open && (
-        <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 print:hidden">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-stone-100 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center bg-stone-50 border border-stone-100 text-stone-700">
-              {confirmModal.icon === "warning" && (
-                <AlertTriangle size={24} className="text-cyan-800" />
-              )}
-              {confirmModal.icon === "info" && (
-                <Info size={24} className="text-indigo-500" />
-              )}
-              {confirmModal.icon === "question" && (
-                <HelpCircle size={24} className="text-cyan-800" />
-              )}
-            </div>
-
-            <div>
-              <h3 className="text-base font-bold text-stone-800">
-                {confirmModal.title}
-              </h3>
-              <p className="text-xs text-stone-500 mt-1">{confirmModal.text}</p>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                onClick={() =>
-                  setConfirmModal((prev) => ({ ...prev, open: false }))
-                }
-                className="flex-1 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-colors"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={() => {
-                  confirmModal.onConfirm();
-                  setConfirmModal((prev) => ({ ...prev, open: false }));
-                }}
-                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold shadow-sm hover:opacity-90 transition-opacity ${confirmModal.confirmColor}`}
-              >
-                {confirmModal.confirmText}
-              </button>
-            </div>
+      <Modal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
+        widthClass="max-w-sm"
+        footer={
+          <div className="flex w-full gap-2">
+            <button
+              onClick={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
+              className="flex-1 rounded-xl bg-charcoal-100 py-2.5 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-charcoal-200"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={() => {
+                confirmModal.onConfirm();
+                setConfirmModal((prev) => ({ ...prev, open: false }));
+              }}
+              className={`flex-1 rounded-xl py-2.5 text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 ${confirmModal.confirmColor}`}
+            >
+              {confirmModal.confirmText}
+            </button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-sm text-charcoal-600">{confirmModal.text}</p>
+      </Modal>
 
       {/* Toast Notification */}
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 3500,
-          style: {
-            background: "#083344",
-            color: "#ffffff",
-            borderRadius: "14px",
-            fontSize: "13px",
-            fontWeight: "600",
-            padding: "12px 16px",
-            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.15)",
-          },
-          success: {
-            iconTheme: {
-              primary: "#38bdf8",
-              secondary: "#083344",
-            },
-          },
-          error: {
-            style: {
-              background: "#881337",
-              color: "#ffffff",
-            },
-            iconTheme: {
-              primary: "#fb7185",
-              secondary: "#881337",
-            },
-          },
-        }}
-      />
     </div>
   );
 }

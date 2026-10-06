@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
@@ -19,7 +19,14 @@ import {
   Users,
   X,
   CheckCircle2,
+  Car,
+  Calendar,
+  Baby,
+  Search,
+  Plus,
+  Minus,
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import { maskReviewerName } from '@/lib/format';
@@ -39,8 +46,9 @@ import {
 } from '@/lib/date';
 
 import { RoomCartItem } from '@/lib/room-cart';
-import { useRoomCart } from '@/lib/room-cart-store';
+import { useRoomCart, setRoomCart } from '@/lib/room-cart-store';
 import { useCartSync } from '@/hooks/useCartSync';
+import { useInfantAgePolicy } from '@/hooks/useInfantAgePolicy';
 
 type RoomAmenity = string | { id: number; name: string };
 
@@ -60,6 +68,7 @@ interface Promotion {
   discount_type?: 'percent' | 'fixed';
   min_nights?: number;
   max_discount?: number;
+  stackable?: boolean;
 }
 
 interface RoomDetail {
@@ -118,7 +127,52 @@ function Stars({ value, size = 12 }: { value: number; size?: number }): React.Re
   );
 }
 
-function RoomDetailPageContent(): React.ReactElement {
+
+function Stepper({ value, min = 0, max = 99, editable = true, onChange, ariaLabel }: { value: number; min?: number; max?: number; editable?: boolean; onChange: (next: number) => void; ariaLabel: string; }): React.ReactElement {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => { setDraft(String(value)); }, [value]);
+  const commit = (raw: string): void => {
+    const parsed = parseInt(raw, 10);
+    const safe = isNaN(parsed) ? min : Math.min(max, Math.max(min, parsed));
+    setDraft(String(safe));
+    onChange(safe);
+  };
+  const btn = "grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-forest-800 transition-colors hover:border-forest-300 hover:bg-forest-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 disabled:border-stone-100 disabled:text-stone-300 disabled:hover:bg-white";
+  return (
+    <div className="flex items-center gap-2">
+      <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} aria-label={`ลด${ariaLabel}`} className={btn}><Minus size={13} /></button>
+      {editable ? (
+        <input type="text" inputMode="numeric" value={draft} onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ""))} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} onFocus={(e) => e.currentTarget.select()} aria-label={ariaLabel} className="h-7 w-9 rounded-md border border-transparent bg-transparent text-center text-sm font-bold tabular-nums text-forest-900 transition-colors hover:border-stone-200 focus:border-forest-400 focus:bg-[#FFFFFF] focus:outline-none" />
+      ) : (
+        <span className="w-9 text-center text-sm font-bold tabular-nums text-forest-900">{value}</span>
+      )}
+      <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`เพิ่ม${ariaLabel}`} className={btn}><Plus size={13} /></button>
+    </div>
+  );
+}
+
+function GuestRow({ label, hint, value, min, max = 20, onChange }: { label: string; hint: string; value: number; min: number; max?: number; onChange: (next: number) => void; }): React.ReactElement {
+  return (
+    <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-charcoal-700">{label}</p>
+        <p className="text-xs text-stone-400">{hint}</p>
+      </div>
+      <Stepper value={value} min={min} max={max} ariaLabel={label} onChange={onChange} />
+    </div>
+  );
+}
+
+interface ResortInfo {
+  checkin_time_from?: string | null;
+  checkin_time_to?: string | null;
+  checkout_time?: string | null;
+  important_info?: string | null;
+  kids_policy?: string | null;
+  parking_info?: string | null;
+}
+
+export default function RoomDetailPage(): React.ReactElement {
   const routeParams = useParams<{ id: string }>();
   const id = routeParams.id;
   const searchParams = useSearchParams();
@@ -127,6 +181,7 @@ function RoomDetailPageContent(): React.ReactElement {
   const today = todayISO();
 
   const [room, setRoom] = useState<RoomDetail | null>(null);
+  const [resortInfo, setResortInfo] = useState<ResortInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
   const checkIn = searchParams.get('check_in') || addDaysISO(today, 1);
@@ -145,10 +200,62 @@ function RoomDetailPageContent(): React.ReactElement {
   const [avgRating, setAvgRating] = useState<number | null>(null);
 
   const nights = nightsBetween(range.start, range.end);
+  const { user } = useAuth();
+  const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
+
+  const childAges: Array<number | null> = useMemo(() => {
+    const children = parseInt(searchParams.get('children') || '0', 10);
+    const raw = (searchParams.get('child_ages') || '').split(',').map((s) => {
+      const n = parseInt(s, 10);
+      return Number.isInteger(n) && n >= 0 && n <= 17 ? n : null;
+    });
+    const normalized = raw.length && (searchParams.get('child_ages') ?? '') !== '' ? raw : [];
+    if (normalized.length === children) return normalized;
+    if (normalized.length > children) return normalized.slice(0, children);
+    return [...normalized, ...Array(children - normalized.length).fill(null)];
+  }, [searchParams]);
+
+  const handleChildAgeChange = (index: number, age: number) => {
+    const nextChildAges = [...childAges];
+    nextChildAges[index] = age;
+    const serialized = nextChildAges.map((a) => (a === null ? '' : String(a))).join(',');
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('child_ages', serialized);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
 
   const cart = useRoomCart();
+  const [openPanel, setOpenPanel] = useState<"guests" | "calendar" | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
-  // รีเซ็ตสถานะ "ดูเพิ่มเติม" ของโปรโมชั่นเวลาสลับไปดูห้องอื่น (Next.js reuse component instance ตัวเดิม)
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => { if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setOpenPanel(null); };
+    if (openPanel) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openPanel]);
+
+  const handleRangeSelect = (next: DateRange | null): void => {
+    
+    if (next && nightsBetween(next.start, next.end) > 0) {
+      if (cart && cart.items.length > 0 && (cart.check_in !== next.start || cart.check_out !== next.end)) {
+        setRoomCart(null);
+      }
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("check_in", next.start);
+      params.set("check_out", next.end);
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      setOpenPanel(null);
+    }
+  };
+
+  const handleGuestsChange = (next: { adults: number; children: number; }): void => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("adults", String(next.adults));
+    params.set("children", String(next.children));
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+  // รีเซ็ตสถานะ "ดูเพิ่มเติม" ของโปรโมชั่นเวลาสลับไปดูห้องอื่น
   useEffect(() => {
     setExpandedPromoId(null);
   }, [id]);
@@ -165,12 +272,15 @@ function RoomDetailPageContent(): React.ReactElement {
     checkOut: range.end,
     adults: parseInt(searchParams.get('adults') || '1', 10),
     children: parseInt(searchParams.get('children') || '0', 10),
+    childAges: childAges.filter((age): age is number => age !== null),
   });
+  const infantAge = useInfantAgePolicy();
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
     api.get(`/rooms/${id}`, { params: { check_in: range.start, check_out: range.end } }).then((res) => setRoom(res.data?.data ?? null)).catch(() => toast.error('ไม่พบห้องพัก')).finally(() => setLoading(false));
+    api.get('/settings/resort?id=4').then((res) => setResortInfo(res.data?.data ?? null)).catch(() => undefined);
     api.get(`/reviews/room-type/${id}`).then((res) => {
       setReviews(Array.isArray(res.data?.data) ? res.data.data : []);
       setAvgRating(res.data?.avg_rating ?? null);
@@ -206,20 +316,6 @@ function RoomDetailPageContent(): React.ReactElement {
     return [room.main_image, ...(Array.isArray(room.images) ? room.images.filter((img) => img !== room.main_image) : [])].filter((img): img is string => Boolean(img));
   }, [room]);
 
-  const selectedPromoCodes = (searchParams.get('promo_code') || '').split(',').map((c) => c.trim().toUpperCase()).filter(Boolean);
-  const handleSelectPromo = (code: string): void => {
-    const params = new URLSearchParams(searchParams.toString());
-    let nextCodes: string[];
-    if (selectedPromoCodes.includes(code)) {
-      nextCodes = selectedPromoCodes.filter((c) => c !== code);
-    } else {
-      nextCodes = [...selectedPromoCodes, code];
-
-    }
-    if (nextCodes.length > 0) params.set('promo_code', nextCodes.join(','));
-    else params.delete('promo_code');
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  };
 
   const scrollToImage = (index: number): void => {
     const el = galleryScrollRef.current;
@@ -260,6 +356,13 @@ function RoomDetailPageContent(): React.ReactElement {
     const items = cart?.items ?? [];
     const isSelecting = !selectedRoomIds.includes(roomId);
 
+    if (isSelecting && items.length > 0 && cart) {
+      if (cart.check_in !== range.start || cart.check_out !== range.end) {
+        toast.error('ไม่สามารถเลือกห้องพักคนละวันในรายการเดียวกันได้ กรุณาเปลี่ยนวันที่ให้ตรงกับตะกร้า หรือล้างรายการทั้งหมดก่อน', { duration: 5000 });
+        return;
+      }
+    }
+
     const nextItems: RoomCartItem[] = isSelecting
       ? [
           ...items,
@@ -278,10 +381,7 @@ function RoomDetailPageContent(): React.ReactElement {
       : items.filter((item) => item.room_id !== roomId);
 
     commitCart(nextItems);
-    // เตือนว่ายังกลับไปเลือกห้องพักประเภทอื่นเพิ่มในบิลเดียวกันได้ เพราะตะกร้าคงอยู่ข้ามหน้า
-    if (isSelecting) {
-      toast.success(`เพิ่มห้อง ${physicalRoom.room_number} ลงตะกร้าแล้ว — ต้องการห้องพักประเภทอื่นเพิ่ม กด "ห้องพักทั้งหมด" ด้านบนได้เลย`, { duration: 4500 });
-    }
+
   };
 
   if (loading) return <div className="min-h-screen bg-cream-100 pb-20 pt-24"><div className="container mx-auto max-w-6xl px-4"><div className="mb-6 h-9 w-40 animate-pulse rounded-full bg-white" /><div className="mb-6 space-y-3"><div className="h-5 w-48 animate-pulse rounded-full bg-white" /><div className="h-9 w-2/3 animate-pulse rounded-xl bg-white" /></div><div className="grid gap-8 lg:grid-cols-[1fr_360px]"><div className="space-y-6"><div className="h-[300px] animate-pulse rounded-2xl bg-white sm:h-[420px]" /><div className="h-56 animate-pulse rounded-2xl bg-white" /><div className="h-72 animate-pulse rounded-2xl bg-white" /></div><div className="h-[540px] animate-pulse rounded-2xl bg-white" /></div></div></div>;
@@ -367,46 +467,102 @@ function RoomDetailPageContent(): React.ReactElement {
         )}
       </div>
 
+      
+      {/* Sticky Navigation Bar */}
+      <div className="hidden border-b border-stone-200 bg-white/90 shadow-sm sm:block">
+        <div className="mx-auto max-w-7xl px-4">
+          <div className="flex h-16 items-center justify-between">
+            <nav className="flex items-center gap-6 overflow-x-auto text-sm font-bold text-stone-600 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <a href="#overview" className="whitespace-nowrap py-4 hover:text-forest-700">ข้อมูลห้องพัก</a>
+              {room.amenities && room.amenities.length > 0 && <a href="#amenities" className="whitespace-nowrap py-4 hover:text-forest-700">สิ่งอำนวยความสะดวก</a>}
+              {room.available_promotions && room.available_promotions.length > 0 && <a href="#promotions" className="whitespace-nowrap py-4 hover:text-forest-700">โปรโมชั่น</a>}
+              <a href="#reviews" className="whitespace-nowrap py-4 hover:text-forest-700">รีวิว</a>
+              <a href="#policies" className="whitespace-nowrap py-4 hover:text-forest-700">นโยบาย</a>
+            </nav>
+            <div className="flex shrink-0 items-center gap-4 pl-4 lg:hidden">
+               <span className="hidden lg:inline-flex items-baseline gap-1">
+                 <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">เริ่มต้น</span>
+                 <span className="font-sans text-xl font-extrabold text-forest-900">฿{Number(room.price_per_night).toLocaleString()}</span>
+               </span>
+               <a href="#room-picker" className="rounded-full bg-forest-800 px-5 py-2 text-[13px] font-bold text-white shadow-sm transition-colors hover:bg-forest-900 active:scale-95">
+                 ดูห้องว่าง
+               </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ===== Main Content Area ===== */}
       <div className="mx-auto mt-8 max-w-7xl px-4">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
           {/* ---- ฝั่งซ้าย: รายละเอียดห้อง ---- */}
           <div className="space-y-6 lg:col-span-8">
             {/* Header Details */}
-            <section className={`${CARD} p-5 sm:p-6`}>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="mb-2.5 flex flex-wrap items-center gap-2">
-                    {room.type_name && <span className="rounded bg-bamboo-50 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-bamboo-600">{room.type_name}</span>}
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${availableCount > 0 ? 'bg-forest-50 text-forest-700' : 'bg-stone-200 text-stone-600'}`}>{availableCount > 0 ? `ว่าง ${availableCount} ห้อง` : 'เต็ม'}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h1 className="font-sans text-2xl font-semibold leading-tight text-forest-900 sm:text-4xl">{room.room_name}</h1>
+            <section id="overview" className={`${CARD} p-5 sm:p-7 scroll-mt-24`}>
+              <div className="flex flex-col-reverse gap-6 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 flex-1 flex-col">
+                  {/* Title & Ratings */}
+                  <h1 className="font-sans text-3xl font-bold tracking-tight text-forest-950 sm:text-[34px] lg:text-[40px] leading-[1.1]">{room.room_name}</h1>
+                  
+                  <div className="mt-4 flex flex-wrap items-center gap-y-2 gap-x-4 text-[15px] text-stone-600">
                     {avgRating !== null && (
-                      <div className="flex items-center gap-2">
-                        <span className="grid h-9 min-w-9 place-items-center rounded-lg bg-forest-900 px-1.5 text-base font-extrabold text-white">{avgRating.toFixed(1)}</span>
-                        <div className="leading-tight">
-                          <p className="text-xs font-bold text-forest-900">{ratingLabel(avgRating)}</p>
-                          <p className="text-xs text-stone-500">{reviews.length} รีวิว</p>
+                      <div className="flex items-center gap-2 border-r border-stone-200 pr-4">
+                        <div className="flex items-center gap-1">
+                          <Star size={18} className="fill-amber-400 text-amber-500" />
+                          <span className="font-bold text-stone-900">{avgRating.toFixed(1)}</span>
                         </div>
+                        <span className="text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-stone-700 cursor-pointer">{reviews.length} รีวิว</span>
                       </div>
                     )}
+                    <div className="flex items-center gap-2 font-medium text-stone-700">
+                      <Users size={18} className="text-stone-400" />
+                      <span>พักได้สูงสุด {room.capacity} ท่าน</span>
+                    </div>
                   </div>
-                  <p className="mt-2 text-sm leading-[1.85] text-charcoal-500">{room.description}</p>
+
+                  {/* Description */}
+                  {room.description && (
+                    <p className="mt-5 text-sm leading-[1.8] text-stone-500 max-w-2xl">
+                      {room.description}
+                    </p>
+                  )}
                 </div>
-                <div className="flex shrink-0 items-baseline gap-1 sm:flex-col sm:items-end sm:gap-0.5">
-                  <span className="font-sans text-2xl font-extrabold leading-none text-forest-900">฿{Number(room.price_per_night).toLocaleString()}</span>
-                  <span className="text-xs font-medium text-charcoal-400">/ คืน</span>
+
+                {/* Price & Availability (Desktop Right / Mobile Top) */}
+                <div className="flex shrink-0 flex-col items-start sm:items-end sm:pl-6 sm:border-l sm:border-stone-100">
+                  <span className="mb-1 text-[12px] font-bold uppercase tracking-widest text-stone-400">ราคาเริ่มต้น</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="font-sans text-3xl font-extrabold text-forest-900">฿{Number(room.price_per_night).toLocaleString()}</span>
+                    <span className="text-sm font-medium text-stone-500">/ คืน</span>
+                  </div>
+                  
+                  {/* Availability Badge */}
+                  <div className="mt-3">
+                    <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-bold ${
+                      availableCount > 0 
+                        ? 'bg-forest-50/80 text-forest-700 border border-forest-200/60' 
+                        : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}>
+                      {availableCount > 0 ? (
+                        <>
+                          <CheckCircle2 size={16} className="text-forest-600" />
+                          มีห้องว่าง ({availableCount} ห้อง)
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle size={16} className="text-red-600" />
+                          เต็มแล้ว
+                        </>
+                      )}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2.5 border-t border-stone-100 pt-4">
-                <span className="flex items-center gap-1.5 rounded-full bg-stone-50 px-3 py-1.5 text-xs font-semibold text-charcoal-600"><Users size={13} className="text-forest-500" />ความจุ {room.capacity} ท่าน</span>
               </div>
             </section>
 
             {/* Amenities */}
             {room.amenities && room.amenities.length > 0 && (
-              <section className={`${CARD} p-5 sm:p-6`}>
+              <section id="amenities" className={`${CARD} p-5 sm:p-6 scroll-mt-24`}>
                 <SectionHeading icon={<Sparkles size={16} />} title="สิ่งอำนวยความสะดวก" />
                 <ul className="mt-4 columns-2 gap-x-8 text-sm text-charcoal-600">
                   {room.amenities.map((amenity, index) => (
@@ -419,59 +575,98 @@ function RoomDetailPageContent(): React.ReactElement {
               </section>
             )}
 
-            {/* Special Offers */}
-            {room.available_promotions && room.available_promotions.length > 0 && (
-              <section className={`${CARD} p-5 sm:p-6`}>
-                <SectionHeading icon={<Tag size={16} />} title="โปรโมชั่นพิเศษ" />
-                <div className="mt-4 grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
-                  {room.available_promotions.map((promo) => {
-                    const isSelected = selectedPromoCodes.includes(promo.code);
-                    const isExpanded = expandedPromoId === promo.id;
-                    const discountText = promo.discount_type === 'percent' ? `ลด ${promo.discount_value}%` : `ลด ฿${Number(promo.discount_value).toLocaleString()}`;
-                    return (
-                      <div
-                        key={promo.id}
-                        className={`overflow-hidden rounded-xl border transition-colors ${isSelected ? 'border-amber-500 bg-amber-400' : 'border-amber-200 bg-white hover:border-amber-400'}`}
-                      >
-                        <button type="button" onClick={() => handleSelectPromo(promo.code)} className="flex w-full items-center gap-3 p-4 text-left">
-                          <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${isSelected ? 'bg-white/25 text-white' : 'bg-amber-50 text-amber-600'}`}>
-                            <Tag size={18} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className={`truncate text-sm font-bold ${isSelected ? 'text-white' : 'text-amber-800'}`}>{promo.name}</p>
-                            <p className={`text-xs ${isSelected ? 'text-white/90' : 'text-amber-600'}`}>
-                              โค้ด {promo.code} · {discountText}
-                              {promo.min_nights ? ` (ขั้นต่ำ ${promo.min_nights} คืน)` : ''}
-                            </p>
-                          </div>
-                          {isSelected && <CheckCircle2 size={18} className="shrink-0 text-white" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setExpandedPromoId(isExpanded ? null : promo.id)}
-                          className={`flex w-full items-center justify-center gap-1 border-t py-2 text-xs font-bold transition-colors ${isSelected ? 'border-white/25 text-white/90 hover:text-white' : 'border-amber-100 text-amber-700 hover:text-amber-900'}`}
-                        >
-                          {isExpanded ? 'ซ่อนรายละเอียด' : 'ดูเพิ่มเติม'}
-                          <ChevronDown size={13} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                        </button>
-                        {isExpanded && (
-                          <div className={`px-4 pb-4 text-xs leading-relaxed ${isSelected ? 'text-white/95' : 'text-amber-800'}`}>
-                            <p>{promo.description || 'ไม่มีรายละเอียดเพิ่มเติมสำหรับโปรโมชั่นนี้'}</p>
-                            <ul className="mt-2 space-y-1 font-medium">
-                              <li>• {discountText}{promo.discount_type === 'percent' && promo.max_discount != null ? ` (สูงสุด ฿${Number(promo.max_discount).toLocaleString()})` : ''}</li>
-                              {promo.min_nights ? <li>• พักขั้นต่ำ {promo.min_nights} คืน</li> : null}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
+
 
             {/* Room Selection Grid */}
             <section id="room-picker" className={`${CARD} scroll-mt-24 p-5 sm:p-6`}>
+              {/* Sticky Dates & Guests Search Bar */}
+              <div className="sticky top-20 z-30 mb-8 w-full shadow-sm rounded-3xl" ref={pickerRef}>
+                <div className="flex w-full flex-col divide-y divide-stone-100 rounded-3xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.1)] transition-all duration-500 lg:flex-row lg:divide-x lg:divide-y-0 lg:rounded-full">
+                  
+                  <div className="relative flex-[1.4]">
+                    <button type="button" onClick={() => setOpenPanel((v) => (v === "calendar" ? null : "calendar"))} className={`flex h-full w-full items-center gap-3 px-5 py-3 text-left transition-colors duration-200 lg:rounded-l-full ${openPanel === "calendar" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
+                      <Calendar size={16} className="shrink-0 text-forest-700" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">เข้าพัก – เช็คเอาต์</span>
+                        <span className="block truncate text-sm font-semibold text-forest-900">{range ? `${formatThaiDate(range.start)} – ${formatThaiDate(range.end)}` : "เลือกวันเข้าพัก"}</span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {nights > 0 && <span className="rounded-full bg-forest-100 px-2 py-0.5 text-[11px] font-bold text-forest-800">{nights} คืน</span>}
+                        <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "calendar" ? "rotate(180deg)" : "rotate(0deg)" }} />
+                      </div>
+                    </button>
+                    {openPanel === "calendar" && (
+                      <div className="animate-dropdown absolute left-0 top-full z-40 mt-2 w-[min(600px,calc(100vw-2rem))] rounded-3xl border border-stone-200 bg-white p-5 shadow-2xl">
+                        <div className="mb-4 flex items-center justify-between px-2">
+                          <h3 className="font-display text-base font-medium text-forest-900">เลือกช่วงวันเข้าพัก</h3>
+                          <button type="button" onClick={() => setOpenPanel(null)} className="text-charcoal-300 hover:text-charcoal-500"><X size={18} /></button>
+                        </div>
+                        <BookingCalendar mode="range" value={range} onSelect={handleRangeSelect} cursor={cursor} onCursorChange={setCursor} dayStatus={dayStatus} loading={calendarLoading} minISO={isAdminOrStaff ? today : addDaysISO(today, 1)} />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative flex-1">
+                    <button type="button" onClick={() => setOpenPanel((v) => (v === "guests" ? null : "guests"))} className={`flex h-full w-full items-center gap-3 px-5 py-3 text-left transition-colors duration-200 lg:rounded-r-full ${openPanel === "guests" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
+                      <Users size={16} className="shrink-0 text-forest-700" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">ผู้เข้าพัก</span>
+                        <span className="block truncate text-sm font-semibold text-forest-900">ผู้ใหญ่ {parseInt(searchParams.get('adults') || '1', 10)} • เด็ก {parseInt(searchParams.get('children') || '0', 10)}</span>
+                      </span>
+                      <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "guests" ? "rotate(180deg)" : "rotate(0deg)" }} />
+                    </button>
+                    {openPanel === "guests" && (
+                      <div className="animate-dropdown absolute right-0 top-full z-40 mt-2 w-[320px] rounded-2xl border border-stone-200 bg-white p-2 shadow-xl">
+                        <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={parseInt(searchParams.get('adults') || '1', 10)} min={1} onChange={(v) => handleGuestsChange({ adults: v, children: parseInt(searchParams.get('children') || '0', 10) })} />
+                        <GuestRow label="เด็ก" hint="อายุ 0–11 ปี" value={parseInt(searchParams.get('children') || '0', 10)} min={0} onChange={(v) => handleGuestsChange({ adults: parseInt(searchParams.get('adults') || '1', 10), children: v })} />
+                        {parseInt(searchParams.get('children') || '0', 10) > 0 && (
+                          <div className="mx-2 my-2 rounded-xl border border-forest-100 bg-forest-50/50 p-3 space-y-2">
+                            <div className="flex items-center gap-1.5">
+                              <Baby size={13} className="text-forest-700 shrink-0" />
+                              <p className="text-xs font-bold uppercase tracking-wide text-forest-800">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
+                            </div>
+                            <div className="space-y-1.5">
+                              {childAges.map((age, index) => (
+                                <div key={index} className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 ${age === null ? "border-amber-300" : "border-stone-200"}`}>
+                                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-forest-800/10 text-xs font-extrabold text-forest-800">{index + 1}</span>
+                                  <div className="relative flex-1">
+                                    <select
+                                      value={age ?? ""}
+                                      onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
+                                      className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-none ${age === null ? "text-amber-600" : "text-forest-800"}`}
+                                    >
+                                      <option value="" disabled>เลือกอายุ</option>
+                                      {Array.from({ length: 18 }, (_, a) => a).map((a) => (
+                                        <option key={a} value={a}>{a} ปี</option>
+                                      ))}
+                                    </select>
+                                    <ChevronDown size={11} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-stone-400" />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div className="px-3 py-2 bg-stone-50 rounded-xl mt-1 mb-2">
+                          <p className="text-xs text-charcoal-400 leading-relaxed">
+                            <span className="font-bold text-forest-700">นโยบายเด็ก:</span> {infantAge === 0 ? 'เด็กทุกอายุนับรวมในความจุห้อง' : `เด็กอายุต่ำกว่า ${infantAge} ปี เข้าพักฟรีและไม่นับความจุห้อง`}
+                          </p>
+                        </div>
+                        <div className="border-t border-stone-100 p-2">
+                          <button
+                            type="button"
+                            onClick={() => setOpenPanel(null)}
+                            className="w-full rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800"
+                          >
+                            ตกลง
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <SectionHeading
                 icon={<BedDouble size={16} />}
                 title="เลือกหมายเลขห้องพักที่ต้องการ"
@@ -487,7 +682,7 @@ function RoomDetailPageContent(): React.ReactElement {
                         {isSelected && <CheckCircle2 size={16} className="text-forest-700" />}
                       </div>
                       <span className="mb-2 text-xs text-charcoal-500">{physical.is_available ? `ความจุ ${room.capacity} ท่าน` : 'ถูกจองแล้ว'}</span>
-
+                      
                       {physical.is_available ? (
                         <button
                           type="button"
@@ -507,8 +702,68 @@ function RoomDetailPageContent(): React.ReactElement {
               </div>
             </section>
 
+            {/* Special Offers (Advertisement) */}
+            {room.available_promotions && room.available_promotions.length > 0 && (
+              <div className="mt-4 rounded-2xl bg-stone-50/50 border border-stone-100 p-4">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <Tag size={14} className="text-forest-600" />
+                  <h4 className="text-xs font-bold text-stone-600 uppercase tracking-wide">มีโปรโมชั่นพิเศษสำหรับห้องนี้</h4>
+                </div>
+                {/* 
+                  ซ่อน Scrollbar แบบกำหนดเองผ่าน style ย่อย หรืออาศัยคลาสจาก Tailwind (ถ้ามี) 
+                  ที่นี่ใช้ overflow-x-auto ร่วมกับ Flex
+                */}
+                <div className="flex overflow-x-auto gap-3 pb-2 snap-x -mx-2 px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  <style dangerouslySetInnerHTML={{__html: `::-webkit-scrollbar { display: none; }`}} />
+                  
+                  {room.available_promotions.map((promo) => {
+                    const discountText = promo.discount_type === 'percent' ? `ลด ${promo.discount_value}%` : `ลด ฿${Number(promo.discount_value).toLocaleString()}`;
+                    const isExpanded = expandedPromoId === promo.id;
+                    
+                    return (
+                      <div key={promo.id} className="flex flex-col bg-white rounded-lg border border-stone-100 shadow-sm shrink-0 w-[280px] sm:w-[320px] snap-start">
+                        <div 
+                          className="flex items-center justify-between gap-1.5 px-3 py-2.5 cursor-pointer hover:bg-stone-50/50 transition-colors"
+                          onClick={() => setExpandedPromoId(isExpanded ? null : promo.id)}
+                        >
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[12px] font-bold text-forest-800">{promo.name}</span>
+                            <span className="text-[11px] text-stone-400 hidden sm:inline">|</span>
+                            <span className="text-[12px] font-bold text-forest-600">{discountText}</span>
+                          </div>
+                          <button type="button" className="text-[11px] font-medium text-stone-400 hover:text-stone-600 flex items-center gap-0.5 shrink-0 whitespace-nowrap ml-1">
+                            รายละเอียด <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                          </button>
+                        </div>
+                        
+                        <div className={`transition-all duration-300 overflow-hidden ${isExpanded ? 'max-h-40 border-t border-stone-100' : 'max-h-0'}`}>
+                          <div className="p-3 bg-stone-50/30 text-[11px] text-stone-500">
+                            <p className="mb-1.5 text-stone-600 font-medium whitespace-normal">{promo.description || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
+                            <ul className="space-y-1">
+                              {promo.min_nights && (
+                                <li className="flex gap-2"><span className="text-stone-300">•</span> ขั้นต่ำ {promo.min_nights} คืน</li>
+                              )}
+                              {promo.discount_type === 'percent' && promo.max_discount && (
+                                <li className="flex gap-2"><span className="text-stone-300">•</span> ลดสูงสุด ฿{Number(promo.max_discount).toLocaleString()}</li>
+                              )}
+                              {promo.stackable && (
+                                <li className="flex gap-2"><span className="text-stone-300">•</span> สามารถใช้ร่วมกับโปรโมชั่นอื่นได้</li>
+                              )}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[10px] text-stone-400 font-medium">
+                  * ส่วนลดจะถูกเลือกโดยอัตโนมัติในหน้าสรุปการจอง
+                </p>
+              </div>
+            )}
+
             {/* Reviews */}
-            <section className={`${CARD} p-5 sm:p-6`}>
+            <section id="reviews" className={`${CARD} p-5 sm:p-6 scroll-mt-24`}>
               <SectionHeading icon={<Star size={16} />} title="รีวิวจากผู้เข้าพัก" />
               <div className="mt-4 flex flex-col gap-6 sm:flex-row">
                 <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 sm:w-32 sm:border-r sm:border-stone-100">
@@ -533,34 +788,69 @@ function RoomDetailPageContent(): React.ReactElement {
               </div>
             </section>
 
-            {/* Policies */}
-            <section className={`${CARD} p-5 sm:p-6 bg-stone-50/50 border-none`}>
-              <SectionHeading icon={<Clock size={16} />} title="นโยบายการเข้าพัก" />
+            {/* Policies & Useful Info (Dynamic from Database) */}
+            <section id="policies" className={`${CARD} p-5 sm:p-6 bg-stone-50/50 border-none scroll-mt-24`}>
+              <SectionHeading icon={<AlertCircle size={16} />} title="ข้อมูลที่เป็นประโยชน์และนโยบาย" />
+              
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-charcoal-600">
-                <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm">
-                  <p className="font-bold text-forest-900 mb-1">เวลาเช็คอิน (Check-in)</p>
-                  <p>ตั้งแต่ 14:00 น. ถึง 23:00 น.</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm">
-                  <p className="font-bold text-forest-900 mb-1">เวลาเช็คเอาต์ (Check-out)</p>
-                  <p>ก่อน 12:00 น.</p>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-stone-100 shadow-sm sm:col-span-2">
-                  <p className="font-bold text-forest-900 mb-1">นโยบายเด็กและเตียงเสริม</p>
-                  <ul className="list-disc list-inside mt-1 space-y-0.5">
-                    <li>เด็กอายุ 0-5 ปี: เข้าพักฟรี (ไม่มีค่าใช้จ่าย)</li>
-                    <li>เด็กอายุ 6-11 ปี: คิดราคาเด็ก / เตียงเสริม</li>
-                    <li>ผู้เข้าพักอายุ 12 ปีขึ้นไป: คิดราคาผู้ใหญ่</li>
+                
+                {/* Check-in / Check-out */}
+                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
+                  <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Clock size={16} className="text-forest-600" />เวลาเช็คอิน / เช็คเอาต์</p>
+                  <ul className="space-y-1.5">
+                    <li className="flex justify-between">
+                      <span className="text-stone-500">เวลาเช็คอิน:</span> 
+                      <span className="font-medium text-stone-800">
+                        {resortInfo?.checkin_time_from || '14:00'} - {resortInfo?.checkin_time_to || '23:00'} น.
+                      </span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span className="text-stone-500">เวลาเช็คเอาต์:</span> 
+                      <span className="font-medium text-stone-800">ก่อน {resortInfo?.checkout_time || '12:00'} น.</span>
+                    </li>
                   </ul>
                 </div>
+
+                {/* Important Details */}
+                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
+                  <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><AlertCircle size={16} className="text-forest-600" />ข้อมูลสำคัญที่พัก</p>
+                  <ul className="list-disc list-outside ml-4 space-y-1.5 text-stone-500">
+                    {(resortInfo?.important_info || 'รวมอาหารเช้าสำหรับทุกการจอง\nไม่อนุญาตให้นำสัตว์เลี้ยงเข้าพัก\nระมัดระวังเด็กเล็ก เนื่องจากห้องพักตั้งอยู่บนน้ำ').split('\n').map((line: string, i: number) => (
+                      <li key={i}>{line.trim()}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Kids & Extra Beds */}
+                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
+                  <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Users size={16} className="text-forest-600" />นโยบายเด็กและเตียงเสริม</p>
+                  <ul className="list-disc list-outside ml-4 space-y-1.5 text-stone-500">
+                    {(resortInfo?.kids_policy || (infantAge === 0 ? 'เด็กทุกอายุนับรวมในความจุห้อง' : `เด็กอายุต่ำกว่า ${infantAge} ปี: เข้าพักฟรี (ใช้เตียงที่มีอยู่) และไม่นับความจุห้อง`)).split('\n').map((line: string, i: number) => {
+                      const [title, ...rest] = line.split(':');
+                      if (rest.length === 0) return <li key={i}>{line.trim()}</li>;
+                      return (
+                        <li key={i}><span className="font-medium text-stone-700">{title.trim()}:</span> {rest.join(':').trim()}</li>
+                      );
+                    })}
+                  </ul>
+                </div>
+
+                {/* Getting there & Parking */}
+                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
+                  <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Car size={16} className="text-forest-600" />การเดินทางและที่จอดรถ</p>
+                  <p className="text-stone-500 leading-relaxed whitespace-pre-line">
+                    {resortInfo?.parking_info || 'มีลานจอดรถส่วนตัวให้บริการฟรีในบริเวณสวนวลัยรุกขเวช (ไม่ต้องจองล่วงหน้า) แขกผู้เข้าพักสามารถขับรถมาจอดและเดินไปยังห้องพักได้โดยตรง'}
+                  </p>
+                </div>
+
               </div>
             </section>
           </div>
 
           {/* ---- ฝั่งขวา: การ์ดสรุปการจอง ---- */}
           <aside className="lg:col-span-4">
-            <div className="mb-8 lg:sticky lg:top-8">
-              <BookingSummaryCard currentRoomType={room} />
+            <div className="mb-8 lg:sticky lg:top-[96px]">
+              <BookingSummaryCard  />
             </div>
           </aside>
         </div>
@@ -581,19 +871,5 @@ function RoomDetailPageContent(): React.ReactElement {
         </div>
       )}
     </div>
-  );
-}
-
-export default function RoomDetailPage(): React.ReactElement {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-[100dvh] bg-cream-50 px-4 py-24">
-          <div className="mx-auto h-56 max-w-7xl animate-pulse rounded-2xl bg-white" />
-        </div>
-      }
-    >
-      <RoomDetailPageContent />
-    </Suspense>
   );
 }

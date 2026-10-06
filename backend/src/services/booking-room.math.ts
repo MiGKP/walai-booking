@@ -17,8 +17,11 @@ export function sumCapacity(
 // เด็กอายุ 0-5 ขวบ เข้าพักฟรีไม่นับความจุห้อง
 export const INFANT_MAX_AGE_EXCLUSIVE = 6;
 
-export function countCapacityChildren(childAges: number[]): number {
-  return childAges.filter((age) => age >= INFANT_MAX_AGE_EXCLUSIVE).length;
+export function countCapacityChildren(
+  childAges: number[],
+  infantMaxAgeExclusive: number = INFANT_MAX_AGE_EXCLUSIVE
+): number {
+  return childAges.filter((age) => age >= infantMaxAgeExclusive).length;
 }
 
 export function assertGuestsFitCapacity(

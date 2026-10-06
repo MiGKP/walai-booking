@@ -5,7 +5,10 @@ import {
   getLandingStats,
   getBoatHours, upsertBoatHours,
   getStats,
+  getCancellationPolicy, upsertCancellationPolicy,
 } from '../controllers/settings.controller';
+import { cancellationPolicyValidator, resortInfoValidator } from '../middleware/validators';
+import { validate } from '../middleware/validate.middleware';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -22,7 +25,11 @@ router.delete('/bank-accounts/:id', authenticate, authorize('admin'), deleteBank
 // Resort info (contact + site info รวมกัน) — read: public, write: admin + room_staff + boat_staff
 router.get('/resort', getResortInfo);
 router.get('/landing-stats', getLandingStats);
-router.put('/resort', authenticate, authorize('admin', 'room_staff', 'boat_staff'), upsertResortInfo);
+router.put('/resort', authenticate, authorize('admin', 'room_staff', 'boat_staff'), resortInfoValidator, validate, upsertResortInfo);
+
+// Boat add-on refund policy — read: public, write: admin + room_staff + boat_staff
+router.get('/cancellation-policy', getCancellationPolicy);
+router.put('/cancellation-policy', authenticate, authorize('admin', 'room_staff', 'boat_staff'), cancellationPolicyValidator, validate, upsertCancellationPolicy);
 
 // Boat operating hours — read: public, write: admin + boat_staff
 router.get('/boat-hours', getBoatHours);

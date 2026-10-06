@@ -42,12 +42,10 @@ function normalizeEmail(value: unknown): string | null {
 
 /** Workspace accounts often omit emails[] and only send _json.email. */
 export function extractGoogleEmail(profile: GoogleProfileLike): string | null {
+  // รับเฉพาะอีเมลที่ Google ยืนยันแล้ว กันการผูกบัญชีด้วยอีเมลที่ผู้ใช้ไม่ได้เป็นเจ้าของ
   const verified = profile.emails?.find((entry) => entry.verified && entry.value);
-  const candidates: unknown[] = [
-    verified?.value,
-    profile.emails?.[0]?.value,
-    profile._json?.email,
-  ];
+  const jsonEmail = profile._json?.email_verified === true ? profile._json?.email : undefined;
+  const candidates: unknown[] = [verified?.value, jsonEmail];
   for (const candidate of candidates) {
     const email = normalizeEmail(candidate);
     if (email) return email;

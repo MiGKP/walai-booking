@@ -27,11 +27,12 @@ import {
   Minus,
   X,
 } from "lucide-react";
-import api from "@/lib/api";
+import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import toast from "react-hot-toast";
+import { notify } from "@/lib/admin-notify";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { PageHeader, Panel, Modal, EmptyState } from "@/components/admin/ui";
 
 interface DraftRoom {
   room_number: string;
@@ -108,7 +109,7 @@ function CustomSelect({
                 }}
                 className={`w-full text-left px-3.5 py-2 text-xs transition-colors flex items-center justify-between cursor-pointer ${
                   isSelected
-                    ? "bg-emerald-50 text-emerald-900 font-bold"
+                    ? "bg-forest-50 text-forest-900 font-bold"
                     : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900 font-medium"
                 }`}
               >
@@ -188,7 +189,7 @@ function SingleRoomsPageContent() {
       setRoomTypes(rtRes.data?.data || []);
       setSingleRooms(srRes.data?.data || []);
     } catch {
-      toast.error("ไม่สามารถโหลดข้อมูลได้");
+      notify.error("ไม่สามารถโหลดข้อมูลได้");
     } finally {
       setLoading(false);
     }
@@ -255,7 +256,7 @@ function SingleRoomsPageContent() {
 
   const handleGenerateDrafts = () => {
     if (!roomTypeIdInput) {
-      toast.error("กรุณาเลือกประเภทห้องหลัก");
+      notify.error("กรุณาเลือกประเภทห้องหลัก");
       return;
     }
 
@@ -276,7 +277,7 @@ function SingleRoomsPageContent() {
     );
 
     if (duplicates.length > 0) {
-      toast.error(`มีหมายเลขห้องซ้ำในระบบ: ${duplicates.join(", ")}`);
+      notify.error(`มีหมายเลขห้องซ้ำในระบบ: ${duplicates.join(", ")}`);
       return;
     }
 
@@ -286,7 +287,7 @@ function SingleRoomsPageContent() {
     }));
 
     setDraftRooms(generatedDrafts);
-    toast.success(`สร้างผังห้องพักตัวอย่างสำเร็จ ${qty} ห้อง`);
+    notify.success(`สร้างผังห้องพักตัวอย่างสำเร็จ ${qty} ห้อง`);
   };
 
   const handleUpdateDraftType = (roomNumber: string, newTypeId: number) => {
@@ -305,11 +306,11 @@ function SingleRoomsPageContent() {
     setSubmitting(true);
     try {
       await api.post("/rooms/single/batch", { rooms: draftRooms });
-      toast.success(`บันทึกห้องพักทั้งหมด ${draftRooms.length} ห้อง สำเร็จ`);
+      notify.success(`บันทึกห้องพักทั้งหมด ${draftRooms.length} ห้อง สำเร็จ`);
       handleResetForm();
       fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "บันทึกไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "บันทึกไม่สำเร็จ"));
     } finally {
       setSubmitting(false);
     }
@@ -323,13 +324,13 @@ function SingleRoomsPageContent() {
       try {
         const trimmedNum = roomNumberInput.trim();
         if (!trimmedNum) {
-          toast.error("กรุณาระบุหมายเลขห้องพัก");
+          notify.error("กรุณาระบุหมายเลขห้องพัก");
           setSubmitting(false);
           return;
         }
 
         if (!roomTypeIdInput) {
-          toast.error("กรุณาเลือกประเภทห้องพัก");
+          notify.error("กรุณาเลือกประเภทห้องพัก");
           setSubmitting(false);
           return;
         }
@@ -341,7 +342,7 @@ function SingleRoomsPageContent() {
         );
 
         if (isDuplicate) {
-          toast.error(`หมายเลขห้อง "${trimmedNum}" มีอยู่ในระบบแล้ว`);
+          notify.error(`หมายเลขห้อง "${trimmedNum}" มีอยู่ในระบบแล้ว`);
           setSubmitting(false);
           return;
         }
@@ -351,11 +352,11 @@ function SingleRoomsPageContent() {
           room_type_id: Number(roomTypeIdInput),
           status: statusInput,
         });
-        toast.success("แก้ไขห้องพักสำเร็จ");
+        notify.success("แก้ไขห้องพักสำเร็จ");
         handleResetForm();
         fetchData();
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || "ทำรายการไม่สำเร็จ");
+      } catch (err: unknown) {
+        notify.error(getApiErrorMessage(err, "ทำรายการไม่สำเร็จ"));
       } finally {
         setSubmitting(false);
       }
@@ -368,11 +369,11 @@ function SingleRoomsPageContent() {
     if (!deleteTarget) return;
     try {
       await api.delete(`/rooms/single/${deleteTarget.id}`);
-      toast.success("ลบห้องพักสำเร็จ");
+      notify.success("ลบห้องพักสำเร็จ");
       setDeleteTarget(null);
       fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "ลบไม่สำเร็จ");
+    } catch (err: unknown) {
+      notify.error(getApiErrorMessage(err, "ลบไม่สำเร็จ"));
     }
   };
 
@@ -442,22 +443,10 @@ function SingleRoomsPageContent() {
   return (
     <div className="w-full min-h-screen flex flex-col font-sans space-y-6 pb-12 text-stone-800">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-stone-200/80">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 bg-[#0b3b2c]/10 text-[#0b3b2c] rounded-xl">
-              <DoorClosed size={20} />
-            </span>
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-[#0b3b2c] tracking-tight">
-              จัดการห้องพัก (รายห้อง)
-            </h1>
-          </div>
-          <p className="text-stone-500 mt-1 text-xs md:text-sm">
-            เพิ่มและแก้ไขหมายเลขห้องพักรายห้องในระบบสวนวลัยรุกขเวช
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
+      <PageHeader
+        title="จัดการห้องพัก (รายห้อง)"
+        description="เพิ่มและแก้ไขหมายเลขห้องพักรายห้องในระบบสวนวลัยรุกขเวช"
+        actions={
           <div className="px-3.5 py-2 bg-white rounded-xl border border-stone-200/80 shadow-xs flex items-center gap-3 w-fit">
             <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">
               <Home size={18} />
@@ -471,8 +460,8 @@ function SingleRoomsPageContent() {
               </span>
             </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
 
 
@@ -510,7 +499,7 @@ function SingleRoomsPageContent() {
         </div>
 
         {!editingRoomId && currentPrefix && (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200/70 bg-emerald-50/80 px-3 py-2 text-xs text-[#0b3b2c]">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-forest-200/70 bg-forest-50/80 px-3 py-2 text-xs text-[#0b3b2c]">
             <span className="font-bold">โซน {currentPrefix}</span>
             <span className="text-stone-400">·</span>
             <span className="font-semibold tabular-nums">
@@ -656,7 +645,7 @@ function SingleRoomsPageContent() {
                     }
                     className={`w-full px-3 py-1.5 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
                       statusInput === "available"
-                        ? "bg-emerald-50/80 border-emerald-300 text-emerald-800 hover:bg-emerald-100/70"
+                        ? "bg-forest-50/80 border-forest-300 text-forest-800 hover:bg-forest-100/70"
                         : "bg-rose-50/80 border-rose-300 text-rose-800 hover:bg-rose-100/70"
                     }`}
                   >
@@ -664,7 +653,7 @@ function SingleRoomsPageContent() {
                       <span
                         className={`w-2 h-2 rounded-full ${
                           statusInput === "available"
-                            ? "bg-emerald-500"
+                            ? "bg-forest-500"
                             : "bg-rose-500"
                         }`}
                       />
@@ -672,7 +661,7 @@ function SingleRoomsPageContent() {
                     </span>
 
                     {statusInput === "available" ? (
-                      <ToggleRight size={22} className="text-emerald-600" />
+                      <ToggleRight size={22} className="text-forest-600" />
                     ) : (
                       <ToggleLeft size={22} className="text-rose-500" />
                     )}
@@ -711,7 +700,7 @@ function SingleRoomsPageContent() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h4 className="text-xs font-bold text-[#0b3b2c] flex items-center gap-1.5">
-                  <CheckCircle2 size={15} className="text-emerald-600" />
+                  <CheckCircle2 size={15} className="text-forest-600" />
                   พรีวิวผังห้องพัก ({draftRooms.length} ห้อง)
                 </h4>
                 <p className="text-xs text-stone-500">
@@ -749,7 +738,7 @@ function SingleRoomsPageContent() {
                     <span className="text-xs font-black text-[#0b3b2c]">
                       {draft.room_number}
                     </span>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="w-2 h-2 rounded-full bg-forest-500" />
                   </div>
 
                   <CustomSelect
@@ -814,8 +803,8 @@ function SingleRoomsPageContent() {
               onClick={() => setStatusFilter("available")}
               className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 statusFilter === "available"
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "text-emerald-700 hover:bg-emerald-50"
+                  ? "bg-forest-600 text-white shadow-xs"
+                  : "text-forest-700 hover:bg-forest-50"
               }`}
             >
               ว่าง ({singleRooms.filter((a) => a.status === "available").length})
@@ -848,17 +837,10 @@ function SingleRoomsPageContent() {
         </div>
 
         {/* Table Container พร้อม Scrollable & Sticky Header */}
-        <div className="bg-white border border-stone-200/80 rounded-2xl shadow-xs overflow-hidden">
-          <div className="p-4 bg-stone-50/80 border-b border-stone-200/80 flex items-center justify-between">
-            <h3 className="font-bold text-stone-900 text-sm md:text-base flex items-center gap-2">
-              <DoorClosed size={16} className="text-[#0b3b2c]" />
-              รายการห้องพักย่อย
-            </h3>
-            <span className="px-2.5 py-0.5 bg-stone-200/70 text-stone-700 rounded-full text-xs font-bold">
-              {filteredAndSortedRooms.length} รายการ
-            </span>
-          </div>
-
+        <Panel
+          title={`รายการห้องพักย่อย (${filteredAndSortedRooms.length} รายการ)`}
+          className="!p-0 overflow-hidden"
+        >
           <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
             <table className="w-full text-left border-collapse">
               <thead className="bg-stone-100 border-b border-stone-200/80 text-xs font-bold text-stone-500 uppercase tracking-wider select-none sticky top-0 z-10 shadow-2xs">
@@ -934,14 +916,10 @@ function SingleRoomsPageContent() {
                   </tr>
                 ) : displayedRooms.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-stone-400">
-                      <DoorClosed
-                        size={36}
-                        className="mx-auto mb-2 text-stone-300 stroke-[1.5]"
+                    <td colSpan={5} className="py-8">
+                      <EmptyState
+                        title="ไม่พบข้อมูลห้องพัก"
                       />
-                      <p className="text-sm font-semibold text-stone-600">
-                        ไม่พบข้อมูลห้องพัก
-                      </p>
                     </td>
                   </tr>
                 ) : (
@@ -963,7 +941,7 @@ function SingleRoomsPageContent() {
                         <span
                           className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                             sr.status === "available"
-                              ? "bg-emerald-100 text-emerald-800"
+                              ? "bg-forest-100 text-forest-800"
                               : sr.status === "occupied"
                               ? "bg-amber-100 text-amber-800"
                               : "bg-rose-100 text-rose-800"
@@ -1054,64 +1032,41 @@ function SingleRoomsPageContent() {
               </div>
             </div>
           )}
-        </div>
+        </Panel>
       </div>
 
       {/* Pop-up ยืนยันการลบ */}
-      {deleteTarget && (
-        <div
-          className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-all animate-in fade-in duration-150"
-          onClick={() => setDeleteTarget(null)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-stone-100 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
-                <AlertTriangle size={20} />
-              </div>
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                className="p-1 text-stone-400 hover:text-stone-600 rounded-lg transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-1">
-              <h3 className="text-base font-bold text-stone-800">
-                ยืนยันการลบห้องพัก
-              </h3>
-              <p className="text-xs text-stone-500 leading-relaxed">
-                คุณแน่ใจหรือไม่ว่าต้องการลบห้องพักหมายเลข{" "}
-                <span className="font-bold text-stone-800">
-                  "{deleteTarget.number}"
-                </span>
-                ? การดำเนินการนี้ไม่สามารถย้อนกลับได้
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteConfirm}
-                className="inline-flex items-center gap-1 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer"
-              >
-                ลบห้องพัก
-              </button>
-            </div>
+      <Modal
+        open={!!deleteTarget}
+        title="ยืนยันการลบห้องพัก"
+        onClose={() => setDeleteTarget(null)}
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
+              className="px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteConfirm}
+              className="inline-flex items-center gap-1 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+            >
+              ลบห้องพัก
+            </button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-xs text-stone-500 leading-relaxed">
+          คุณแน่ใจหรือไม่ว่าต้องการลบห้องพักหมายเลข{" "}
+          <span className="font-bold text-stone-800">
+            "{deleteTarget?.number}"
+          </span>
+          ? การดำเนินการนี้ไม่สามารถย้อนกลับได้
+        </p>
+      </Modal>
     </div>
   );
 }
