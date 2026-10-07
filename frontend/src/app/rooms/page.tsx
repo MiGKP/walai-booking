@@ -1,5 +1,6 @@
 "use client";
 
+import { eligibleRoomPromotion, roomPromotionDiscount, roomPromotionLabel, type CheckoutPromotion } from '@/lib/booking-checkout';
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -43,15 +44,7 @@ import {
 } from "@/lib/date";
 
 
-interface Promotion {
-  id: number;
-  name: string;
-  code: string;
-  discount_value: number;
-  discount_type?: 'percent' | 'fixed';
-  min_nights?: number;
-  max_discount?: number;
-}
+interface Promotion extends CheckoutPromotion {}
 
 interface PhysicalRoom {
   room_id: number;
@@ -473,12 +466,12 @@ function RoomsPageContent(): React.ReactElement {
                         )
                       : Math.min(Number(activePromotion.discount_value), unitPrice)
                     : 0;
-                  const bestPromo = room.available_promotions?.reduce<Promotion | null>((best, p) => {
-                    const d = p.discount_type === 'percent' ? (unitPrice * Number(p.discount_value) / 100) : Number(p.discount_value);
-                    const bestD = best ? (best.discount_type === 'percent' ? (unitPrice * Number(best.discount_value) / 100) : Number(best.discount_value)) : 0;
-                    return d > bestD ? p : best;
+                  const searchedNights = searchedRange ? nightsBetween(searchedRange.start, searchedRange.end) : 1;
+                  const basePrice = unitPrice * Math.max(1, searchedNights);
+                  const bestPromo = room.available_promotions?.filter(p => eligibleRoomPromotion(p, basePrice, searchedNights, room.id, 1)).reduce<Promotion | null>((best, p) => {
+                    return roomPromotionDiscount(p, basePrice) > (best ? roomPromotionDiscount(best, basePrice) : 0) ? p : best;
                   }, null);
-                  const potentialDiscount = bestPromo ? (bestPromo.discount_type === 'percent' ? Math.min(Math.round(unitPrice * Number(bestPromo.discount_value) / 100), bestPromo.max_discount || Infinity, unitPrice) : Math.min(Number(bestPromo.discount_value), unitPrice)) : 0;
+                  const potentialDiscount = bestPromo ? roomPromotionDiscount(bestPromo, basePrice) / Math.max(1, searchedNights) : 0;
                   const finalPrice = unitPrice - discount;
 
                   return (
@@ -527,9 +520,11 @@ function RoomsPageContent(): React.ReactElement {
                                 <div key={`details-${promo.id}`} className="mt-1 flex flex-wrap items-center justify-between gap-3 animate-in slide-in-from-top-2 fade-in duration-200 rounded-lg border border-stone-200 bg-stone-50 p-2.5 text-[12px] text-stone-600">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <span className="font-semibold text-forest-800">
-                                      {promo.discount_type === 'percent' ? `ลด ${promo.discount_value}%` : `ลด ฿${Number(promo.discount_value).toLocaleString()}`}
+                                      {roomPromotionLabel(promo)}
                                     </span>
-                                    {promo.min_nights && (
+                                    {Number(promo.room_count) > 1 && <span className="text-xs text-stone-500">ขั้นต่ำ {promo.room_count} ห้อง</span>}
+                                    {promo.is_collectible && <span className="text-xs text-stone-500">ต้องเก็บคูปองก่อน</span>}
+                                    {Number(promo.min_nights) > 0 && (
                                       <span className="text-stone-500">
                                         (ขั้นต่ำ {promo.min_nights} คืน)
                                       </span>
@@ -567,7 +562,7 @@ function RoomsPageContent(): React.ReactElement {
                         </div>
                         <div className="mb-6 flex flex-col items-start gap-1 lg:items-end">
                           <span className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ราคาต่อคืน</span>
-                          {potentialDiscount > 0 ? <div className="flex w-full flex-col items-start lg:items-end"><div className="flex items-baseline gap-1.5"><span className="text-[13px] font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{(unitPrice - potentialDiscount).toLocaleString()}</span></div><span className="mt-1 rounded bg-bamboo-50 border border-bamboo-200 px-2 py-0.5 text-[11px] font-bold text-bamboo-700 shadow-sm">ประหยัด ฿{potentialDiscount.toLocaleString()} เมื่อใช้โปรโมชั่น</span></div> : <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
+                          {potentialDiscount > 0 ? <div className="flex w-full flex-col items-start lg:items-end"><div className="flex items-baseline gap-1.5"><span className="text-[13px] font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{(unitPrice - potentialDiscount).toLocaleString()}</span></div><span className="mt-1 rounded bg-bamboo-50 border border-bamboo-200 px-2 py-0.5 text-[11px] font-bold text-bamboo-700 shadow-sm">ประหยัด ฿{potentialDiscount.toLocaleString()} เมื่อใช้โปรโมชั่น · เฉลี่ยต่อคืน</span></div> : <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
                         </div>
                         <div className="flex flex-col mt-auto w-full lg:w-full">
                           <Link href={`/rooms/${room.id}?${searchParams.toString()}`} className="w-full rounded-xl bg-bamboo-600 py-3.5 text-center text-[14px] font-bold text-white shadow-md transition-all hover:bg-bamboo-700 hover:shadow-lg active:scale-[0.98]">

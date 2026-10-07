@@ -45,6 +45,7 @@ import {
   todayISO,
 } from '@/lib/date';
 
+import { roomPromotionLabel, type CheckoutPromotion } from '@/lib/booking-checkout';
 import { RoomCartItem } from '@/lib/room-cart';
 import { useRoomCart, setRoomCart } from '@/lib/room-cart-store';
 import { useCartSync } from '@/hooks/useCartSync';
@@ -59,15 +60,7 @@ interface PhysicalRoom {
   is_available: boolean;
 }
 
-interface Promotion {
-  id: number;
-  name: string;
-  code: string;
-  description?: string | null;
-  discount_value: number;
-  discount_type?: 'percent' | 'fixed';
-  min_nights?: number;
-  max_discount?: number;
+interface Promotion extends CheckoutPromotion {
   stackable?: boolean;
 }
 
@@ -721,7 +714,7 @@ export default function RoomDetailPage(): React.ReactElement {
                   <style dangerouslySetInnerHTML={{__html: `::-webkit-scrollbar { display: none; }`}} />
                   
                   {room.available_promotions.map((promo) => {
-                    const discountText = promo.discount_type === 'percent' ? `ลด ${promo.discount_value}%` : `ลด ฿${Number(promo.discount_value).toLocaleString()}`;
+                    const discountText = roomPromotionLabel(promo);
                     const isExpanded = expandedPromoId === promo.id;
                     
                     return (
@@ -740,19 +733,21 @@ export default function RoomDetailPage(): React.ReactElement {
                           </button>
                         </div>
                         
-                        <div className={`transition-all duration-300 overflow-hidden ${isExpanded ? 'max-h-40 border-t border-stone-100' : 'max-h-0'}`}>
+                        <div className={`transition-all duration-300 overflow-hidden ${isExpanded ? 'max-h-96 border-t border-stone-100' : 'max-h-0'}`}>
                           <div className="p-3 bg-stone-50/30 text-[11px] text-stone-500">
                             <p className="mb-1.5 text-stone-600 font-medium whitespace-normal">{promo.description || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
                             <ul className="space-y-1">
-                              {promo.min_nights && (
+                              {Number(promo.min_nights) > 0 && (
                                 <li className="flex gap-2"><span className="text-stone-300">•</span> ขั้นต่ำ {promo.min_nights} คืน</li>
                               )}
                               {promo.discount_type === 'percent' && promo.max_discount && (
                                 <li className="flex gap-2"><span className="text-stone-300">•</span> ลดสูงสุด ฿{Number(promo.max_discount).toLocaleString()}</li>
                               )}
-                              {promo.stackable && (
-                                <li className="flex gap-2"><span className="text-stone-300">•</span> สามารถใช้ร่วมกับโปรโมชั่นอื่นได้</li>
-                              )}
+                              {Number(promo.room_count) > 1 && <li>ต้องจองอย่างน้อย {promo.room_count} ห้องประเภทนี้</li>}
+                              {Number(promo.min_price) > 0 && <li>ยอดค่าห้องขั้นต่ำ ฿{Number(promo.min_price).toLocaleString()}</li>}
+                              {promo.is_collectible && <li>ต้องเก็บคูปองที่ <Link href="/promotions" className="underline text-forest-700">หน้าโปรโมชั่น</Link> ก่อนใช้ และมีสิทธิ์คงเหลือ</li>}
+                              {Number(promo.boat_ticket_count) > 0 && <li>1 สิทธิ์ = เรือ 1 ลำ 1 รอบ ใช้ได้เฉพาะวันระหว่างเช็คอินและเช็คเอาต์ การพัก 1 คืนไม่มีวันใช้สิทธิ์</li>}
+
                             </ul>
                           </div>
                         </div>
@@ -761,7 +756,7 @@ export default function RoomDetailPage(): React.ReactElement {
                   })}
                 </div>
                 <p className="mt-2 text-[10px] text-stone-400 font-medium">
-                  * ส่วนลดจะถูกเลือกโดยอัตโนมัติในหน้าสรุปการจอง
+                  * รายการนี้แสดงโปรโมชั่นของห้อง โปรที่ใช้ได้ขึ้นอยู่กับจำนวนห้อง จำนวนคืน ยอดจอง และคูปองของคุณ หน้าสรุปจะแสดงเหตุผลและเลือกส่วนลดสูงสุดที่ใช้ได้ให้
                 </p>
               </div>
             )}

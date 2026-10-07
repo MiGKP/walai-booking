@@ -105,6 +105,17 @@ const cart = { check_in: '2099-11-01', check_out: '2099-11-02', adults: 2, child
 function details(overrides = {}) {
   return load('src/app/booking/details/page.tsx', ['First', 'Last', 'guest@example.test', '0800000000', '14:00', false, false, false, '', [promo], { 2: 7 }, false], { '@/lib/room-cart-store': { useRoomCart: () => cart, setRoomCart() {} }, ...overrides });
 }
+test('checkout keeps ineligible room offers visible with a disabled option and explanation', () => {
+  const offer = { ...promo, name: 'ROOMANDBOAT', min_nights: 2, room_count: 5, is_collectible: true };
+  const Component = load('src/app/booking/details/page.tsx', ['First', 'Last', 'guest@example.test', '0800000000', '14:00', false, false, false, '', [offer], {}, false], { '@/lib/room-cart-store': { useRoomCart: () => cart, setRoomCart() {} } }).default;
+  const html = renderToStaticMarkup(React.createElement(Component));
+  assert.match(html, /<option[^>]*value="7"[^>]*disabled/);
+  assert(html.includes('ต้องพักอย่างน้อย 2 คืน'));
+  assert(html.includes('ต้องจองอย่างน้อย 5 ห้อง'));
+  assert(html.includes('ต้องเก็บคูปองที่หน้าโปรโมชั่นก่อน'));
+  assert(html.includes('href="/promotions"'));
+  assert(!html.includes('ลด ฿0'));
+});
 test('room checkout explains priced boat benefit and unusable one-night dates before submission', () => {
   const html = renderToStaticMarkup(React.createElement(details().default));
   assert(html.includes('มีค่าใช้จ่าย'));

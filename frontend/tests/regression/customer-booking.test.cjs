@@ -45,6 +45,23 @@ function load(relative, states = [], overrides = {}) {
 }
 
 const kayak = { boat_booking_id: 21, is_addon: true, room_booking_id: 9, kayak_name: 'เรือเสริม', status: 'pending', created_at: new Date().toISOString(), booking_date: '2026-11-02', total_price: 250 };
+
+test('room promotions explain every unmet condition instead of disappearing', () => {
+  const { roomPromotionReasons, eligibleRoomPromotion } = load('src/lib/booking-checkout.ts');
+  const promo = { id: 6, code: 'MIDYEAR500', name: '500', discount_type: 'fixed', discount_value: 500, min_nights: 2, room_count: 10, min_price: 200, room_type_id: 7 };
+  assert.deepEqual(roomPromotionReasons(promo, 3000, 1, 7, 1), ['ต้องพักอย่างน้อย 2 คืน', 'ต้องจองอย่างน้อย 10 ห้อง']);
+  assert.equal(eligibleRoomPromotion(promo, 60000, 2, 7, 10), true);
+  const coupon = { ...promo, min_nights: null, room_count: 5, is_collectible: true };
+  assert.deepEqual(roomPromotionReasons(coupon, 3000, 1, 7, 1), ['ต้องจองอย่างน้อย 5 ห้อง', 'ต้องเก็บคูปองที่หน้าโปรโมชั่นก่อน']);
+  assert.equal(eligibleRoomPromotion({ ...coupon, wallet_status: 'saved' }, 30000, 2, 7, 5), true);
+});
+
+test('boat rights describe the benefit and paid price without a zero discount', () => {
+  const { roomPromotionLabel } = load('src/lib/booking-checkout.ts');
+  const promo = { discount_type: 'fixed', discount_value: 0, boat_ticket_count: 2 };
+  assert.equal(roomPromotionLabel(promo), 'เรือฟรี 2 สิทธิ์/ห้อง');
+  assert.equal(roomPromotionLabel({ ...promo, boat_addon_mode: 'paid', boat_addon_price: '200.00' }), 'สิทธิ์จองเรือ 2 สิทธิ์/ห้อง ฿200/สิทธิ์');
+});
 function bookingsMarkup(rooms, kayaks) {
   const Component = load('src/components/dashboard/MyBookingsPanel.tsx', ['all', rooms, kayaks, 3, false, false, new Set(), new Map()]).default;
   return renderToStaticMarkup(React.createElement(Component, { ready: true }));
