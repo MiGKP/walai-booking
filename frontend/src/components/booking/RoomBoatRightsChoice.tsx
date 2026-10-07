@@ -21,6 +21,11 @@ interface BookingDetail {
   rooms: Array<{ booking_room_id: number; room_name: string; room_number: string; status?: string }>;
 }
 
+function bookingDateLabel(value: string): string {
+  const date = value?.slice(0, 10);
+  return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? formatThaiDate(date) : 'ไม่ระบุวันที่';
+}
+
 export function canReserveRoomRights(booking: EntitledBooking): boolean {
   const summary = booking.boat_ticket_summary;
   return !!summary && ['pending', 'paid', 'approved'].includes(booking.status)
@@ -97,7 +102,7 @@ export default function RoomBoatRightsChoice({ memberId, enabled, onChange }: {
           <label className="block text-sm font-semibold text-forest-900">เลือกการจองห้องต้นทาง
             <select value={selectedId ?? ''} onChange={event => setSelectedId(event.target.value ? Number(event.target.value) : null)} className="input-field mt-2 w-full">
               <option value="">กรุณาเลือกการจองห้องพัก</option>
-              {entitled.map(booking => <option key={booking.id} value={booking.id}>#{booking.id} · {formatThaiDate(booking.check_in_date)} – {formatThaiDate(booking.check_out_date)} · คงเหลือ {booking.boat_ticket_summary?.remaining_tickets} สิทธิ์{canReserveRoomRights(booking) ? '' : ' · ยังใช้ไม่ได้หรือสิ้นสุดแล้ว'}</option>)}
+              {entitled.map(booking => <option key={booking.id} value={booking.id}>#{booking.id} · {bookingDateLabel(booking.check_in_date)} – {bookingDateLabel(booking.check_out_date)} · คงเหลือ {booking.boat_ticket_summary?.remaining_tickets} สิทธิ์{canReserveRoomRights(booking) ? '' : ' · ยังใช้ไม่ได้หรือสิ้นสุดแล้ว'}</option>)}
             </select>
           </label>
           {detailLoading ? <p className="text-sm text-charcoal-600">กำลังโหลดสิทธิ์ของแต่ละห้อง...</p> : detailError ? <p role="alert" className="text-sm text-red-600">{detailError}</p> : detail && selected ? <>
