@@ -103,7 +103,6 @@ export default function PoliciesSettingsPage() {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="ตั้งค่านโยบายและข้อมูลสำคัญ"
-        description="ข้อมูลเหล่านี้จะแสดงในหน้ารายละเอียดห้องพัก"
         actions={
           <button
             onClick={handleSave}

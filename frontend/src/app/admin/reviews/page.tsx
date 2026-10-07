@@ -218,7 +218,6 @@ export default function AdminReviewsPage() {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="จัดการรีวิว"
-        description="ดูแลและจัดการรีวิวสำหรับการจองห้องพัก"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Filter size={15} className="text-gray-400 shrink-0 mr-1" />

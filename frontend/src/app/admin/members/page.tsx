@@ -158,7 +158,6 @@ export default function AdminMembersPage() {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="จัดการสมาชิก"
-        description="ค้นหาและจัดการสถานะบัญชีผู้ใช้งานทั่วไปในระบบ"
         actions={
           <div className="flex flex-wrap gap-3 text-sm">
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-forest-50 text-forest-700 rounded-lg border border-forest-100">

@@ -445,7 +445,6 @@ function SingleRoomsPageContent() {
       {/* Header */}
       <PageHeader
         title="จัดการห้องพัก (รายห้อง)"
-        description="เพิ่มและแก้ไขหมายเลขห้องพักรายห้องในระบบสวนวลัยรุกขเวช"
         actions={
           <div className="px-3.5 py-2 bg-white rounded-xl border border-stone-200/80 shadow-xs flex items-center gap-3 w-fit">
             <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">

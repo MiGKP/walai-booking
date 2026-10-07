@@ -230,7 +230,6 @@ export default function AdminCalendarPage() {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="ปฏิทินการจองที่สำเร็จแล้ว"
-        description="แสดงรายการจองห้องพักและเรือตามช่วงวันที่เข้าพักจริง"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <div className="bg-stone-100 p-1 rounded-xl flex items-center gap-1 border border-stone-200/60">

@@ -316,7 +316,6 @@ export default function StaffManagementPage() {
       {/* Header & Page Title */}
       <PageHeader
         title="จัดการพนักงาน"
-        description="เพิ่ม ดู และบริหารจัดการสิทธิ์พนักงานในระบบสวนวลัยรุกขเวช"
         actions={
           <div className="p-3 bg-white rounded-2xl border border-stone-200/80 shadow-2xs flex items-center gap-3 self-start sm:self-auto">
             <div className="w-8 h-8 rounded-lg bg-[#0b3b2c]/10 flex items-center justify-center text-[#0b3b2c]">

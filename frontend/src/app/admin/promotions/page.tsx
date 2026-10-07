@@ -414,7 +414,6 @@ export default function PromotionsPage() {
       {/* Header Section */}
       <PageHeader 
         title="จัดการโปรโมชั่น / แพ็คเกจ" 
-        description="สร้างและจัดการโค้ดส่วนลดและแพ็คเกจห้องพักพร้อมโปรโมชั่นพายเรือ" 
         actions={
           <button
             disabled={!canEdit}

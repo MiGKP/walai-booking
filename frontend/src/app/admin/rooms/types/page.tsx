@@ -432,7 +432,6 @@ export default function RoomTypesPage() {
       {/* Header & Page Title */}
       <PageHeader
         title="จัดการประเภทห้องพัก"
-        description="เพิ่ม ดู และแก้ไขประเภทห้องพักหลักในระบบสวนวลัยรุกขเวช"
         actions={
           <div className="flex items-center gap-3">
             <button

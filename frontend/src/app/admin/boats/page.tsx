@@ -773,7 +773,6 @@ function BoatStaffDashboardContent() {
       {/* Header Bar */}
       <PageHeader
         title="แดชบอร์ดเรือ"
-        description="ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจองเรือ และรับคืนเรือ"
       />
 
       {/* Summary Cards */}

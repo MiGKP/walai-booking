@@ -737,7 +737,6 @@ function RoomStaffDashboardContent() {
       {/* Header Bar */}
       <PageHeader
         title="แดชบอร์ดห้องพัก"
-        description="ตรวจสอบหลักฐานการชำระเงิน อนุมัติการจอง และเช็คเอาต์ผู้เข้าพัก"
       />
 
       {/* Summary Cards */}

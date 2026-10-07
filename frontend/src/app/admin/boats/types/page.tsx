@@ -395,7 +395,6 @@ export default function BoatTypesPage() {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="จัดการประเภทเรือ"
-        description="เพิ่ม ดู และแก้ไขประเภทเรือ รูปภาพ Gallery และสเปกเรือในระบบ"
         badge={`${boatTypes.length} รายการ`}
         actions={
           <button

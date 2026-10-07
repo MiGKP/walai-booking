@@ -158,7 +158,6 @@ export default function AmenitiesPage() {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="จัดการสิ่งอำนวยความสะดวก"
-        description="เพิ่มและบริหารจัดการสิ่งอำนวยความสะดวกในระบบ"
         badge={`${amenities.length} รายการ`}
         actions={
           <button

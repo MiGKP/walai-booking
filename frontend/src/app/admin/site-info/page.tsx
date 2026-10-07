@@ -283,7 +283,6 @@ export default function GeneralSettingsPage() {
     <div className="space-y-6 pb-12 font-sans">
       <PageHeader
         title="ตั้งค่าข้อมูลสถานที่ & การติดต่อ"
-        description="จัดการข้อมูลทั่วไป ช่องทางติดต่อ ที่อยู่ พิกัด และรายละเอียดบัญชีรับชำระเงิน"
         actions={
           <button
             type="button"

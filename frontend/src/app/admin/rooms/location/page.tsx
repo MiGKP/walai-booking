@@ -291,7 +291,6 @@ export default function RoomLocationPage() {
         {/* Header */}
         <PageHeader
           title="ตั้งค่าจุดบริการห้องพัก & ล็อบบี้"
-          description="จัดการเบอร์ติดต่อ พิกัดจุดต้อนรับ วัน และเวลาทำการประจำเคาน์เตอร์ห้องพัก"
           actions={
             <button
               type="submit"

@@ -186,7 +186,6 @@ export default function AdminPage() {
     <div className="space-y-6 pb-10">
       <PageHeader
         title="ภาพรวมระบบ"
-        description="ยอดขาย สถิติการเข้าพัก และข้อมูลทรัพยากรบุคลากร"
         actions={
           <>
             <div className="flex rounded-xl bg-white p-1 shadow-panel">

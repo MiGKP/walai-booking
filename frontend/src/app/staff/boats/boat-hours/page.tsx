@@ -131,7 +131,6 @@ export default function BoatHoursPage(): React.ReactElement | null {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="เวลาทำการเรือ"
-        description="กำหนดเวลาเปิด-ปิดรายวัน ระยะเวลาจองล่วงหน้าขั้นต่ำ และข้อกำหนดการจองเรือ"
         actions={
           <button
             type="button"
