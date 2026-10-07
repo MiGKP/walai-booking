@@ -46,6 +46,31 @@ function load(relative, states = [], overrides = {}) {
 
 const kayak = { boat_booking_id: 21, is_addon: true, room_booking_id: 9, kayak_name: 'เรือเสริม', status: 'pending', created_at: new Date().toISOString(), booking_date: '2026-11-02', total_price: 250 };
 
+test('room rights choice rejects exhausted, expired, ended and already-paid priced grants', () => {
+  const { canReserveRoomRights } = load('src/components/booking/RoomBoatRightsChoice.tsx');
+  const booking = { id: 9, status: 'approved', boat_ticket_summary: { total_tickets: 2, remaining_tickets: 2, bookable_tickets: 2, free_tickets: 2, paid_tickets: 0, valid_from: '2099-11-02', valid_to: '2099-11-03' } };
+  assert.equal(canReserveRoomRights(booking), true);
+  for (const status of ['checked_out', 'cancelled', 'rejected']) assert.equal(canReserveRoomRights({ ...booking, status }), false);
+  for (const patch of [{ remaining_tickets: 0 }, { bookable_tickets: 0 }, { valid_from: null }, { valid_to: '2020-01-01' }, { free_tickets: 0, paid_tickets: 2 }]) {
+    assert.equal(canReserveRoomRights({ ...booking, boat_ticket_summary: { ...booking.boat_ticket_summary, ...patch } }), false);
+  }
+  assert.equal(canReserveRoomRights({ ...booking, status: 'pending', boat_ticket_summary: { ...booking.boat_ticket_summary, free_tickets: 0, paid_tickets: 2 } }), true);
+});
+
+test('checked room rights renders physical room redemption and retains the parent booking', () => {
+  const summary = { total_tickets: 2, used_tickets: 0, remaining_tickets: 2, bookable_tickets: 2, free_tickets: 2, paid_tickets: 0, valid_from: '2099-11-02', valid_to: '2099-11-03' };
+  const booking = { id: 9, status: 'approved', check_in_date: '2099-11-01', check_out_date: '2099-11-04', boat_ticket_summary: summary };
+  const detail = { ...booking, rooms: [{ booking_room_id: 51, room_name: 'Standard', room_number: 'A1' }, { booking_room_id: 52, room_name: 'Standard', room_number: 'A2', status: 'checked_out' }] };
+  const Component = load('src/components/booking/RoomBoatRightsChoice.tsx', [[booking], false, null, 9, detail, false, null], { './BoatAddonSection': props => React.createElement('div', { 'data-room': props.bookingRoomId, 'data-bookable': props.allowBooking }) }).default;
+  const html = renderToStaticMarkup(React.createElement(Component, { memberId: 7, enabled: true, onChange() {} }));
+  assert.match(html, /type="checkbox"[^>]*checked/);
+  assert(html.includes('การจองห้อง #9'));
+  assert(html.includes('data-room="51" data-bookable="true"'));
+  assert(!html.includes('data-room="52"'));
+  assert(html.includes('คงเหลือ 2 สิทธิ์'));
+  assert(html.includes('กลับไปจองเรือแบบชำระแยก'));
+});
+
 test('room promotions explain every unmet condition instead of disappearing', () => {
   const { roomPromotionReasons, eligibleRoomPromotion } = load('src/lib/booking-checkout.ts');
   const promo = { id: 6, code: 'MIDYEAR500', name: '500', discount_type: 'fixed', discount_value: 500, min_nights: 2, room_count: 10, min_price: 200, room_type_id: 7 };

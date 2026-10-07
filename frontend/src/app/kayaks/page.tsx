@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users, X, ChevronLeft, ChevronRight, ChevronDown, ImageIcon } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
+import RoomBoatRightsChoice from '@/components/booking/RoomBoatRightsChoice';
 import { useAuth } from '@/hooks/useAuth';
 import { isBoatSlotBookable } from '@/lib/boat-time-policy';
 import { resolveMediaUrl } from '@/lib/avatar';
@@ -634,6 +635,8 @@ function KayaksPageContent(): React.ReactElement {
     }
   };
 
+  const [useRoomRights, setUseRoomRights] = useState(false);
+
   return (
     <div className="min-h-screen bg-cream-100 pb-24 pt-4">
       {galleryBoat && (
@@ -649,7 +652,8 @@ function KayaksPageContent(): React.ReactElement {
 
 
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:items-start">
+        <RoomBoatRightsChoice memberId={user?.role === 'customer' ? user.id : undefined} enabled={useRoomRights} onChange={setUseRoomRights} />
+        {!useRoomRights && <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:items-start">
           <div className="space-y-6">
             {/* วันที่ + จำนวนผู้โดยสารต่อประเภทเรือ อยู่ในกรอบเดียวกัน วางคู่กัน — ปฏิทินไม่ต้องกว้างเพราะจองทีละวัน */}
             <section className={CARD}>
@@ -1029,7 +1033,7 @@ function KayaksPageContent(): React.ReactElement {
               </p>
             </form>
           </aside>
-        </div>
+        </div>}
       </div>
     </div>
   );
