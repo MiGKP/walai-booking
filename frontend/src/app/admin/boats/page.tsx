@@ -1100,7 +1100,7 @@ function BoatStaffDashboardContent() {
                               ยกเลิกแล้ว
                             </span>
                           ) : b.is_addon && ['pending', 'paid'].includes(b.status) ? (
-                            <span className="max-w-48 text-xs leading-relaxed text-charcoal-600">
+                            <span className="inline-block max-w-48 whitespace-normal text-left text-xs leading-relaxed text-charcoal-600">
                               ให้เจ้าหน้าที่ห้องพักตรวจสลิปและอนุมัติห้อง #{b.room_booking_id} เรือจะอนุมัติอัตโนมัติ ไม่ต้องชำระหรืออนุมัติแยก
                             </span>
                           ) : b.payment_slip ? (
