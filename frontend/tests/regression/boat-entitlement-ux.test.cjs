@@ -64,10 +64,9 @@ test('exhausted and ended room summaries stay visible without redemption links',
     assert(!html.includes('/kayaks/room-addon?room_booking_id=9'));
   }
 });
-test('one-night entitlement explicitly excludes arrival and departure and has no CTA', () => {
+test('missing entitlement dates show a clear error and no CTA', () => {
   const html = dashboard([{ ...room, boat_ticket_summary: { ...summary, valid_from: null, valid_to: null } }]);
-  assert(html.includes('ไม่รวมวันเช็คอินและวันเช็คเอาต์'));
-  assert(html.includes('พัก 1 คืน'));
+  assert(html.includes('ไม่พบช่วงวันที่ใช้สิทธิ์'));
   assert(!html.includes('/kayaks/room-addon?room_booking_id=9'));
 });
 test('legacy room flag retains room-addon CTA without invented counters', () => {
@@ -116,12 +115,12 @@ test('checkout keeps ineligible room offers visible with a disabled option and e
   assert(html.includes('href="/promotions"'));
   assert(!html.includes('ลด ฿0'));
 });
-test('room checkout explains priced boat benefit and unusable one-night dates before submission', () => {
+test('room checkout explains priced boat benefit and inclusive stay dates', () => {
   const html = renderToStaticMarkup(React.createElement(details().default));
   assert(html.includes('มีค่าใช้จ่าย'));
   assert(html.includes('150'));
-  assert(html.includes('พัก 1 คืน'));
-  assert(html.includes('ไม่รวมวันเช็คอินและวันเช็คเอาต์'));
+  assert(html.includes('ตามรอบเรือที่เปิดให้จอง'));
+  assert(html.includes('รวมวันเช็คอินและวันเช็คเอาต์'));
 });
 function findClick(element, text) {
   if (!element || typeof element !== 'object') return null;

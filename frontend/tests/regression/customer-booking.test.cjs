@@ -73,6 +73,18 @@ test('checked room rights renders physical room redemption and retains the paren
   assert(html.includes('กลับไปจองเรือแบบชำระแยก'));
 });
 
+test('missing rights dates explain the blocker once without repeating five room panels', () => {
+  const summary = { total_tickets: 5, used_tickets: 0, remaining_tickets: 5, bookable_tickets: 5, free_tickets: 5, paid_tickets: 0, valid_from: null, valid_to: null };
+  const booking = { id: 102, status: 'approved', check_in_date: '2099-11-01', check_out_date: '2099-11-02', boat_ticket_summary: summary };
+  const detail = { ...booking, rooms: Array.from({ length: 5 }, (_, i) => ({ booking_room_id: i + 1, room_name: 'Standard', room_number: `W${i + 2}` })) };
+  const Component = load('src/components/booking/RoomBoatRightsChoice.tsx', [[booking], false, null, 102, detail, false, null], { './BoatAddonSection': () => React.createElement('div', { 'data-room-panel': true }) }).default;
+  const html = renderToStaticMarkup(React.createElement(Component, { memberId: 7, enabled: true, onChange() {} }));
+  assert(html.includes('การจองนี้ยังเลือกวันและรอบเรือไม่ได้'));
+  assert(html.includes('href="/dashboard"'));
+  assert(!html.includes('data-room-panel'));
+  assert.equal(html.split('ไม่พบช่วงวันที่ใช้สิทธิ์').length - 1, 1);
+});
+
 test('room promotions explain every unmet condition instead of disappearing', () => {
   const { roomPromotionReasons, eligibleRoomPromotion } = load('src/lib/booking-checkout.ts');
   const promo = { id: 6, code: 'MIDYEAR500', name: '500', discount_type: 'fixed', discount_value: 500, min_nights: 2, room_count: 10, min_price: 200, room_type_id: 7 };

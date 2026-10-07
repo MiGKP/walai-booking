@@ -8,7 +8,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useAuth } from '@/hooks/useAuth';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { addDaysISO, formatThaiDate, nightsBetween } from '@/lib/date';
+import { formatThaiDate, nightsBetween } from '@/lib/date';
 import { chooseRoomPromotions, eligibleRoomPromotion, resolveCheckoutDetails, roomPromotionDiscount, roomPromotionReasons, roomPromotionLabel } from '@/lib/booking-checkout';
 import type { CheckoutPromotion } from '@/lib/booking-checkout';
 import type { RoomCartItem } from '@/lib/room-cart';
@@ -416,8 +416,7 @@ function BookingDetailsContent() {
                             <p className="font-semibold text-forest-800">{`โปรโมชั่นนี้ให้สิทธิ์เรือ ${Number(selectedPromo.boat_ticket_count) * group.rooms.length} สิทธิ์ (${selectedPromo.boat_ticket_count} สิทธิ์/ห้อง)`}</p>
                             <p>{selectedPromo.boat_addon_mode === 'paid' ? `มีค่าใช้จ่าย ฿${Number(selectedPromo.boat_addon_price ?? 0).toLocaleString()} ต่อเรือ 1 ลำ 1 รอบ คิดเมื่อจองและรวมในยอดค่าห้องพัก ต้องเลือกก่อนชำระค่าห้อง` : 'สิทธิ์เรือฟรี ไม่มีค่าเรือเพิ่ม'}</p>
                             <p>1 สิทธิ์ = เรือ 1 ลำ 1 รอบ · จำนวนผู้โดยสารขึ้นอยู่กับความจุของประเภทเรือที่เลือก</p>
-                            {nights > 1 ? <p>ใช้ได้ {formatThaiDate(addDaysISO(checkIn, 1))} – {formatThaiDate(addDaysISO(checkOut, -1))} (ไม่รวมวันเช็คอินและวันเช็คเอาต์)</p>
-                              : <p className="text-bamboo-800">ไม่มีวันใช้สิทธิ์ระหว่างการเข้าพัก เพราะไม่รวมวันเช็คอินและวันเช็คเอาต์ การพัก 1 คืนจึงใช้สิทธิ์เรือนี้ไม่ได้</p>}
+                            <p>ใช้ได้ {formatThaiDate(checkIn)} – {formatThaiDate(checkOut)} รวมวันเช็คอินและวันเช็คเอาต์ ตามรอบเรือที่เปิดให้จอง</p>
                             <p>หลังจองห้องพักแล้ว เลือกห้องและจองรอบเรือได้จากหน้าชำระเงินหรือการจองของฉัน</p>
                           </div>}
                           {discount > 0 && (

@@ -1283,9 +1283,9 @@ export const getBoatAddonInfo = async (
       [bookingRoomId],
     );
 
-    // วันที่ใช้บัตรเสริมได้ = ไม่รวมวันเช็คอิน (มาถึง) และวันเช็คเอาต์ (ออก) — เฉพาะวันที่พักจริงตรงกลาง
-    const validFrom = addDaysToDateStr(room.check_in, 1);
-    const validTo = addDaysToDateStr(room.check_out, -1);
+    // ใช้สิทธิ์ได้รวมวันเช็คอินและวันเช็คเอาต์ ตามรอบเรือที่เปิดให้จอง
+    const validFrom = addDaysToDateStr(room.check_in, 0);
+    const validTo = addDaysToDateStr(room.check_out, 0);
 
     const existingRes = await pool.query(
       `SELECT bb.boat_booking_id, bb.booking_date, bb.start_time, bb.end_time, bb.status,
@@ -1398,14 +1398,14 @@ export const createBoatAddon = async (
       return;
     }
 
-    // ต้องอยู่ในช่วงวันที่เข้าพักจริงเท่านั้น (ไม่รวมวันเช็คอิน/เช็คเอาต์)
-    const validFrom = addDaysToDateStr(room.check_in, 1);
-    const validTo = addDaysToDateStr(room.check_out, -1);
+    // รวมวันเช็คอินและวันเช็คเอาต์ แต่ยังตรวจรอบ เวลาเผื่อจอง และโควตาเรือ
+    const validFrom = addDaysToDateStr(room.check_in, 0);
+    const validTo = addDaysToDateStr(room.check_out, 0);
     if (validFrom > validTo || bookingDate < validFrom || bookingDate > validTo) {
       await safeRollback(client);
       res.status(400).json({
         success: false,
-        message: "เลือกวันที่ใช้บัตรเสริมได้เฉพาะช่วงที่พักจริง (ไม่รวมวันเช็คอิน/เช็คเอาต์)",
+        message: "เลือกวันที่ใช้สิทธิ์ได้ตั้งแต่วันเช็คอินถึงวันเช็คเอาต์เท่านั้น",
       });
       return;
     }

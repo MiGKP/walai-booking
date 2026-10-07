@@ -29,8 +29,8 @@ function assertSummaryProjection(sql) {
   assert.match(sql, /SUM\(mbt\.used_tickets\)/);
   assert.match(sql, /FILTER \(WHERE mbt\.mode = 'free'\)/);
   assert.match(sql, /FILTER \(WHERE mbt\.mode = 'paid'\)/);
-  assert.match(sql, /'valid_from', CASE WHEN rb\.check_in \+ 1 <= rb\.check_out - 1[\s\S]*?ELSE NULL END/);
-  assert.match(sql, /'valid_to', CASE WHEN rb\.check_in \+ 1 <= rb\.check_out - 1[\s\S]*?ELSE NULL END/);
+  assert.match(sql, /'valid_from', to_char\(rb\.check_in, 'YYYY-MM-DD'\)/);
+  assert.match(sql, /'valid_to', to_char\(rb\.check_out, 'YYYY-MM-DD'\)/);
   const aggregate = sql.slice(sql.indexOf("'total_tickets'"), sql.indexOf(') AS boat_ticket_summary'));
   assert.doesNotMatch(aggregate, /used_tickets\s*<\s*(?:mbt\.)?total_tickets/, 'exhausted grants must remain in the summary');
 }
@@ -134,12 +134,12 @@ test('addon info exposes total and redeemed tickets even at zero balance', async
   assert.equal(res.body.data.used_tickets, 2);
   assert.equal(res.body.data.balance, 0);
 });
-test('one-night addon grant retains counts but has no eligible date', async () => {
+test('one-night addon grant includes both arrival and departure dates', async () => {
   queryHandler = async sql => sql.includes('FROM booking_room br') ? rows([{ member_id: 1, check_in: '2099-01-01', check_out: '2099-01-02', room_status: 'pending' }]) : sql.includes('FROM member_boat_tickets') ? rows([{ mode: 'free', unit_price: 0, balance: 2, total_tickets: 2, used_tickets: 0 }]) : rows();
   const res = response();
   await kayaks.getBoatAddonInfo(request({ bookingRoomId: '8' }), res);
-  assert.equal(res.body.data.valid_from, null);
-  assert.equal(res.body.data.valid_to, null);
+  assert.equal(res.body.data.valid_from, '2099-01-01');
+  assert.equal(res.body.data.valid_to, '2099-01-02');
   assert.equal(res.body.data.total_tickets, 2);
 });
 for (const [name, handler, params] of [['list', kayaks.getUserKayakBookings, {}], ['detail', kayaks.getKayakBookingById, { id: '9' }]]) {

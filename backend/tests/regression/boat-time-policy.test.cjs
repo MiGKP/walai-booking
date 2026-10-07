@@ -91,6 +91,23 @@ function withPolicy(policy, { advance = 60 } = {}) {
   };
 }
 const body = date => ({ items: [{ boat_type_id: 1, num_passengers: 1 }], start_time: '09:00', end_time: '10:00', booking_date: date });
+
+test('one-night room rights reserve on arrival and departure but reject days outside the stay', async () => {
+  for (const [date, expected] of [['2099-01-01', 201], ['2099-01-02', 201], ['2098-12-31', 400], ['2099-01-03', 400]]) {
+    withPolicy({ is_open: true, open_time: '08:00', close_time: '18:00' });
+    const previous = connectHandler;
+    connectHandler = async () => {
+      const old = await previous();
+      return client(async (sql, values) => {
+        if (sql.includes('FROM booking_room br')) return rows([{ booking_room_id: 8, room_booking_id: 7, member_id: 1, check_in: '2099-01-01', check_out: '2099-01-02', room_status: 'approved', room_line_status: 'approved' }]);
+        return old.query(sql, values);
+      });
+    };
+    const res = response();
+    await kayak.createBoatAddon(request({ boat_type_id: 1, boat_round_id: 1, booking_date: date, num_passengers: 1 }, { bookingRoomId: '8' }), res);
+    assert.equal(res.code, expected, `${date}: ${res.body?.message}`);
+  }
+});
 test('API rejects active rounds on a closed operating day', async () => {
   withPolicy({ is_open: false, open_time: '08:00', close_time: '18:00' });
   const res = response();

@@ -80,10 +80,8 @@ const BOAT_TICKET_SUMMARY_SQL = `(
     ), 0),
     'free_tickets', COALESCE(SUM(mbt.total_tickets) FILTER (WHERE mbt.mode = 'free'), 0),
     'paid_tickets', COALESCE(SUM(mbt.total_tickets) FILTER (WHERE mbt.mode = 'paid'), 0),
-    'valid_from', CASE WHEN rb.check_in + 1 <= rb.check_out - 1
-                      THEN to_char(rb.check_in + 1, 'YYYY-MM-DD') ELSE NULL END,
-    'valid_to', CASE WHEN rb.check_in + 1 <= rb.check_out - 1
-                    THEN to_char(rb.check_out - 1, 'YYYY-MM-DD') ELSE NULL END
+    'valid_from', to_char(rb.check_in, 'YYYY-MM-DD'),
+    'valid_to', to_char(rb.check_out, 'YYYY-MM-DD')
   )
   FROM member_boat_tickets mbt
   LEFT JOIN booking_room btr ON btr.booking_room_id = mbt.booking_room_id

@@ -177,7 +177,7 @@ export default function BoatAddonSection({ bookingRoomId, roomBookingStatus, onC
       }} /></div>}
       {allowBooking && info && <RoomBoatAddonForm bookingRoomId={bookingRoomId} info={info} onCreated={async () => { await fetchAddons(); onChanged?.(); }} />}
       {allowBooking && info && info.balance <= 0 && <p className="mb-3 text-xs text-charcoal-500">ห้องนี้ไม่มีสิทธิ์เรือที่ยังไม่ได้ใช้</p>}
-      {allowBooking && info && info.balance > 0 && (!info.valid_from || !info.valid_to) && <p className="mb-3 text-xs text-charcoal-500">ช่วงเข้าพักนี้ไม่มีวันใช้สิทธิ์เรือระหว่างวันเช็คอินและเช็คเอาต์</p>}
+      {allowBooking && info && info.balance > 0 && (!info.valid_from || !info.valid_to) && <p className="mb-3 text-xs text-charcoal-500">ไม่พบช่วงวันที่ใช้สิทธิ์ กรุณาตรวจสอบรายละเอียดการจองห้องพัก</p>}
       {allowBooking && info?.mode === 'paid' && info.room_status !== 'pending' && <p className="mb-3 text-xs text-charcoal-500">สิทธิ์เรือแบบเสียเงินต้องเลือกก่อนชำระค่าห้องพัก</p>}
       <ul className="space-y-2">
         {addons.map((addon) => {
