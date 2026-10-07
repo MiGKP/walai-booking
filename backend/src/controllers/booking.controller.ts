@@ -253,6 +253,11 @@ export const createRoomBooking = async (
     }
     const specialRequests =
       typeof body.special_requests === 'string' ? body.special_requests : null;
+    // เวลาที่คาดว่าจะถึง เก็บแยกจากคำขอพิเศษ (เดิมฝังรวมกันเป็นข้อความ "[Arrival: HH:MM] ...")
+    const arrivalTime =
+      typeof body.arrival_time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(body.arrival_time)
+        ? body.arrival_time
+        : null;
     const guestName = typeof body.guest_name === 'string' ? body.guest_name.trim() || null : null;
     const guestPhone = typeof body.guest_phone === 'string' ? body.guest_phone.trim() || null : null;
     const guestEmail = typeof body.guest_email === 'string' ? body.guest_email.trim() || null : null;
@@ -509,8 +514,8 @@ export const createRoomBooking = async (
     const headerRes = await client.query(
       `INSERT INTO room_bookings (
          member_id, check_in, check_out, guest_count, adults, children, child_ages,
-         special_request, promotion_id, status, total_price, guest_name, guest_phone, guest_email
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11, $12, $13)
+         special_request, arrival_time, promotion_id, status, total_price, guest_name, guest_phone, guest_email
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', $11, $12, $13, $14)
        RETURNING *`,
       [
         user.id,
@@ -521,6 +526,7 @@ export const createRoomBooking = async (
         children,
         childAges,
         specialRequests,
+        arrivalTime,
         primaryPromotionId,
         totalPrice,
         guestName,
@@ -661,7 +667,7 @@ export const getUserRoomBookings = async (
                 rb.check_in as check_in_date, rb.check_out as check_out_date,
                 rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
                 rb.guest_name, rb.guest_phone, rb.guest_email,
-                rb.total_price, rb.status, rb.special_request, rb.created_at,
+                rb.total_price, rb.status, rb.special_request, rb.arrival_time, rb.created_at,
                 rb.reject_reason, rb.payment_status, rb.payment_date,
                 (SELECT MIN(brc.checkin_at) FROM booking_room brc WHERE brc.room_booking_id = rb.room_booking_id) AS checkin_at,
                 rb.checkout_at,
@@ -731,7 +737,7 @@ export const getRoomBookingById = async (
               to_char(rb.check_out, 'YYYY-MM-DD') as check_out_date,
               rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
               rb.guest_name, rb.guest_phone, rb.guest_email,
-              rb.total_price, rb.status, rb.special_request, rb.created_at,
+              rb.total_price, rb.status, rb.special_request, rb.arrival_time, rb.created_at,
               ${ROOMS_JSON_SQL} AS rooms
        FROM room_bookings rb
        WHERE rb.room_booking_id = $1 AND (($3 = 'customer' AND rb.member_id = $2) OR $3 = 'admin')`,
@@ -924,7 +930,7 @@ export const getAllRoomBookings = async (
               rb.checkout_at,
               rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
               rb.guest_name, rb.guest_phone, rb.guest_email,
-              rb.total_price, rb.status, rb.special_request,
+              rb.total_price, rb.status, rb.special_request, rb.arrival_time,
               rb.payment_status, rb.payment_slip, rb.created_at,
               COALESCE(rb.guest_name, CONCAT_WS(' ', m.first_name, m.last_name)) as user_name,
               COALESCE(rb.guest_email, m.email) as user_email, COALESCE(rb.guest_phone, m.phone) as user_phone,

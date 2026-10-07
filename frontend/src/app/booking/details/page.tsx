@@ -172,7 +172,8 @@ function BookingDetailsContent() {
     if (withKids) requests.push("เดินทางพร้อมเด็กเล็ก / ผู้สูงอายุ");
     if (otherRequest.trim()) requests.push(otherRequest.trim());
     
-    const specialReqStr = `[Arrival: ${arrivalTime}] ` + (requests.length > 0 ? requests.join(', ') : 'ไม่มีคำขอพิเศษ');
+    // เวลาที่คาดว่าจะถึงส่งแยกเป็น arrival_time เอง ไม่ฝังรวมกับคำขอพิเศษแล้ว
+    const specialReqStr = requests.join(', ');
 
     // Prepare items array
     const payloadItems = cartItems.map(item => ({
@@ -190,6 +191,7 @@ function BookingDetailsContent() {
         children: childrenCount,
         child_ages: childAges,
         special_requests: specialReqStr,
+        arrival_time: arrivalTime,
         items: payloadItems,
         guest_name: `${firstName} ${lastName}`,
         guest_phone: phone,

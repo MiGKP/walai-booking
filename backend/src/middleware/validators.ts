@@ -116,6 +116,7 @@ export const createRoomBookingValidator = [
   body('child_ages').optional().isArray().withMessage('child_ages must be an array'),
   body('child_ages.*').optional().isInt({ min: 0, max: 17 }).withMessage('Each child age must be 0-17'),
   body('special_requests').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 500 }).withMessage('Special requests cannot exceed 500 characters'),
+  body('arrival_time').optional({ nullable: true, checkFalsy: true }).matches(/^([01]\d|2[0-3]):[0-5]\d$/).withMessage('arrival_time must be HH:MM (24h)'),
   body('promotion_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Invalid promotion_id'),
   body('promotion_ids').optional().isArray(),
   body('promotion_ids.*').optional().isInt({ min: 1 }),
