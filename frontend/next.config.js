@@ -1,7 +1,14 @@
 /** @type {import('next').NextConfig} */
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-const apiOrigin = apiUrl.replace(/\/api\/?$/, '');
+let parsedApiUrl;
+try {
+  parsedApiUrl = new URL(apiUrl);
+  if (!['http:', 'https:'].includes(parsedApiUrl.protocol)) throw new Error('Invalid protocol');
+} catch {
+  throw new Error('NEXT_PUBLIC_API_URL must be an absolute HTTP(S) API URL. Masked Secret values cannot be used for a frontend build.');
+}
+const apiOrigin = parsedApiUrl.origin;
 const isProd = process.env.NODE_ENV === 'production';
 
 function getApiRemotePattern() {
@@ -109,7 +116,7 @@ const nextConfig = {
     ],
   },
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
+    NEXT_PUBLIC_API_URL: apiUrl,
   },
 };
 
