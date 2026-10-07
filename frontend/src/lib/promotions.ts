@@ -24,6 +24,7 @@ export interface CatalogPromo {
   stackable: boolean;
   applies_to?: PromoAppliesTo | string | null;
   wallet_status: WalletStatus | null;
+  wallet_remaining?: number | null;
 }
 
 export interface WalletPromo {
@@ -129,3 +130,10 @@ export function promoDaysLeft(endDate: string | null | undefined): number | null
 
 export const STACKING_NOTE =
   'ใช้หลายโค้ดพร้อมกันในการจองเดียวได้ เฉพาะเมื่อทุกโค้ดเปิดตัวเลือก "ใช้ร่วมโค้ดอื่นได้" เท่านั้น';
+
+export function canUseWalletPromotion(status: WalletStatus | null | undefined, remaining?: number | null): boolean {
+  if (status !== 'saved' && status !== 'used') return false;
+  if (remaining === null) return true;
+  if (remaining !== undefined) return Number(remaining) > 0;
+  return status === 'saved';
+}

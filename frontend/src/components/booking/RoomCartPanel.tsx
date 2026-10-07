@@ -64,6 +64,8 @@ export default function RoomCartPanel({
   const roomCount = cartRoomCount(cart);
   const overCapacity = guests > capacity;
   const empty = cart.items.length === 0;
+  const roomTypeIds = Array.from(new Set(cart.items.map(item => item.room_type_id)));
+  const roomTypeKey = roomTypeIds.join(',');
 
   const { user } = useAuth();
   const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
@@ -85,6 +87,8 @@ export default function RoomCartPanel({
             code: autoAppliedPromoCode.trim(),
             price: baseTotal,
             nights,
+            scope: 'room',
+            room_type_ids: roomTypeIds,
           });
           const data = res.data.data as AppliedPromo;
           setAppliedPromo(data);
@@ -99,7 +103,7 @@ export default function RoomCartPanel({
       setPromoCode('');
       setAppliedPromo(null);
     }
-  }, [autoAppliedPromoCode, baseTotal, nights]);
+  }, [autoAppliedPromoCode, baseTotal, nights, roomTypeKey]);
 
   useEffect(() => {
     if (!autoAppliedPromoCode) {
@@ -126,6 +130,8 @@ export default function RoomCartPanel({
         code: promoCode.trim(),
         price: baseTotal,
         nights,
+        scope: 'room',
+        room_type_ids: roomTypeIds,
       });
       const data = res.data.data as AppliedPromo;
       setAppliedPromo(data);

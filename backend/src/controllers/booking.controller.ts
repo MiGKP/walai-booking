@@ -24,54 +24,10 @@ import {
   restoreBookingPromotions,
 } from '../services/promotion-ledger';
 import { ApplyLine, PromoApplyError, applyPromotionList, headerPromotionId } from '../services/promotion-apply';
-import { restoreBoatTicketRedemptions } from './kayak.controller';
+import { cancelBoatAddonsForRoomBooking, approveBoatAddonsForRoomBooking } from '../services/boat-booking-lifecycle';
+export { approveBoatAddonsForRoomBooking } from '../services/boat-booking-lifecycle';
 import { mapDbError } from '../utils/db-errors';
 import { parsePositiveInt } from '../utils/ids';
-
-// ยกเลิกบัตรเสริมเรือคายัคที่ผูกกับห้องพักนี้ทั้งหมด (เรียกตอนห้องพักถูกยกเลิก/ปฏิเสธ) — คืนบัตรและปล่อยโควตารอบเรือ
-async function cancelBoatAddonsForRoomBooking(
-  client: { query: typeof pool.query },
-  roomBookingId: number
-): Promise<void> {
-  const addons = await client.query(
-    `SELECT boat_booking_id FROM boat_bookings
-     WHERE room_booking_id = $1 AND is_addon = true AND status NOT IN ('cancelled', 'rejected')`,
-    [roomBookingId]
-  );
-  for (const row of addons.rows) {
-    await restoreBoatTicketRedemptions(client, row.boat_booking_id);
-    await client.query(
-      `UPDATE boat_bookings SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`,
-      [row.boat_booking_id]
-    );
-    await client.query(
-      `UPDATE booking_boat SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`,
-      [row.boat_booking_id]
-    );
-  }
-}
-
-// ยืนยันบัตรเสริมเรือคายัคที่ผูกกับห้องพักนี้ทั้งหมด (เรียกตอนห้องพักถูกอนุมัติ)
-export async function approveBoatAddonsForRoomBooking(
-  client: { query: typeof pool.query },
-  roomBookingId: number
-): Promise<void> {
-  const addons = await client.query(
-    `SELECT boat_booking_id FROM boat_bookings
-     WHERE room_booking_id = $1 AND is_addon = true AND status = 'pending'`,
-    [roomBookingId]
-  );
-  for (const row of addons.rows) {
-    await client.query(
-      `UPDATE boat_bookings SET status = 'approved', updated_at = NOW() WHERE boat_booking_id = $1`,
-      [row.boat_booking_id]
-    );
-    await client.query(
-      `UPDATE booking_boat SET status = 'approved', updated_at = NOW() WHERE boat_booking_id = $1`,
-      [row.boat_booking_id]
-    );
-  }
-}
 
 interface BookingItemInput {
   room_type_id: number;
@@ -109,6 +65,30 @@ const ROOMS_JSON_SQL = `COALESCE((
   JOIN room_types rt ON rt.id = r.room_type_id
   WHERE br.room_booking_id = rb.room_booking_id
 ), '[]'::json)`;
+
+// Only physical-room addon grants belong here; legacy NULL booking_room_id
+// grants are redeemed through the general wallet. Keep exhausted addon grants.
+const BOAT_TICKET_SUMMARY_SQL = `(
+  SELECT json_build_object(
+    'total_tickets', COALESCE(SUM(mbt.total_tickets), 0),
+    'used_tickets', COALESCE(SUM(mbt.used_tickets), 0),
+    'remaining_tickets', COALESCE(SUM(mbt.total_tickets - mbt.used_tickets), 0),
+    'bookable_tickets', COALESCE(SUM(mbt.total_tickets - mbt.used_tickets) FILTER (
+      WHERE btr.status IN ('pending', 'paid', 'approved')
+        AND rb.status IN ('pending', 'paid', 'approved')
+        AND (mbt.mode = 'free' OR rb.status = 'pending')
+    ), 0),
+    'free_tickets', COALESCE(SUM(mbt.total_tickets) FILTER (WHERE mbt.mode = 'free'), 0),
+    'paid_tickets', COALESCE(SUM(mbt.total_tickets) FILTER (WHERE mbt.mode = 'paid'), 0),
+    'valid_from', to_char(rb.check_in, 'YYYY-MM-DD'),
+    'valid_to', to_char(rb.check_out, 'YYYY-MM-DD')
+  )
+  FROM member_boat_tickets mbt
+  LEFT JOIN booking_room btr ON btr.booking_room_id = mbt.booking_room_id
+                           AND btr.room_booking_id = rb.room_booking_id
+  WHERE mbt.room_booking_id = rb.room_booking_id
+    AND mbt.booking_room_id IS NOT NULL
+)`;
 
 // บัตรเสริมเรือคายัคที่ผูกกับบิลจองห้องนี้ — ใช้แสดง/พิมพ์/มอบบัตรตอนเช็คอิน
 const BOAT_ADDONS_JSON_SQL = `COALESCE((
@@ -166,7 +146,8 @@ async function applyPromotionDiscount(
   promotionId: number,
   basePrice: number,
   nights: number,
-  memberId: number
+  memberId: number,
+  roomTypeIds: number[]
 ): Promise<{
   finalPrice: number;
   line: ApplyLine | null;
@@ -186,6 +167,7 @@ async function applyPromotionDiscount(
     basePrice,
     now: new Date(),
     scope: 'room',
+    roomTypeIds,
     ...ctxExtra,
   });
 
@@ -457,7 +439,7 @@ export const createRoomBooking = async (
           continue;
         }
         try {
-          const { finalPrice, line, boatTicketCount, boatAddonMode, boatAddonPrice } = await applyPromotionDiscount(client, promoId, typeSubtotal, nights, user.id);
+          const { finalPrice, line, boatTicketCount, boatAddonMode, boatAddonPrice } = await applyPromotionDiscount(client, promoId, typeSubtotal, nights, user.id, [roomTypeId]);
           appliedPromotions.push({
             room_type_id: roomTypeId,
             promotion_id: promoId,
@@ -484,7 +466,7 @@ export const createRoomBooking = async (
       }
     } else if (legacyPromotionId) {
       try {
-        const { finalPrice, line, boatTicketCount, boatAddonMode, boatAddonPrice } = await applyPromotionDiscount(client, legacyPromotionId, faceValueTotal, nights, user.id);
+        const { finalPrice, line, boatTicketCount, boatAddonMode, boatAddonPrice } = await applyPromotionDiscount(client, legacyPromotionId, faceValueTotal, nights, user.id, [...new Set(lockedRooms.map(room => room.room_type_id))]);
         totalPrice = finalPrice;
         legacyApplyLine = line;
         if (boatTicketCount > 0) {
@@ -597,6 +579,12 @@ export const createRoomBooking = async (
       totalBoatTickets += grant.ticketsPerRoom;
     }
 
+    const ticketSummary = await client.query(
+      `SELECT ${BOAT_TICKET_SUMMARY_SQL} AS boat_ticket_summary
+       FROM room_bookings rb WHERE rb.room_booking_id = $1`,
+      [roomBookingId]
+    );
+
     await client.query('COMMIT');
 
     (async () => {
@@ -631,7 +619,7 @@ export const createRoomBooking = async (
     res.status(201).json({
       success: true,
       message: 'Booking created',
-      data: { ...header, rooms: lineRows, applied_promotions: appliedPromotions, boat_tickets_granted: totalBoatTickets },
+      data: { ...header, rooms: lineRows, applied_promotions: appliedPromotions, boat_tickets_granted: totalBoatTickets, boat_ticket_summary: ticketSummary.rows[0]?.boat_ticket_summary },
     });
   } catch (error) {
     await safeRollback(client);
@@ -672,6 +660,7 @@ export const getUserRoomBookings = async (
                 (SELECT MIN(brc.checkin_at) FROM booking_room brc WHERE brc.room_booking_id = rb.room_booking_id) AS checkin_at,
                 rb.checkout_at,
                 ${ROOMS_JSON_SQL} AS rooms,
+                ${BOAT_TICKET_SUMMARY_SQL} AS boat_ticket_summary,
                 (
                   SELECT json_agg(json_build_object(
                     'name', p.name,
@@ -689,7 +678,7 @@ export const getUserRoomBookings = async (
                   SELECT json_agg(image_path)
                   FROM room_images ri
                   WHERE ri.room_type_id = first_room.room_type_id
-                ) AS room_images, (SELECT COUNT(*) > 0 FROM member_boat_tickets mbt WHERE mbt.room_booking_id = rb.room_booking_id AND mbt.used_tickets < mbt.total_tickets) AS has_unused_boat_tickets
+                ) AS room_images, (SELECT COUNT(*) > 0 FROM member_boat_tickets mbt WHERE mbt.room_booking_id = rb.room_booking_id AND mbt.booking_room_id IS NOT NULL AND mbt.used_tickets < mbt.total_tickets) AS has_unused_boat_tickets
          FROM room_bookings rb
          LEFT JOIN LATERAL (
            SELECT rt.room_name, rt.type_name, r.room_number, r.room_type_id
@@ -738,7 +727,8 @@ export const getRoomBookingById = async (
               rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
               rb.guest_name, rb.guest_phone, rb.guest_email,
               rb.total_price, rb.status, rb.special_request, rb.arrival_time, rb.created_at,
-              ${ROOMS_JSON_SQL} AS rooms
+              ${ROOMS_JSON_SQL} AS rooms,
+              ${BOAT_TICKET_SUMMARY_SQL} AS boat_ticket_summary
        FROM room_bookings rb
        WHERE rb.room_booking_id = $1 AND (($3 = 'customer' AND rb.member_id = $2) OR $3 = 'admin')`,
       [id, user.id, user.role]
@@ -844,7 +834,7 @@ export const cancelRoomBooking = async (
     // คืนโควตาโปรโมชั่นและ usage_count (สถานะเป็น pending เสมอในจุดนี้)
     await restoreBookingPromotions(client, { previousStatus: 'pending', roomBookingId: Number(id) });
     // ยกเลิกบัตรเสริมเรือคายัค (ถ้าจองไว้แล้ว) พร้อมกับห้องพักนี้
-    await cancelBoatAddonsForRoomBooking(client, Number(id));
+    await cancelBoatAddonsForRoomBooking(client, Number(id), 'pending');
     // เพิกถอนบัตรพายเรือฟรีที่แจกไว้จากการจองนี้ (เฉพาะที่ยังไม่ถูกใช้เลย)
     await client.query(
       `DELETE FROM member_boat_tickets WHERE room_booking_id = $1 AND used_tickets = 0`,
@@ -1056,7 +1046,7 @@ export const updateRoomBookingStatus = async (
       // คืนโควตาโปรโมชั่นเมื่อ header เดิมเป็น pending/paid (ตรรกะอยู่ใน restoreBookingPromotions)
       await restoreBookingPromotions(client, { previousStatus, roomBookingId: Number(id) });
       // ยกเลิกบัตรเสริมเรือคายัคที่จองไว้แล้ว (คืนโควตารอบเรือ) พร้อมกับห้องพักนี้
-      await cancelBoatAddonsForRoomBooking(client, Number(id));
+      await cancelBoatAddonsForRoomBooking(client, Number(id), previousStatus);
       // เพิกถอนบัตรพายเรือฟรีที่แจกไว้จากการจองนี้ (เฉพาะที่ยังไม่ถูกใช้เลย)
       await client.query(
         `DELETE FROM member_boat_tickets WHERE room_booking_id = $1 AND used_tickets = 0`,
@@ -1161,6 +1151,15 @@ export const checkinBookingRoom = async (
     }
 
     await client.query('BEGIN');
+    // Serialize every line action with header cancellation and other lines.
+    // Always acquire the header before the room line to avoid reversed locks.
+    await client.query(
+      `SELECT rb.room_booking_id FROM room_bookings rb
+       WHERE rb.room_booking_id = (
+         SELECT room_booking_id FROM booking_room WHERE booking_room_id = $1
+       ) FOR UPDATE OF rb`,
+      [bookingRoomId]
+    );
     const lineRes = await client.query(
       `SELECT br.booking_room_id, br.room_id, br.status AS line_status, rb.status AS header_status
        FROM booking_room br
@@ -1300,6 +1299,13 @@ export const checkoutBookingRoom = async (
     }
 
     await client.query('BEGIN');
+    await client.query(
+      `SELECT rb.room_booking_id FROM room_bookings rb
+       WHERE rb.room_booking_id = (
+         SELECT room_booking_id FROM booking_room WHERE booking_room_id = $1
+       ) FOR UPDATE OF rb`,
+      [bookingRoomId]
+    );
     const lineRes = await client.query(
       `SELECT br.booking_room_id, br.room_id, br.room_booking_id, br.status AS line_status, rb.status AS header_status
        FROM booking_room br

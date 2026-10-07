@@ -1,3 +1,6 @@
+import { restoreBoatTicketRedemptions } from '../services/boat-booking-lifecycle';
+import { validateBoatBookingTime } from '../services/boat-booking-time';
+export { restoreBoatTicketRedemptions } from '../services/boat-booking-lifecycle';
 import { parsePagination, paginationMeta } from '../utils/pagination';
 import { Request, Response } from "express";
 import { safeRollback } from '../utils/safe-rollback';
@@ -122,7 +125,7 @@ async function peakReservedBoats(
        JOIN boat_rounds br ON br.boat_round_id = bnb.boat_round_id
        WHERE bnb.boat_type_id = $1
          AND ($2::int IS NULL OR bnb.boat_round_id = $2)
-         AND bnb.status NOT IN ('cancelled', 'rejected')
+         AND bnb.status NOT IN ('cancelled', 'rejected', 'checked_out')
      ), events AS (
        SELECT booking_date, start_time AS event_time, boat_count AS delta FROM reservations
        UNION ALL
@@ -280,22 +283,6 @@ export async function redeemRoomBoatTickets(
 }
 
 // คืนบัตรพายเรือ (ฟรีหรือเสริม) ที่เคยใช้กับการจองนี้ (เรียกตอนยกเลิก/ปฏิเสธการจอง)
-export async function restoreBoatTicketRedemptions(
-  client: { query: typeof pool.query },
-  boatBookingId: number,
-): Promise<void> {
-  const redemptions = await client.query(
-    `DELETE FROM boat_ticket_redemptions WHERE boat_booking_id = $1 RETURNING member_boat_ticket_id, quantity`,
-    [boatBookingId],
-  );
-  for (const row of redemptions.rows) {
-    await client.query(
-      `UPDATE member_boat_tickets SET used_tickets = used_tickets - $1 WHERE id = $2`,
-      [row.quantity, row.member_boat_ticket_id],
-    );
-  }
-}
-
 async function replaceRoundBoats(
   client: PoolClient,
   roundId: number,
@@ -940,6 +927,12 @@ export const createKayakBooking = async (
     }
 
     const prepared: PreparedLine[] = [];
+    const timeError = await validateBoatBookingTime(client, booking_date, startTime, endTime);
+    if (timeError) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: timeError });
+      return;
+    }
     let poolSlots: number | null = null;
 
     // Lock types in ascending id order to reduce deadlock risk
@@ -1313,7 +1306,7 @@ export const getBoatAddonInfo = async (
     }
 
     const roomRes = await pool.query(
-      `SELECT br.booking_room_id, rb.room_booking_id, rb.member_id, rb.check_in::text AS check_in, rb.check_out::text AS check_out, rb.status AS room_status
+      `SELECT br.booking_room_id, br.status AS room_line_status, rb.room_booking_id, rb.member_id, rb.check_in::text AS check_in, rb.check_out::text AS check_out, rb.status AS room_status
        FROM booking_room br
        JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
        WHERE br.booking_room_id = $1`,
@@ -1330,10 +1323,16 @@ export const getBoatAddonInfo = async (
     }
 
     const ticketInfo = await getRoomBoatTicketBalance(pool, bookingRoomId);
+    const ticketTotals = await pool.query(
+      `SELECT COALESCE(SUM(total_tickets), 0) AS total_tickets,
+              COALESCE(SUM(used_tickets), 0) AS used_tickets
+       FROM member_boat_tickets WHERE booking_room_id = $1`,
+      [bookingRoomId],
+    );
 
-    // วันที่ใช้บัตรเสริมได้ = ไม่รวมวันเช็คอิน (มาถึง) และวันเช็คเอาต์ (ออก) — เฉพาะวันที่พักจริงตรงกลาง
-    const validFrom = addDaysToDateStr(room.check_in, 1);
-    const validTo = addDaysToDateStr(room.check_out, -1);
+    // ใช้สิทธิ์ได้รวมวันเช็คอินและวันเช็คเอาต์ ตามรอบเรือที่เปิดให้จอง
+    const validFrom = addDaysToDateStr(room.check_in, 0);
+    const validTo = addDaysToDateStr(room.check_out, 0);
 
     const existingRes = await pool.query(
       `SELECT bb.boat_booking_id, bb.booking_date, bb.start_time, bb.end_time, bb.status,
@@ -1351,7 +1350,10 @@ export const getBoatAddonInfo = async (
       success: true,
       data: {
         room_status: room.room_status,
+        room_line_status: room.room_line_status,
         balance: ticketInfo?.balance ?? 0,
+        total_tickets: Number(ticketTotals.rows[0]?.total_tickets ?? 0),
+        used_tickets: Number(ticketTotals.rows[0]?.used_tickets ?? 0),
         mode: ticketInfo?.mode ?? "free",
         unit_price: ticketInfo?.unitPrice ?? 0,
         valid_from: validFrom > validTo ? null : validFrom,
@@ -1413,7 +1415,7 @@ export const createBoatAddon = async (
     }
 
     const roomRes = await client.query(
-      `SELECT br.booking_room_id, rb.room_booking_id, rb.member_id, rb.check_in::text AS check_in, rb.check_out::text AS check_out, rb.status AS room_status
+      `SELECT br.booking_room_id, br.status AS room_line_status, rb.room_booking_id, rb.member_id, rb.check_in::text AS check_in, rb.check_out::text AS check_out, rb.status AS room_status
        FROM booking_room br
        JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
        WHERE br.booking_room_id = $1
@@ -1437,14 +1439,20 @@ export const createBoatAddon = async (
       return;
     }
 
-    // ต้องอยู่ในช่วงวันที่เข้าพักจริงเท่านั้น (ไม่รวมวันเช็คอิน/เช็คเอาต์)
-    const validFrom = addDaysToDateStr(room.check_in, 1);
-    const validTo = addDaysToDateStr(room.check_out, -1);
+    if (!["pending", "paid", "approved", "checked_in"].includes(room.room_line_status ?? room.room_status)) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: "ห้องที่สิ้นสุดการเข้าพักแล้วไม่สามารถจองเรือเสริมได้" });
+      return;
+    }
+
+    // รวมวันเช็คอินและวันเช็คเอาต์ แต่ยังตรวจรอบ เวลาเผื่อจอง และโควตาเรือ
+    const validFrom = addDaysToDateStr(room.check_in, 0);
+    const validTo = addDaysToDateStr(room.check_out, 0);
     if (validFrom > validTo || bookingDate < validFrom || bookingDate > validTo) {
       await safeRollback(client);
       res.status(400).json({
         success: false,
-        message: "เลือกวันที่ใช้บัตรเสริมได้เฉพาะช่วงที่พักจริง (ไม่รวมวันเช็คอิน/เช็คเอาต์)",
+        message: "เลือกวันที่ใช้สิทธิ์ได้ตั้งแต่วันเช็คอินถึงวันเช็คเอาต์เท่านั้น",
       });
       return;
     }
@@ -1471,6 +1479,12 @@ export const createBoatAddon = async (
       return;
     }
     const selectedWindow = roundLookup.rows[0];
+    const timeError = await validateBoatBookingTime(client, bookingDate, String(selectedWindow.start_time), String(selectedWindow.end_time));
+    if (timeError) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: timeError });
+      return;
+    }
     const roundRes = await client.query(
       `SELECT br.boat_round_id, br.start_time, br.end_time, br.total_slots, br.is_active
        FROM boat_rounds br

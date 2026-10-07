@@ -27,6 +27,7 @@ export interface CatalogPromo {
   is_collectible: boolean;
   stackable: boolean;
   applies_to: PromoAppliesTo;
+  room_type_id?: number | null;
 }
 
 export interface WalletState {
@@ -43,6 +44,7 @@ export interface ApplyContext {
   walletsByPromoId: Record<number, WalletState | undefined>;
   skipMinPrice?: boolean;
   scope?: BookingPromoScope;
+  roomTypeIds?: number[];
 }
 
 export interface ApplyLine {
@@ -195,10 +197,15 @@ export function applyPromotionList(
     if (!promoAllowsScope(row.applies_to, ctx.scope)) {
       throw new PromoApplyError(promoScopeError(row.applies_to));
     }
-    // ทุกโปรต้องเก็บเข้ากระเป๋าก่อนใช้ จึงต้องมี wallet สถานะ saved เสมอ
+    if (ctx.scope === 'room' && row.room_type_id != null &&
+        (!ctx.roomTypeIds?.length || ctx.roomTypeIds.some((id) => id !== Number(row.room_type_id)))) {
+      throw new PromoApplyError('โปรโมชั่นนี้ใช้กับประเภทห้องที่กำหนดเท่านั้น');
+    }
     const wallet = ctx.walletsByPromoId[row.id];
-    if (wallet == null || wallet.status !== 'saved') {
-      throw new PromoApplyError('ต้องเก็บโค้ดนี้ก่อนใช้');
+    if (row.is_collectible) {
+      if (wallet == null || wallet.status === 'expired') {
+        throw new PromoApplyError('ต้องเก็บโค้ดนี้ก่อนใช้');
+      }
     }
     const used = ctx.memberUsedCountByPromoId[row.id] ?? 0;
     if (
@@ -215,7 +222,7 @@ export function applyPromotionList(
     remaining = nextTotal;
     lines.push({
       promotion_id: row.id,
-      member_promotion_id: wallet.member_promotion_id,
+      member_promotion_id: wallet?.member_promotion_id ?? null,
       discount_amount: discountAmount,
     });
   }

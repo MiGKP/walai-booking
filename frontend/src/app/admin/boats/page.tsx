@@ -997,6 +997,10 @@ function BoatStaffDashboardContent() {
                             <p className="font-semibold text-stone-800 leading-snug">
                               {b.kayak_name || b.boat_name || "-"}
                             </p>
+                            {b.is_addon && <p className="mt-1 text-xs leading-relaxed text-forest-800">
+                              เรือจากโปรโมชั่นห้องพัก{b.addon_mode === "free" ? " · สิทธิ์ฟรี" : b.addon_mode === "paid" ? " · มีค่าใช้จ่ายรวมกับค่าห้องพัก" : ""}
+                              {b.room_booking_id && <span className="block">{`การจองห้องพัก #${b.room_booking_id}`}</span>}
+                            </p>}
                             {Array.isArray(b.boats) && b.boats.length > 1 && (
                               <ul className="mt-1 space-y-0.5 text-xs text-stone-500">
                                 {b.boats.map(
@@ -1057,7 +1061,9 @@ function BoatStaffDashboardContent() {
 
                       <td className="px-5 py-4 whitespace-nowrap">
                         <div className="flex flex-col items-start gap-1">
-                          <BookingStatusBadge status={b.status} />
+                          {b.is_addon && ['pending', 'paid'].includes(b.status) ? (
+                            <span className="inline-block rounded-xl border border-bamboo-200 bg-bamboo-50 px-3 py-1 text-xs font-semibold text-bamboo-800">รออนุมัติห้องพัก #{b.room_booking_id}</span>
+                          ) : <BookingStatusBadge status={b.status} />}
                           {b.approved_by_name &&
                             ["approved", "checked_out", "rejected"].includes(
                               b.status,
@@ -1122,6 +1128,10 @@ function BoatStaffDashboardContent() {
                           ) : b.status === "cancelled" ? (
                             <span className="text-xs text-stone-500 font-semibold bg-stone-100 border border-stone-200 px-3 py-1 rounded-xl inline-block">
                               ยกเลิกแล้ว
+                            </span>
+                          ) : b.is_addon && ['pending', 'paid'].includes(b.status) ? (
+                            <span className="inline-block max-w-48 whitespace-normal text-left text-xs leading-relaxed text-charcoal-600">
+                              ให้เจ้าหน้าที่ห้องพักตรวจสลิปและอนุมัติห้อง #{b.room_booking_id} เรือจะอนุมัติอัตโนมัติ ไม่ต้องชำระหรืออนุมัติแยก
                             </span>
                           ) : b.payment_slip ? (
                             <>
@@ -1301,6 +1311,10 @@ function BoatStaffDashboardContent() {
                   <span>รายละเอียดการใช้งานเรือ</span>
                 </div>
                 <p><strong className="text-charcoal-700">ประเภทเรือ:</strong> {booking.kayak_name || booking.boat_name}</p>
+                {booking.is_addon && <p className="text-forest-800">
+                  เรือจากโปรโมชั่นห้องพัก{booking.addon_mode === "free" ? " · สิทธิ์ฟรี" : booking.addon_mode === "paid" ? " · มีค่าใช้จ่ายรวมกับค่าห้องพัก" : ""}
+                  {booking.room_booking_id && <span className="block">{`การจองห้องพัก #${booking.room_booking_id}`}</span>}
+                </p>}
                 {Array.isArray(booking.boats) && booking.boats.length > 0 && (
                   <ul className="mt-1 space-y-0.5 pl-4 list-disc text-charcoal-600">
                     {booking.boats.map((line: any) => (
@@ -1350,7 +1364,9 @@ function BoatStaffDashboardContent() {
 
               <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 flex items-center justify-between print:bg-white print:border-charcoal-200">
                 <span className="font-semibold text-charcoal-700">สถานะรายการ:</span>
-                <BookingStatusBadge status={booking.status} />
+                {booking.is_addon && ['pending', 'paid'].includes(booking.status) ? (
+                  <p className="text-sm text-bamboo-800">รอเจ้าหน้าที่ห้องพักอนุมัติห้อง #{booking.room_booking_id} เรือจะอนุมัติอัตโนมัติ ไม่ต้องชำระหรืออนุมัติแยก</p>
+                ) : <BookingStatusBadge status={booking.status} />}
               </div>
 
               {booking.status === "rejected" && (booking.reject_reason || booking.reason) && (

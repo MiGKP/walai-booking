@@ -9,6 +9,7 @@ import {
   bookingPromoHref,
   parseAppliesTo,
   appliesToLabel,
+  canUseWalletPromotion,
   type CatalogPromo,
   type PromoAppliesTo,
   type WalletStatus,
@@ -241,6 +242,7 @@ interface CollectButtonProps {
   code: string;
   loading: boolean;
   status: WalletStatus | null;
+  remaining?: number | null;
   isCollectible: boolean;
   isCustomer: boolean;
   isAuthenticated: boolean;
@@ -253,6 +255,7 @@ export function PromoCollectAction({
   code,
   loading,
   status,
+  remaining,
   isCollectible,
   isCustomer,
   isAuthenticated,
@@ -266,7 +269,7 @@ export function PromoCollectAction({
     );
   }
 
-  if (status === 'saved') {
+  if (canUseWalletPromotion(status, remaining)) {
     return (
       <>
         <span className="flex items-center gap-1 rounded-lg border border-forest-100 bg-forest-50 px-2.5 py-1.5 text-xs font-semibold text-forest-700">

@@ -6,7 +6,7 @@ import { Ticket } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { PromoNotice, usePromoNotice } from '@/components/promotions/PromoNotice';
 import { PromoVoucher, PromoBookingLinks } from '@/components/promotions/PromoVoucher';
-import { promoDaysLeft, walletStatusLabel, type WalletPromo, type WalletStatus } from '@/lib/promotions';
+import { promoDaysLeft, canUseWalletPromotion, type WalletPromo, type WalletStatus } from '@/lib/promotions';
 
 type FilterTab = 'saved' | 'used' | 'expired';
 
@@ -41,7 +41,7 @@ export default function MyCouponsSection(): React.ReactElement {
   const grouped = useMemo(() => {
     const buckets: Record<FilterTab, WalletPromo[]> = { saved: [], used: [], expired: [] };
     for (const item of wallet) {
-      const status: WalletStatus = item.status === 'used' || item.status === 'expired' ? item.status : 'saved';
+      const status: WalletStatus = canUseWalletPromotion(item.status, item.remaining) ? 'saved' : item.status === 'expired' ? 'expired' : 'used';
       buckets[status].push(item);
     }
     return buckets;
@@ -133,9 +133,9 @@ export default function MyCouponsSection(): React.ReactElement {
                         maxDiscount={item.max_discount}
                         boatTicketCount={item.boat_ticket_count}
                         boatAddonMode={item.boat_addon_mode}
-                        muted={item.status !== 'saved'}
+                        muted={!canUseWalletPromotion(item.status, item.remaining)}
                         footer={
-                          item.status === 'saved' ? (
+                          canUseWalletPromotion(item.status, item.remaining) ? (
                             <>
                               {(() => {
                                 const daysLeft = promoDaysLeft(item.end_date);
@@ -152,14 +152,14 @@ export default function MyCouponsSection(): React.ReactElement {
                                 roomLabel="ใช้จองห้องพัก"
                                 kayakLabel="ใช้จองเรือ"
                               />
-                              <button
+                              {item.status === 'saved' && <button
                                 type="button"
                                 onClick={() => void handleRemove(item.promotion_id)}
                                 disabled={removingId === item.promotion_id}
                                 className="ml-auto text-xs font-semibold text-red-500 hover:text-red-700 disabled:opacity-50"
                               >
                                 ลบโปรโมชั่นออก
-                              </button>
+                              </button>}
                               {item.remaining != null && (
                                 <span className="ml-auto text-xs text-charcoal-400">เหลือ {item.remaining} สิทธิ์</span>
                               )}

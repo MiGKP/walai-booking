@@ -1,3 +1,4 @@
+import { normalizeAuthEmail } from '../services/auth-email';
 import { body, param } from 'express-validator';
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -5,7 +6,7 @@ import { body, param } from 'express-validator';
 export const registerValidator = [
   body('first_name').trim().notEmpty().withMessage('First name is required'),
   body('last_name').trim().notEmpty().withMessage('Last name is required'),
-  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
+  body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password must be at least 8 characters'),
@@ -18,16 +19,16 @@ export const registerValidator = [
 ];
 
 export const loginValidator = [
-  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
+  body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
   body('password').notEmpty().withMessage('Password is required'),
 ];
 
 export const forgotPasswordValidator = [
-  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
+  body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
 ];
 
 export const resetPasswordValidator = [
-  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
+  body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
   body('otp')
     .trim()
     .isLength({ min: 6, max: 6 })
@@ -64,7 +65,7 @@ export const setPasswordValidator = [
 
 export const createStaffValidator = [
   body('name').trim().notEmpty().withMessage('Name is required'),
-  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
+  body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password must be at least 8 characters'),
@@ -78,7 +79,7 @@ export const createStaffValidator = [
 ];
 
 export const initAdminValidator = [
-  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
+  body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password must be at least 8 characters'),
@@ -300,6 +301,9 @@ export const validatePromoCodeValidator = [
   body('promotion_ids.*').optional().isInt({ min: 1 }),
   body('price').optional().isFloat({ min: 0 }).withMessage('price must be a positive number'),
   body('nights').optional().isInt({ min: 1 }).withMessage('nights must be a positive integer'),
+  body('room_type_id').optional({ nullable: true }).isInt({ min: 1 }),
+  body('room_type_ids').optional().isArray({ min: 1 }),
+  body('room_type_ids.*').optional().isInt({ min: 1 }),
   body('scope').optional().isIn(['room', 'kayak']).withMessage('scope must be room or kayak'),
   body().custom((_, { req }) => {
     const code = req.body.code;

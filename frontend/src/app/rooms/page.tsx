@@ -1,5 +1,6 @@
 "use client";
 
+import { eligibleRoomPromotion, roomPromotionDiscount, roomPromotionLabel, type CheckoutPromotion } from '@/lib/booking-checkout';
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -44,15 +45,7 @@ import {
 } from "@/lib/date";
 
 
-interface Promotion {
-  id: number;
-  name: string;
-  code: string;
-  discount_value: number;
-  discount_type?: 'percent' | 'fixed';
-  min_nights?: number;
-  max_discount?: number;
-}
+interface Promotion extends CheckoutPromotion {}
 
 interface PhysicalRoom {
   room_id: number;
@@ -175,7 +168,6 @@ function RoomsPageContent(): React.ReactElement {
   const [typeFilter, setTypeFilter] = useState("all");
   const selectedPromoCodes = (searchParams.get("promo_code") || "").split(",").map((c) => c.trim().toUpperCase()).filter(Boolean);
   
-  const [expandedPromoId, setExpandedPromoId] = useState<number | null>(null);
   const [collectedPromos, setCollectedPromos] = useState<Set<number>>(new Set());
   const [collectingId, setCollectingId] = useState<number | null>(null);
   const { notice: promoNotice, showNotice: showPromoNotice } = usePromoNotice();
@@ -448,7 +440,7 @@ function RoomsPageContent(): React.ReactElement {
 
       <div id="rooms-list" className="container mx-auto px-4 lg:py-2">
         <div className="flex flex-col gap-8 lg:flex-row">
-          <section className="flex-1">
+          <section className="min-w-0 flex-1">
             <PromoNotice notice={promoNotice} />
             {loading && rooms.length === 0 ? (
               <div className="grid gap-6">{[0, 1].map((index) => <div key={index} className="h-64 w-full animate-pulse rounded-2xl border border-stone-100 bg-white" />)}</div>
@@ -476,20 +468,20 @@ function RoomsPageContent(): React.ReactElement {
                         )
                       : Math.min(Number(activePromotion.discount_value), unitPrice)
                     : 0;
-                  const bestPromo = room.available_promotions?.reduce<Promotion | null>((best, p) => {
-                    const d = p.discount_type === 'percent' ? (unitPrice * Number(p.discount_value) / 100) : Number(p.discount_value);
-                    const bestD = best ? (best.discount_type === 'percent' ? (unitPrice * Number(best.discount_value) / 100) : Number(best.discount_value)) : 0;
-                    return d > bestD ? p : best;
+                  const searchedNights = searchedRange ? nightsBetween(searchedRange.start, searchedRange.end) : 1;
+                  const basePrice = unitPrice * Math.max(1, searchedNights);
+                  const bestPromo = room.available_promotions?.filter(p => eligibleRoomPromotion(p, basePrice, searchedNights, room.id, 1)).reduce<Promotion | null>((best, p) => {
+                    return roomPromotionDiscount(p, basePrice) > (best ? roomPromotionDiscount(best, basePrice) : 0) ? p : best;
                   }, null);
-                  const potentialDiscount = bestPromo ? (bestPromo.discount_type === 'percent' ? Math.min(Math.round(unitPrice * Number(bestPromo.discount_value) / 100), bestPromo.max_discount || Infinity, unitPrice) : Math.min(Number(bestPromo.discount_value), unitPrice)) : 0;
+                  const potentialDiscount = bestPromo ? roomPromotionDiscount(bestPromo, basePrice) / Math.max(1, searchedNights) : 0;
                   const finalPrice = unitPrice - discount;
 
                   return (
-                    <article key={room.id} style={{ animationDelay: `${idx * 100}ms` }} className={`animate-reveal-up group relative grid grid-cols-1 overflow-hidden rounded-2xl border bg-white transition-all duration-300 lg:grid-cols-[380px_1fr_300px] ${isAvailable ? "border-stone-200/80 hover:border-forest-300 hover:shadow-md" : "border-stone-100 bg-stone-50/50 opacity-60"}`}>
-                      <div className="relative h-48 w-full overflow-hidden lg:h-full">
+                    <article key={room.id} style={{ animationDelay: `${idx * 100}ms` }} className={`animate-reveal-up group relative grid grid-cols-1 overflow-hidden rounded-2xl border bg-white transition-all duration-300 sm:grid-cols-[180px_minmax(0,1fr)] ${isAvailable ? "border-stone-200/80 hover:border-forest-300 hover:shadow-md" : "border-stone-100 bg-stone-50/50 opacity-60"}`}>
+                      <div className="relative h-48 w-full overflow-hidden sm:row-span-2 sm:h-full">
                         {room.main_image ? <Image src={resolveMediaUrl(room.main_image)} alt={room.room_name} fill sizes="(max-width: 1024px) 100vw, 320px" className="object-cover transition-transform duration-1000 group-hover:scale-105" priority={idx < 2} /> : <div className="h-full w-full bg-stone-50" />}
                       </div>
-                      <div className="flex flex-col justify-between border-b border-stone-100 p-5 lg:border-b-0 lg:border-r lg:border-stone-100 lg:p-6">
+                      <div className="min-w-0 border-b border-stone-100 p-5 sm:col-start-2">
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
                             
@@ -506,55 +498,14 @@ function RoomsPageContent(): React.ReactElement {
                           {room.bed_size && <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><BedDouble size={14} className="text-forest-400" /><span>{room.bed_size}</span></div>}
                         </div>
                         {room.available_promotions && room.available_promotions.length > 0 && (
-                          <div className="mt-3 flex flex-col gap-2">
-                            <div className="flex flex-wrap gap-1.5">
-                              {room.available_promotions.map((promo) => (
-                                <button
-                                  key={promo.id}
-                                  onClick={() => setExpandedPromoId(expandedPromoId === promo.id ? null : promo.id)}
-                                  type="button"
-                                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors ${
-                                    expandedPromoId === promo.id 
-                                      ? 'border-forest-300 bg-forest-50 text-forest-700' 
-                                      : 'border-bamboo-200 bg-bamboo-50/50 text-bamboo-700 hover:bg-bamboo-100 hover:border-bamboo-300 active:scale-95'
-                                  }`}
-                                >
-                                  <Tag size={12} className={expandedPromoId === promo.id ? 'text-forest-500' : 'text-bamboo-500'} />
-                                  มีโปรโมชั่น {promo.name}
-                                </button>
-                              ))}
-                            </div>
-                            
-                            {room.available_promotions.map((promo) => (
-                              expandedPromoId === promo.id && (
-                                <div key={`details-${promo.id}`} className="mt-1 flex flex-wrap items-center justify-between gap-3 animate-in slide-in-from-top-2 fade-in duration-200 rounded-lg border border-stone-200 bg-stone-50 p-2.5 text-[12px] text-stone-600">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="font-semibold text-forest-800">
-                                      {promo.discount_type === 'percent' ? `ลด ${promo.discount_value}%` : `ลด ฿${Number(promo.discount_value).toLocaleString()}`}
-                                    </span>
-                                    {promo.min_nights && (
-                                      <span className="text-stone-500">
-                                        (ขั้นต่ำ {promo.min_nights} คืน)
-                                      </span>
-                                    )}
-                                    <span className="flex items-center gap-1 text-stone-500">
-                                      <span className="mx-1 h-3 w-px bg-stone-300"></span>
-                                      ใช้โค้ด: <span className="font-bold text-stone-700">{promo.code}</span>
-                                    </span>
-                                  </div>
-                                  <Link
-                                    href={`/rooms/${room.id}?${searchParams.toString()}#promotions`}
-                                    className="inline-flex shrink-0 items-center gap-1 font-bold text-forest-600 hover:text-forest-700 whitespace-nowrap"
-                                  >
-                                    ดูห้องพัก <ChevronDown size={14} className="-rotate-90" />
-                                  </Link>
-                                </div>
-                              )
-                            ))}
-                          </div>
+                          <Link href={`/rooms/${room.id}?${searchParams.toString()}#promotions`} className="mt-4 inline-flex max-w-full items-center gap-2 rounded-lg bg-bamboo-50 px-3 py-2 text-sm font-semibold text-bamboo-800 hover:bg-bamboo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest-700">
+                            <Tag size={16} className="shrink-0" />
+                            <span>ดูโปรโมชั่นทั้งหมด {room.available_promotions.length} รายการ</span>
+                            <ChevronDown size={16} className="shrink-0 -rotate-90" />
+                          </Link>
                         )}
                       </div>
-                      <div className="flex flex-col justify-between bg-stone-50/40 p-5 lg:bg-white lg:p-6">
+                      <div className="min-w-0 flex flex-col justify-between bg-stone-50/40 p-5 sm:col-start-2">
                         <div className="mb-4 flex flex-col items-start gap-1.5 lg:items-end">
                           {isAvailable && searchedRange && availableCount <= 2 && (
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-700 shadow-sm whitespace-nowrap">
@@ -570,7 +521,7 @@ function RoomsPageContent(): React.ReactElement {
                         </div>
                         <div className="mb-6 flex flex-col items-start gap-1 lg:items-end">
                           <span className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ราคาต่อคืน</span>
-                          {potentialDiscount > 0 ? <div className="flex w-full flex-col items-start lg:items-end"><div className="flex items-baseline gap-1.5"><span className="text-[13px] font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{(unitPrice - potentialDiscount).toLocaleString()}</span></div><span className="mt-1 rounded bg-bamboo-50 border border-bamboo-200 px-2 py-0.5 text-[11px] font-bold text-bamboo-700 shadow-sm">ประหยัด ฿{potentialDiscount.toLocaleString()} เมื่อใช้โปรโมชั่น</span></div> : <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
+                          {potentialDiscount > 0 ? <div className="flex w-full flex-col items-start lg:items-end"><div className="flex items-baseline gap-1.5"><span className="text-[13px] font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{(unitPrice - potentialDiscount).toLocaleString()}</span></div><span className="mt-1 rounded bg-bamboo-50 border border-bamboo-200 px-2 py-0.5 text-[11px] font-bold text-bamboo-700 shadow-sm">ประหยัด ฿{potentialDiscount.toLocaleString()} เมื่อใช้โปรโมชั่น · เฉลี่ยต่อคืน</span></div> : <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
                         </div>
                         <div className="flex flex-col mt-auto w-full lg:w-full">
                           <Link href={`/rooms/${room.id}?${searchParams.toString()}`} className="w-full rounded-xl bg-bamboo-600 py-3.5 text-center text-[14px] font-bold text-white shadow-md transition-all hover:bg-bamboo-700 hover:shadow-lg active:scale-[0.98]">
@@ -587,7 +538,7 @@ function RoomsPageContent(): React.ReactElement {
           
           {/* Desktop Booking Summary Sidebar */}
           {cart && cart.items && cart.items.length > 0 && (
-            <aside className="hidden lg:block lg:w-[380px] shrink-0">
+            <aside className="hidden lg:block lg:w-[320px] xl:w-[360px] shrink-0">
               <div className="sticky top-[160px]">
                 <BookingSummaryCard />
               </div>

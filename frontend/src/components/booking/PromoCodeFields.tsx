@@ -27,6 +27,7 @@ interface PromoCodeFieldsProps {
   basePrice: number;
   nights: number | null;
   scope: 'room' | 'kayak';
+  roomTypeIds?: number[];
   onChange: (ids: number[], preview: PromoPreview | null) => void;
 }
 
@@ -98,10 +99,12 @@ function PromoCodeFieldsInner({
   basePrice,
   nights,
   scope,
+  roomTypeIds,
   onChange,
 }: PromoCodeFieldsProps): React.ReactElement {
   const searchParams = useSearchParams();
   const urlPromo = (searchParams.get('promo') ?? '').trim().toUpperCase();
+  const roomTypeKey = roomTypeIds?.join(',') ?? '';
   const [promoCode, setPromoCode] = useState(urlPromo);
   const { notice, showNotice } = usePromoNotice();
   const [loading, setLoading] = useState(false);
@@ -139,7 +142,7 @@ function PromoCodeFieldsInner({
   const validateRequest = async (
     body: Record<string, unknown>
   ): Promise<ValidatePayload> => {
-    const res = await api.post('/promotions/validate', { ...body, scope });
+    const res = await api.post('/promotions/validate', { ...body, scope, ...(scope === 'room' && roomTypeIds ? { room_type_ids: roomTypeIds } : {}) });
     return res.data.data as ValidatePayload;
   };
 
@@ -221,7 +224,7 @@ function PromoCodeFieldsInner({
     };
     // Re-run when cart price/nights/scope or incoming ?promo= change. applyByCode reads latest state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [basePrice, nights, urlPromo, scope]);
+  }, [basePrice, nights, urlPromo, scope, roomTypeKey]);
 
   const handleApply = async (): Promise<void> => {
     userClearedRef.current = false;

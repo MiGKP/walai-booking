@@ -148,6 +148,47 @@ function roomBody(items) {
   return { items, check_in_date: '2099-01-01', check_out_date: '2099-01-03', adults: 1, children: 0 };
 }
 
+function restrictedRoomScenario(typeId) {
+  roomScenario();
+  const previous = connectHandler;
+  connectHandler = async () => {
+    const old = await previous();
+    return client(async (sql, values) => {
+      if (sql.includes('FROM promotions WHERE id = ANY')) return rows([{
+        id: 17, code: 'ROOM_TYPE', name: 'Restricted', discount_type: 'percent', discount_value: 50,
+        is_active: true, is_collectible: false, stackable: false, applies_to: 'room', usage_count: 0,
+        usage_limit: null, usage_limit_per_member: null, room_type_id: typeId,
+      }]);
+      if (sql.includes('SELECT boat_ticket_count')) return rows([{ boat_ticket_count: 0 }]);
+      if (sql.includes('UPDATE promotions')) return rows([{ id: 17 }]);
+      if (sql.includes('SELECT p.usage_limit_per_member')) return rows([{ usage_limit_per_member: null, used: 1 }]);
+      return old.query(sql, values);
+    });
+  };
+}
+
+test('room API accepts a type-restricted promo for its matching actual room', async () => {
+  restrictedRoomScenario(2);
+  const res = response();
+  await booking.createRoomBooking(request(roomBody([{ room_type_id: 2, quantity: 1, promotion_id: 17 }])), res);
+  assert.equal(res.code, 201);
+  assert.equal(res.body.data.total_price, 100);
+});
+
+test('room API rejects a type-restricted promo for another room type', async () => {
+  restrictedRoomScenario(99);
+  const res = response();
+  await booking.createRoomBooking(request(roomBody([{ room_type_id: 2, quantity: 1, promotion_id: 17 }])), res);
+  assert.equal(res.code, 400);
+});
+
+test('legacy header promo cannot discount a mixed cart containing an ineligible type', async () => {
+  restrictedRoomScenario(2);
+  const res = response();
+  await booking.createRoomBooking(request({ ...roomBody([{ room_type_id: 1, quantity: 1 }, { room_type_id: 2, quantity: 1 }]), promotion_id: 17 }), res);
+  assert.equal(res.code, 400);
+});
+
 test('reversed room carts including explicit choices take the same global lock order', async () => {
   const firstQueries = roomScenario();
   const first = response();
@@ -315,6 +356,24 @@ test('addon locks its room header before the room line used by slip submission',
   const locks = queries.filter(q => /FOR UPDATE/.test(q.sql));
   assert.match(locks[0].sql, /FOR UPDATE OF rb/);
   assert.match(locks[1].sql, /FOR UPDATE OF br/);
+});
+
+test('completed physical room cannot create addons while other rooms keep the header approved', async () => {
+  addonScenario();
+  const previous = connectHandler;
+  connectHandler = async () => {
+    const old = await previous();
+    return client(async (sql, values) => {
+      const result = await old.query(sql, values);
+      if (sql.includes('FROM booking_room br')) {
+        result.rows.forEach(row => { row.room_status = 'approved'; row.room_line_status = 'checked_out'; });
+      }
+      return result;
+    });
+  };
+  const res = response();
+  await kayak.createBoatAddon(request({ boat_type_id: 2, boat_round_id: 2, booking_date: '2099-01-02', num_passengers: 1 }, { bookingRoomId: '8' }), res);
+  assert.equal(res.code, 400);
 });
 
 test('concurrent addons selecting different round IDs cannot oversell a shared slot', async () => {

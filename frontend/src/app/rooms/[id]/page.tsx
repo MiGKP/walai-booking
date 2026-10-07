@@ -45,6 +45,7 @@ import {
   todayISO,
 } from '@/lib/date';
 
+import { roomPromotionLabel, type CheckoutPromotion } from '@/lib/booking-checkout';
 import { RoomCartItem } from '@/lib/room-cart';
 import { useRoomCart, setRoomCart } from '@/lib/room-cart-store';
 import { useCartSync } from '@/hooks/useCartSync';
@@ -59,15 +60,7 @@ interface PhysicalRoom {
   is_available: boolean;
 }
 
-interface Promotion {
-  id: number;
-  name: string;
-  code: string;
-  description?: string | null;
-  discount_value: number;
-  discount_type?: 'percent' | 'fixed';
-  min_nights?: number;
-  max_discount?: number;
+interface Promotion extends CheckoutPromotion {
   stackable?: boolean;
 }
 
@@ -380,7 +373,11 @@ export default function RoomDetailPage(): React.ReactElement {
         ]
       : items.filter((item) => item.room_id !== roomId);
 
-    commitCart(nextItems);
+    if (!isSelecting && cart) {
+      setRoomCart({ ...cart, items: nextItems });
+    } else {
+      commitCart(nextItems);
+    }
 
   };
 
@@ -704,60 +701,59 @@ export default function RoomDetailPage(): React.ReactElement {
 
             {/* Special Offers (Advertisement) */}
             {room.available_promotions && room.available_promotions.length > 0 && (
-              <div className="mt-4 rounded-2xl bg-stone-50/50 border border-stone-100 p-4">
+              <div id="promotions" className="mt-4 scroll-mt-40 rounded-2xl bg-stone-50/50 border border-stone-100 p-4">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                   <Tag size={14} className="text-forest-600" />
                   <h4 className="text-xs font-bold text-stone-600 uppercase tracking-wide">มีโปรโมชั่นพิเศษสำหรับห้องนี้</h4>
                 </div>
-                {/* 
-                  ซ่อน Scrollbar แบบกำหนดเองผ่าน style ย่อย หรืออาศัยคลาสจาก Tailwind (ถ้ามี) 
-                  ที่นี่ใช้ overflow-x-auto ร่วมกับ Flex
-                */}
-                <div className="flex overflow-x-auto gap-3 pb-2 snap-x -mx-2 px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  <style dangerouslySetInnerHTML={{__html: `::-webkit-scrollbar { display: none; }`}} />
-                  
+                <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
                   {room.available_promotions.map((promo) => {
-                    const discountText = promo.discount_type === 'percent' ? `ลด ${promo.discount_value}%` : `ลด ฿${Number(promo.discount_value).toLocaleString()}`;
+                    const discountText = roomPromotionLabel(promo);
                     const isExpanded = expandedPromoId === promo.id;
                     
                     return (
-                      <div key={promo.id} className="flex flex-col bg-white rounded-lg border border-stone-100 shadow-sm shrink-0 w-[280px] sm:w-[320px] snap-start">
-                        <div 
-                          className="flex items-center justify-between gap-1.5 px-3 py-2.5 cursor-pointer hover:bg-stone-50/50 transition-colors"
+                      <div key={promo.id} className="min-w-0 bg-white rounded-lg border border-stone-100 shadow-sm">
+                        <button
+                          type="button"
+                          aria-expanded={isExpanded}
+                          aria-controls={`room-promo-${promo.id}`}
+                          className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left hover:bg-stone-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest-700"
                           onClick={() => setExpandedPromoId(isExpanded ? null : promo.id)}
                         >
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[12px] font-bold text-forest-800">{promo.name}</span>
-                            <span className="text-[11px] text-stone-400 hidden sm:inline">|</span>
-                            <span className="text-[12px] font-bold text-forest-600">{discountText}</span>
+                          <div className="min-w-0 space-y-1 break-words">
+                            <span className="block text-sm font-bold text-forest-800">{promo.name}</span>
+                            <span className="block text-xs leading-relaxed text-forest-600">{discountText}</span>
                           </div>
-                          <button type="button" className="text-[11px] font-medium text-stone-400 hover:text-stone-600 flex items-center gap-0.5 shrink-0 whitespace-nowrap ml-1">
+                          <span className="mt-0.5 flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-forest-600">
                             รายละเอียด <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                          </button>
-                        </div>
-                        
-                        <div className={`transition-all duration-300 overflow-hidden ${isExpanded ? 'max-h-40 border-t border-stone-100' : 'max-h-0'}`}>
+                          </span>
+                        </button>
+
+                        {isExpanded && <div id={`room-promo-${promo.id}`} className="border-t border-stone-100">
                           <div className="p-3 bg-stone-50/30 text-[11px] text-stone-500">
                             <p className="mb-1.5 text-stone-600 font-medium whitespace-normal">{promo.description || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
                             <ul className="space-y-1">
-                              {promo.min_nights && (
+                              <li>โค้ด: <strong>{promo.code}</strong></li>
+                              {Number(promo.min_nights) > 0 && (
                                 <li className="flex gap-2"><span className="text-stone-300">•</span> ขั้นต่ำ {promo.min_nights} คืน</li>
                               )}
                               {promo.discount_type === 'percent' && promo.max_discount && (
                                 <li className="flex gap-2"><span className="text-stone-300">•</span> ลดสูงสุด ฿{Number(promo.max_discount).toLocaleString()}</li>
                               )}
-                              {promo.stackable && (
-                                <li className="flex gap-2"><span className="text-stone-300">•</span> สามารถใช้ร่วมกับโปรโมชั่นอื่นได้</li>
-                              )}
+                              {Number(promo.room_count) > 1 && <li>ต้องจองอย่างน้อย {promo.room_count} ห้องประเภทนี้</li>}
+                              {Number(promo.min_price) > 0 && <li>ยอดค่าห้องขั้นต่ำ ฿{Number(promo.min_price).toLocaleString()}</li>}
+                              {promo.is_collectible && <li>ต้องเก็บคูปองที่ <Link href="/promotions" className="underline text-forest-700">หน้าโปรโมชั่น</Link> ก่อนใช้ และมีสิทธิ์คงเหลือ</li>}
+                              {Number(promo.boat_ticket_count) > 0 && <li>1 สิทธิ์ = เรือ 1 ลำ 1 รอบ ใช้ได้เฉพาะวันระหว่างเช็คอินและเช็คเอาต์ การพัก 1 คืนไม่มีวันใช้สิทธิ์</li>}
+
                             </ul>
                           </div>
-                        </div>
+                        </div>}
                       </div>
                     );
                   })}
                 </div>
                 <p className="mt-2 text-[10px] text-stone-400 font-medium">
-                  * ส่วนลดจะถูกเลือกโดยอัตโนมัติในหน้าสรุปการจอง
+                  * รายการนี้แสดงโปรโมชั่นของห้อง โปรที่ใช้ได้ขึ้นอยู่กับจำนวนห้อง จำนวนคืน ยอดจอง และคูปองของคุณ หน้าสรุปจะแสดงเหตุผลและเลือกส่วนลดสูงสุดที่ใช้ได้ให้
                 </p>
               </div>
             )}

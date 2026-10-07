@@ -1,3 +1,4 @@
+import { normalizeAuthEmail } from './auth-email';
 export interface GoogleEmailEntry {
   value?: string;
   verified?: boolean;
@@ -33,9 +34,7 @@ function clipName(value: string): string {
 }
 
 function normalizeEmail(value: unknown): string | null {
-  const email = String(value ?? "")
-    .trim()
-    .toLowerCase();
+  const email = normalizeAuthEmail(String(value ?? ""));
   if (!email.includes("@") || email.length > 100) return null;
   return email;
 }

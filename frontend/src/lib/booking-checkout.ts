@@ -1,3 +1,5 @@
+import { canUseWalletPromotion } from './promotions';
+
 interface CheckoutCart {
   check_in: string;
   check_out: string;
@@ -11,6 +13,7 @@ export interface CheckoutPromotion {
   id: number;
   name: string;
   code: string;
+  description?: string | null;
   discount_type: 'percent' | 'fixed';
   discount_value: number | string;
   min_nights?: number | null;
@@ -19,10 +22,14 @@ export interface CheckoutPromotion {
   applies_to?: string | null;
   is_collectible?: boolean;
   wallet_status?: 'saved' | 'used' | 'expired' | null;
+  wallet_remaining?: number | null;
   room_type_id?: number | null;
   room_count?: number | null;
   usage_limit_per_member?: number | null;
   member_usage_count?: number;
+  boat_ticket_count?: number | null;
+  boat_addon_mode?: 'free' | 'paid' | null;
+  boat_addon_price?: number | string | null;
 }
 
 export interface CheckoutDetails {
@@ -46,14 +53,28 @@ export function resolveCheckoutDetails(params: URLSearchParams, cart: CheckoutCa
 }
 
 export function eligibleRoomPromotion(promo: CheckoutPromotion, basePrice: number, nights: number, typeId?: number, roomCount?: number): boolean {
-  if (promo.applies_to === 'kayak') return false;
-  if (promo.is_collectible && promo.wallet_status !== 'saved') return false;
-  if (promo.min_nights != null && nights < Number(promo.min_nights)) return false;
-  if (promo.min_price != null && basePrice < Number(promo.min_price)) return false;
-  if (promo.room_type_id != null && typeId !== promo.room_type_id) return false;
-  if (promo.room_count != null && roomCount != null && roomCount < promo.room_count) return false;
-  if (promo.usage_limit_per_member != null && (promo.member_usage_count ?? 0) >= promo.usage_limit_per_member) return false;
-  return true;
+  return roomPromotionReasons(promo, basePrice, nights, typeId, roomCount).length === 0;
+}
+
+export function roomPromotionReasons(promo: CheckoutPromotion, basePrice: number, nights: number, typeId?: number, roomCount?: number): string[] {
+  const reasons: string[] = [];
+  if (promo.applies_to === 'kayak') reasons.push('ใช้ได้กับการจองเรือเท่านั้น');
+  if (promo.min_nights != null && nights < Number(promo.min_nights)) reasons.push(`ต้องพักอย่างน้อย ${promo.min_nights} คืน`);
+  if (promo.min_price != null && basePrice < Number(promo.min_price)) reasons.push(`ยอดค่าห้องขั้นต่ำ ฿${Number(promo.min_price).toLocaleString()}`);
+  if (promo.room_type_id != null && typeId !== promo.room_type_id) reasons.push('ใช้ได้กับห้องประเภทอื่น');
+  if (promo.room_count != null && roomCount != null && roomCount < promo.room_count) reasons.push(`ต้องจองอย่างน้อย ${promo.room_count} ห้อง`);
+  if (promo.usage_limit_per_member != null && (promo.member_usage_count ?? 0) >= promo.usage_limit_per_member) reasons.push('ใช้ครบจำนวนครั้งต่อสมาชิกแล้ว');
+  else if (promo.is_collectible && !canUseWalletPromotion(promo.wallet_status, promo.wallet_remaining)) reasons.push('ต้องเก็บคูปองที่หน้าโปรโมชั่นก่อน');
+  return reasons;
+}
+
+export function roomPromotionLabel(promo: CheckoutPromotion): string {
+  const benefits: string[] = [];
+  if (Number(promo.discount_value) > 0) benefits.push(promo.discount_type === 'percent' ? `ลด ${Number(promo.discount_value)}%` : `ลด ฿${Number(promo.discount_value).toLocaleString()}`);
+  if (Number(promo.boat_ticket_count) > 0) benefits.push(promo.boat_addon_mode === 'paid'
+    ? `สิทธิ์จองเรือ ${promo.boat_ticket_count} สิทธิ์/ห้อง ฿${Number(promo.boat_addon_price ?? 0).toLocaleString()}/สิทธิ์`
+    : `เรือฟรี ${promo.boat_ticket_count} สิทธิ์/ห้อง`);
+  return benefits.join(' · ') || 'ดูเงื่อนไขโปรโมชั่น';
 }
 
 export function roomPromotionDiscount(promo: CheckoutPromotion, basePrice: number): number {

@@ -6,8 +6,9 @@ import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { toastConfirm } from '@/lib/toastConfirm';
 import Link from 'next/link';
-import { toISODate } from '@/lib/date';
 import BoatAddonSection from '@/components/booking/BoatAddonSection';
+import RoomBoatTicketSummary from '@/components/booking/RoomBoatTicketSummary';
+import type { BoatTicketSummary } from '@/lib/room-boat-addon';
 
 type BookingType = 'room' | 'kayak';
 type TabKey = 'all' | BookingType;
@@ -36,6 +37,9 @@ interface BookingRecord {
   id?: number;
   room_booking_id?: number;
   boat_booking_id?: number;
+  is_addon?: boolean;
+  addon_mode?: 'free' | 'paid' | null;
+  boat_ticket_summary?: BoatTicketSummary;
   room_name?: string;
   kayak_name?: string;
   status: string;
@@ -72,7 +76,7 @@ interface ReviewRecord {
 }
 
 function bookingId(b: BookingRecord): number {
-  return b.id || b.room_booking_id || b.boat_booking_id || 0;
+  return b.id || b.boat_booking_id || b.room_booking_id || 0;
 }
 
 // แถวรายละเอียด label + value ใช้จัด grid ให้อ่านง่าย
@@ -369,20 +373,13 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
           </div>
         )}
 
-                {b.has_unused_boat_tickets && b.status !== 'cancelled' && b.status !== 'rejected' && (
-          <div className="mt-4 border-t border-stone-100 pt-4">
-             <div className="rounded-xl border border-forest-300 bg-gradient-to-br from-forest-50 to-forest-100 p-4 text-center shadow-sm relative overflow-hidden">
-               <h3 className="font-sans text-sm font-bold text-forest-900 relative z-10 flex items-center justify-center gap-1.5 mb-2">
-                 คุณมีสิทธิ์จองเรือฟรี (จากโปรโมชั่นที่ใช้)
-               </h3>
-               <Link href={`/kayaks?room_booking_id=${bid}${b.check_in_date ? `&check_in=${toISODate(new Date(b.check_in_date))}` : ''}${b.check_out_date ? `&check_out=${toISODate(new Date(b.check_out_date))}` : ''}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-forest-900 px-6 py-2.5 text-xs font-bold text-white transition-colors hover:bg-forest-800 shadow-sm w-full">
-                 จองคิวเรือตอนนี้
-               </Link>
-             </div>
-          </div>
-        )}
+        {type === 'room' && (b.boat_ticket_summary?.total_tickets || b.has_unused_boat_tickets) && <div className="mt-4"><RoomBoatTicketSummary summary={b.boat_ticket_summary} bookingId={bid} bookingStatus={b.status} hasTickets={b.has_unused_boat_tickets} /></div>}
+        {type === 'kayak' && b.is_addon && <p className="mt-3 text-xs leading-relaxed text-forest-800">
+          เรือจากโปรโมชั่นห้องพัก{b.addon_mode === 'free' ? ' · สิทธิ์ฟรี' : b.addon_mode === 'paid' ? ' · มีค่าใช้จ่ายรวมกับค่าห้องพัก' : ''}
+          {b.room_booking_id && <Link href={`/kayaks/room-addon?room_booking_id=${b.room_booking_id}`} className="ml-2 underline underline-offset-2">{`การจองห้องพัก #${b.room_booking_id}`}</Link>}
+        </p>}
 
-        {b.status === 'pending' && (() => {
+        {b.status === 'pending' && !b.is_addon && (() => {
           const createdAt = b.created_at;
           const deadlineMs = new Date(createdAt).getTime() + paymentDueDays * 24 * 60 * 60 * 1000;
           const isExpired = Date.now() > deadlineMs;

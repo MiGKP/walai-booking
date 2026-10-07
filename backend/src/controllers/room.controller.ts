@@ -161,12 +161,14 @@ export const getAllRooms = async (
            WHERE rev.room_type_id = rt.id
          ) as review_count,
          (
-           SELECT json_agg(json_build_object('id', p.id, 'name', p.name, 'code', p.code, 'description', p.description, 'discount_value', p.discount_value, 'discount_type', p.discount_type, 'min_nights', p.min_nights, 'max_discount', p.max_discount, 'boat_ticket_count', p.boat_ticket_count, 'boat_addon_mode', p.boat_addon_mode, 'boat_addon_price', p.boat_addon_price, 'stackable', p.stackable))
+           SELECT json_agg(json_build_object('id', p.id, 'name', p.name, 'code', p.code, 'description', p.description, 'discount_value', p.discount_value, 'discount_type', p.discount_type, 'min_nights', p.min_nights, 'max_discount', p.max_discount, 'boat_ticket_count', p.boat_ticket_count, 'boat_addon_mode', p.boat_addon_mode, 'boat_addon_price', p.boat_addon_price, 'stackable', p.stackable, 'min_price', p.min_price, 'room_type_id', p.room_type_id, 'room_count', p.room_count, 'is_collectible', p.is_collectible, 'applies_to', p.applies_to))
            FROM promotions p
            WHERE p.is_active = true
-             AND p.start_date <= (now() AT TIME ZONE 'Asia/Bangkok')::date
-             AND p.end_date >= (now() AT TIME ZONE 'Asia/Bangkok')::date
+             AND (p.start_date IS NULL OR p.start_date <= (now() AT TIME ZONE 'Asia/Bangkok')::date)
+             AND (p.end_date IS NULL OR p.end_date >= (now() AT TIME ZONE 'Asia/Bangkok')::date)
              AND (p.room_type_id = rt.id OR p.room_type_id IS NULL)
+                 AND (p.usage_limit IS NULL OR p.usage_count < p.usage_limit)
+                 AND COALESCE(p.applies_to, 'both') IN ('room', 'both')
          ) as available_promotions,
          (
            SELECT json_agg(json_build_object('room_id', r.room_id, 'room_number', r.room_number))
@@ -266,12 +268,14 @@ export const getRoomById = async (
              ) as amenities,
              (${roomsSubquery}) as rooms,
              (
-               SELECT json_agg(json_build_object('id', p.id, 'name', p.name, 'code', p.code, 'description', p.description, 'discount_value', p.discount_value, 'discount_type', p.discount_type, 'min_nights', p.min_nights, 'max_discount', p.max_discount, 'boat_ticket_count', p.boat_ticket_count, 'boat_addon_mode', p.boat_addon_mode, 'boat_addon_price', p.boat_addon_price, 'stackable', p.stackable))
+               SELECT json_agg(json_build_object('id', p.id, 'name', p.name, 'code', p.code, 'description', p.description, 'discount_value', p.discount_value, 'discount_type', p.discount_type, 'min_nights', p.min_nights, 'max_discount', p.max_discount, 'boat_ticket_count', p.boat_ticket_count, 'boat_addon_mode', p.boat_addon_mode, 'boat_addon_price', p.boat_addon_price, 'stackable', p.stackable, 'min_price', p.min_price, 'room_type_id', p.room_type_id, 'room_count', p.room_count, 'is_collectible', p.is_collectible, 'applies_to', p.applies_to))
                FROM promotions p
                WHERE p.is_active = true
-                 AND p.start_date <= (now() AT TIME ZONE 'Asia/Bangkok')::date
-                 AND p.end_date >= (now() AT TIME ZONE 'Asia/Bangkok')::date
+                 AND (p.start_date IS NULL OR p.start_date <= (now() AT TIME ZONE 'Asia/Bangkok')::date)
+                 AND (p.end_date IS NULL OR p.end_date >= (now() AT TIME ZONE 'Asia/Bangkok')::date)
                  AND (p.room_type_id = rt.id OR p.room_type_id IS NULL)
+                 AND (p.usage_limit IS NULL OR p.usage_count < p.usage_limit)
+                 AND COALESCE(p.applies_to, 'both') IN ('room', 'both')
              ) as available_promotions
       FROM room_types rt
       WHERE rt.id = $1 AND ($2::boolean IS TRUE OR rt.status = true)
