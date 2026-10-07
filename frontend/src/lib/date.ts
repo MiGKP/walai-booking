@@ -1,3 +1,5 @@
+export const BANGKOK_TIMEZONE = 'Asia/Bangkok';
+
 const THAI_MONTHS: readonly string[] = [
   'มกราคม',
   'กุมภาพันธ์',
@@ -31,21 +33,25 @@ const THAI_MONTHS_SHORT: readonly string[] = [
 export const THAI_WEEKDAYS_SHORT: readonly string[] = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 
 /**
- * ปฏิทินทั้งหมดทำงานบนสตริง YYYY-MM-DD เป็นหลัก เพื่อไม่ให้ timezone ของเบราว์เซอร์
- * เลื่อนวันไป-มาเวลาแปลงกลับเป็น Date (ปัญหาคลาสสิกของ toISOString กับ local date)
+ * แปลง Date Object เป็นสตริง YYYY-MM-DD ตามเขตเวลาประเทศไทย (Asia/Bangkok, UTC+7) เสมอ
+ * เพื่อป้องกันปัญหา Browser Timezone ต่างประเทศเลื่อนวัน
  */
-export const toISODate = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+export const toISODate = (date: Date = new Date()): string => {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: BANGKOK_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
 };
 
 export const fromISODate = (iso: string): Date => {
+  if (!iso) return new Date();
   const [year, month, day] = iso.split('-').map(Number);
   return new Date(year, (month ?? 1) - 1, day ?? 1);
 };
 
+/** วันที่ปัจจุบันในประเทศไทย (Asia/Bangkok) รูปแบบ YYYY-MM-DD */
 export const todayISO = (): string => toISODate(new Date());
 
 export const addDaysISO = (iso: string, days: number): string => {
@@ -120,20 +126,110 @@ export const buildMonthGrid = (cursor: MonthCursor): (string | null)[] => {
 export const formatMonthLabel = (cursor: MonthCursor): string =>
   `${THAI_MONTHS[cursor.month]} ${cursor.year + 543}`;
 
-export const formatThaiDate = (iso: string): string => {
-  if (!iso) return '';
-  const date = fromISODate(iso);
-  return `${date.getDate()} ${THAI_MONTHS_SHORT[date.getMonth()]} ${date.getFullYear() + 543}`;
+/**
+ * แสดงผลวันที่ภาษาไทยตามเขตเวลาประเทศไทย (Asia/Bangkok)
+ * เช่น "7 ต.ค. 2569" หรือ "7 ต.ค. 69"
+ */
+export const formatThaiDate = (
+  isoOrDate?: string | Date | null,
+  yearFormat: 'numeric' | '2-digit' = 'numeric'
+): string => {
+  if (!isoOrDate) return '-';
+  const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('th-TH', {
+    timeZone: BANGKOK_TIMEZONE,
+    day: 'numeric',
+    month: 'short',
+    year: yearFormat,
+  });
 };
 
-export const formatThaiDateLong = (iso: string): string => {
-  if (!iso) return '';
-  const date = fromISODate(iso);
-  return `${date.getDate()} ${THAI_MONTHS[date.getMonth()]} ${date.getFullYear() + 543}`;
+/**
+ * แสดงผลวันที่ภาษาไทยแบบสั้น เช่น "7 ต.ค. 69"
+ */
+export const formatThaiDateShort = (isoOrDate?: string | Date | null): string => {
+  return formatThaiDate(isoOrDate, '2-digit');
+};
+
+/**
+ * แสดงผลวันที่ภาษาไทยแบบเต็ม เช่น "7 ตุลาคม 2569"
+ */
+export const formatThaiDateLong = (isoOrDate?: string | Date | null): string => {
+  if (!isoOrDate) return '-';
+  const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('th-TH', {
+    timeZone: BANGKOK_TIMEZONE,
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+};
+
+/**
+ * แสดงผลเวลาตามเขตเวลาประเทศไทย (Asia/Bangkok)
+ * เช่น "14:30 น."
+ */
+export const formatThaiTime = (isoOrDate?: string | Date | null): string => {
+  if (!isoOrDate) return '-';
+  const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+  if (isNaN(d.getTime())) return '-';
+  return `${d.toLocaleTimeString('th-TH', {
+    timeZone: BANGKOK_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+  })} น.`;
+};
+
+/**
+ * แสดงผลวันและเวลาตามเขตเวลาประเทศไทย (Asia/Bangkok)
+ * เช่น "7 ต.ค. 69 14:30 น."
+ */
+export const formatThaiDateTime = (isoOrDate?: string | Date | null): string => {
+  if (!isoOrDate) return '-';
+  const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+  if (isNaN(d.getTime())) return '-';
+  const dateStr = d.toLocaleDateString('th-TH', {
+    timeZone: BANGKOK_TIMEZONE,
+    day: 'numeric',
+    month: 'short',
+    year: '2-digit',
+  });
+  const timeStr = d.toLocaleTimeString('th-TH', {
+    timeZone: BANGKOK_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${dateStr} ${timeStr} น.`;
 };
 
 export const formatTimeRange = (startTime: string, endTime: string): string => {
   const start = (startTime ?? '').slice(0, 5);
   const end = (endTime ?? '').slice(0, 5);
-  return `${start} – ${end}`;
+  return `${start} – ${end} น.`;
+};
+
+/**
+ * แปลง Date หรือ Date String ท้องถิ่นไทยให้เป็นสากล (UTC ISO String)
+ * ใช้เรียกทุกครั้งก่อนส่ง payload ข้อมูลวันเวลาไปยัง Backend API
+ * เช่น "2026-10-07T16:00:00.000Z"
+ */
+export const toUTCISOString = (dateOrISO?: Date | string | null): string => {
+  if (!dateOrISO) return new Date().toISOString();
+  const d = typeof dateOrISO === 'string' ? new Date(dateOrISO) : dateOrISO;
+  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+};
+
+/**
+ * รวมวันที่ไทย YYYY-MM-DD และเวลา HH:MM แล้วแปลงเป็นเวลาสากล UTC ISO String
+ * เช่น thaiDateAndTimeToUTC("2026-10-07", "14:00") -> "2026-10-07T07:00:00.000Z" (UTC = Thai - 7h)
+ */
+export const thaiDateAndTimeToUTC = (dateStr: string, timeStr = '00:00'): string => {
+  if (!dateStr) return new Date().toISOString();
+  // ประกอบ string แบบมี offset +07:00
+  const normalizedTime = timeStr.length === 5 ? `${timeStr}:00` : timeStr;
+  const isoWithOffset = `${dateStr}T${normalizedTime}+07:00`;
+  const date = new Date(isoWithOffset);
+  return isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 };
