@@ -1737,22 +1737,26 @@ export const handOutBoatAddon = async (
   res: Response,
 ): Promise<void> => {
   try {
+    const user = req.user as AuthPayload;
     const boatBookingId = parsePositiveInt(req.params.boatBookingId);
     if (boatBookingId === null) {
       res.status(400).json({ success: false, message: "Invalid boat booking id" });
       return;
     }
+    const staffId = ["admin", "room_staff", "boat_staff"].includes(user?.role) ? user.id : null;
     // มอบได้เฉพาะบัตรที่อนุมัติแล้ว และห้องพักต้องอนุมัติแล้ว (กันมอบบัตรก่อนลูกค้าชำระค่าห้อง)
     // ไม่เขียนทับ handed_out_at ถ้าเคยมอบแล้ว (เรียกซ้ำได้โดยไม่เปลี่ยนเวลาเดิม)
     const result = await pool.query(
-      `UPDATE boat_bookings SET handed_out_at = COALESCE(handed_out_at, NOW()), printed_at = COALESCE(printed_at, NOW())
+      `UPDATE boat_bookings
+       SET handed_out_at = COALESCE(handed_out_at, NOW()),
+           handed_out_by_staff_id = COALESCE(handed_out_by_staff_id, $2)
        WHERE boat_booking_id = $1 AND is_addon = true AND status = 'approved'
          AND EXISTS (
            SELECT 1 FROM room_bookings rb
            WHERE rb.room_booking_id = boat_bookings.room_booking_id AND rb.status = 'approved'
          )
        RETURNING *`,
-      [boatBookingId],
+      [boatBookingId, staffId],
     );
     if (result.rows.length === 0) {
       const blocked = await findActiveAddonError(boatBookingId);

@@ -33,7 +33,7 @@ import {
   Moon,
 } from "lucide-react";
 import api, { getApiErrorMessage } from "@/lib/api";
-import { toISODate } from "@/lib/date";
+import { toISODate, formatThaiDate, formatThaiDateLong } from "@/lib/date";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useAuth } from "@/hooks/useAuth";
@@ -886,19 +886,15 @@ function RoomStaffDashboardContent() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs md:text-sm">
             <thead>
-              <tr className="border-b border-charcoal-100 text-charcoal-400 bg-cream-50 font-bold text-xs tracking-wider uppercase">
-                <th className="px-5 py-4">รหัสการจอง</th>
-                <th className="px-5 py-4">ลูกค้า</th>
-                <th className="px-5 py-4">ห้องพัก</th>
-                <th className="px-5 py-4">
-                  ระยะเวลาเข้าพัก
-                </th>
-                <th className="px-5 py-4">
-                  ยอดรวม
-                </th>
-                <th className="px-5 py-4">สถานะ</th>
-                <th className="px-5 py-4 text-center">สลิปโอนเงิน</th>
-                <th className="px-5 py-4 text-right">การจัดการ</th>
+              <tr className="border-b border-charcoal-100 text-charcoal-500 bg-cream-50 font-bold text-xs tracking-wider">
+                <th className="px-3.5 py-3.5 whitespace-nowrap">รหัสการจอง</th>
+                <th className="px-3.5 py-3.5 whitespace-nowrap">ลูกค้า</th>
+                <th className="px-3.5 py-3.5 whitespace-nowrap">ห้องพัก</th>
+                <th className="px-3.5 py-3.5 whitespace-nowrap">ระยะเวลาเข้าพัก</th>
+                <th className="px-3.5 py-3.5 whitespace-nowrap">ยอดรวม</th>
+                <th className="px-3.5 py-3.5 whitespace-nowrap">สถานะ</th>
+                <th className="px-3.5 py-3.5 text-center whitespace-nowrap">สลิปโอนเงิน</th>
+                <th className="px-4 py-3.5 text-right whitespace-nowrap">การจัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
@@ -937,133 +933,115 @@ function RoomStaffDashboardContent() {
 
                   return (
                     <tr key={bookingId} className="hover:bg-cream-100/60 border-b border-charcoal-50 last:border-0 transition-colors group">
-                      <td className="px-5 py-4 text-stone-400 font-mono text-xs font-semibold">
+                      <td className="px-3.5 py-3.5 text-stone-400 font-mono text-xs font-semibold whitespace-nowrap">
                         #{bookingId}
                       </td>
 
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-stone-100 border border-stone-200/60 flex items-center justify-center text-stone-500 shrink-0 font-bold text-xs">
+                      <td className="px-3.5 py-3.5">
+                        <div className="flex items-center gap-2 min-w-[120px]">
+                          <div className="w-7 h-7 rounded-full bg-cream-100 border border-cream-200/80 flex items-center justify-center text-forest-800 shrink-0 font-bold text-xs">
                             {(b.user_name || "U")[0].toUpperCase()}
                           </div>
-                          <div>
-                            <p className="font-semibold text-stone-800 leading-snug">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-charcoal-900 text-xs truncate max-w-[120px]" title={b.user_name || "ไม่ระบุชื่อ"}>
                               {b.user_name || "ไม่ระบุชื่อ"}
                             </p>
-                            <p className="text-xs text-stone-500 font-mono flex items-center gap-1 mt-0.5">
-                              <Phone size={10} className="text-stone-400" />
+                            <p className="text-[11px] text-charcoal-500 font-mono flex items-center gap-1 mt-0.5 whitespace-nowrap">
+                              <Phone size={10} className="text-charcoal-400" />
                               {b.user_phone || b.phone || "-"}
                             </p>
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
+                      <td className="px-3.5 py-3.5">
+                        <div className="flex items-start gap-2 min-w-[130px]">
                           <BedDouble
-                            size={16}
-                            className="text-stone-400 shrink-0"
+                            size={15}
+                            className="text-forest-700 shrink-0 mt-0.5"
                           />
-                          <div>
-                            <p className="font-semibold text-stone-800 leading-snug">
-                              {b.room_name || b.type_name || "-"}
-                            </p>
-                            <p className="text-xs text-stone-500">
-                              {Array.isArray(b.rooms) && b.rooms.length > 1
-                                ? `${b.rooms.length} ห้อง`
-                                : (
-                                  <>
-                                    ห้อง{" "}
-                                    <span className="font-mono font-medium">
-                                      {b.room_number ||
-                                        b.rooms?.[0]?.room_number ||
-                                        b.room_id ||
-                                        "-"}
-                                    </span>
-                                  </>
-                                )}
-                            </p>
-                            {Array.isArray(b.rooms) && b.rooms.length > 1 && (
-                              <ul className="mt-1 space-y-0.5 text-xs text-stone-500">
-                                {b.rooms.map(
-                                  (line: {
-                                    booking_room_id: number;
-                                    room_number: string;
-                                    room_name: string;
-                                    status: string;
-                                  }) => (
-                                    <li key={line.booking_room_id}>
-                                      {line.room_name} #{line.room_number}
-                                      {line.status === "checked_out"
-                                        ? " ✓ ออกแล้ว"
-                                        : line.status === "checked_in"
-                                          ? " • เช็คอินแล้ว"
-                                          : ""}
-                                    </li>
-                                  ),
-                                )}
-                              </ul>
+                          <div className="space-y-1">
+                            {Array.isArray(b.rooms) && b.rooms.length > 0 ? (
+                              (() => {
+                                const roomMap = new Map<string, string[]>();
+                                b.rooms.forEach((r: any) => {
+                                  const name = r.room_name || b.type_name || b.room_name || "ห้องพัก";
+                                  const num = r.room_number ? `${r.room_number}` : (r.room_id ? `${r.room_id}` : "");
+                                  if (!roomMap.has(name)) roomMap.set(name, []);
+                                  if (num) roomMap.get(name)!.push(num);
+                                });
+
+                                return Array.from(roomMap.entries()).map(([name, nums]) => (
+                                  <div key={name} className="text-xs">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="font-semibold text-charcoal-900 whitespace-nowrap">{name}</span>
+                                      {nums.length > 1 && (
+                                        <span className="text-charcoal-500 font-medium whitespace-nowrap">({nums.length} ห้อง)</span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1 flex-wrap mt-1">
+                                      {nums.map((num) => (
+                                        <span
+                                          key={num}
+                                          className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-cream-100 text-forest-900 border border-cream-200/80 font-mono text-[11px] font-bold"
+                                        >
+                                          {num}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ));
+                              })()
+                            ) : (
+                              <div className="text-xs">
+                                <p className="font-semibold text-charcoal-900 whitespace-nowrap">
+                                  {b.room_name || b.type_name || "ห้องพัก"}
+                                </p>
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-cream-100 text-forest-900 border border-cream-200/80 font-mono text-[11px] font-bold mt-1">
+                                  {b.room_number || b.room_id || "-"}
+                                </span>
+                              </div>
                             )}
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5 text-xs text-stone-700 font-mono">
-                            <span className="font-medium bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200/50">
-                              {b.check_in
-                                ? new Date(b.check_in).toLocaleDateString(
-                                    "th-TH",
-                                    {
-                                      day: "numeric",
-                                      month: "short",
-                                      year: "2-digit",
-                                    },
-                                  )
-                                : "-"}
-                            </span>
-                            <span className="text-stone-300">→</span>
-                            <span className="font-medium bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200/50">
-                              {b.check_out
-                                ? new Date(b.check_out).toLocaleDateString(
-                                    "th-TH",
-                                    {
-                                      day: "numeric",
-                                      month: "short",
-                                      year: "2-digit",
-                                    },
-                                  )
-                                : "-"}
-                            </span>
+                      <td className="px-3.5 py-3.5 whitespace-nowrap">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1 text-xs font-semibold text-charcoal-800">
+                            <CalendarDays size={13} className="text-forest-700 shrink-0" />
+                            <span>{formatThaiDate(b.check_in, "2-digit")}</span>
+                            <span className="text-charcoal-400 font-normal">–</span>
+                            <span>{formatThaiDate(b.check_out, "2-digit")}</span>
                           </div>
                           {nights > 0 && (
-                            <span className="text-xs text-stone-400 flex items-center gap-1 font-medium">
-                              <Moon size={10} /> {nights} คืน
-                            </span>
+                            <div className="flex items-center gap-1 text-[11px] text-charcoal-500 pl-4">
+                              <Moon size={10} className="text-forest-700" />
+                              <span>{nights} คืน</span>
+                            </div>
                           )}
                         </div>
                       </td>
 
-                      <td className="px-5 py-4 font-bold text-[#0b3b2c] font-mono text-sm whitespace-nowrap">
+                      <td className="px-3.5 py-3.5 font-bold text-[#0b3b2c] font-mono text-sm whitespace-nowrap">
                         ฿{Number(b.total_price || 0).toLocaleString()}
                       </td>
 
-                      <td className="px-5 py-4 whitespace-nowrap">
+                      <td className="px-3.5 py-3.5 whitespace-nowrap">
                         <div className="flex flex-col items-start gap-1">
                           <BookingStatusBadge status={b.status} />
                           {b.approved_by_name &&
                             ["approved", "checked_out", "rejected"].includes(
                               b.status,
                             ) && (
-                              <span className="text-xs text-stone-400 ml-1">
+                              <span className="text-[11px] text-stone-400 ml-1">
                                 โดย: {b.approved_by_name}
                               </span>
                             )}
                         </div>
                       </td>
 
-                      <td className="px-5 py-4 text-center whitespace-nowrap">
+                      <td className="px-3.5 py-3.5 text-center whitespace-nowrap">
                         {b.payment_slip ? (
                           <button
                             onClick={() =>
@@ -1073,7 +1051,7 @@ function RoomStaffDashboardContent() {
                                 name: b.user_name || "slip",
                               })
                             }
-                            className="inline-flex items-center gap-1.5 text-xs text-lagoon-700 bg-lagoon-50/80 hover:bg-lagoon-100 border border-lagoon-200/80 px-3 py-1.5 rounded-xl font-semibold transition-all active:scale-95 shadow-2xs"
+                            className="inline-flex items-center gap-1.5 text-xs text-lagoon-700 bg-lagoon-50/80 hover:bg-lagoon-100 border border-lagoon-200/80 px-2.5 py-1 rounded-xl font-semibold transition-all active:scale-95 shadow-2xs"
                           >
                             <Eye size={13} />
                             <span>ดูสลิป</span>
@@ -1085,7 +1063,7 @@ function RoomStaffDashboardContent() {
                         )}
                       </td>
 
-                      <td className="px-5 py-4 text-right whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() =>
@@ -1094,50 +1072,30 @@ function RoomStaffDashboardContent() {
                             className="p-1.5 text-stone-500 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/80 rounded-xl transition-colors"
                             title="ดูรายละเอียดการจอง"
                           >
-                            <FileText size={15} />
+                            <FileText size={14} />
                           </button>
 
                           {b.status === "checked_out" ? (
-                            <span className="text-xs text-lagoon-700 font-semibold bg-lagoon-50 border border-lagoon-200/80 px-3 py-1 rounded-xl inline-block">
+                            <span className="text-xs text-charcoal-600 font-semibold bg-charcoal-100 border border-charcoal-200 px-2.5 py-1 rounded-xl inline-block">
                               เช็คเอาต์แล้ว
                             </span>
                           ) : b.status === "approved" ? (
-                            <div className="flex flex-col items-end gap-1">
-                              {(() => {
-                                const lines: { status: string }[] = Array.isArray(b.rooms) ? b.rooms : [];
-                                const checkedInCount = lines.filter((l) => l.status === "checked_in").length;
-                                const total = lines.length || 1;
-                                return (
-                                  <span className="text-xs text-lagoon-700 font-semibold bg-lagoon-50 border border-lagoon-200/80 px-3 py-1 rounded-xl inline-block">
-                                    เช็คอินแล้ว {checkedInCount}/{total} ห้อง
-                                  </span>
-                                );
-                              })()}
-                              <button
-                                onClick={() =>
-                                  router.push(
-                                    `${user?.role === "room_staff" ? "/staff/rooms/checkin" : "/admin/checkin"}?search=${encodeURIComponent(b.user_phone || b.user_name || "")}`,
-                                  )
-                                }
-                                className="inline-flex items-center gap-1 text-xs text-stone-500 hover:text-[#0b3b2c] font-medium transition-colors"
-                              >
-                                <LogIn size={11} />
-                                <span>ไปหน้าเช็คอิน-เช็คเอาต์</span>
-                              </button>
-                            </div>
+                            <span className="text-xs text-forest-800 font-semibold bg-cream-100 border border-cream-200 px-2.5 py-1 rounded-xl inline-block">
+                              อนุมัติแล้ว
+                            </span>
                           ) : b.status === "rejected" ? (
-                            <span className="text-xs text-rose-600 font-semibold bg-rose-50 border border-rose-200/80 px-3 py-1 rounded-xl inline-block">
+                            <span className="text-xs text-rose-600 font-semibold bg-rose-50 border border-rose-200/80 px-2.5 py-1 rounded-xl inline-block">
                               ปฏิเสธแล้ว
                             </span>
                           ) : b.status === "cancelled" ? (
-                            <span className="text-xs text-stone-500 font-semibold bg-stone-100 border border-stone-200 px-3 py-1 rounded-xl inline-block">
+                            <span className="text-xs text-stone-500 font-semibold bg-stone-100 border border-stone-200 px-2.5 py-1 rounded-xl inline-block">
                               ยกเลิกแล้ว
                             </span>
                           ) : b.payment_slip ? (
                             <>
                               <button
                                 onClick={() => handleApprove(bookingId)}
-                                className="inline-flex items-center gap-1 text-xs bg-forest-600 hover:bg-forest-700 text-white font-semibold px-3 py-1.5 rounded-xl transition-all shadow-xs active:scale-95"
+                                className="inline-flex items-center gap-1 text-xs bg-forest-800 hover:bg-forest-900 text-white font-semibold px-2.5 py-1 rounded-xl transition-all shadow-xs active:scale-95"
                               >
                                 <span>อนุมัติ</span>
                               </button>
@@ -1150,7 +1108,7 @@ function RoomStaffDashboardContent() {
                                     customReason: "",
                                   })
                                 }
-                                className="inline-flex items-center gap-1 text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold px-3 py-1.5 rounded-xl border border-rose-200 transition-all active:scale-95"
+                                className="inline-flex items-center gap-1 text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold px-2.5 py-1 rounded-xl border border-rose-200 transition-all active:scale-95"
                               >
                                 <span>ปฏิเสธ</span>
                               </button>
@@ -1314,12 +1272,35 @@ function RoomStaffDashboardContent() {
                     <BedDouble size={15} className="text-charcoal-500 print:hidden" />
                     <span>รายละเอียดห้องพัก</span>
                   </div>
-                  <p><strong className="text-charcoal-700">ชื่อห้อง/ประเภท:</strong> {booking.room_name || booking.type_name}</p>
-                  <p><strong className="text-charcoal-700">หมายเลขห้อง:</strong> {booking.room_number || booking.room_id}</p>
-                  <p>
+                  {Array.isArray(booking.rooms) && booking.rooms.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <div className="text-xs text-charcoal-700">
+                        <strong className="text-charcoal-700">ห้องที่จอง ({booking.rooms.length} ห้อง):</strong>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {booking.rooms.map((r: any, rIdx: number) => (
+                          <span
+                            key={rIdx}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-charcoal-200 text-xs text-charcoal-800 font-medium shadow-2xs"
+                          >
+                            <span>{r.room_name || booking.type_name || "ห้องพัก"}</span>
+                            <span className="font-mono font-bold text-forest-800 bg-cream-100 px-1.5 py-0.5 rounded border border-cream-200">
+                              {r.room_number || r.room_id || "-"}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p><strong className="text-charcoal-700">ชื่อห้อง/ประเภท:</strong> {booking.room_name || booking.type_name || "ห้องพัก"}</p>
+                      <p><strong className="text-charcoal-700">หมายเลขห้อง:</strong> {booking.room_number || booking.room_id || "-"}</p>
+                    </>
+                  )}
+                  <p className="pt-1">
                     <strong className="text-charcoal-700">ระยะเวลาเข้าพัก:</strong>{" "}
-                    {booking.check_in ? new Date(booking.check_in).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" }) : "-"} ถึง{" "}
-                    {booking.check_out ? new Date(booking.check_out).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" }) : "-"} ({nights} คืน)
+                    {formatThaiDateLong(booking.check_in)} ถึง{" "}
+                    {formatThaiDateLong(booking.check_out)} ({nights} คืน)
                   </p>
 
                   <div className="pt-2 mt-2 border-t border-charcoal-200/60">
