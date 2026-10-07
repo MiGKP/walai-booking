@@ -2,6 +2,8 @@
 
 `room-status-concurrency.test.cjs` calls the real booking controllers against PostgreSQL. It checks cancellation during check-in and concurrent checkout of the last two rooms.
 
+`promotion-wallet.test.cjs` exercises collected coupon use and quota restoration for both room and boat bookings with the production `varchar` wallet status type. Its temporary tables and writes are rolled back.
+
 Use a separate local PostgreSQL server or test database. The role needs permission to create a schema. The suite creates a random schema, inserts minimal fixtures, and removes that schema after the run. It does not load the backend `.env` or send mail.
 
 From PowerShell in `backend/`:
