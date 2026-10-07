@@ -66,6 +66,32 @@ const ROOMS_JSON_SQL = `COALESCE((
   WHERE br.room_booking_id = rb.room_booking_id
 ), '[]'::json)`;
 
+// Only physical-room addon grants belong here; legacy NULL booking_room_id
+// grants are redeemed through the general wallet. Keep exhausted addon grants.
+const BOAT_TICKET_SUMMARY_SQL = `(
+  SELECT json_build_object(
+    'total_tickets', COALESCE(SUM(mbt.total_tickets), 0),
+    'used_tickets', COALESCE(SUM(mbt.used_tickets), 0),
+    'remaining_tickets', COALESCE(SUM(mbt.total_tickets - mbt.used_tickets), 0),
+    'bookable_tickets', COALESCE(SUM(mbt.total_tickets - mbt.used_tickets) FILTER (
+      WHERE btr.status IN ('pending', 'paid', 'approved')
+        AND rb.status IN ('pending', 'paid', 'approved')
+        AND (mbt.mode = 'free' OR rb.status = 'pending')
+    ), 0),
+    'free_tickets', COALESCE(SUM(mbt.total_tickets) FILTER (WHERE mbt.mode = 'free'), 0),
+    'paid_tickets', COALESCE(SUM(mbt.total_tickets) FILTER (WHERE mbt.mode = 'paid'), 0),
+    'valid_from', CASE WHEN rb.check_in + 1 <= rb.check_out - 1
+                      THEN to_char(rb.check_in + 1, 'YYYY-MM-DD') ELSE NULL END,
+    'valid_to', CASE WHEN rb.check_in + 1 <= rb.check_out - 1
+                    THEN to_char(rb.check_out - 1, 'YYYY-MM-DD') ELSE NULL END
+  )
+  FROM member_boat_tickets mbt
+  LEFT JOIN booking_room btr ON btr.booking_room_id = mbt.booking_room_id
+                           AND btr.room_booking_id = rb.room_booking_id
+  WHERE mbt.room_booking_id = rb.room_booking_id
+    AND mbt.booking_room_id IS NOT NULL
+)`;
+
 // บัตรเสริมเรือคายัคที่ผูกกับบิลจองห้องนี้ — ใช้แสดง/พิมพ์/มอบบัตรตอนเช็คอิน
 const BOAT_ADDONS_JSON_SQL = `COALESCE((
   SELECT json_agg(json_build_object(
@@ -549,6 +575,12 @@ export const createRoomBooking = async (
       totalBoatTickets += grant.ticketsPerRoom;
     }
 
+    const ticketSummary = await client.query(
+      `SELECT ${BOAT_TICKET_SUMMARY_SQL} AS boat_ticket_summary
+       FROM room_bookings rb WHERE rb.room_booking_id = $1`,
+      [roomBookingId]
+    );
+
     await client.query('COMMIT');
 
     (async () => {
@@ -583,7 +615,7 @@ export const createRoomBooking = async (
     res.status(201).json({
       success: true,
       message: 'Booking created',
-      data: { ...header, rooms: lineRows, applied_promotions: appliedPromotions, boat_tickets_granted: totalBoatTickets },
+      data: { ...header, rooms: lineRows, applied_promotions: appliedPromotions, boat_tickets_granted: totalBoatTickets, boat_ticket_summary: ticketSummary.rows[0]?.boat_ticket_summary },
     });
   } catch (error) {
     await safeRollback(client);
@@ -624,6 +656,7 @@ export const getUserRoomBookings = async (
                 (SELECT MIN(brc.checkin_at) FROM booking_room brc WHERE brc.room_booking_id = rb.room_booking_id) AS checkin_at,
                 rb.checkout_at,
                 ${ROOMS_JSON_SQL} AS rooms,
+                ${BOAT_TICKET_SUMMARY_SQL} AS boat_ticket_summary,
                 (
                   SELECT json_agg(json_build_object(
                     'name', p.name,
@@ -641,7 +674,7 @@ export const getUserRoomBookings = async (
                   SELECT json_agg(image_path)
                   FROM room_images ri
                   WHERE ri.room_type_id = first_room.room_type_id
-                ) AS room_images, (SELECT COUNT(*) > 0 FROM member_boat_tickets mbt WHERE mbt.room_booking_id = rb.room_booking_id AND mbt.used_tickets < mbt.total_tickets) AS has_unused_boat_tickets
+                ) AS room_images, (SELECT COUNT(*) > 0 FROM member_boat_tickets mbt WHERE mbt.room_booking_id = rb.room_booking_id AND mbt.booking_room_id IS NOT NULL AND mbt.used_tickets < mbt.total_tickets) AS has_unused_boat_tickets
          FROM room_bookings rb
          LEFT JOIN LATERAL (
            SELECT rt.room_name, rt.type_name, r.room_number, r.room_type_id
@@ -690,7 +723,8 @@ export const getRoomBookingById = async (
               rb.guest_count as guests, rb.adults, rb.children, rb.child_ages,
               rb.guest_name, rb.guest_phone, rb.guest_email,
               rb.total_price, rb.status, rb.special_request, rb.created_at,
-              ${ROOMS_JSON_SQL} AS rooms
+              ${ROOMS_JSON_SQL} AS rooms,
+              ${BOAT_TICKET_SUMMARY_SQL} AS boat_ticket_summary
        FROM room_bookings rb
        WHERE rb.room_booking_id = $1 AND (($3 = 'customer' AND rb.member_id = $2) OR $3 = 'admin')`,
       [id, user.id, user.role]

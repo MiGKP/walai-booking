@@ -8,7 +8,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useAuth } from '@/hooks/useAuth';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { formatThaiDate, nightsBetween } from '@/lib/date';
+import { addDaysISO, formatThaiDate, nightsBetween } from '@/lib/date';
 import { chooseRoomPromotions, eligibleRoomPromotion, resolveCheckoutDetails, roomPromotionDiscount } from '@/lib/booking-checkout';
 import type { CheckoutPromotion } from '@/lib/booking-checkout';
 import type { RoomCartItem } from '@/lib/room-cart';
@@ -201,6 +201,8 @@ function BookingDetailsContent() {
         setIsSubmitting(false);
         return;
       }
+      const grantedTickets = Number(res.data?.data?.boat_ticket_summary?.total_tickets ?? res.data?.data?.boat_tickets_granted ?? 0);
+      toast.success(grantedTickets > 0 ? `จองห้องพักสำเร็จ ได้รับสิทธิ์เรือ ${grantedTickets} สิทธิ์จากโปรโมชั่น` : 'จองห้องพักสำเร็จ');
       router.push(`/payment?booking_type=room&booking_id=${bId}`);
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'เกิดข้อผิดพลาดในการสร้างการจอง'));
@@ -365,6 +367,7 @@ function BookingDetailsContent() {
                   <h3 className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">ห้องพักที่เลือก</h3>
                   {groups.map(group => {
                     const discount = calculateDiscount(group.typeId, group.totalBasePrice);
+                    const selectedPromo = promotions.find(p => p.id === selectedPromos[group.typeId]);
                     return (
                     <div key={group.typeId} className="space-y-3 pb-4 border-b border-stone-100/80 last:border-0 last:pb-0">
                       <div>
@@ -399,10 +402,19 @@ function BookingDetailsContent() {
                               return (
                                 <option key={p.id} value={p.id} disabled={Object.entries(selectedPromos).some(([key, value]) => Number(key) !== group.typeId && value === p.id)}>
                                   {p.name} (ลด {p.discount_type === 'percent' ? `${p.discount_value}%` : `฿${Number(p.discount_value).toLocaleString()}`})
+                                  {Number(p.boat_ticket_count) > 0 ? ` · เรือ${p.boat_addon_mode === 'paid' ? 'มีค่าใช้จ่าย' : 'ฟรี'} ${p.boat_ticket_count} สิทธิ์/ห้อง` : ''}
                                 </option>
                               );
                             })}
                           </select>
+                          {selectedPromo && Number(selectedPromo.boat_ticket_count) > 0 && <div className="mt-2 space-y-1 text-xs leading-relaxed text-charcoal-600">
+                            <p className="font-semibold text-forest-800">{`โปรโมชั่นนี้ให้สิทธิ์เรือ ${Number(selectedPromo.boat_ticket_count) * group.rooms.length} สิทธิ์ (${selectedPromo.boat_ticket_count} สิทธิ์/ห้อง)`}</p>
+                            <p>{selectedPromo.boat_addon_mode === 'paid' ? `มีค่าใช้จ่าย ฿${Number(selectedPromo.boat_addon_price ?? 0).toLocaleString()} ต่อเรือ 1 ลำ 1 รอบ คิดเมื่อจองและรวมในยอดค่าห้องพัก ต้องเลือกก่อนชำระค่าห้อง` : 'สิทธิ์เรือฟรี ไม่มีค่าเรือเพิ่ม'}</p>
+                            <p>1 สิทธิ์ = เรือ 1 ลำ 1 รอบ · จำนวนผู้โดยสารขึ้นอยู่กับความจุของประเภทเรือที่เลือก</p>
+                            {nights > 1 ? <p>ใช้ได้ {formatThaiDate(addDaysISO(checkIn, 1))} – {formatThaiDate(addDaysISO(checkOut, -1))} (ไม่รวมวันเช็คอินและวันเช็คเอาต์)</p>
+                              : <p className="text-bamboo-800">ไม่มีวันใช้สิทธิ์ระหว่างการเข้าพัก เพราะไม่รวมวันเช็คอินและวันเช็คเอาต์ การพัก 1 คืนจึงใช้สิทธิ์เรือนี้ไม่ได้</p>}
+                            <p>หลังจองห้องพักแล้ว เลือกห้องและจองรอบเรือได้จากหน้าชำระเงินหรือการจองของฉัน</p>
+                          </div>}
                           {discount > 0 && (
                             <p className="text-xs font-bold text-forest-600 mt-2 flex items-center gap-1 text-right justify-end">
                               <Tag size={12} /> ส่วนลด ฿{discount.toLocaleString()}

@@ -46,7 +46,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
     if (booking_type === 'room') {
       const result = await pool.query(
         `SELECT total_price, payment_status, payment_slip, status, reject_reason,
-                EXISTS (SELECT 1 FROM member_boat_tickets WHERE room_booking_id = $1) AS has_boat_tickets
+                EXISTS (SELECT 1 FROM member_boat_tickets WHERE room_booking_id = $1 AND booking_room_id IS NOT NULL) AS has_boat_tickets
          FROM room_bookings WHERE room_booking_id = $1 AND member_id = $2`,
         [booking_id, user.id]
       );
@@ -402,7 +402,7 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
     let payment;
     if (bType === 'room') {
       const result = await pool.query(
-        `SELECT room_booking_id as booking_id, total_price as amount, payment_status as status, payment_slip as slip_image, (SELECT COUNT(*) > 0 FROM member_boat_tickets WHERE room_booking_id = $1) as has_boat_tickets 
+        `SELECT room_booking_id as booking_id, total_price as amount, payment_status as status, payment_slip as slip_image, (SELECT COUNT(*) > 0 FROM member_boat_tickets WHERE room_booking_id = $1 AND booking_room_id IS NOT NULL) as has_boat_tickets
          FROM room_bookings WHERE room_booking_id = $1 AND (($3 = 'customer' AND member_id = $2) OR $3 = 'admin')`,
         [bId, user.id, user.role]
       );

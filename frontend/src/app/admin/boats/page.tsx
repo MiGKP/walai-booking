@@ -967,6 +967,10 @@ function BoatStaffDashboardContent() {
                             <p className="font-semibold text-stone-800 leading-snug">
                               {b.kayak_name || b.boat_name || "-"}
                             </p>
+                            {b.is_addon && <p className="mt-1 text-xs leading-relaxed text-forest-800">
+                              เรือจากโปรโมชั่นห้องพัก{b.addon_mode === "free" ? " · สิทธิ์ฟรี" : b.addon_mode === "paid" ? " · มีค่าใช้จ่ายรวมกับค่าห้องพัก" : ""}
+                              {b.room_booking_id && <span className="block">{`การจองห้องพัก #${b.room_booking_id}`}</span>}
+                            </p>}
                             {Array.isArray(b.boats) && b.boats.length > 1 && (
                               <ul className="mt-1 space-y-0.5 text-xs text-stone-500">
                                 {b.boats.map(
@@ -1271,6 +1275,10 @@ function BoatStaffDashboardContent() {
                   <span>รายละเอียดการใช้งานเรือ</span>
                 </div>
                 <p><strong className="text-charcoal-700">ประเภทเรือ:</strong> {booking.kayak_name || booking.boat_name}</p>
+                {booking.is_addon && <p className="text-forest-800">
+                  เรือจากโปรโมชั่นห้องพัก{booking.addon_mode === "free" ? " · สิทธิ์ฟรี" : booking.addon_mode === "paid" ? " · มีค่าใช้จ่ายรวมกับค่าห้องพัก" : ""}
+                  {booking.room_booking_id && <span className="block">{`การจองห้องพัก #${booking.room_booking_id}`}</span>}
+                </p>}
                 {Array.isArray(booking.boats) && booking.boats.length > 0 && (
                   <ul className="mt-1 space-y-0.5 pl-4 list-disc text-charcoal-600">
                     {booking.boats.map((line: any) => (

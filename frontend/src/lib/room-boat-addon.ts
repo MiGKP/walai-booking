@@ -1,9 +1,22 @@
 import api from '@/lib/api';
 
+export interface BoatTicketSummary {
+  total_tickets: number;
+  used_tickets: number;
+  remaining_tickets: number;
+  bookable_tickets?: number;
+  free_tickets: number;
+  paid_tickets: number;
+  valid_from: string | null;
+  valid_to: string | null;
+}
+
 export interface RoomBoatAddonInfo {
   room_status: string;
   room_line_status?: string;
   balance: number;
+  total_tickets?: number;
+  used_tickets?: number;
   mode: 'free' | 'paid';
   unit_price: number | string;
   valid_from: string | null;

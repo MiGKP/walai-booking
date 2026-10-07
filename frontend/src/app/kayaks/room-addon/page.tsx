@@ -6,6 +6,8 @@ import Link from 'next/link';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import BoatAddonSection from '@/components/booking/BoatAddonSection';
+import RoomBoatTicketSummary from '@/components/booking/RoomBoatTicketSummary';
+import type { BoatTicketSummary } from '@/lib/room-boat-addon';
 
 interface BookingRoom {
   booking_room_id: number;
@@ -17,6 +19,7 @@ interface BookingRoom {
 interface RoomBooking {
   status: string;
   rooms: BookingRoom[];
+  boat_ticket_summary?: BoatTicketSummary;
 }
 
 function RoomAddonContent(): React.ReactElement {
@@ -26,6 +29,16 @@ function RoomAddonContent(): React.ReactElement {
   const [booking, setBooking] = useState<RoomBooking | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const activeBooking = !!booking && ['pending', 'paid', 'approved'].includes(booking.status);
+
+  const reloadBooking = async (): Promise<void> => {
+    try {
+      const { data } = await api.get(`/bookings/${bookingId}`);
+      setBooking(data.data);
+    } catch (err: unknown) {
+      console.error('Could not refresh room entitlement summary', err);
+    }
+  };
 
   useEffect(() => {
     if (!ready) return;
@@ -47,14 +60,15 @@ function RoomAddonContent(): React.ReactElement {
     <div className="min-h-screen bg-cream-100 px-4 pb-16 pt-24">
       <div className="mx-auto max-w-3xl space-y-5">
         <Link href="/dashboard" className="text-sm font-semibold text-forest-800">กลับไปการจองของฉัน</Link>
-        <h1 className="font-display text-2xl text-forest-900">จองเรือด้วยสิทธิ์ห้องพัก</h1>
-        {!ready || loading ? <p className="text-sm text-charcoal-500">กำลังโหลดสิทธิ์...</p> : error ? <p className="text-sm text-red-600">{error}</p> : booking && ['pending', 'paid', 'approved'].includes(booking.status) ? (
+        <h1 className="font-display text-2xl text-forest-900">สิทธิ์เรือและรอบที่จองจากห้องพัก #{bookingId || '—'}</h1>
+        {!ready || loading ? <p className="text-sm text-charcoal-500">กำลังโหลดสิทธิ์...</p> : error ? <p className="text-sm text-red-600">{error}</p> : booking ? (
           <>
-            <p className="text-sm text-charcoal-600">เลือกสิทธิ์ของแต่ละห้องและรอบเวลาที่ต้องการ บริการฟรีไม่ต้องชำระแยก ส่วนบริการที่มีค่าใช้จ่ายจะเพิ่มในบิลห้องพัก</p>
-            {booking.rooms.filter(room => !['checked_out', 'cancelled', 'rejected'].includes(room.status ?? '')).map((room) => (
+            <RoomBoatTicketSummary summary={booking.boat_ticket_summary} bookingStatus={booking.status} />
+            <p className="text-sm text-charcoal-600">{activeBooking ? 'เลือกสิทธิ์ของแต่ละห้องและรอบเวลาที่ต้องการ บริการฟรีไม่ต้องชำระแยก ส่วนบริการที่มีค่าใช้จ่ายจะเพิ่มในบิลห้องพัก' : 'การจองห้องพักสิ้นสุดแล้ว ดูประวัติรอบเรือได้ แต่ไม่สามารถจองรอบเพิ่มได้'}</p>
+            {booking.rooms.filter(room => !activeBooking || !['checked_out', 'cancelled', 'rejected'].includes(room.status ?? '')).map((room) => (
               <section key={room.booking_room_id} className="rounded-2xl border border-stone-200 bg-white p-5">
                 <h2 className="mb-3 text-base font-semibold text-forest-900">{room.room_name} · ห้อง {room.room_number}</h2>
-                <BoatAddonSection bookingRoomId={room.booking_room_id} roomBookingStatus={booking.status} allowBooking />
+                <BoatAddonSection bookingRoomId={room.booking_room_id} roomBookingStatus={booking.status} allowBooking={activeBooking} onChanged={reloadBooking} />
               </section>
             ))}
             {booking.status === 'pending' && <Link href={`/payment?booking_type=room&booking_id=${bookingId}`} className="btn-primary inline-block">ดำเนินการชำระค่าห้องพัก</Link>}

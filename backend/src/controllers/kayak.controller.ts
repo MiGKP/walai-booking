@@ -1276,6 +1276,12 @@ export const getBoatAddonInfo = async (
     }
 
     const ticketInfo = await getRoomBoatTicketBalance(pool, bookingRoomId);
+    const ticketTotals = await pool.query(
+      `SELECT COALESCE(SUM(total_tickets), 0) AS total_tickets,
+              COALESCE(SUM(used_tickets), 0) AS used_tickets
+       FROM member_boat_tickets WHERE booking_room_id = $1`,
+      [bookingRoomId],
+    );
 
     // วันที่ใช้บัตรเสริมได้ = ไม่รวมวันเช็คอิน (มาถึง) และวันเช็คเอาต์ (ออก) — เฉพาะวันที่พักจริงตรงกลาง
     const validFrom = addDaysToDateStr(room.check_in, 1);
@@ -1299,6 +1305,8 @@ export const getBoatAddonInfo = async (
         room_status: room.room_status,
         room_line_status: room.room_line_status,
         balance: ticketInfo?.balance ?? 0,
+        total_tickets: Number(ticketTotals.rows[0]?.total_tickets ?? 0),
+        used_tickets: Number(ticketTotals.rows[0]?.used_tickets ?? 0),
         mode: ticketInfo?.mode ?? "free",
         unit_price: ticketInfo?.unitPrice ?? 0,
         valid_from: validFrom > validTo ? null : validFrom,

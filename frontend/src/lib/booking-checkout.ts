@@ -26,6 +26,9 @@ export interface CheckoutPromotion {
   room_count?: number | null;
   usage_limit_per_member?: number | null;
   member_usage_count?: number;
+  boat_ticket_count?: number | null;
+  boat_addon_mode?: 'free' | 'paid' | null;
+  boat_addon_price?: number | string | null;
 }
 
 export interface CheckoutDetails {

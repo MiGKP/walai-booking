@@ -8,6 +8,8 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { formatThaiDate, formatTimeRange, nightsBetween } from '@/lib/date';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import RoomBoatTicketSummary from '@/components/booking/RoomBoatTicketSummary';
+import type { BoatTicketSummary } from '@/lib/room-boat-addon';
 
 interface PaymentInfo {
   id: number;
@@ -51,6 +53,7 @@ interface BookingPromotion {
 }
 
 interface BookingDetail {
+  boat_ticket_summary?: BoatTicketSummary;
   created_at: string;
   booking_date: string;
   start_time: string;
@@ -154,6 +157,20 @@ function PaymentContent() {
       await api.post(`/payments/${payment.id}/slip`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      setBookingStatus('paid');
+      if (payment.booking_type === 'room') {
+        // Mixed grants may retain paid rights after all free rights were reserved.
+        // Do not keep the pre-payment reservation allowance while reloading it.
+        setBookingDetail(current => current?.boat_ticket_summary?.paid_tickets ? {
+          ...current, boat_ticket_summary: { ...current.boat_ticket_summary, bookable_tickets: 0 },
+        } : current);
+        try {
+          const detail = await api.get(`/bookings/${payment.booking_id}`);
+          setBookingDetail(detail.data.data);
+        } catch (err: unknown) {
+          console.error('Could not refresh room entitlement after slip upload', err);
+        }
+      }
       setDone(true);
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'อัปโหลดสลิปไม่สำเร็จ'));
@@ -266,19 +283,7 @@ function PaymentContent() {
         )}
 
         <div className="mt-7 flex flex-col gap-3">
-          {payment?.booking_type === 'room' && payment?.has_boat_tickets && !isRejected && bookingStatus !== 'cancelled' && bookingStatus !== 'checked_out' && (
-             <div className="rounded-xl border border-forest-300 bg-gradient-to-br from-forest-50 to-forest-100 p-4 text-center mb-2 shadow-md animate-fade-in relative overflow-hidden">
-               <h3 className="font-sans text-base font-bold text-forest-900 relative z-10 flex items-center justify-center gap-1.5">
-                 ยินดีด้วย! คุณได้รับสิทธิ์พิเศษ
-               </h3>
-               <p className="text-sm text-forest-800 mt-1.5 mb-4 leading-relaxed relative z-10 font-medium">
-                 คุณมีสิทธิ์บริการเรือจากโปรโมชั่นห้องพัก<br/>เลือกห้องและตรวจสอบสิทธิ์ก่อนจองรอบเวลา
-               </p>
-               <Link href={`/kayaks/room-addon?room_booking_id=${payment.booking_id}`} className="flex items-center justify-center gap-2 w-full rounded-xl bg-forest-900 py-3 text-sm font-bold text-white transition-colors hover:bg-forest-800 shadow-md">
-                 เลือกสิทธิ์และจองรอบเรือ
-               </Link>
-             </div>
-          )}
+          {payment?.booking_type === 'room' && <RoomBoatTicketSummary summary={bookingDetail?.boat_ticket_summary} bookingId={payment.booking_id} bookingStatus={bookingStatus ?? payment.booking_status ?? 'pending'} hasTickets={payment.has_boat_tickets} />}
           <Link href="/dashboard" className="btn-primary text-center">ดูการจองของฉัน</Link>
           <Link href="/" className="inline-flex w-full items-center justify-center rounded-xl border border-stone-200 py-3 text-sm font-bold text-forest-800 transition-colors hover:bg-stone-50">กลับหน้าแรก</Link>
         </div>
@@ -315,6 +320,7 @@ function PaymentContent() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.1fr] items-start">
             {/* ---- ด้านซ้าย: สรุปรายการจอง ---- */}
             <div className="space-y-5 lg:sticky lg:top-24">
+              {payment.booking_type === 'room' && <RoomBoatTicketSummary summary={bookingDetail?.boat_ticket_summary} bookingId={payment.booking_id} bookingStatus={bookingStatus ?? payment.booking_status ?? 'pending'} hasTickets={payment.has_boat_tickets} />}
               <section className={CARD}>
                 <SectionHeading icon={<Receipt size={16} />} title="สรุปรายการ" />
                 <div className="mt-4 space-y-2 text-sm">
