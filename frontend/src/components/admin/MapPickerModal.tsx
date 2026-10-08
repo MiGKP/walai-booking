@@ -50,32 +50,32 @@ export default function MapPickerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl border border-stone-200 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border border-cream-200 flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100 bg-stone-50/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-cream-200 bg-cream-50/50">
           <div>
-            <h3 className="font-bold text-stone-900 text-base">ปักหมุดเลือกพิกัดแผนที่</h3>
-            <p className="text-xs text-stone-500 mt-0.5">คลิกบนแผนที่เพื่อเลือกตำแหน่งที่ต้องการ</p>
+            <h3 className="font-bold text-forest-900 text-base">ปักหมุดเลือกพิกัดแผนที่</h3>
+            <p className="text-xs text-charcoal-500 mt-0.5">คลิกบนแผนที่หรือค้นหาสถานที่เพื่อเลือกตำแหน่ง</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition-all cursor-pointer"
+            className="p-2 rounded-xl text-charcoal-400 hover:text-charcoal-700 hover:bg-cream-100 transition-all cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Map Body */}
-        <div className="w-full h-[380px] relative">
-          <LeafletMap position={position} setPosition={setPosition} />
+        <div className="w-full h-[400px] relative">
+          <LeafletMap position={position} setPosition={setPosition} showControls={true} />
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-stone-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white">
-          <div className="text-xs text-stone-600 font-mono bg-stone-100 px-3 py-1.5 rounded-lg w-full sm:w-auto text-center sm:text-left">
+        <div className="p-4 sm:px-6 border-t border-cream-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white">
+          <div className="text-xs text-charcoal-700 font-mono bg-cream-50 border border-cream-200 px-3.5 py-2 rounded-xl w-full sm:w-auto text-center sm:text-left">
             พิกัดที่เลือก: <span className="font-bold text-forest-800">{position[0].toFixed(6)}, {position[1].toFixed(6)}</span>
           </div>
 
@@ -83,17 +83,17 @@ export default function MapPickerModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 sm:flex-none px-4 py-2 text-xs font-semibold text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-xl transition-all cursor-pointer"
+              className="flex-1 sm:flex-none px-4 py-2.5 text-xs font-bold text-charcoal-700 bg-cream-100 hover:bg-cream-200 rounded-xl transition-all cursor-pointer"
             >
               ยกเลิก
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              className="flex-1 sm:flex-none px-4 py-2 text-xs font-semibold text-white bg-forest-800 hover:bg-forest-900 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+              className="flex-1 sm:flex-none px-5 py-2.5 text-xs font-bold text-white bg-forest-800 hover:bg-forest-900 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
             >
-              <Check className="w-3.5 h-3.5" />
-              ใช้พิกัดนี้
+              <Check className="w-4 h-4" />
+              <span>ใช้พิกัดนี้</span>
             </button>
           </div>
         </div>
