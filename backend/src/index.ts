@@ -24,6 +24,7 @@ import reviewRoutes from './routes/review.routes';
 import settingsRoutes from './routes/settings.routes';
 import promotionRoutes from './routes/promotion.routes';
 import memberRoutes from './routes/member.routes';
+import staffRoutes from './routes/staff.routes';
 
 import './config/passport';
 import { startReviewReminderJob } from './services/review-reminder.service';
@@ -117,6 +118,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/promotions', promotionRoutes);
 app.use('/api/members', memberRoutes);
+app.use('/api/staff', staffRoutes);
 
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 // Render default health check hits `/` — keep a cheap 200 so deploys don't roll back
