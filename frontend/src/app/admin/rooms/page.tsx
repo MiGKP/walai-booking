@@ -989,18 +989,23 @@ function RoomStaffDashboardContent() {
         </div>
       </div>
 
-      {/* Bookings Table Panel */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden print:hidden">
-        <div className="flex items-center justify-between pb-4 mb-3 border-b border-cream-200">
-          <h2 className="font-display font-bold text-lg text-forest-900 flex items-center gap-2">
-            <span>รายการจองห้องพัก</span>
-            <span className="text-xs font-normal text-charcoal-400 font-sans">
-              ({pagination.total} รายการ)
+      {/* Bookings Table Panel (Fixed consistent height with min-h-[660px]) */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[660px] print:hidden">
+        {/* Table Panel Header */}
+        <div className="pb-4 mb-4 border-b border-cream-200/80 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
+            <h2 className="text-base font-bold text-forest-900">
+              รายการจองห้องพักทั้งหมด
+            </h2>
+            <span className="px-2.5 py-0.5 bg-forest-50 text-forest-800 border border-forest-200 rounded-full text-xs font-bold font-mono">
+              {pagination.total} รายการ
             </span>
-          </h2>
+          </div>
         </div>
 
-        <div className="overflow-x-auto -mx-5 sm:-mx-6">
+        {/* Table Container */}
+        <div className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
           <table className="w-full text-left text-xs md:text-sm">
             <thead>
               <tr className="border-b border-cream-200 bg-cream-50/80 text-charcoal-600 font-bold text-xs uppercase tracking-wider">
@@ -1014,7 +1019,7 @@ function RoomStaffDashboardContent() {
                 <th className="px-5 py-3.5 text-right whitespace-nowrap">การจัดการ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-cream-100">
+            <tbody className="divide-y divide-cream-100 bg-white">
               {loading ? (
                 <tr>
                   <td colSpan={8} className="py-20 text-center text-charcoal-400">
@@ -1271,18 +1276,18 @@ function RoomStaffDashboardContent() {
 
         {/* Pagination Footer */}
         {pagination.total > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 mt-4 bg-cream-50/50 border-t border-cream-200 text-xs text-charcoal-500 print:hidden -mx-5 sm:-mx-6 -mb-5 sm:-mb-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-auto border-t border-cream-200 text-xs text-charcoal-500 print:hidden">
             <span>
               แสดง{" "}
-              <strong className="text-charcoal-900 font-mono">
+              <strong className="text-forest-950 font-mono">
                 {(currentPage - 1) * itemsPerPage + 1}
               </strong>{" "}
               ถึง{" "}
-              <strong className="text-charcoal-900 font-mono">
+              <strong className="text-forest-950 font-mono">
                 {Math.min(currentPage * itemsPerPage, pagination.total)}
               </strong>{" "}
               จากทั้งหมด{" "}
-              <strong className="text-charcoal-900 font-mono">{pagination.total}</strong>{" "}
+              <strong className="text-forest-950 font-mono">{pagination.total}</strong>{" "}
               รายการ
             </span>
 
@@ -1290,16 +1295,18 @@ function RoomStaffDashboardContent() {
               <button
                 onClick={() => handlePageChange(1)}
                 disabled={loading || currentPage === 1}
-                className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-xs"
+                className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
+                title="หน้าแรก"
               >
-                <ChevronsLeft size={16} />
+                <ChevronsLeft size={14} />
               </button>
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={loading || currentPage === 1}
-                className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-xs"
+                className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
+                title="หน้าก่อนหน้า"
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={14} />
               </button>
 
               {getPaginationRange().map((page, idx) =>
@@ -1307,10 +1314,10 @@ function RoomStaffDashboardContent() {
                   <button
                     key={idx}
                     onClick={() => handlePageChange(page)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold font-mono transition-all ${
+                    className={`min-w-[32px] h-8 px-2 rounded-xl text-xs font-bold font-mono transition-all ${
                       currentPage === page
                         ? "bg-forest-800 text-white shadow-xs"
-                        : "bg-white text-charcoal-600 border border-cream-300 hover:bg-cream-100"
+                        : "bg-white text-charcoal-600 border border-cream-300 hover:bg-cream-100 shadow-2xs"
                     }`}
                   >
                     {page}
@@ -1325,16 +1332,18 @@ function RoomStaffDashboardContent() {
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={loading || currentPage >= totalPages}
-                className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-xs"
+                className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
+                title="หน้าถัดไป"
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={14} />
               </button>
               <button
                 onClick={() => handlePageChange(totalPages)}
                 disabled={loading || currentPage >= totalPages}
-                className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-xs"
+                className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
+                title="หน้าสุดท้าย"
               >
-                <ChevronsRight size={16} />
+                <ChevronsRight size={14} />
               </button>
             </div>
           </div>

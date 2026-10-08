@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -19,6 +19,10 @@ import {
   DoorClosed,
   ArrowRight,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { Modal, EmptyState } from "@/components/admin/ui";
 import api, { getApiErrorMessage } from "@/lib/api";
@@ -423,14 +427,31 @@ export default function RoomTypesPage() {
     }
   };
 
-  const filteredRoomTypes = roomTypes.filter((rt) => {
+  const ITEMS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const filteredRoomTypes = useMemo(() => {
     const searchLower = searchQuery.toLowerCase().trim();
-    return (
-      !searchQuery ||
-      (rt.type_name && rt.type_name.toLowerCase().includes(searchLower)) ||
-      (rt.description && rt.description.toLowerCase().includes(searchLower))
-    );
-  });
+    return roomTypes.filter((rt) => {
+      return (
+        !searchQuery ||
+        (rt.type_name && rt.type_name.toLowerCase().includes(searchLower)) ||
+        (rt.description && rt.description.toLowerCase().includes(searchLower))
+      );
+    });
+  }, [roomTypes, searchQuery]);
+
+  const totalPages = Math.ceil(filteredRoomTypes.length / ITEMS_PER_PAGE) || 1;
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(currentPage * ITEMS_PER_PAGE, filteredRoomTypes.length);
+
+  const paginatedRoomTypes = useMemo(() => {
+    return filteredRoomTypes.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredRoomTypes, startIndex]);
 
   if (!ready) return null;
 
@@ -475,8 +496,8 @@ export default function RoomTypesPage() {
         </div>
       </div>
 
-      {/* Table List Section */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col">
+      {/* Table List Section (Fixed consistent height with min-h-[660px]) */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[660px]">
         {/* Header & Search */}
         <div className="pb-4 mb-4 border-b border-cream-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
@@ -484,8 +505,8 @@ export default function RoomTypesPage() {
             <h2 className="text-base font-bold text-forest-900">
               รายการประเภทห้องพักทั้งหมด
             </h2>
-            <span className="px-2.5 py-0.5 bg-forest-50 text-forest-800 border border-forest-200 rounded-full text-xs font-bold">
-              {filteredRoomTypes.length}
+            <span className="px-2.5 py-0.5 bg-forest-50 text-forest-800 border border-forest-200 rounded-full text-xs font-bold font-mono">
+              {filteredRoomTypes.length} รายการ
             </span>
           </div>
 
@@ -514,9 +535,9 @@ export default function RoomTypesPage() {
         </div>
 
         {/* Table Area */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-cream-50/80 border-b border-cream-200 text-xs font-bold text-charcoal-600 uppercase tracking-wider">
+        <div className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
+          <table className="w-full text-left border-collapse text-xs md:text-sm">
+            <thead className="bg-cream-50/80 border-b border-cream-200 text-xs font-bold text-charcoal-600 uppercase tracking-wider select-none shadow-2xs">
               <tr>
                 <th className="px-5 py-3.5">ประเภทห้อง</th>
                 <th className="px-4 py-3.5">ความจุ</th>
@@ -527,7 +548,7 @@ export default function RoomTypesPage() {
                 <th className="px-4 py-3.5 text-center">จัดการ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-cream-100 text-xs text-charcoal-700">
+            <tbody className="divide-y divide-cream-100 bg-white text-xs text-charcoal-700">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="py-16 text-center text-charcoal-400">
@@ -547,7 +568,7 @@ export default function RoomTypesPage() {
                   </td>
                 </tr>
               ) : (
-                filteredRoomTypes.map((rt: any) => (
+                paginatedRoomTypes.map((rt: any) => (
                   <tr
                     key={rt.id}
                     className="hover:bg-cream-50/50 transition-colors"
@@ -682,6 +703,92 @@ export default function RoomTypesPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer */}
+        {filteredRoomTypes.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-auto border-t border-cream-200 text-xs text-charcoal-500">
+            <span>
+              แสดง{" "}
+              <strong className="text-forest-950 font-mono">
+                {filteredRoomTypes.length > 0 ? startIndex + 1 : 0}
+              </strong>{" "}
+              ถึง{" "}
+              <strong className="text-forest-950 font-mono">{endIndex}</strong> จาก{" "}
+              <strong className="text-forest-950 font-mono">{filteredRoomTypes.length}</strong> รายการ
+            </span>
+
+            {/* Pagination Controls */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(1)}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าแรก"
+              >
+                <ChevronsLeft size={14} />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าก่อนหน้า"
+              >
+                <ChevronLeft size={14} />
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
+                    acc.push("...");
+                  }
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  typeof p === "number" ? (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setCurrentPage(p)}
+                      className={`min-w-[32px] h-8 px-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                        currentPage === p
+                          ? "bg-forest-800 text-white shadow-xs"
+                          : "bg-white text-charcoal-600 border border-cream-300 hover:bg-cream-100 shadow-2xs"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ) : (
+                    <span key={idx} className="px-1 text-charcoal-400 font-bold">
+                      {p}
+                    </span>
+                  ),
+                )}
+
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าถัดไป"
+              >
+                <ChevronRight size={14} />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าสุดท้าย"
+              >
+                <ChevronsRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ======================================================== */}

@@ -47,7 +47,12 @@ export const toISODate = (date: Date = new Date()): string => {
 
 export const fromISODate = (iso: string): Date => {
   if (!iso) return new Date();
-  const [year, month, day] = iso.split('-').map(Number);
+  const clean = String(iso).split('T')[0].split(' ')[0].trim();
+  const [year, month, day] = clean.split('-').map(Number);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) {
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }
   return new Date(year, (month ?? 1) - 1, day ?? 1);
 };
 
@@ -60,10 +65,14 @@ export const addDaysISO = (iso: string, days: number): string => {
   return toISODate(date);
 };
 
-export const nightsBetween = (checkInISO: string, checkOutISO: string): number => {
+export const nightsBetween = (checkInISO?: string | null, checkOutISO?: string | null): number => {
   if (!checkInISO || !checkOutISO) return 0;
-  const diff = fromISODate(checkOutISO).getTime() - fromISODate(checkInISO).getTime();
-  return Math.max(0, Math.round(diff / 86400000));
+  const inDate = fromISODate(checkInISO);
+  const outDate = fromISODate(checkOutISO);
+  if (isNaN(inDate.getTime()) || isNaN(outDate.getTime())) return 0;
+  const diff = outDate.getTime() - inDate.getTime();
+  const res = Math.round(diff / 86400000);
+  return isNaN(res) || res < 0 ? 0 : res;
 };
 
 /** ทุกคืนที่ถูกใช้จริงในช่วงจอง — คืนสุดท้ายคือวันก่อน check-out */

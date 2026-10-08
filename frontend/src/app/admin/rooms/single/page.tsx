@@ -19,6 +19,8 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Plus,
   Minus,
   X,
@@ -833,20 +835,23 @@ function SingleRoomsPageContent() {
         </div>
       </div>
 
-      {/* Table Panel */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden">
-        <div className="flex items-center justify-between pb-4 mb-3 border-b border-cream-200">
-          <h2 className="font-display font-bold text-lg text-forest-900 flex items-center gap-2">
-            <span>รายการห้องพักย่อย</span>
-            <span className="text-xs font-normal text-charcoal-400 font-sans">
-              ({filteredAndSortedRooms.length} รายการ)
+      {/* Table Panel (Fixed consistent height with min-h-[660px]) */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[660px]">
+        <div className="pb-4 mb-4 border-b border-cream-200/80 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
+            <h2 className="text-base font-bold text-forest-900">
+              รายการห้องพักย่อยทั้งหมด
+            </h2>
+            <span className="px-2.5 py-0.5 bg-forest-50 text-forest-800 border border-forest-200 rounded-full text-xs font-bold font-mono">
+              {filteredAndSortedRooms.length} รายการ
             </span>
-          </h2>
+          </div>
         </div>
 
-        <div className="overflow-x-auto -mx-5 sm:-mx-6 max-h-[560px] overflow-y-auto">
+        <div className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
           <table className="w-full text-left border-collapse text-xs md:text-sm">
-            <thead className="bg-cream-50/80 border-b border-cream-200 text-charcoal-600 font-bold text-xs uppercase tracking-wider select-none sticky top-0 z-10 shadow-2xs">
+            <thead className="bg-cream-50/80 border-b border-cream-200 text-charcoal-600 font-bold text-xs uppercase tracking-wider select-none shadow-2xs">
               <tr>
                 <th className="px-5 py-3.5 w-16 text-center bg-cream-50/90">ลำดับ</th>
 
@@ -907,7 +912,7 @@ function SingleRoomsPageContent() {
                 <th className="px-5 py-3.5 text-center bg-cream-50/90 whitespace-nowrap">การจัดการ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-cream-100 text-xs text-charcoal-700">
+            <tbody className="divide-y divide-cream-100 bg-white text-xs text-charcoal-700">
               {loading ? (
                 <tr>
                   <td colSpan={5} className="py-16 text-center text-charcoal-400">
@@ -989,50 +994,85 @@ function SingleRoomsPageContent() {
 
         {/* Pagination Footer */}
         {totalItems > 0 && (
-          <div className="p-4 bg-cream-50/50 border-t border-cream-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-charcoal-500 -mx-5 sm:-mx-6 -mb-5 sm:-mb-6">
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-              <span>
-                แสดง{" "}
-                <strong className="text-charcoal-900 font-mono">
-                  {totalItems > 0 ? startIndex + 1 : 0}
-                </strong>{" "}
-                ถึง{" "}
-                <strong className="text-charcoal-900 font-mono">{endIndex}</strong> จาก{" "}
-                <strong className="text-charcoal-900 font-mono">{totalItems}</strong> รายการ
-              </span>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-auto border-t border-cream-200 text-xs text-charcoal-500">
+            <span>
+              แสดง{" "}
+              <strong className="text-forest-950 font-mono">
+                {totalItems > 0 ? startIndex + 1 : 0}
+              </strong>{" "}
+              ถึง{" "}
+              <strong className="text-forest-950 font-mono">{endIndex}</strong> จาก{" "}
+              <strong className="text-forest-950 font-mono">{totalItems}</strong> รายการ
+            </span>
 
-              <CustomSelect
-                options={itemsPerPageOptions}
-                value={itemsPerPage}
-                onChange={(val) => setItemsPerPage(Number(val))}
-                width="w-36"
-              />
-            </div>
-
-            {/* Pagination Buttons */}
-            <div className="flex items-center gap-1.5">
+            {/* Pagination Controls */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(1)}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าแรก"
+              >
+                <ChevronsLeft size={14} />
+              </button>
               <button
                 type="button"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-xs"
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
                 title="หน้าก่อนหน้า"
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={14} />
               </button>
 
-              <div className="px-3 py-1 font-bold text-forest-900 text-xs font-mono">
-                หน้า {currentPage} / {totalPages}
-              </div>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
+                    acc.push("...");
+                  }
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  typeof p === "number" ? (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setCurrentPage(p)}
+                      className={`min-w-[32px] h-8 px-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                        currentPage === p
+                          ? "bg-forest-800 text-white shadow-xs"
+                          : "bg-white text-charcoal-600 border border-cream-300 hover:bg-cream-100 shadow-2xs"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ) : (
+                    <span key={idx} className="px-1 text-charcoal-400 font-bold">
+                      {p}
+                    </span>
+                  ),
+                )}
 
               <button
                 type="button"
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-xs"
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
                 title="หน้าถัดไป"
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={14} />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าสุดท้าย"
+              >
+                <ChevronsRight size={14} />
               </button>
             </div>
           </div>
