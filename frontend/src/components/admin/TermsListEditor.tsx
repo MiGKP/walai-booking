@@ -48,11 +48,13 @@ export default function TermsListEditor({
   };
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-2 overflow-y-auto pr-1 max-h-72">
+    <div className="space-y-3.5">
+      <div className="space-y-2.5 overflow-y-auto pr-1 max-h-72 [scrollbar-width:thin]">
         {items.map((item, index) => (
-          <div key={index} className="flex items-center gap-2">
-            <span className="w-6 shrink-0 text-center text-xs font-bold text-stone-400">{index + 1}.</span>
+          <div key={index} className="flex items-center gap-2.5">
+            <span className="w-6 shrink-0 text-center text-xs font-bold text-forest-800 bg-cream-100 rounded-lg py-1 border border-cream-200">
+              {index + 1}
+            </span>
             <input
               type="text"
               aria-label={`ข้อกำหนดที่ ${index + 1}`}
@@ -60,7 +62,7 @@ export default function TermsListEditor({
               placeholder={placeholder}
               value={item}
               onChange={(e) => handleChange(index, e.target.value)}
-              className="flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs font-medium text-stone-800 transition-all focus:border-forest-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 disabled:opacity-50"
+              className="flex-1 rounded-2xl border border-cream-300 bg-cream-50/70 px-3.5 py-2 text-xs sm:text-sm font-medium text-charcoal-900 transition-all focus:border-forest-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/15 disabled:opacity-50 placeholder:text-charcoal-400"
             />
             <button
               type="button"
@@ -68,9 +70,9 @@ export default function TermsListEditor({
               onClick={() => handleRemove(index)}
               title="ลบข้อนี้"
               aria-label={`ลบข้อกำหนดที่ ${index + 1}`}
-              className="shrink-0 cursor-pointer rounded-lg p-2 text-stone-400 transition-all hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+              className="shrink-0 cursor-pointer rounded-xl p-2 text-charcoal-400 transition-all hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
             >
-              <Trash2 size={15} aria-hidden="true" />
+              <Trash2 size={16} aria-hidden="true" />
             </button>
           </div>
         ))}
@@ -79,9 +81,9 @@ export default function TermsListEditor({
         type="button"
         disabled={disabled}
         onClick={handleAdd}
-        className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-forest-800 transition-colors hover:text-forest-700 disabled:opacity-50"
+        className="inline-flex cursor-pointer items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-forest-800 bg-forest-50 hover:bg-forest-100 border border-forest-200/80 transition-all active:scale-95 disabled:opacity-50 shadow-2xs"
       >
-        <Plus size={14} aria-hidden="true" />
+        <Plus size={14} aria-hidden="true" className="stroke-[2.5]" />
         <span>เพิ่มข้อกำหนด</span>
       </button>
     </div>

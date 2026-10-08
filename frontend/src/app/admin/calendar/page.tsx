@@ -22,7 +22,8 @@ import {
   LogIn,
   LogOut,
   ArrowUpRight,
-  ArrowLeft
+  ArrowLeft,
+  CalendarDays
 } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
@@ -76,15 +77,14 @@ const statusClass: Record<string, string> = {
 };
 
 type FilterType = 'all' | 'rooms' | 'kayaks';
-type StatusTabType = 'all' | 'checkins' | 'checkouts' | 'staying' | 'boats';
+type StatusTabType = 'all' | 'checkins' | 'checkouts' | 'boats';
 
 interface DaySummary {
   dateStr: string;
   checkins: any[];
   checkouts: any[];
-  staying: any[];
   boats: any[];
-  totalQueues: number;
+  roomsCount: number;
 }
 
 export default function AdminCalendarPage() {
@@ -134,7 +134,7 @@ export default function AdminCalendarPage() {
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const goToToday = () => setCurrentDate(new Date());
 
-  // ---------------- Process Daily Breakdowns ----------------
+  // ---------------- Process Daily Breakdowns (No พักต่อเนื่อง) ----------------
   const dailyDataMap = useMemo(() => {
     const map: Record<string, DaySummary> = {};
 
@@ -144,15 +144,14 @@ export default function AdminCalendarPage() {
           dateStr,
           checkins: [],
           checkouts: [],
-          staying: [],
           boats: [],
-          totalQueues: 0
+          roomsCount: 0
         };
       }
       return map[dateStr];
     };
 
-    // 1. Process Rooms
+    // 1. Process Rooms (Check-ins and Check-outs only)
     roomBookings.forEach((b) => {
       const isApprovedStatus = b.status === 'approved' || b.status === 'checked_in' || b.status === 'checked_out';
       if (!isApprovedStatus || !b.check_in) return;
@@ -181,7 +180,7 @@ export default function AdminCalendarPage() {
         checkInStr,
         checkOutStr,
         specialRequest: b.special_request,
-        totalPrice: b.total_price,
+        totalPrice: Number(b.total_price || 0),
         paymentSlip: b.payment_slip,
         status: b.status,
         raw: b
@@ -195,24 +194,6 @@ export default function AdminCalendarPage() {
       if (checkOutStr && checkOutStr !== checkInStr) {
         const checkoutDay = getOrCreate(checkOutStr);
         checkoutDay.checkouts.push(baseInfo);
-      }
-
-      // In-House / Staying days (between check_in + 1 and check_out - 1)
-      const curr = new Date(start);
-      curr.setDate(curr.getDate() + 1);
-      let nightCount = 2;
-
-      while (curr < end) {
-        const dateStr = formatDateToYYYYMMDD(curr);
-        const stayDay = getOrCreate(dateStr);
-        stayDay.staying.push({
-          ...baseInfo,
-          currentNight: nightCount,
-        });
-
-        curr.setDate(curr.getDate() + 1);
-        nightCount++;
-        if (nightCount > 60) break;
       }
     });
 
@@ -243,7 +224,8 @@ export default function AdminCalendarPage() {
         boatCount: b.boat_count || 1,
         timeFormatted,
         dateStr,
-        totalPrice: b.total_price,
+        specialRequest: b.special_request,
+        totalPrice: Number(b.total_price || 0),
         paymentSlip: b.payment_slip,
         status: b.status,
         raw: b
@@ -253,9 +235,9 @@ export default function AdminCalendarPage() {
       boatDay.boats.push(baseInfo);
     });
 
-    // Compute total queues per day
+    // Compute rooms count per day
     Object.values(map).forEach((d) => {
-      d.totalQueues = d.checkins.length + d.staying.length + d.boats.length;
+      d.roomsCount = d.checkins.length + d.checkouts.length;
     });
 
     return map;
@@ -266,39 +248,31 @@ export default function AdminCalendarPage() {
     const currentMonthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
     const todayStr = formatDateToYYYYMMDD(new Date());
 
-    let checkinMonth = 0;
-    let checkoutMonth = 0;
-    let stayingMonth = 0;
+    let checkinsMonth = 0;
+    let checkoutsMonth = 0;
     let boatsMonth = 0;
-
-    let todayQueues = 0;
-    let todayCheckins = 0;
-    let todayCheckouts = 0;
+    let todayRooms = 0;
     let todayBoats = 0;
 
     Object.entries(dailyDataMap).forEach(([dateStr, dayData]) => {
       if (dateStr.startsWith(currentMonthPrefix)) {
-        checkinMonth += dayData.checkins.length;
-        checkoutMonth += dayData.checkouts.length;
-        stayingMonth += dayData.staying.length;
+        checkinsMonth += dayData.checkins.length;
+        checkoutsMonth += dayData.checkouts.length;
         boatsMonth += dayData.boats.length;
       }
       if (dateStr === todayStr) {
-        todayCheckins = dayData.checkins.length;
-        todayCheckouts = dayData.checkouts.length;
+        todayRooms = dayData.checkins.length + dayData.checkouts.length;
         todayBoats = dayData.boats.length;
-        todayQueues = dayData.checkins.length + dayData.staying.length + dayData.boats.length;
       }
     });
 
     return {
-      checkinMonth,
-      checkoutMonth,
-      stayingMonth,
+      checkinsMonth,
+      checkoutsMonth,
       boatsMonth,
-      todayQueues,
-      todayCheckins,
-      todayCheckouts,
+      totalMonth: checkinsMonth + checkoutsMonth + boatsMonth,
+      todayTotal: todayRooms + todayBoats,
+      todayRooms,
       todayBoats
     };
   }, [dailyDataMap, year, month]);
@@ -308,10 +282,11 @@ export default function AdminCalendarPage() {
     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
   ];
 
-  // Helper เพื่อเปิด Modal วัน และเลือก Tab ที่คลิกทันที
+  // Helper เพื่อเปิด Modal วัน และเลือก Tab ทันที
   const handleOpenDayModal = (dayData: DaySummary, initialTab: StatusTabType) => {
     setSelectedDayData(dayData);
     setActiveModalTab(initialTab);
+    setSelectedEvent(null);
   };
 
   if (!ready) return null;
@@ -321,19 +296,14 @@ export default function AdminCalendarPage() {
       {/* Top Header Card (Match Checkin Page Style) */}
       <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 relative">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/15">
-                <CalendarIcon size={20} className="stroke-[2.2]" />
-              </span>
-              <div>
-                <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 tracking-tight">
-                  ปฏิทินการจอง
-                </h1>
-                <p className="text-xs sm:text-sm text-charcoal-500 mt-0.5">
-                  ภาพรวมคิวการเข้าพัก เช็คอิน เช็คเอาต์ และกิจกรรมเรือพายประจำวัน
-                </p>
-              </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/15">
+              <CalendarIcon size={20} className="stroke-[2.2]" />
+            </span>
+            <div>
+              <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 tracking-tight">
+                ปฏิทินการจอง
+              </h1>
             </div>
           </div>
 
@@ -375,14 +345,13 @@ export default function AdminCalendarPage() {
               </button>
             </div>
 
-            {/* Jump to Today Button */}
+            {/* Jump to Today Button (No Icon) */}
             <button
               onClick={goToToday}
-              className="px-3.5 py-2 bg-white hover:bg-forest-50/50 hover:border-forest-200 text-charcoal-700 rounded-2xl border border-charcoal-200/80 shadow-xs transition-all text-xs font-semibold flex items-center gap-1.5 active:scale-95"
+              className="px-3.5 py-2 bg-white hover:bg-forest-50/50 hover:border-forest-200 text-charcoal-700 rounded-2xl border border-charcoal-200/80 shadow-xs transition-all text-xs font-semibold active:scale-95"
               title="ไปยังเดือนปัจจุบัน"
             >
-              <Sparkles size={14} className="text-forest-700" />
-              <span>วันนี้</span>
+              วันนี้
             </button>
 
             {/* Refresh Button */}
@@ -398,75 +367,61 @@ export default function AdminCalendarPage() {
         </div>
       </div>
 
-      {/* 4 Stat Overview Cards (Clean KPI Summary) */}
+      {/* 4 Stat Overview Cards (Monthly Summary with Icons) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         {/* Card 1: Check-ins this Month */}
-        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-forest-700 uppercase tracking-wider">เช็คอินเดือนนี้</p>
-              <p className="mt-1.5 font-display text-3xl sm:text-4xl font-bold text-forest-950 tracking-tight">
-                {stats.checkinMonth}
-                <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">ห้อง</span>
-              </p>
-              <p className="mt-1 text-[11px] text-charcoal-400">เข้าพักใหม่ใน {thaiMonthNames[month]}</p>
-            </div>
-            <div className="w-11 h-11 rounded-2xl bg-forest-50 text-forest-800 border border-forest-100 flex items-center justify-center shrink-0">
-              <LogIn size={20} className="stroke-[2.2]" />
-            </div>
+        <div className="p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold text-forest-700 uppercase tracking-wider">เช็คอินเดือนนี้</p>
+            <p className="mt-1.5 font-display text-3xl sm:text-4xl font-bold text-forest-950 tracking-tight">
+              {stats.checkinsMonth}
+              <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">ห้อง</span>
+            </p>
+          </div>
+          <div className="w-11 h-11 rounded-2xl bg-forest-50 text-forest-800 border border-forest-100 flex items-center justify-center shrink-0">
+            <LogIn size={20} className="stroke-[2.2]" />
           </div>
         </div>
 
         {/* Card 2: Check-outs this Month */}
-        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">เช็คเอาต์เดือนนี้</p>
-              <p className="mt-1.5 font-display text-3xl sm:text-4xl font-bold text-forest-950 tracking-tight">
-                {stats.checkoutMonth}
-                <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">ห้อง</span>
-              </p>
-              <p className="mt-1 text-[11px] text-charcoal-400">คืนห้องใน {thaiMonthNames[month]}</p>
-            </div>
-            <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-800 border border-amber-100 flex items-center justify-center shrink-0">
-              <LogOut size={20} className="stroke-[2.2]" />
-            </div>
+        <div className="p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">เช็คเอาต์เดือนนี้</p>
+            <p className="mt-1.5 font-display text-3xl sm:text-4xl font-bold text-forest-950 tracking-tight">
+              {stats.checkoutsMonth}
+              <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">ห้อง</span>
+            </p>
+          </div>
+          <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-800 border border-amber-100 flex items-center justify-center shrink-0">
+            <LogOut size={20} className="stroke-[2.2]" />
           </div>
         </div>
 
         {/* Card 3: Kayaks this Month */}
-        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-lagoon-700 uppercase tracking-wider">กิจกรรมเรือเดือนนี้</p>
-              <p className="mt-1.5 font-display text-3xl sm:text-4xl font-bold text-forest-950 tracking-tight">
-                {stats.boatsMonth}
-                <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รอบ</span>
-              </p>
-              <p className="mt-1 text-[11px] text-charcoal-400">จองเรือพายใน {thaiMonthNames[month]}</p>
-            </div>
-            <div className="w-11 h-11 rounded-2xl bg-lagoon-50 text-lagoon-800 border border-lagoon-100 flex items-center justify-center shrink-0">
-              <Ship size={20} className="stroke-[2.2]" />
-            </div>
+        <div className="p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold text-lagoon-700 uppercase tracking-wider">กิจกรรมเรือเดือนนี้</p>
+            <p className="mt-1.5 font-display text-3xl sm:text-4xl font-bold text-forest-950 tracking-tight">
+              {stats.boatsMonth}
+              <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รอบ</span>
+            </p>
+          </div>
+          <div className="w-11 h-11 rounded-2xl bg-lagoon-50 text-lagoon-800 border border-lagoon-100 flex items-center justify-center shrink-0">
+            <Ship size={20} className="stroke-[2.2]" />
           </div>
         </div>
 
-        {/* Card 4: Today's Queues */}
-        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-forest-700 uppercase tracking-wider">คิวที่ใช้งานวันนี้</p>
-              <p className="mt-1.5 font-display text-3xl sm:text-4xl font-bold text-forest-950 tracking-tight">
-                {stats.todayQueues}
-                <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รายการ</span>
-              </p>
-              <p className="mt-1 text-[11px] text-charcoal-400">
-                เข้า {stats.todayCheckins} • ออก {stats.todayCheckouts} • เรือ {stats.todayBoats}
-              </p>
-            </div>
-            <div className="w-11 h-11 rounded-2xl bg-forest-50 text-forest-800 border border-forest-100 flex items-center justify-center shrink-0">
-              <Clock size={20} className="stroke-[2.2]" />
-            </div>
+        {/* Card 4: Total Activities this Month */}
+        <div className="p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold text-charcoal-600 uppercase tracking-wider">กิจกรรมทั้งหมดเดือนนี้</p>
+            <p className="mt-1.5 font-display text-3xl sm:text-4xl font-bold text-forest-950 tracking-tight">
+              {stats.totalMonth}
+              <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รายการ</span>
+            </p>
+          </div>
+          <div className="w-11 h-11 rounded-2xl bg-cream-100 text-charcoal-700 border border-cream-200 flex items-center justify-center shrink-0">
+            <CalendarDays size={20} className="stroke-[2.2]" />
           </div>
         </div>
       </div>
@@ -480,7 +435,7 @@ export default function AdminCalendarPage() {
               {thaiMonthNames[month]} {year + 543}
             </h2>
             <span className="hidden sm:inline-block text-xs font-medium text-charcoal-500 bg-cream-100/90 px-3 py-1 rounded-full border border-cream-300/60">
-              เข้าพัก {stats.checkinMonth} ห้อง • เรือ {stats.boatsMonth} รอบ
+              เข้าพัก {stats.checkinsMonth} • ออก {stats.checkoutsMonth} • เรือ {stats.boatsMonth}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -518,7 +473,7 @@ export default function AdminCalendarPage() {
         <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y divide-cream-200/70">
           {/* Empty cells before month start */}
           {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-            <div key={`empty-${i}`} className="min-h-[115px] sm:min-h-[135px] bg-cream-50/30 p-2" />
+            <div key={`empty-${i}`} className="min-h-[110px] sm:min-h-[125px] bg-cream-50/30 p-2" />
           ))}
 
           {/* Active days in month */}
@@ -532,34 +487,29 @@ export default function AdminCalendarPage() {
               dateStr: formattedDateStr,
               checkins: [],
               checkouts: [],
-              staying: [],
               boats: [],
-              totalQueues: 0
+              roomsCount: 0
             };
 
-            const showRooms = filterType === 'all' || filterType === 'rooms';
-            const showBoats = filterType === 'all' || filterType === 'kayaks';
+            const showRooms = (filterType === 'all' || filterType === 'rooms') && dayData.roomsCount > 0;
+            const showBoats = (filterType === 'all' || filterType === 'kayaks') && dayData.boats.length > 0;
+            const hasActivity = showRooms || showBoats;
 
-            const hasAnyActivity = (showRooms && (dayData.checkins.length > 0 || dayData.checkouts.length > 0 || dayData.staying.length > 0)) ||
-                                   (showBoats && dayData.boats.length > 0);
-
-            // คำนวณ Tab เริ่มต้นเมื่อคลิกที่พื้นหลังช่องวัน
             const defaultInitialTab: StatusTabType = 
               dayData.checkins.length > 0 ? 'checkins' :
               dayData.checkouts.length > 0 ? 'checkouts' :
-              dayData.staying.length > 0 ? 'staying' :
               dayData.boats.length > 0 ? 'boats' : 'all';
 
             return (
               <div
                 key={dayNum}
                 onClick={() => {
-                  if (hasAnyActivity) {
+                  if (hasActivity) {
                     handleOpenDayModal(dayData, defaultInitialTab);
                   }
                 }}
-                className={`min-h-[115px] sm:min-h-[135px] p-2 transition-all flex flex-col justify-start relative group ${
-                  hasAnyActivity ? 'cursor-pointer' : ''
+                className={`min-h-[110px] sm:min-h-[125px] p-2 transition-all flex flex-col justify-start relative group ${
+                  hasActivity ? 'cursor-pointer' : ''
                 } ${
                   isToday 
                     ? 'bg-forest-50/30 ring-1 ring-inset ring-forest-600/30' 
@@ -567,7 +517,7 @@ export default function AdminCalendarPage() {
                 }`}
               >
                 {/* Day Header Inside Cell */}
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-2">
                   <span
                     className={`text-xs font-bold w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full transition-all ${
                       isToday 
@@ -577,93 +527,52 @@ export default function AdminCalendarPage() {
                   >
                     {dayNum}
                   </span>
-                  {hasAnyActivity && (
+
+                  {hasActivity && (
                     <span className="text-[10px] text-forest-700/80 font-medium group-hover:text-forest-900 group-hover:underline">
-                      ดูสรุปวัน
+                      ดูรายชื่อ
                     </span>
                   )}
                 </div>
 
-                {/* Daily Categorized Summary Badges (Clicking each badge directly opens that specific status!) */}
-                <div className="space-y-1 overflow-y-auto max-h-[90px] sm:max-h-[105px] pr-0.5 scrollbar-thin">
-                  {/* Check-ins Badge */}
-                  {showRooms && dayData.checkins.length > 0 && (
-                    <button
-                      type="button"
+                {/* Clean 2-Line Summary on Calendar */}
+                <div className="space-y-1.5">
+                  {/* Rooms Summary Line */}
+                  {showRooms && (
+                    <div
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleOpenDayModal(dayData, 'checkins');
+                        handleOpenDayModal(dayData, dayData.checkins.length > 0 ? 'checkins' : 'checkouts');
                       }}
-                      className="w-full text-left px-2 py-1 rounded-lg text-[11px] font-semibold transition-all shadow-2xs flex items-center justify-between bg-forest-50/95 text-forest-900 border border-forest-200/90 hover:bg-forest-100 hover:border-forest-300 active:scale-95"
+                      className="w-full px-2.5 py-1.5 rounded-xl text-xs font-medium bg-forest-50/90 text-forest-900 border border-forest-200/90 flex items-center justify-between shadow-2xs hover:bg-forest-100 transition-colors"
                     >
-                      <div className="flex items-center gap-1 min-w-0">
-                        <LogIn size={12} className="text-forest-700 shrink-0" />
-                        <span className="truncate">เช็คอินเข้า</span>
+                      <div className="flex items-center gap-1.5">
+                        <Home size={12} className="text-forest-700 shrink-0" />
+                        <span>ห้องพัก</span>
                       </div>
-                      <span className="ml-1 px-1.5 py-0.2 rounded-md bg-forest-200/70 text-forest-900 font-bold text-[10px]">
-                        {dayData.checkins.length} ห้อง
+                      <span className="font-bold font-mono text-[11px] bg-forest-200/60 px-1.5 py-0.2 rounded-md">
+                        {dayData.roomsCount} ห้อง
                       </span>
-                    </button>
+                    </div>
                   )}
 
-                  {/* Check-outs Badge */}
-                  {showRooms && dayData.checkouts.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenDayModal(dayData, 'checkouts');
-                      }}
-                      className="w-full text-left px-2 py-1 rounded-lg text-[11px] font-semibold transition-all shadow-2xs flex items-center justify-between bg-amber-50/95 text-amber-950 border border-amber-200/90 hover:bg-amber-100 hover:border-amber-300 active:scale-95"
-                    >
-                      <div className="flex items-center gap-1 min-w-0">
-                        <LogOut size={12} className="text-amber-700 shrink-0" />
-                        <span className="truncate">เช็คเอาต์ออก</span>
-                      </div>
-                      <span className="ml-1 px-1.5 py-0.2 rounded-md bg-amber-200/70 text-amber-950 font-bold text-[10px]">
-                        {dayData.checkouts.length} ห้อง
-                      </span>
-                    </button>
-                  )}
-
-                  {/* In-House / Staying Badge */}
-                  {showRooms && dayData.staying.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenDayModal(dayData, 'staying');
-                      }}
-                      className="w-full text-left px-2 py-1 rounded-lg text-[11px] font-medium transition-all shadow-2xs flex items-center justify-between bg-cream-100/95 text-charcoal-800 border border-cream-300/80 hover:bg-cream-200 hover:border-cream-400 active:scale-95"
-                    >
-                      <div className="flex items-center gap-1 min-w-0">
-                        <Home size={12} className="text-charcoal-600 shrink-0" />
-                        <span className="truncate">พักต่อเนื่อง</span>
-                      </div>
-                      <span className="ml-1 px-1.5 py-0.2 rounded-md bg-cream-200 text-charcoal-800 font-semibold text-[10px]">
-                        {dayData.staying.length} ห้อง
-                      </span>
-                    </button>
-                  )}
-
-                  {/* Boats Badge */}
-                  {showBoats && dayData.boats.length > 0 && (
-                    <button
-                      type="button"
+                  {/* Boats Summary Line */}
+                  {showBoats && (
+                    <div
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenDayModal(dayData, 'boats');
                       }}
-                      className="w-full text-left px-2 py-1 rounded-lg text-[11px] font-semibold transition-all shadow-2xs flex items-center justify-between bg-lagoon-50/95 text-lagoon-900 border border-lagoon-200/90 hover:bg-lagoon-100 hover:border-lagoon-300 active:scale-95"
+                      className="w-full px-2.5 py-1.5 rounded-xl text-xs font-medium bg-lagoon-50/90 text-lagoon-900 border border-lagoon-200/90 flex items-center justify-between shadow-2xs hover:bg-lagoon-100 transition-colors"
                     >
-                      <div className="flex items-center gap-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
                         <Sailboat size={12} className="text-lagoon-700 shrink-0" />
-                        <span className="truncate">กิจกรรมเรือ</span>
+                        <span>เรือพาย</span>
                       </div>
-                      <span className="ml-1 px-1.5 py-0.2 rounded-md bg-lagoon-200/70 text-lagoon-900 font-bold text-[10px]">
+                      <span className="font-bold font-mono text-[11px] bg-lagoon-200/60 px-1.5 py-0.2 rounded-md">
                         {dayData.boats.length} รอบ
                       </span>
-                    </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -673,12 +582,14 @@ export default function AdminCalendarPage() {
       </div>
 
       {/* ---------------------------------------------------- */}
-      {/* 1. Modal สรุปรายการจองรายวัน (Daily Summary Breakdown with Tabs) */}
+      {/* 1. Modal สรุปรายการจองรายวัน (Daily Breakdown with 4 Tabs) */}
       {/* ---------------------------------------------------- */}
       <Modal 
         open={!!selectedDayData && !selectedEvent}
         title={`สรุปรายการจองประจำวัน — ${selectedDayData ? formatThaiDateLong(selectedDayData.dateStr) : ''}`}
         onClose={() => setSelectedDayData(null)}
+        widthClass="max-w-2xl"
+        overflowClass="overflow-hidden"
         footer={
           <div className="w-full flex items-center justify-between gap-2">
             <Link
@@ -700,24 +611,42 @@ export default function AdminCalendarPage() {
         }
       >
         {selectedDayData && (
-          <div className="space-y-4 text-xs text-charcoal-600 mt-2 max-h-[70vh] overflow-y-auto pr-1">
-            {/* 4 Interactive Filter Tabs (Click to switch status instantly!) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="h-[460px] flex flex-col text-xs text-charcoal-600">
+            {/* 4 Interactive Filter Tabs (ทั้งหมด / เช็คอินเข้า / เช็คเอาต์ออก / คิวเรือพาย) */}
+            <div className="bg-cream-100/90 p-1 rounded-2xl flex items-center gap-1 border border-cream-200/90 shadow-2xs shrink-0 mb-3">
+              {/* Tab 0: All */}
+              <button
+                type="button"
+                onClick={() => setActiveModalTab('all')}
+                className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-xs font-semibold transition-all text-center flex items-center justify-center gap-1.5 active:scale-95 ${
+                  activeModalTab === 'all'
+                    ? 'bg-white text-forest-900 shadow-xs border border-cream-300/80'
+                    : 'text-charcoal-600 hover:text-forest-900 hover:bg-white/40'
+                }`}
+              >
+                <span>ทั้งหมด</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${
+                  activeModalTab === 'all' ? 'bg-forest-100/90 text-forest-800' : 'bg-cream-200/70 text-charcoal-500'
+                }`}>
+                  {selectedDayData.checkins.length + selectedDayData.checkouts.length + selectedDayData.boats.length}
+                </span>
+              </button>
+
               {/* Tab 1: Check-ins */}
               <button
                 type="button"
                 onClick={() => setActiveModalTab('checkins')}
-                className={`rounded-2xl p-2.5 text-center transition-all border active:scale-95 ${
+                className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-xs font-semibold transition-all text-center flex items-center justify-center gap-1.5 active:scale-95 ${
                   activeModalTab === 'checkins'
-                    ? 'bg-forest-800 text-white border-forest-900 shadow-sm shadow-forest-800/20'
-                    : 'bg-forest-50/70 hover:bg-forest-100/80 text-forest-950 border-forest-200/80'
+                    ? 'bg-white text-forest-900 shadow-xs border border-cream-300/80'
+                    : 'text-charcoal-600 hover:text-forest-900 hover:bg-white/40'
                 }`}
               >
-                <span className={`text-[11px] font-semibold block ${activeModalTab === 'checkins' ? 'text-forest-100' : 'text-forest-800'}`}>
-                  📥 เช็คอินเข้า
-                </span>
-                <span className="font-display text-xl font-bold">
-                  {selectedDayData.checkins.length} <span className="text-xs font-normal">ห้อง</span>
+                <span>เช็คอินเข้า</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${
+                  activeModalTab === 'checkins' ? 'bg-forest-100/90 text-forest-800' : 'bg-cream-200/70 text-charcoal-500'
+                }`}>
+                  {selectedDayData.checkins.length}
                 </span>
               </button>
 
@@ -725,308 +654,211 @@ export default function AdminCalendarPage() {
               <button
                 type="button"
                 onClick={() => setActiveModalTab('checkouts')}
-                className={`rounded-2xl p-2.5 text-center transition-all border active:scale-95 ${
+                className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-xs font-semibold transition-all text-center flex items-center justify-center gap-1.5 active:scale-95 ${
                   activeModalTab === 'checkouts'
-                    ? 'bg-amber-600 text-white border-amber-700 shadow-sm shadow-amber-600/20'
-                    : 'bg-amber-50/70 hover:bg-amber-100/80 text-amber-950 border-amber-200/80'
+                    ? 'bg-white text-forest-900 shadow-xs border border-cream-300/80'
+                    : 'text-charcoal-600 hover:text-forest-900 hover:bg-white/40'
                 }`}
               >
-                <span className={`text-[11px] font-semibold block ${activeModalTab === 'checkouts' ? 'text-amber-100' : 'text-amber-800'}`}>
-                  📤 เช็คเอาต์ออก
-                </span>
-                <span className="font-display text-xl font-bold">
-                  {selectedDayData.checkouts.length} <span className="text-xs font-normal">ห้อง</span>
+                <span>เช็คเอาต์ออก</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${
+                  activeModalTab === 'checkouts' ? 'bg-amber-100/80 text-amber-800' : 'bg-cream-200/70 text-charcoal-500'
+                }`}>
+                  {selectedDayData.checkouts.length}
                 </span>
               </button>
 
-              {/* Tab 3: Staying */}
-              <button
-                type="button"
-                onClick={() => setActiveModalTab('staying')}
-                className={`rounded-2xl p-2.5 text-center transition-all border active:scale-95 ${
-                  activeModalTab === 'staying'
-                    ? 'bg-charcoal-700 text-white border-charcoal-800 shadow-sm shadow-charcoal-700/20'
-                    : 'bg-cream-100/80 hover:bg-cream-200/80 text-charcoal-900 border-cream-300/80'
-                }`}
-              >
-                <span className={`text-[11px] font-semibold block ${activeModalTab === 'staying' ? 'text-cream-100' : 'text-charcoal-700'}`}>
-                  🏠 พักต่อเนื่อง
-                </span>
-                <span className="font-display text-xl font-bold">
-                  {selectedDayData.staying.length} <span className="text-xs font-normal">ห้อง</span>
-                </span>
-              </button>
-
-              {/* Tab 4: Boats */}
+              {/* Tab 3: Boats */}
               <button
                 type="button"
                 onClick={() => setActiveModalTab('boats')}
-                className={`rounded-2xl p-2.5 text-center transition-all border active:scale-95 ${
+                className={`flex-1 py-2 px-2 sm:px-3 rounded-xl text-xs font-semibold transition-all text-center flex items-center justify-center gap-1.5 active:scale-95 ${
                   activeModalTab === 'boats'
-                    ? 'bg-lagoon-700 text-white border-lagoon-800 shadow-sm shadow-lagoon-700/20'
-                    : 'bg-lagoon-50/70 hover:bg-lagoon-100/80 text-lagoon-950 border-lagoon-200/80'
+                    ? 'bg-white text-forest-900 shadow-xs border border-cream-300/80'
+                    : 'text-charcoal-600 hover:text-forest-900 hover:bg-white/40'
                 }`}
               >
-                <span className={`text-[11px] font-semibold block ${activeModalTab === 'boats' ? 'text-lagoon-100' : 'text-lagoon-800'}`}>
-                  ⛵ คิวเรือพาย
-                </span>
-                <span className="font-display text-xl font-bold">
-                  {selectedDayData.boats.length} <span className="text-xs font-normal">รอบ</span>
+                <span>คิวเรือพาย</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${
+                  activeModalTab === 'boats' ? 'bg-lagoon-100/80 text-lagoon-800' : 'bg-cream-200/70 text-charcoal-500'
+                }`}>
+                  {selectedDayData.boats.length}
                 </span>
               </button>
             </div>
 
-            {/* Tab Filter Notice / Show All Option */}
-            <div className="flex items-center justify-between text-[11px] text-charcoal-400 pt-1">
-              <span>กำลังแสดงเฉพาะ: <strong>
-                {activeModalTab === 'checkins' ? '📥 แขกเช็คอินเข้าพัก' :
-                 activeModalTab === 'checkouts' ? '📤 แขกเช็คเอาต์คืนห้อง' :
-                 activeModalTab === 'staying' ? '🏠 แขกพักต่อเนื่อง' :
-                 activeModalTab === 'boats' ? '⛵ คิวเรือพาย / ซับบอร์ด' : 'ทั้งหมด'}
-              </strong></span>
-              {activeModalTab !== 'all' && (
-                <button
-                  type="button"
-                  onClick={() => setActiveModalTab('all')}
-                  className="text-forest-700 hover:text-forest-900 hover:underline font-medium"
-                >
-                  แสดงทั้งหมด ({selectedDayData.totalQueues + selectedDayData.checkouts.length} รายการ)
-                </button>
+            {/* Tab Content Area (Single Smooth Minimal Scrollbar, Fixed Height) */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+              {/* ---------------- Section 1: Check-ins ---------------- */}
+              {(activeModalTab === 'all' || activeModalTab === 'checkins') && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-forest-900 font-bold text-xs pt-1 px-1">
+                    <span>แขกเช็คอินเข้าพักวันนี้ ({selectedDayData.checkins.length} ห้อง)</span>
+                  </div>
+                  {selectedDayData.checkins.length === 0 ? (
+                    <div className="p-6 text-center bg-cream-50/60 rounded-2xl border border-cream-200/60 text-charcoal-400 italic">
+                      ไม่มีรายการเช็คอินเข้าใหม่ในวันนี้
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedDayData.checkins.map((item, idx) => (
+                        <div
+                          key={`in-${idx}`}
+                          className="bg-white border border-cream-200/90 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:border-cream-300 transition-all"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-forest-950 text-xs">{item.roomTitle}</span>
+                              <span className="text-[11px] text-charcoal-400 font-mono">• ID #{item.bookingId}</span>
+                              <span className="px-2 py-0.5 rounded-full bg-forest-50 text-forest-700 border border-forest-100 text-[10px] font-medium">
+                                เช็คอินเข้า
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-charcoal-600 flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-charcoal-800">{item.customerName}</span>
+                              <span className="text-charcoal-400 font-mono">{item.customerPhone}</span>
+                              <span className="text-forest-700 font-medium">({item.totalNights} คืน)</span>
+                            </div>
+                            {item.specialRequest && (
+                              <div className="text-[10.5px] text-charcoal-600 bg-cream-100/70 px-2 py-0.5 rounded-lg inline-block border border-cream-200/60">
+                                คำขอ: {item.specialRequest}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedEvent({ ...item, raw: item.raw })}
+                              className="px-3 py-1.5 bg-white hover:bg-cream-50 text-charcoal-700 border border-charcoal-200/80 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 shadow-2xs"
+                            >
+                              <Eye size={12} className="text-charcoal-500" />
+                              <span>ดูข้อมูล</span>
+                            </button>
+
+                            <Link
+                              href={`/admin/checkin?search=${encodeURIComponent(item.customerName || item.roomTitle)}`}
+                              className="px-3 py-1.5 bg-forest-50 hover:bg-forest-100 text-forest-800 border border-forest-200 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 shadow-2xs"
+                            >
+                              <span>หน้าเช็คอิน</span>
+                              <ArrowUpRight size={12} />
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ---------------- Section 2: Check-outs ---------------- */}
+              {(activeModalTab === 'all' || activeModalTab === 'checkouts') && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-forest-900 font-bold text-xs pt-1 px-1">
+                    <span>แขกเช็คเอาต์คืนห้องวันนี้ ({selectedDayData.checkouts.length} ห้อง)</span>
+                  </div>
+                  {selectedDayData.checkouts.length === 0 ? (
+                    <div className="p-6 text-center bg-cream-50/60 rounded-2xl border border-cream-200/60 text-charcoal-400 italic">
+                      ไม่มีรายการเช็คเอาต์คืนห้องในวันนี้
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedDayData.checkouts.map((item, idx) => (
+                        <div
+                          key={`out-${idx}`}
+                          className="bg-white border border-cream-200/90 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:border-cream-300 transition-all"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-forest-950 text-xs">{item.roomTitle}</span>
+                              <span className="text-[11px] text-charcoal-400 font-mono">• ID #{item.bookingId}</span>
+                              <span className="px-2 py-0.5 rounded-full bg-cream-100 text-charcoal-700 border border-cream-300/80 text-[10px] font-medium">
+                                เช็คเอาต์
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-charcoal-600 flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-charcoal-800">{item.customerName}</span>
+                              <span className="text-charcoal-400 font-mono">{item.customerPhone}</span>
+                              <span className="text-charcoal-500">(สิ้นสุดการพัก {item.totalNights} คืน)</span>
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedEvent({ ...item, raw: item.raw })}
+                              className="px-3 py-1.5 bg-white hover:bg-cream-50 text-charcoal-700 border border-charcoal-200/80 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 shadow-2xs"
+                            >
+                              <Eye size={12} className="text-charcoal-500" />
+                              <span>ดูข้อมูล</span>
+                            </button>
+
+                            <Link
+                              href={`/admin/checkin?search=${encodeURIComponent(item.customerName || item.roomTitle)}`}
+                              className="px-3 py-1.5 bg-forest-50 hover:bg-forest-100 text-forest-800 border border-forest-200 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 shadow-2xs"
+                            >
+                              <span>หน้าเช็คเอาต์</span>
+                              <ArrowUpRight size={12} />
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ---------------- Section 3: Boats (View-only) ---------------- */}
+              {(activeModalTab === 'all' || activeModalTab === 'boats') && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-forest-900 font-bold text-xs pt-1 px-1">
+                    <span>คิวเรือพาย / ซับบอร์ดวันนี้ ({selectedDayData.boats.length} รายการ — ดูข้อมูล)</span>
+                  </div>
+                  {selectedDayData.boats.length === 0 ? (
+                    <div className="p-6 text-center bg-cream-50/60 rounded-2xl border border-cream-200/60 text-charcoal-400 italic">
+                      ไม่มีคิวจองเรือพายในวันนี้
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedDayData.boats.map((item, idx) => (
+                        <div
+                          key={`boat-${idx}`}
+                          className="bg-white border border-cream-200/90 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:border-cream-300 transition-all"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-forest-950 text-xs">{item.boatTitle}</span>
+                              <span className="text-[11px] text-lagoon-800 font-medium bg-lagoon-50 px-2 py-0.5 rounded-md border border-lagoon-100">
+                                {item.timeFormatted}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-charcoal-600 flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-charcoal-800">{item.customerName}</span>
+                              <span className="text-charcoal-400 font-mono">{item.customerPhone}</span>
+                              <span className="text-charcoal-500">({item.boatCount} ลำ • {item.numPassengers} ท่าน)</span>
+                            </div>
+                          </div>
+
+                          {/* View Details Only for Boats */}
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedEvent({ ...item, raw: item.raw })}
+                              className="px-3.5 py-1.5 bg-white hover:bg-cream-50 text-charcoal-700 border border-charcoal-200/80 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 shadow-2xs"
+                            >
+                              <Eye size={12} className="text-charcoal-500" />
+                              <span>ดูข้อมูลเรือ</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
-
-            {/* ---------------- Section 1: Check-ins ---------------- */}
-            {(activeModalTab === 'all' || activeModalTab === 'checkins') && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-forest-900 font-bold text-xs pt-1">
-                  <LogIn size={15} className="text-forest-700" />
-                  <span>แขกเช็คอินเข้าพักวันนี้ ({selectedDayData.checkins.length} ห้อง)</span>
-                </div>
-                {selectedDayData.checkins.length === 0 ? (
-                  <p className="text-[11px] text-charcoal-400 italic bg-cream-50/50 p-3 rounded-xl border border-cream-200/60 text-center">
-                    ไม่มีรายการเช็คอินเข้าใหม่ในวันนี้
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedDayData.checkins.map((item, idx) => (
-                      <div
-                        key={`in-${idx}`}
-                        className="bg-white border border-forest-200/80 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:border-forest-300 transition-all"
-                      >
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-forest-950 text-xs">{item.roomTitle}</span>
-                            <span className="text-[11px] text-charcoal-500 font-mono">• ID #{item.bookingId}</span>
-                            <span className="px-2 py-0.2 rounded-full bg-forest-100 text-forest-800 text-[10px] font-semibold">
-                              เช็คอินเข้า
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-charcoal-600 flex items-center gap-2 flex-wrap">
-                            <span>👤 {item.customerName}</span>
-                            <span>📞 {item.customerPhone}</span>
-                            <span className="text-forest-800 font-medium">({item.totalNights} คืน)</span>
-                          </div>
-                          {item.specialRequest && (
-                            <div className="text-[10.5px] text-charcoal-500 bg-cream-50 px-2 py-0.5 rounded-lg inline-block">
-                              📝 {item.specialRequest}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedEvent({ ...item, raw: item.raw })}
-                            className="px-2.5 py-1.5 bg-cream-50 hover:bg-cream-100 text-charcoal-700 border border-cream-200 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95"
-                          >
-                            <Eye size={12} className="text-charcoal-500" />
-                            <span>ดูข้อมูล</span>
-                          </button>
-
-                          <Link
-                            href={`/admin/checkin?search=${encodeURIComponent(item.customerName || item.roomTitle)}`}
-                            className="px-2.5 py-1.5 bg-forest-800 hover:bg-forest-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 shadow-2xs"
-                            title="ไปยังหน้าเช็คอินของแขกท่านนี้"
-                          >
-                            <span>หน้าเช็คอิน</span>
-                            <ArrowUpRight size={12} />
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ---------------- Section 2: Check-outs ---------------- */}
-            {(activeModalTab === 'all' || activeModalTab === 'checkouts') && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-amber-950 font-bold text-xs pt-1">
-                  <LogOut size={15} className="text-amber-700" />
-                  <span>แขกเช็คเอาต์คืนห้องวันนี้ ({selectedDayData.checkouts.length} ห้อง)</span>
-                </div>
-                {selectedDayData.checkouts.length === 0 ? (
-                  <p className="text-[11px] text-charcoal-400 italic bg-cream-50/50 p-3 rounded-xl border border-cream-200/60 text-center">
-                    ไม่มีรายการเช็คเอาต์คืนห้องในวันนี้
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedDayData.checkouts.map((item, idx) => (
-                      <div
-                        key={`out-${idx}`}
-                        className="bg-white border border-amber-200/80 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:border-amber-300 transition-all"
-                      >
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-amber-950 text-xs">{item.roomTitle}</span>
-                            <span className="text-[11px] text-charcoal-500 font-mono">• ID #{item.bookingId}</span>
-                            <span className="px-2 py-0.2 rounded-full bg-amber-100 text-amber-900 text-[10px] font-semibold">
-                              เช็คเอาต์
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-charcoal-600 flex items-center gap-2 flex-wrap">
-                            <span>👤 {item.customerName}</span>
-                            <span>📞 {item.customerPhone}</span>
-                            <span className="text-amber-800 font-medium">(สิ้นสุดการพัก {item.totalNights} คืน)</span>
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedEvent({ ...item, raw: item.raw })}
-                            className="px-2.5 py-1.5 bg-cream-50 hover:bg-cream-100 text-charcoal-700 border border-cream-200 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95"
-                          >
-                            <Eye size={12} className="text-charcoal-500" />
-                            <span>ดูข้อมูล</span>
-                          </button>
-
-                          <Link
-                            href={`/admin/checkin?search=${encodeURIComponent(item.customerName || item.roomTitle)}`}
-                            className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 shadow-2xs"
-                            title="ไปยังหน้าเช็คอิน-เช็คเอาต์เพื่อตัดยอดคืนห้อง"
-                          >
-                            <span>หน้าเช็คเอาต์</span>
-                            <ArrowUpRight size={12} />
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ---------------- Section 3: Staying ---------------- */}
-            {(activeModalTab === 'all' || activeModalTab === 'staying') && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-charcoal-800 font-bold text-xs pt-1">
-                  <Home size={15} className="text-charcoal-600" />
-                  <span>แขกพักค้างคืนต่อเนื่อง ({selectedDayData.staying.length} ห้อง)</span>
-                </div>
-                {selectedDayData.staying.length === 0 ? (
-                  <p className="text-[11px] text-charcoal-400 italic bg-cream-50/50 p-3 rounded-xl border border-cream-200/60 text-center">
-                    ไม่มีแขกพักค้างคืนต่อเนื่องในวันนี้
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedDayData.staying.map((item, idx) => (
-                      <div
-                        key={`stay-${idx}`}
-                        className="bg-white border border-cream-200/90 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:border-cream-400 transition-all"
-                      >
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-charcoal-900 text-xs">{item.roomTitle}</span>
-                            <span className="text-[11px] text-forest-800 font-medium bg-forest-50 px-2 py-0.2 rounded-md">
-                              คืนที่ {item.currentNight}/{item.totalNights}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-charcoal-600 flex items-center gap-2 flex-wrap">
-                            <span>👤 {item.customerName}</span>
-                            <span>📞 {item.customerPhone}</span>
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedEvent({ ...item, raw: item.raw })}
-                            className="px-2.5 py-1.5 bg-cream-50 hover:bg-cream-100 text-charcoal-700 border border-cream-200 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95"
-                          >
-                            <Eye size={12} className="text-charcoal-500" />
-                            <span>ดูข้อมูล</span>
-                          </button>
-
-                          <Link
-                            href={`/admin/checkin?search=${encodeURIComponent(item.customerName || item.roomTitle)}`}
-                            className="px-2.5 py-1.5 bg-charcoal-700 hover:bg-charcoal-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 shadow-2xs"
-                            title="ไปยังหน้าเช็คอิน"
-                          >
-                            <span>หน้าเช็คอิน</span>
-                            <ArrowUpRight size={12} />
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ---------------- Section 4: Boats (View-only) ---------------- */}
-            {(activeModalTab === 'all' || activeModalTab === 'boats') && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-lagoon-950 font-bold text-xs pt-1">
-                  <Sailboat size={15} className="text-lagoon-700" />
-                  <span>คิวเรือพาย / ซับบอร์ดวันนี้ ({selectedDayData.boats.length} รายการ — ดูข้อมูล)</span>
-                </div>
-                {selectedDayData.boats.length === 0 ? (
-                  <p className="text-[11px] text-charcoal-400 italic bg-cream-50/50 p-3 rounded-xl border border-cream-200/60 text-center">
-                    ไม่มีคิวจองเรือพายในวันนี้
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedDayData.boats.map((item, idx) => (
-                      <div
-                        key={`boat-${idx}`}
-                        className="bg-white border border-lagoon-200/80 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:border-lagoon-300 transition-all"
-                      >
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-lagoon-950 text-xs">{item.boatTitle}</span>
-                            <span className="text-[11px] text-lagoon-700 font-semibold bg-lagoon-50 px-2 py-0.2 rounded-md">
-                              ⏰ {item.timeFormatted}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-charcoal-600 flex items-center gap-2 flex-wrap">
-                            <span>👤 {item.customerName}</span>
-                            <span>📞 {item.customerPhone}</span>
-                            <span>({item.boatCount} ลำ • {item.numPassengers} ท่าน)</span>
-                          </div>
-                        </div>
-
-                        {/* View Details Only for Boats */}
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedEvent({ ...item, raw: item.raw })}
-                            className="px-3 py-1.5 bg-lagoon-50 hover:bg-lagoon-100 text-lagoon-800 border border-lagoon-200 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95"
-                          >
-                            <Eye size={12} className="text-lagoon-700" />
-                            <span>ดูข้อมูลเรือ</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         )}
       </Modal>
@@ -1065,23 +897,6 @@ export default function AdminCalendarPage() {
       >
         {selectedEvent && (
           <div className="space-y-3.5 text-xs text-charcoal-600 mt-2">
-            {/* Top Back Navigator Link */}
-            {selectedDayData && (
-              <div className="flex items-center justify-between pb-1 border-b border-cream-200/60">
-                <button
-                  type="button"
-                  onClick={() => setSelectedEvent(null)}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-forest-800 hover:text-forest-950 hover:underline active:scale-95"
-                >
-                  <ArrowLeft size={14} />
-                  <span>กลับไปหน้ารายการวันที่ {formatThaiDateShort(selectedDayData.dateStr)}</span>
-                </button>
-                <span className="text-[11px] text-charcoal-400 font-mono">
-                  ID #{selectedEvent.bookingId}
-                </span>
-              </div>
-            )}
-
             {/* Header Tag with ID */}
             <div className="flex items-center justify-between bg-cream-50/70 border border-cream-200/80 rounded-2xl p-3">
               <div className="flex items-center gap-2.5">
