@@ -1,44 +1,38 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Plus,
   Minus,
-  PlusCircle,
   Edit3,
   Trash2,
   X,
   Search,
   Image as ImageIcon,
-  Layers,
-  AlertTriangle,
   Users,
   UploadCloud,
   Loader2,
   Eye,
   Anchor,
-  Clock,
-  Compass,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  AlertTriangle,
 } from "lucide-react";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
-import Link from "next/link";
-
-import {
-  PageHeader,
-  Panel,
-  Modal,
-  EmptyState,
-} from "@/components/admin/ui";
+import { Modal, EmptyState } from "@/components/admin/ui";
 
 // Constants & Validation Rules
 const VALID_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_GALLERY_COUNT = 5;
+const ITEMS_PER_PAGE = 10;
 
 export default function BoatTypesPage() {
   const router = useRouter();
@@ -48,8 +42,9 @@ export default function BoatTypesPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // Search filter
+  // Search & Pagination filter
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Modals Open/Close States
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -93,6 +88,10 @@ export default function BoatTypesPage() {
     if (!ready) return;
     fetchData();
   }, [ready]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   // Clean up Object URLs to prevent memory leaks
   useEffect(() => {
@@ -249,6 +248,23 @@ export default function BoatTypesPage() {
     }
   };
 
+  const handleToggleStatus = async (boat: any) => {
+    const boatId = boat.id || boat.boat_type_id;
+    const currentStatus = boat.is_active !== false;
+    try {
+      await api.put(`/kayaks/${boatId}`, {
+        name: boat.name || boat.type_name,
+        is_active: !currentStatus,
+      });
+      notify.success(
+        `เปลี่ยนสถานะเป็น ${!currentStatus ? "เปิดใช้งาน" : "ปิดใช้งาน"} เรียบร้อย`,
+      );
+      fetchData();
+    } catch {
+      notify.error("เปลี่ยนสถานะไม่สำเร็จ");
+    }
+  };
+
   const confirmDelete = (id: string) => {
     setDeleteTargetId(id);
   };
@@ -378,91 +394,137 @@ export default function BoatTypesPage() {
     }
   };
 
-  const filteredBoatTypes = boatTypes.filter((bt) => {
+  const filteredBoatTypes = useMemo(() => {
     const searchLower = searchQuery.toLowerCase().trim();
-    const name = bt.name || bt.type_name || "";
-    const description = bt.description || "";
-    return (
-      !searchQuery ||
-      name.toLowerCase().includes(searchLower) ||
-      description.toLowerCase().includes(searchLower)
-    );
-  });
+    return boatTypes.filter((bt) => {
+      const name = bt.name || bt.type_name || "";
+      const description = bt.description || "";
+      return (
+        !searchQuery ||
+        name.toLowerCase().includes(searchLower) ||
+        description.toLowerCase().includes(searchLower)
+      );
+    });
+  }, [boatTypes, searchQuery]);
+
+  const totalPages = Math.ceil(filteredBoatTypes.length / ITEMS_PER_PAGE) || 1;
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(currentPage * ITEMS_PER_PAGE, filteredBoatTypes.length);
+
+  const paginatedBoatTypes = useMemo(() => {
+    return filteredBoatTypes.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredBoatTypes, startIndex]);
 
   if (!ready) return null;
 
   return (
     <div className="space-y-6 pb-12">
-      <PageHeader
-        title="จัดการประเภทเรือ"
-        badge={`${boatTypes.length} รายการ`}
-        actions={
+      {/* Top Header Card */}
+      <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-900/10 shrink-0">
+            <Anchor size={24} className="stroke-[2.2]" />
+          </div>
+          <div>
+            <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 leading-tight">
+              จัดการประเภทเรือ
+            </h1>
+            <p className="text-xs sm:text-sm text-charcoal-500 mt-1">
+              กำหนดประเภทเรือคายัค อัตราค่าบริการ จำนวนที่นั่ง และจำนวนลำที่พร้อมให้บริการ
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            className="btn-primary"
+            className="px-4 py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl font-bold text-xs shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-98"
           >
             <Plus size={16} />
             เพิ่มประเภทเรือ
           </button>
-        }
-      />
+
+          <div className="px-4 py-2.5 bg-cream-50/80 rounded-2xl border border-cream-300 shadow-2xs flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-forest-100 flex items-center justify-center text-forest-800">
+              <Anchor size={18} />
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-charcoal-400 block leading-tight">
+                ประเภทเรือทั้งหมด
+              </span>
+              <span className="text-xs font-bold text-forest-900 font-mono">
+                {boatTypes.length} รายการ
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Table List Section */}
-      <Panel
-        title="รายการประเภทเรือทั้งหมด"
-        actions={
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[600px]">
+        {/* Header & Search */}
+        <div className="pb-4 mb-4 border-b border-cream-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
+            <h2 className="text-base font-bold text-forest-900">
+              รายการประเภทเรือทั้งหมด
+            </h2>
+            <span className="px-2.5 py-0.5 bg-forest-50 text-forest-800 border border-forest-200 rounded-full text-xs font-bold font-mono">
+              {filteredBoatTypes.length} รายการ
+            </span>
+          </div>
+
           <div className="relative w-full sm:w-80">
             <Search
-              size={15}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+              size={16}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-charcoal-400"
             />
             <input
               type="text"
               placeholder="ค้นหาชื่อประเภทเรือ หรือคำอธิบาย..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 bg-white border border-stone-200 rounded-xl text-xs font-medium text-stone-700 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
+              className="w-full pl-9 pr-8 py-2 bg-cream-50/70 border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs p-0.5 rounded-full hover:bg-stone-100"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-charcoal-400 hover:text-charcoal-600 text-xs p-0.5 rounded-full hover:bg-cream-200"
               >
                 <X size={12} />
               </button>
             )}
           </div>
-        }
-      >
+        </div>
 
         {/* Table Area */}
-        <div className="flex-1 overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-stone-100/70 border-b border-stone-200/80 text-xs font-bold text-stone-500 uppercase tracking-wider">
+        <div className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
+          <table className="w-full text-left border-collapse text-xs md:text-sm">
+            <thead className="bg-cream-50/80 border-b border-cream-200 text-xs font-bold text-charcoal-600 uppercase tracking-wider select-none shadow-2xs">
               <tr>
                 <th className="px-5 py-3.5">ชื่อประเภทเรือ</th>
                 <th className="px-4 py-3.5">ที่นั่ง</th>
                 <th className="px-4 py-3.5">จำนวนที่มี</th>
-                <th className="px-4 py-3.5">ราคา </th>
+                <th className="px-4 py-3.5">ราคา / ชั่วโมง</th>
                 <th className="px-4 py-3.5">สถานะ</th>
                 <th className="px-4 py-3.5 text-center">จัดการ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100 text-xs text-stone-700">
+            <tbody className="divide-y divide-cream-100 bg-white text-xs text-charcoal-700">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center text-stone-400">
-                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-[#0b3b2c] border-t-transparent mb-3" />
-                    <p className="text-xs font-medium text-stone-500">
+                  <td colSpan={6} className="py-16 text-center text-charcoal-400">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-forest-800 border-t-transparent mb-3" />
+                    <p className="text-xs font-medium text-charcoal-500">
                       กำลังโหลดข้อมูลเรือ...
                     </p>
                   </td>
                 </tr>
               ) : filteredBoatTypes.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8">
+                  <td colSpan={6} className="p-0">
                     <EmptyState
                       title="ไม่พบประเภทเรือ"
                       description="ลองเปลี่ยนคำค้นหา หรือกดเพิ่มประเภทเรือใหม่"
@@ -470,17 +532,18 @@ export default function BoatTypesPage() {
                   </td>
                 </tr>
               ) : (
-                filteredBoatTypes.map((bt: any) => {
+                paginatedBoatTypes.map((bt: any) => {
                   const coverImg = bt.boat_image || bt.main_image || bt.image;
                   const boatName = bt.name || bt.type_name;
                   const boatId = bt.id || bt.boat_type_id;
                   const capacity = bt.capacity || bt.seat_count;
                   const price = bt.price_per_hour || bt.price;
+                  const isActive = bt.is_active !== false;
 
                   return (
                     <tr
                       key={boatId}
-                      className="hover:bg-stone-50/80 transition-colors"
+                      className="hover:bg-cream-50/50 transition-colors"
                     >
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
@@ -492,7 +555,7 @@ export default function BoatTypesPage() {
                                   title: boatName,
                                 })
                               }
-                              className="relative w-12 h-12 rounded-xl overflow-hidden border border-stone-200/80 shrink-0 cursor-pointer group shadow-2xs"
+                              className="relative w-12 h-12 rounded-2xl overflow-hidden border border-cream-200/90 shrink-0 cursor-pointer group shadow-2xs"
                               title="คลิกเพื่อขยายดูรูปภาพ"
                             >
                               <img
@@ -505,51 +568,65 @@ export default function BoatTypesPage() {
                               </div>
                             </div>
                           ) : (
-                            <div className="w-12 h-12 rounded-xl bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0 text-stone-400">
+                            <div className="w-12 h-12 rounded-2xl bg-cream-100 border border-cream-200 flex items-center justify-center shrink-0 text-charcoal-400">
                               <ImageIcon size={18} />
                             </div>
                           )}
                           <div className="min-w-0">
-                            <div className="font-bold text-stone-900 text-sm truncate">
+                            <div className="font-bold text-charcoal-900 text-sm truncate">
                               {boatName}
                             </div>
-                            <div className="text-xs text-stone-400 truncate max-w-sm font-normal mt-0.5">
+                            <div className="text-xs text-charcoal-400 truncate max-w-sm font-normal mt-0.5">
                               {bt.description || "ไม่มีรายละเอียดเพิ่มเติม"}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-stone-100 text-stone-700 border border-stone-200/60">
-                          <Users size={13} className="text-stone-500" />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-cream-100 text-charcoal-700 border border-cream-200">
+                          <Users size={13} className="text-charcoal-500" />
                           {capacity} ที่นั่ง
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 whitespace-nowrap font-medium text-stone-700">
-                        {bt.quantity} ลำ
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-forest-50 text-forest-800 border border-forest-200/70">
+                          <Anchor size={13} />
+                          <span>{bt.quantity} ลำ</span>
+                        </span>
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span className="font-bold text-[#0b3b2c] text-sm">
+                        <span className="font-bold text-forest-900 text-sm">
                           ฿{Number(price || 0).toLocaleString()}
                         </span>
+                        <span className="text-xs text-charcoal-400 font-normal ml-1">
+                          / ชม.
+                        </span>
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                            bt.is_active !== false
-                              ? "bg-forest-100/80 text-forest-800 border border-forest-200/60"
-                              : "bg-stone-100 text-stone-500 border border-stone-200"
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStatus(bt)}
+                          className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                            isActive
+                              ? "bg-forest-50 text-forest-800 border-forest-200 hover:bg-forest-100"
+                              : "bg-cream-200 text-charcoal-600 border-cream-300 hover:bg-cream-300"
                           }`}
+                          title="คลิกเพื่อเปิด/ปิดการใช้งาน"
                         >
-                          {bt.is_active !== false ? "เปิดใช้งาน" : "ปิดใช้งาน"}
-                        </span>
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isActive ? "bg-forest-600" : "bg-charcoal-400"
+                            }`}
+                          />
+                          {isActive ? "เปิดใช้งาน" : "ปิดใช้งาน"}
+                        </button>
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => openEditBoat(bt)}
-                            className="p-1.5 text-stone-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-all cursor-pointer"
+                            className="p-1.5 text-charcoal-500 hover:text-amber-800 hover:bg-amber-50/80 rounded-xl transition-all cursor-pointer"
                             title="แก้ไขข้อมูล"
                           >
                             <Edit3 size={16} />
@@ -557,7 +634,7 @@ export default function BoatTypesPage() {
                           <button
                             type="button"
                             onClick={() => confirmDelete(boatId)}
-                            className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                            className="p-1.5 text-charcoal-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
                             title="ลบประเภทเรือ"
                           >
                             <Trash2 size={16} />
@@ -571,7 +648,93 @@ export default function BoatTypesPage() {
             </tbody>
           </table>
         </div>
-      </Panel>
+
+        {/* Pagination Footer */}
+        {filteredBoatTypes.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-auto border-t border-cream-200 text-xs text-charcoal-500">
+            <span>
+              แสดง{" "}
+              <strong className="text-forest-950 font-mono">
+                {filteredBoatTypes.length > 0 ? startIndex + 1 : 0}
+              </strong>{" "}
+              ถึง{" "}
+              <strong className="text-forest-950 font-mono">{endIndex}</strong> จาก{" "}
+              <strong className="text-forest-950 font-mono">{filteredBoatTypes.length}</strong> รายการ
+            </span>
+
+            {/* Pagination Controls */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(1)}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าแรก"
+              >
+                <ChevronsLeft size={14} />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าก่อนหน้า"
+              >
+                <ChevronLeft size={14} />
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
+                    acc.push("...");
+                  }
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  typeof p === "number" ? (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setCurrentPage(p)}
+                      className={`min-w-[32px] h-8 px-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                        currentPage === p
+                          ? "bg-forest-800 text-white shadow-xs"
+                          : "bg-white text-charcoal-600 border border-cream-300 hover:bg-cream-100 shadow-2xs"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ) : (
+                    <span key={idx} className="px-1 text-charcoal-400">
+                      ...
+                    </span>
+                  ),
+                )}
+
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าถัดไป"
+              >
+                <ChevronRight size={14} />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าสุดท้าย"
+              >
+                <ChevronsRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* MODAL: Create Boat Type */}
       <Modal
@@ -585,26 +748,26 @@ export default function BoatTypesPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">
+              <label className="block text-xs font-bold text-charcoal-700 mb-1">
                 ชื่อประเภทเรือ <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 required
-                placeholder="เช่น เรือ 2 ที่นั่ง, เรือปั่น VIP"
-                className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
+                placeholder="เช่น เรือคายัค 2 ที่นั่ง, เรือปั่น VIP"
+                className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 focus:bg-white transition-all shadow-2xs"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">
+              <label className="block text-xs font-bold text-charcoal-700 mb-1">
                 รายละเอียด
               </label>
               <textarea
                 placeholder="รายละเอียดอุปกรณ์ ความปลอดภัย และคำแนะนำเพิ่มเติม..."
-                className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs resize-none"
+                className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 focus:bg-white transition-all shadow-2xs resize-none"
                 rows={2}
                 value={form.description}
                 onChange={(e) =>
@@ -616,10 +779,10 @@ export default function BoatTypesPage() {
             <div className="grid grid-cols-3 gap-3">
               {/* ที่นั่ง (คน) */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
+                <label className="block text-xs font-bold text-charcoal-700 mb-1">
                   ที่นั่ง (คน) <span className="text-rose-500">*</span>
                 </label>
-                <div className="flex items-center border border-stone-200 bg-stone-50 rounded-xl overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-[#0b3b2c]/20 focus-within:border-[#0b3b2c]">
+                <div className="flex items-center border border-cream-300 bg-cream-50/60 rounded-xl overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-forest-800/20 focus-within:border-forest-800 focus-within:bg-white">
                   <button
                     type="button"
                     onClick={() =>
@@ -628,7 +791,7 @@ export default function BoatTypesPage() {
                         capacity: Math.max(1, (form.capacity || 1) - 1),
                       })
                     }
-                    className="px-2.5 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                    className="px-2.5 py-2.5 bg-cream-100 hover:bg-cream-200 text-charcoal-600 transition-colors cursor-pointer"
                   >
                     <Minus size={13} />
                   </button>
@@ -636,7 +799,7 @@ export default function BoatTypesPage() {
                     type="number"
                     required
                     min="1"
-                    className="w-full text-center bg-transparent text-xs font-medium text-stone-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full text-center bg-transparent text-xs font-bold text-charcoal-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     value={form.capacity === 0 ? "" : form.capacity}
                     onChange={(e) =>
                       setForm({
@@ -656,7 +819,7 @@ export default function BoatTypesPage() {
                         capacity: (form.capacity || 0) + 1,
                       })
                     }
-                    className="px-2.5 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                    className="px-2.5 py-2.5 bg-cream-100 hover:bg-cream-200 text-charcoal-600 transition-colors cursor-pointer"
                   >
                     <Plus size={13} />
                   </button>
@@ -665,14 +828,14 @@ export default function BoatTypesPage() {
 
               {/* ราคา (บาท) */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
+                <label className="block text-xs font-bold text-charcoal-700 mb-1">
                   ราคา (บาท) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="number"
                   required
                   min="0"
-                  className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
+                  className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs font-bold text-forest-900 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 focus:bg-white transition-all shadow-2xs"
                   value={
                     form.price_per_hour === 0 ? "" : form.price_per_hour
                   }
@@ -688,10 +851,10 @@ export default function BoatTypesPage() {
 
               {/* จำนวน (ลำ) */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
+                <label className="block text-xs font-bold text-charcoal-700 mb-1">
                   จำนวน (ลำ) <span className="text-rose-500">*</span>
                 </label>
-                <div className="flex items-center border border-stone-200 bg-stone-50 rounded-xl overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-[#0b3b2c]/20 focus-within:border-[#0b3b2c]">
+                <div className="flex items-center border border-cream-300 bg-cream-50/60 rounded-xl overflow-hidden shadow-2xs focus-within:ring-2 focus-within:ring-forest-800/20 focus-within:border-forest-800 focus-within:bg-white">
                   <button
                     type="button"
                     onClick={() =>
@@ -700,7 +863,7 @@ export default function BoatTypesPage() {
                         quantity: Math.max(1, (form.quantity || 1) - 1),
                       })
                     }
-                    className="px-2.5 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                    className="px-2.5 py-2.5 bg-cream-100 hover:bg-cream-200 text-charcoal-600 transition-colors cursor-pointer"
                   >
                     <Minus size={13} />
                   </button>
@@ -708,7 +871,7 @@ export default function BoatTypesPage() {
                     type="number"
                     required
                     min="1"
-                    className="w-full text-center bg-transparent text-xs font-medium text-stone-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full text-center bg-transparent text-xs font-bold text-charcoal-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     value={form.quantity === 0 ? "" : form.quantity}
                     onChange={(e) =>
                       setForm({
@@ -728,7 +891,7 @@ export default function BoatTypesPage() {
                         quantity: (form.quantity || 0) + 1,
                       })
                     }
-                    className="px-2.5 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                    className="px-2.5 py-2.5 bg-cream-100 hover:bg-cream-200 text-charcoal-600 transition-colors cursor-pointer"
                   >
                     <Plus size={13} />
                   </button>
@@ -738,12 +901,12 @@ export default function BoatTypesPage() {
 
             {/* Drag & Drop Cover Image Upload */}
             <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1.5">
+              <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
                 รูปภาพเรือหลัก
               </label>
 
               {coverPreview ? (
-                <div className="relative w-full h-36 rounded-xl overflow-hidden border-2 border-[#0b3b2c] shadow-xs group">
+                <div className="relative w-full h-36 rounded-2xl overflow-hidden border-2 border-forest-800 shadow-xs group">
                   <img
                     src={coverPreview}
                     alt="Cover Preview"
@@ -757,7 +920,7 @@ export default function BoatTypesPage() {
                         setCoverFile(null);
                         setCoverPreview(null);
                       }}
-                      className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md transition-transform active:scale-95 cursor-pointer"
+                      className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-transform active:scale-95 cursor-pointer"
                     >
                       <X size={14} /> เปลี่ยนรูปภาพ
                     </button>
@@ -768,19 +931,19 @@ export default function BoatTypesPage() {
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDropCover}
-                  className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-xl transition-all cursor-pointer group p-3 text-center ${
+                  className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-2xl transition-all cursor-pointer group p-3 text-center ${
                     isDraggingCover
-                      ? "border-[#0b3b2c] bg-[#0b3b2c]/10 scale-[1.01]"
-                      : "border-stone-300 hover:border-[#0b3b2c] bg-stone-50 hover:bg-[#0b3b2c]/5"
+                      ? "border-forest-800 bg-forest-50/60 scale-[1.01]"
+                      : "border-cream-300 hover:border-forest-700 bg-cream-50/50 hover:bg-forest-50/30"
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-full bg-stone-200/80 group-hover:bg-[#0b3b2c]/10 text-stone-500 group-hover:text-[#0b3b2c] flex items-center justify-center transition-colors mb-1.5">
+                  <div className="w-8 h-8 rounded-full bg-cream-200/80 group-hover:bg-forest-100 text-charcoal-500 group-hover:text-forest-800 flex items-center justify-center transition-colors mb-1.5">
                     <UploadCloud size={18} />
                   </div>
-                  <p className="text-xs font-bold text-stone-700 group-hover:text-[#0b3b2c] transition-colors">
+                  <p className="text-xs font-bold text-charcoal-700 group-hover:text-forest-800 transition-colors">
                     คลิก หรือลากไฟล์มาวางเพื่ออัปโหลด
                   </p>
-                  <p className="text-xs text-stone-400 mt-0.5">
+                  <p className="text-xs text-charcoal-400 mt-0.5">
                     JPG, PNG, WEBP (ไม่เกิน 5MB)
                   </p>
                   <input
@@ -796,10 +959,10 @@ export default function BoatTypesPage() {
             {/* Gallery Files Upload */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-stone-700">
+                <label className="block text-xs font-bold text-charcoal-700">
                   รูปภาพเพิ่มเติม (Gallery)
                 </label>
-                <span className="text-xs font-semibold text-stone-400">
+                <span className="text-xs font-semibold text-charcoal-400 font-mono">
                   {galleryPreviews.length}/{MAX_GALLERY_COUNT} รูป
                 </span>
               </div>
@@ -810,7 +973,7 @@ export default function BoatTypesPage() {
                     {galleryPreviews.map((url, idx) => (
                       <div
                         key={idx}
-                        className="relative h-16 rounded-xl overflow-hidden border border-stone-200 shadow-2xs group"
+                        className="relative h-16 rounded-xl overflow-hidden border border-cream-200 shadow-2xs group"
                       >
                         <img
                           src={url}
@@ -820,7 +983,7 @@ export default function BoatTypesPage() {
                         <button
                           type="button"
                           onClick={() => removeGalleryFile(idx)}
-                          className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-700"
+                          className="absolute top-1 right-1 p-1 bg-rose-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-700 cursor-pointer shadow-xs"
                         >
                           <X size={12} />
                         </button>
@@ -830,7 +993,7 @@ export default function BoatTypesPage() {
                 )}
 
                 {galleryPreviews.length < MAX_GALLERY_COUNT && (
-                  <label className="flex items-center justify-center gap-2 p-2.5 border border-dashed border-stone-300 hover:border-[#0b3b2c] rounded-xl cursor-pointer text-xs font-medium text-stone-600 hover:text-[#0b3b2c] hover:bg-[#0b3b2c]/5 transition-all">
+                  <label className="flex items-center justify-center gap-2 p-2.5 border border-dashed border-cream-300 hover:border-forest-800 bg-cream-50/50 hover:bg-forest-50/30 rounded-xl cursor-pointer text-xs font-medium text-charcoal-600 hover:text-forest-800 transition-all">
                     <Plus size={14} />
                     <span>เพิ่มรูป Gallery</span>
                     <input
@@ -847,7 +1010,7 @@ export default function BoatTypesPage() {
           </div>
 
           {/* Submit / Cancel / Active Status Bar */}
-          <div className="pt-4 border-t border-stone-100 flex items-center justify-between gap-2">
+          <div className="pt-4 border-t border-cream-200/80 flex items-center justify-between gap-2">
             <label
               htmlFor="create_is_active"
               className="flex items-center gap-2 cursor-pointer select-none group"
@@ -859,9 +1022,9 @@ export default function BoatTypesPage() {
                 onChange={(e) =>
                   setForm({ ...form, is_active: e.target.checked })
                 }
-                className="w-4 h-4 text-[#0b3b2c] rounded border-stone-300 focus:ring-[#0b3b2c] accent-[#0b3b2c] cursor-pointer"
+                className="w-4 h-4 text-forest-800 rounded border-cream-300 focus:ring-forest-800 accent-forest-800 cursor-pointer"
               />
-              <span className="text-xs font-bold text-stone-700 group-hover:text-[#0b3b2c] transition-colors">
+              <span className="text-xs font-bold text-charcoal-700 group-hover:text-forest-800 transition-colors">
                 เปิดใช้งาน
               </span>
             </label>
@@ -873,14 +1036,14 @@ export default function BoatTypesPage() {
                   setShowCreateModal(false);
                   resetCreateForm();
                 }}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-charcoal-600 hover:bg-cream-100 transition-colors cursor-pointer"
               >
                 ยกเลิก
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-5 py-2 bg-[#0b3b2c] hover:bg-[#07271d] text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                className="px-5 py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer active:scale-98"
               >
                 {submitting && (
                   <Loader2 size={14} className="animate-spin" />
@@ -900,19 +1063,19 @@ export default function BoatTypesPage() {
       >
         <form
           onSubmit={handleUpdateBoat}
-          className="space-y-3 text-xs"
+          className="space-y-3.5 text-xs"
         >
           {/* ส่วนที่ 1: ข้อมูลทั่วไป */}
-          <div className="bg-white p-3 rounded-xl border border-stone-200/70 shadow-2xs space-y-2.5">
+          <div className="bg-cream-50/40 p-3.5 rounded-2xl border border-cream-200/90 shadow-2xs space-y-2.5">
             <div>
-              <label className="block font-bold text-stone-800 mb-1">
+              <label className="block font-bold text-charcoal-800 mb-1">
                 ชื่อประเภทเรือ <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 required
                 placeholder="เช่น เรือ 2 ที่นั่ง"
-                className="w-full px-3 py-2 bg-stone-50/50 border border-stone-200 rounded-lg text-xs font-medium text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs"
+                className="w-full px-3 py-2 bg-white border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={editingBoat?.name || ""}
                 onChange={(e) =>
                   setEditingBoat({ ...editingBoat, name: e.target.value })
@@ -921,12 +1084,12 @@ export default function BoatTypesPage() {
             </div>
 
             <div>
-              <label className="block font-bold text-stone-800 mb-1">
+              <label className="block font-bold text-charcoal-800 mb-1">
                 คำอธิบาย / รายละเอียด
               </label>
               <textarea
                 placeholder="เพิ่มรายละเอียดเรือเพื่อแจ้งให้ผู้ใช้ทราบ..."
-                className="w-full px-3 py-2 bg-stone-50/50 border border-stone-200 rounded-lg text-xs font-medium text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all shadow-2xs resize-none"
+                className="w-full px-3 py-2 bg-white border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs resize-none"
                 rows={2}
                 value={editingBoat?.description || ""}
                 onChange={(e) =>
@@ -941,10 +1104,10 @@ export default function BoatTypesPage() {
             <div className="grid grid-cols-3 gap-2.5">
               {/* ที่นั่ง (คน) */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
+                <label className="block text-xs font-bold text-charcoal-700 mb-1">
                   ที่นั่ง (คน)
                 </label>
-                <div className="flex items-center border border-stone-200 bg-stone-50/50 rounded-lg overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0b3b2c]/20 focus-within:border-[#0b3b2c]">
+                <div className="flex items-center border border-cream-300 bg-white rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-forest-800/20 focus-within:border-forest-800 shadow-2xs">
                   <button
                     type="button"
                     onClick={() =>
@@ -956,7 +1119,7 @@ export default function BoatTypesPage() {
                         ),
                       })
                     }
-                    className="px-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                    className="px-2 py-1.5 bg-cream-100 hover:bg-cream-200 text-charcoal-600 transition-colors cursor-pointer"
                   >
                     <Minus size={12} />
                   </button>
@@ -964,7 +1127,7 @@ export default function BoatTypesPage() {
                     type="number"
                     required
                     min="1"
-                    className="w-full text-center bg-transparent text-xs font-bold text-stone-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full text-center bg-transparent text-xs font-bold text-charcoal-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     value={
                       editingBoat?.capacity === 0 ? "" : editingBoat?.capacity || ""
                     }
@@ -986,7 +1149,7 @@ export default function BoatTypesPage() {
                         capacity: (editingBoat?.capacity || 0) + 1,
                       })
                     }
-                    className="px-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                    className="px-2 py-1.5 bg-cream-100 hover:bg-cream-200 text-charcoal-600 transition-colors cursor-pointer"
                   >
                     <Plus size={12} />
                   </button>
@@ -995,14 +1158,14 @@ export default function BoatTypesPage() {
 
               {/* ราคา(บาท) */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
+                <label className="block text-xs font-bold text-charcoal-700 mb-1">
                   ราคา (บาท)
                 </label>
                 <input
                   type="number"
                   required
                   min="0"
-                  className="w-full px-2.5 py-1.5 bg-stone-50/50 border border-stone-200 rounded-lg text-xs font-bold text-[#0b3b2c] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 focus:border-[#0b3b2c] transition-all"
+                  className="w-full px-2.5 py-1.5 bg-white border border-cream-300 rounded-xl text-xs font-bold text-forest-900 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                   value={
                     editingBoat?.price_per_hour === 0
                       ? ""
@@ -1020,10 +1183,10 @@ export default function BoatTypesPage() {
 
               {/* จำนวนเรือ (ลำ) */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">
+                <label className="block text-xs font-bold text-charcoal-700 mb-1">
                   จำนวนเรือ (ลำ)
                 </label>
-                <div className="flex items-center border border-stone-200 bg-stone-50/50 rounded-lg overflow-hidden focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0b3b2c]/20 focus-within:border-[#0b3b2c]">
+                <div className="flex items-center border border-cream-300 bg-white rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-forest-800/20 focus-within:border-forest-800 shadow-2xs">
                   <button
                     type="button"
                     onClick={() =>
@@ -1035,7 +1198,7 @@ export default function BoatTypesPage() {
                         ),
                       })
                     }
-                    className="px-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                    className="px-2 py-1.5 bg-cream-100 hover:bg-cream-200 text-charcoal-600 transition-colors cursor-pointer"
                   >
                     <Minus size={12} />
                   </button>
@@ -1043,7 +1206,7 @@ export default function BoatTypesPage() {
                     type="number"
                     required
                     min="1"
-                    className="w-full text-center bg-transparent text-xs font-bold text-stone-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full text-center bg-transparent text-xs font-bold text-charcoal-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     value={
                       editingBoat?.quantity === 0 ? "" : editingBoat?.quantity || ""
                     }
@@ -1065,7 +1228,7 @@ export default function BoatTypesPage() {
                         quantity: (editingBoat?.quantity || 0) + 1,
                       })
                     }
-                    className="px-2 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 transition-colors cursor-pointer"
+                    className="px-2 py-1.5 bg-cream-100 hover:bg-cream-200 text-charcoal-600 transition-colors cursor-pointer"
                   >
                     <Plus size={12} />
                   </button>
@@ -1075,13 +1238,13 @@ export default function BoatTypesPage() {
           </div>
 
           {/* ส่วนที่ 2: จัดการรูปภาพ */}
-          <div className="bg-white p-3 rounded-xl border border-stone-200/70 shadow-2xs space-y-3">
+          <div className="bg-cream-50/40 p-3.5 rounded-2xl border border-cream-200/90 shadow-2xs space-y-3">
             <div>
-              <label className="block font-bold text-stone-800 mb-1.5">
+              <label className="block font-bold text-charcoal-800 mb-1.5">
                 รูปภาพเรือหลัก (Cover Image)
               </label>
               <div className="flex items-center gap-3">
-                <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-stone-200 shrink-0 bg-stone-100 shadow-2xs group">
+                <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-cream-200 shrink-0 bg-cream-100 shadow-2xs group">
                   {editCoverPreview || editingBoat?.boat_image ? (
                     <img
                       src={
@@ -1092,15 +1255,15 @@ export default function BoatTypesPage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-stone-100 text-stone-400 text-xs font-medium">
+                    <div className="w-full h-full flex items-center justify-center bg-cream-100 text-charcoal-400 text-xs font-medium">
                       ไม่มีรูปภาพ
                     </div>
                   )}
                 </div>
 
                 <div className="flex-1 space-y-1">
-                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200/80 text-stone-700 rounded-lg font-bold cursor-pointer transition-colors border border-stone-200/80 active:scale-98">
-                    <UploadCloud size={14} className="text-stone-500" />
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cream-100 hover:bg-cream-200 text-charcoal-700 rounded-xl font-bold cursor-pointer transition-colors border border-cream-200 active:scale-98">
+                    <UploadCloud size={14} className="text-charcoal-500" />
                     <span>เปลี่ยนรูปภาพหลัก</span>
                     <input
                       type="file"
@@ -1109,21 +1272,21 @@ export default function BoatTypesPage() {
                       onChange={handleEditCoverChange}
                     />
                   </label>
-                  <p className="text-xs text-stone-400">
+                  <p className="text-xs text-charcoal-400">
                     รองรับไฟล์ JPG, PNG, WEBP (ไม่เกิน 5MB)
                   </p>
                 </div>
               </div>
             </div>
 
-            <hr className="border-stone-100" />
+            <hr className="border-cream-200/80" />
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block font-bold text-stone-800">
+                <label className="block font-bold text-charcoal-800">
                   รูปภาพเพิ่มเติม (Gallery)
                 </label>
-                <span className="text-xs font-bold px-2 py-0.5 bg-stone-100 rounded-full text-stone-500">
+                <span className="text-xs font-bold px-2 py-0.5 bg-cream-100 rounded-full text-charcoal-500 font-mono">
                   {(editingBoat?.existing_gallery?.length || 0) +
                     editGalleryFiles.length}
                   /{MAX_GALLERY_COUNT} รูป
@@ -1135,7 +1298,7 @@ export default function BoatTypesPage() {
                   (imgUrl: string, idx: number) => (
                     <div
                       key={`exist-${idx}`}
-                      className="relative h-14 rounded-lg overflow-hidden border border-stone-200 group bg-stone-100 shadow-2xs"
+                      className="relative h-14 rounded-xl overflow-hidden border border-cream-200 group bg-cream-100 shadow-2xs"
                     >
                       <img
                         src={resolveMediaUrl(imgUrl)}
@@ -1154,7 +1317,7 @@ export default function BoatTypesPage() {
                                 ),
                             });
                           }}
-                          className="p-1 bg-rose-600 hover:bg-rose-700 text-white rounded shadow-sm transition-transform active:scale-90 cursor-pointer"
+                          className="p-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-transform active:scale-90 cursor-pointer"
                           title="ลบรูปนี้"
                         >
                           <X size={12} />
@@ -1167,21 +1330,21 @@ export default function BoatTypesPage() {
                 {editGalleryPreviews.map((url, idx) => (
                   <div
                     key={`new-${idx}`}
-                    className="relative h-14 rounded-lg overflow-hidden border-2 border-amber-500 group bg-stone-100 shadow-2xs"
+                    className="relative h-14 rounded-xl overflow-hidden border-2 border-forest-600 group bg-cream-100 shadow-2xs"
                   >
                     <img
                       src={url}
                       alt={`New preview ${idx}`}
                       className="w-full h-full object-cover"
                     />
-                    <span className="absolute top-0.5 left-0.5 px-1 bg-amber-500 text-white rounded text-xs font-bold shadow-xs">
+                    <span className="absolute top-0.5 left-0.5 px-1 bg-forest-700 text-white rounded text-[10px] font-bold shadow-xs">
                       ใหม่
                     </span>
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <button
                         type="button"
                         onClick={() => removeEditGalleryFile(idx)}
-                        className="p-1 bg-rose-600 hover:bg-rose-700 text-white rounded shadow-sm transition-transform active:scale-90 cursor-pointer"
+                        className="p-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-transform active:scale-90 cursor-pointer"
                         title="ยกเลิกรูปนี้"
                       >
                         <X size={12} />
@@ -1194,7 +1357,7 @@ export default function BoatTypesPage() {
               {(editingBoat?.existing_gallery?.length || 0) +
                 editGalleryFiles.length <
                 MAX_GALLERY_COUNT && (
-                <label className="flex items-center justify-center gap-1.5 p-2 border border-dashed border-stone-300 hover:border-[#0b3b2c] bg-stone-50/50 hover:bg-[#0b3b2c]/5 rounded-lg cursor-pointer font-bold text-stone-600 hover:text-[#0b3b2c] transition-all">
+                <label className="flex items-center justify-center gap-1.5 p-2 border border-dashed border-cream-300 hover:border-forest-800 bg-white hover:bg-forest-50/30 rounded-xl cursor-pointer font-bold text-charcoal-600 hover:text-forest-800 transition-all">
                   <Plus size={14} />
                   <span>เพิ่มรูป Gallery ใหม่</span>
                   <input
@@ -1225,9 +1388,9 @@ export default function BoatTypesPage() {
                     is_active: e.target.checked,
                   })
                 }
-                className="w-4 h-4 text-[#0b3b2c] rounded border-stone-300 focus:ring-[#0b3b2c] accent-[#0b3b2c] cursor-pointer"
+                className="w-4 h-4 text-forest-800 rounded border-cream-300 focus:ring-forest-800 accent-forest-800 cursor-pointer"
               />
-              <span className="font-bold text-stone-700 group-hover:text-[#0b3b2c] transition-colors">
+              <span className="font-bold text-charcoal-700 group-hover:text-forest-800 transition-colors">
                 เปิดใช้งาน
               </span>
             </label>
@@ -1236,14 +1399,14 @@ export default function BoatTypesPage() {
               <button
                 type="button"
                 onClick={() => setShowEditModal(false)}
-                className="px-3.5 py-2 rounded-xl font-bold text-stone-600 hover:bg-stone-200/60 transition-colors cursor-pointer"
+                className="px-3.5 py-2 rounded-xl font-bold text-charcoal-600 hover:bg-cream-100 transition-colors cursor-pointer"
               >
                 ยกเลิก
               </button>
               <button
                 type="submit"
                 disabled={editUploading}
-                className="px-4 py-2 bg-[#0b3b2c] hover:bg-[#07271d] text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer active:scale-98"
+                className="px-4 py-2 bg-forest-800 hover:bg-forest-900 text-white rounded-xl font-bold shadow-xs hover:shadow transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer active:scale-98"
               >
                 {editUploading ? (
                   <>
@@ -1270,10 +1433,10 @@ export default function BoatTypesPage() {
         widthClass="max-w-sm"
       >
         <div className="text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+          <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-100">
             <AlertTriangle size={24} />
           </div>
-          <p className="text-xs text-stone-500 mt-1">
+          <p className="text-xs text-charcoal-500 mt-1">
             คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?
             การดำเนินการนี้ไม่สามารถยกเลิกได้
           </p>
@@ -1281,14 +1444,14 @@ export default function BoatTypesPage() {
             <button
               type="button"
               onClick={() => setDeleteTargetId(null)}
-              className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold transition-colors w-full cursor-pointer"
+              className="px-4 py-2.5 bg-cream-100 hover:bg-cream-200 text-charcoal-700 rounded-xl text-xs font-bold transition-colors w-full cursor-pointer"
             >
               ยกเลิก
             </button>
             <button
               type="button"
               onClick={handleDelete}
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors w-full cursor-pointer"
+              className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors w-full cursor-pointer"
             >
               ยืนยันการลบ
             </button>
@@ -1303,11 +1466,11 @@ export default function BoatTypesPage() {
         onClose={() => setLightboxImage(null)}
         widthClass="max-w-3xl"
       >
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center p-2">
           <img
             src={lightboxImage?.url}
             alt={lightboxImage?.title}
-            className="max-h-[70vh] w-auto object-contain rounded-lg"
+            className="max-h-[70vh] w-auto object-contain rounded-2xl border border-cream-200 shadow-md"
           />
         </div>
       </Modal>

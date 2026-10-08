@@ -35,9 +35,6 @@ import {
   Timer,
 } from "lucide-react";
 import {
-  PageHeader,
-  StatCard,
-  Panel,
   Modal,
   BookingStatusBadge,
   EmptyState,
@@ -199,9 +196,9 @@ function CustomDatePicker({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-lg border border-stone-200 hover:border-stone-300 text-xs font-mono text-stone-700 transition-all shadow-2xs focus:outline-none focus:ring-2 focus:ring-lagoon-700/20"
+        className="flex items-center justify-between w-[86px] sm:w-[94px] bg-cream-50/80 hover:bg-white px-2.5 py-1.5 rounded-xl border border-cream-300 hover:border-forest-300 text-xs font-mono text-charcoal-700 transition-all shadow-xs focus:outline-none focus:ring-2 focus:ring-forest-500/20"
       >
-        <span>
+        <span className="truncate text-left">
           {value
             ? new Date(value).toLocaleDateString("th-TH", {
                 day: "numeric",
@@ -216,7 +213,7 @@ function CustomDatePicker({
               e.stopPropagation();
               onChange("");
             }}
-            className="hover:text-rose-500 text-stone-400 p-0.5"
+            className="hover:text-rose-600 text-charcoal-400 p-0.5 ml-1 shrink-0"
           >
             <X size={12} />
           </span>
@@ -224,28 +221,28 @@ function CustomDatePicker({
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 top-full mt-2 w-64 bg-white border border-stone-200 rounded-2xl shadow-xl z-50 p-3 animate-in fade-in zoom-in-95 duration-150">
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-stone-100">
+        <div className="absolute left-0 top-full mt-2 w-64 bg-white border border-cream-200/90 rounded-2xl shadow-xl z-50 p-3.5 animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-cream-200">
             <button
               type="button"
               onClick={handlePrevMonth}
-              className="p-1 rounded-lg hover:bg-stone-100 text-stone-600 transition-colors"
+              className="p-1 rounded-lg hover:bg-cream-100 text-charcoal-600 transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
-            <span className="text-xs font-bold text-stone-800">
+            <span className="text-xs font-bold text-forest-900">
               {monthNames[month]} {year + 543}
             </span>
             <button
               type="button"
               onClick={handleNextMonth}
-              className="p-1 rounded-lg hover:bg-stone-100 text-stone-600 transition-colors"
+              className="p-1 rounded-lg hover:bg-cream-100 text-charcoal-600 transition-colors"
             >
               <ChevronRight size={16} />
             </button>
           </div>
 
-          <div className="grid grid-cols-7 text-center text-xs font-bold text-stone-400 mb-1">
+          <div className="grid grid-cols-7 text-center text-[11px] font-bold text-charcoal-400 mb-1">
             <span>อา</span>
             <span>จ</span>
             <span>อ</span>
@@ -271,10 +268,10 @@ function CustomDatePicker({
                   onClick={() => handleSelectDay(day)}
                   className={`h-7 w-7 rounded-xl text-xs font-medium flex items-center justify-center transition-all ${
                     selected
-                      ? "bg-lagoon-800 text-white font-bold shadow-xs scale-105"
+                      ? "bg-forest-800 text-white font-bold shadow-xs scale-105"
                       : today
-                        ? "bg-lagoon-100 text-lagoon-900 font-bold border border-lagoon-300"
-                        : "text-stone-700 hover:bg-stone-100"
+                        ? "bg-forest-50 text-forest-800 font-bold border border-forest-200"
+                        : "text-charcoal-700 hover:bg-cream-100"
                   }`}
                 >
                   {day}
@@ -283,7 +280,7 @@ function CustomDatePicker({
             })}
           </div>
 
-          <div className="flex items-center justify-between pt-2 mt-2 border-t border-stone-100 text-xs">
+          <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-cream-200 text-xs">
             <button
               type="button"
               onClick={() => {
@@ -291,7 +288,7 @@ function CustomDatePicker({
                 onChange(today);
                 setIsOpen(false);
               }}
-              className="text-lagoon-800 font-bold hover:underline"
+              className="text-forest-800 font-bold hover:underline"
             >
               วันนี้
             </button>
@@ -301,7 +298,7 @@ function CustomDatePicker({
                 onChange("");
                 setIsOpen(false);
               }}
-              className="text-stone-400 hover:text-stone-600"
+              className="text-charcoal-400 hover:text-charcoal-600"
             >
               ล้างค่า
             </button>
@@ -354,21 +351,21 @@ function CustomSelect({
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 transition-all focus:outline-none focus:ring-2 focus:ring-lagoon-700/20 shadow-2xs"
+        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-cream-50/80 hover:bg-white border border-cream-300 rounded-xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-none focus:ring-2 focus:ring-forest-500/20 shadow-xs"
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDown
           size={14}
-          className={`text-stone-400 transition-transform duration-200 ${
-            isOpen ? "rotate-180 text-lagoon-800" : ""
+          className={`text-charcoal-400 transition-transform duration-200 ${
+            isOpen ? "rotate-180 text-forest-800" : ""
           }`}
         />
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 w-full bg-white border border-stone-200 rounded-xl shadow-lg z-50 overflow-hidden py-1 max-h-56 overflow-y-auto animate-in fade-in duration-150">
+        <div className="absolute left-0 top-full mt-1.5 w-full bg-white border border-cream-200/90 rounded-2xl shadow-xl z-50 overflow-hidden py-1 max-h-56 overflow-y-auto animate-in fade-in duration-150">
           {options.map((opt) => {
             const isSelected = String(opt.value) === String(value);
             return (
@@ -383,13 +380,13 @@ function CustomSelect({
                 }}
                 className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors flex items-center justify-between ${
                   isSelected
-                    ? "bg-lagoon-50 text-lagoon-900 font-bold"
-                    : "text-stone-600 hover:bg-stone-100/80 hover:text-stone-900"
+                    ? "bg-forest-50 text-forest-900 font-bold"
+                    : "text-charcoal-600 hover:bg-cream-100 hover:text-charcoal-900"
                 }`}
               >
                 <span>{opt.label}</span>
                 {isSelected && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-lagoon-800" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-forest-800" />
                 )}
               </button>
             );
@@ -468,7 +465,7 @@ function BoatStaffDashboardContent() {
     text: "",
     icon: "question",
     confirmText: "ยืนยัน",
-    confirmColor: "bg-lagoon-800",
+    confirmColor: "bg-forest-800 hover:bg-forest-900",
     onConfirm: () => {},
   });
 
@@ -486,6 +483,34 @@ function BoatStaffDashboardContent() {
   });
 
   const itemsPerPage = 10;
+
+  // ช่วงเวลาด่วน (วันนี้, สัปดาห์นี้, เดือนนี้)
+  const quickDateRanges = useMemo(() => {
+    const now = new Date();
+    const today = toISODate(now);
+
+    // สัปดาห์นี้ (จันทร์ ถึง อาทิตย์)
+    const dayOfWeek = now.getDay();
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const startOfWeek = toISODate(monday);
+    const endOfWeek = toISODate(sunday);
+
+    // เดือนนี้ (1 ถึง วันสุดท้ายของเดือน)
+    const startOfMonth = toISODate(new Date(now.getFullYear(), now.getMonth(), 1));
+    const endOfMonth = toISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+
+    return {
+      today: { label: "วันนี้", from: today, to: today },
+      thisWeek: { label: "สัปดาห์นี้", from: startOfWeek, to: endOfWeek },
+      thisMonth: { label: "เดือนนี้", from: startOfMonth, to: endOfMonth },
+    };
+  }, []);
 
   // ฟังก์ชันช่วยอัปเดต Query String ใน URL
   const updateQueryParams = useCallback(
@@ -595,7 +620,7 @@ function BoatStaffDashboardContent() {
       "เมื่ออนุมัติแล้ว สถานะจะเปลี่ยนเป็น 'อนุมัติแล้ว (รอลงเรือ)'",
       "question",
       "อนุมัติการจอง",
-      "bg-lagoon-800",
+      "bg-forest-800 hover:bg-forest-900",
       async () => {
         try {
           await api.put(`/kayaks/bookings/${id}/status`, {
@@ -665,7 +690,7 @@ function BoatStaffDashboardContent() {
       "เมื่อยืนยัน สถานะจะเปลี่ยนเป็น 'คืนเรือแล้ว'",
       "warning",
       "ยืนยัน Check-out",
-      "bg-lagoon-700",
+      "bg-bamboo-700 hover:bg-bamboo-800",
       async () => {
         try {
           await api.put(`/kayaks/bookings/${id}/checkout`);
@@ -728,7 +753,7 @@ function BoatStaffDashboardContent() {
   if (!ready) return null;
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-16 max-w-[1600px] mx-auto">
       <style jsx global>{`
         @media print {
           body * {
@@ -770,177 +795,313 @@ function BoatStaffDashboardContent() {
         }
       `}</style>
 
-      {/* Header Bar */}
-      <PageHeader
-        title="แดชบอร์ดเรือ"
-      />
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5 print:hidden">
-        <StatCard label="รอตรวจสอบสลิป" value={counts.has_slip} icon={<FileCheck2 />} tone="lagoon" />
-        <StatCard label="ยังไม่ชำระเงิน" value={counts.pending} icon={<Clock />} tone="charcoal" />
-        <StatCard label="อนุมัติแล้ว (รอลงเรือ)" value={counts.approved} icon={<ShieldCheck />} tone="forest" />
-        <StatCard label="คืนเรือแล้ว" value={counts.checked_out} icon={<Anchor />} tone="bamboo" />
-        <StatCard 
-          label="รายได้ที่ยืนยันแล้ว" 
-          value={`฿${counts.totalRevenue.toLocaleString()}`} 
-          hint={counts.pendingRevenue > 0 ? `รอตรวจสอบ: ฿${counts.pendingRevenue.toLocaleString()}` : undefined}
-          icon={<Wallet />} 
-          tone="forest" 
-        />
+      {/* Top Header Card */}
+      <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 relative print:hidden">
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10 shrink-0">
+            <Ship size={20} className="stroke-[2.2]" />
+          </span>
+          <div>
+            <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 tracking-tight">
+              จัดการการจองเรือ
+            </h1>
+            <p className="text-xs sm:text-sm text-charcoal-500 mt-1">
+              ตรวจสอบสถานะการจองเรือ อนุมัติสลิปโอนเงิน และบันทึกการคืนเรือคายัค
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Control Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs space-y-4 print:hidden">
-        <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5">
-          {(
-            [
-              ["all", "ทั้งหมด", counts.all],
-              ["has_slip", "รอตรวจสอบสลิป", counts.has_slip],
-              ["pending", "ยังไม่ชำระ", counts.pending],
-              ["approved", "อนุมัติแล้ว", counts.approved],
-              ["checked_out", "เช็คเอาต์แล้ว", counts.checked_out],
-            ] as const
-          ).map(([val, label, count]) => {
-            const active = filter === val;
-            return (
-              <button
-                key={val}
-                onClick={() => handleFilterChange(val as FilterType)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
-                  active
-                    ? "bg-lagoon-800 text-white shadow-xs"
-                    : "bg-stone-100/80 text-stone-600 hover:bg-stone-200/70"
-                }`}
-              >
-                <span>{label}</span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                    active
-                      ? "bg-white/20 text-white"
-                      : "bg-stone-200 text-stone-700"
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+      {/* 5 KPI Stat Summary Cards */}
+      <section className="grid grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4 print:hidden">
+        {/* Card 1: รอตรวจสอบสลิป */}
+        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel transition-all hover:border-forest-200">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold text-lagoon-700 uppercase tracking-wider">รอตรวจสอบสลิป</p>
+              <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-forest-950 tracking-tight">
+                {counts.has_slip}
+                <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รายการ</span>
+              </p>
+            </div>
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-lagoon-50 text-lagoon-700 border border-lagoon-200 flex items-center justify-center shrink-0">
+              <FileCheck2 size={19} className="stroke-[2.2]" />
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-stone-100">
-          <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-            <div className="relative flex-1 sm:w-64 min-w-[200px]">
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none"
-              />
-              <input
-                type="text"
-                placeholder="ค้นหาชื่อ, เบอร์โทร, ประเภทเรือ, ID..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full bg-stone-50 pl-9 pr-8 py-1.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-lagoon-700/20 text-xs font-medium text-stone-800 placeholder:text-stone-400 transition-all"
-              />
-              {searchInput && (
-                <button
-                  onClick={() => {
-                    setSearchInput("");
-                    updateQueryParams({ search: null, page: 1 });
-                  }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5 rounded-full"
-                >
-                  <X size={14} />
-                </button>
+        {/* Card 2: ยังไม่ชำระเงิน */}
+        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel transition-all hover:border-forest-200">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">ยังไม่ชำระเงิน</p>
+              <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-forest-950 tracking-tight">
+                {counts.pending}
+                <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รายการ</span>
+              </p>
+            </div>
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0">
+              <Clock size={19} className="stroke-[2.2]" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: อนุมัติแล้ว */}
+        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel transition-all hover:border-forest-200">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold text-forest-700 uppercase tracking-wider">อนุมัติแล้ว</p>
+              <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-forest-950 tracking-tight">
+                {counts.approved}
+                <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รายการ</span>
+              </p>
+            </div>
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-forest-50 text-forest-800 border border-forest-100 flex items-center justify-center shrink-0">
+              <ShieldCheck size={19} className="stroke-[2.2]" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: คืนเรือแล้ว */}
+        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel transition-all hover:border-forest-200">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold text-bamboo-800 uppercase tracking-wider">คืนเรือแล้ว</p>
+              <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-forest-950 tracking-tight">
+                {counts.checked_out}
+                <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รายการ</span>
+              </p>
+            </div>
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-bamboo-50 text-bamboo-800 border border-bamboo-200 flex items-center justify-center shrink-0">
+              <Anchor size={19} className="stroke-[2.2]" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: รายได้ที่ยืนยันแล้ว */}
+        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel transition-all hover:border-forest-200 col-span-2 lg:col-span-1">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold text-forest-700 uppercase tracking-wider">รายได้ยืนยันแล้ว</p>
+              <p className="mt-1.5 font-display text-xl sm:text-2xl font-bold text-forest-950 tracking-tight">
+                ฿{counts.totalRevenue.toLocaleString()}
+              </p>
+              {counts.pendingRevenue > 0 && (
+                <p className="mt-0.5 text-[11px] text-charcoal-400">
+                  รอตรวจสอบ: ฿{counts.pendingRevenue.toLocaleString()}
+                </p>
               )}
             </div>
-
-            <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
-              <Ship size={15} className="text-stone-400" />
-              <span className="font-medium text-stone-500 whitespace-nowrap">
-                ประเภทเรือ:
-              </span>
-              <CustomSelect
-                options={boatTypeOptions}
-                value={boatType}
-                onChange={(val) =>
-                  updateQueryParams({ boatType: val, page: 1 })
-                }
-                width="w-48"
-              />
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-forest-50 text-forest-800 border border-forest-100 flex items-center justify-center shrink-0">
+              <Wallet size={19} className="stroke-[2.2]" />
             </div>
+          </div>
+        </div>
+      </section>
 
-            <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 text-xs text-stone-600">
-              <CalendarDays size={15} className="text-lagoon-800" />
-              <span className="font-medium text-stone-500 whitespace-nowrap">
-                วันที่จอง:
-              </span>
-              <CustomDatePicker
-                value={dateFrom}
-                onChange={(val) => handleDateChange(val, dateTo)}
-                placeholder="DD/MM/YYYY"
-              />
-              <span className="text-stone-300 font-bold">–</span>
-              <CustomDatePicker
-                value={dateTo}
-                onChange={(val) => handleDateChange(dateFrom, val)}
-                placeholder="DD/MM/YYYY"
-              />
-            </div>
+      {/* Filter & Control Bar */}
+      <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-panel border border-cream-200/90 space-y-3.5 print:hidden">
+        {/* Row 1: Status Tabs (Left) & Actions (Right) */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Status Segmented Tabs */}
+          <div className="flex items-center gap-1.5 bg-cream-100 p-1.5 rounded-2xl overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {(
+              [
+                ["all", "ทั้งหมด", counts.all],
+                ["has_slip", "รอตรวจสอบสลิป", counts.has_slip],
+                ["pending", "ยังไม่ชำระ", counts.pending],
+                ["approved", "อนุมัติแล้ว", counts.approved],
+                ["checked_out", "เช็คเอาต์แล้ว", counts.checked_out],
+              ] as const
+            ).map(([val, label, count]) => {
+              const active = filter === val;
+              return (
+                <button
+                  key={val}
+                  onClick={() => handleFilterChange(val as FilterType)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
+                    active
+                      ? "bg-white text-forest-900 shadow-sm font-bold"
+                      : "text-charcoal-600 hover:text-charcoal-900 hover:bg-cream-200/60"
+                  }`}
+                >
+                  <span>{label}</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-bold transition-all ${
+                      active
+                        ? "bg-forest-800 text-white"
+                        : "bg-cream-200 text-charcoal-700"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
+          {/* Action Buttons (Right) */}
+          <div className="flex items-center gap-2 shrink-0">
             {hasActiveFilters && (
               <button
                 onClick={handleClearFilters}
-                className="flex items-center gap-1 text-xs text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200 font-medium transition-colors"
+                className="flex items-center gap-1.5 text-xs text-charcoal-600 hover:text-charcoal-900 bg-cream-100 hover:bg-cream-200 px-3.5 py-2 rounded-2xl border border-cream-300/80 font-semibold transition-colors"
                 title="ล้างการกรองทั้งหมด"
               >
                 <RotateCcw size={13} />
                 <span>รีเซ็ตตัวกรอง</span>
               </button>
             )}
+            <button
+              onClick={fetchBookings}
+              className="px-3.5 py-2 text-charcoal-700 bg-white hover:bg-forest-50/50 hover:border-forest-200 rounded-2xl border border-cream-300 shadow-xs transition-all text-xs font-semibold flex items-center gap-2 active:scale-95"
+              title="รีเฟรชข้อมูล"
+            >
+              <RefreshCw
+                size={14}
+                className={loading ? "animate-spin text-forest-700" : "text-charcoal-500"}
+              />
+              <span>รีเฟรชข้อมูล</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2: Secondary Filter Controls (Search, Type, Date Range & Presets) */}
+        <div className="flex flex-wrap items-center gap-2.5 pt-2.5 border-t border-cream-100">
+          {/* Search Input */}
+          <div className="relative flex-1 sm:w-64 min-w-[200px]">
+            <Search
+              size={16}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-charcoal-400 pointer-events-none"
+            />
+            <input
+              type="text"
+              placeholder="ค้นหาชื่อ, เบอร์โทร, ประเภทเรือ, ID..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-10 pr-8 py-2 rounded-2xl border border-cream-300 focus:outline-none focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
+            />
+            {searchInput && (
+              <button
+                onClick={() => {
+                  setSearchInput("");
+                  updateQueryParams({ search: null, page: 1 });
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-charcoal-400 hover:text-charcoal-600 p-0.5 rounded-full"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
-          <button
-            onClick={fetchBookings}
-            className="px-3.5 py-2 text-stone-700 bg-white hover:bg-stone-100/80 rounded-xl border border-stone-200 shadow-xs transition-all text-xs font-medium flex items-center gap-2 active:scale-95 ml-auto"
-            title="รีเฟรชข้อมูล"
-          >
-            <RefreshCw
-              size={14}
-              className={loading ? "animate-spin text-[#0b3b2c]" : "text-stone-500"}
+          {/* Boat Type Selector */}
+          <div className="flex items-center gap-2 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
+            <Ship size={14} className="text-forest-700" />
+            <span className="font-medium text-charcoal-500 whitespace-nowrap">
+              ประเภท:
+            </span>
+            <CustomSelect
+              options={boatTypeOptions}
+              value={boatType}
+              onChange={(val) =>
+                updateQueryParams({ boatType: val, page: 1 })
+              }
+              width="w-40"
             />
-            <span>รีเฟรชข้อมูล</span>
-          </button>
+          </div>
+
+          {/* Date Range Selector */}
+          <div className="flex items-center gap-2 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
+            <CalendarDays size={14} className="text-forest-700 shrink-0" />
+            <span className="font-medium text-charcoal-500 whitespace-nowrap">
+              วันที่:
+            </span>
+            <CustomDatePicker
+              value={dateFrom}
+              onChange={(val) => handleDateChange(val, dateTo)}
+              placeholder="เริ่ม"
+            />
+            <span className="text-cream-400 font-bold">–</span>
+            <CustomDatePicker
+              value={dateTo}
+              onChange={(val) => handleDateChange(dateFrom, val)}
+              placeholder="สิ้นสุด"
+            />
+          </div>
+
+          {/* Quick Date Presets */}
+          <div className="flex items-center gap-1 bg-cream-100 p-1 rounded-2xl">
+            {(
+              [
+                ["today", quickDateRanges.today.label, quickDateRanges.today.from, quickDateRanges.today.to],
+                ["thisWeek", quickDateRanges.thisWeek.label, quickDateRanges.thisWeek.from, quickDateRanges.thisWeek.to],
+                ["thisMonth", quickDateRanges.thisMonth.label, quickDateRanges.thisMonth.from, quickDateRanges.thisMonth.to],
+              ] as const
+            ).map(([key, label, from, to]) => {
+              const isActive = dateFrom === from && dateTo === to;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    if (isActive) {
+                      handleDateChange("", "");
+                    } else {
+                      handleDateChange(from, to);
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                    isActive
+                      ? "bg-forest-800 text-white shadow-xs font-bold"
+                      : "text-charcoal-600 hover:text-charcoal-900 hover:bg-cream-200/60"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Bookings Table Card */}
-      <Panel title="รายการจองเรือ" className="print:hidden p-0 overflow-hidden">
-        <div className="overflow-x-auto">
+      {/* Bookings Table Panel (Fixed consistent height with min-h-[660px]) */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[660px] print:hidden">
+        {/* Table Panel Header */}
+        <div className="pb-4 mb-4 border-b border-cream-200/80 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
+            <h2 className="text-base font-bold text-forest-900">
+              รายการจองเรือทั้งหมด
+            </h2>
+            <span className="px-2.5 py-0.5 bg-forest-50 text-forest-800 border border-forest-200 rounded-full text-xs font-bold font-mono">
+              {pagination.total} รายการ
+            </span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
           <table className="w-full text-left text-xs md:text-sm">
             <thead>
-              <tr className="border-b border-charcoal-100 text-charcoal-400 bg-cream-50 font-bold text-xs tracking-wider uppercase">
-                <th className="px-5 py-4">รหัสการจอง</th>
-                <th className="px-5 py-4">ลูกค้า</th>
-                <th className="px-5 py-4">ประเภทเรือ</th>
-                <th className="px-5 py-4">วันที่จอง</th>
-                <th className="px-5 py-4">รอบเวลา</th>
-                <th className="px-5 py-4">ยอดรวม</th>
-                <th className="px-5 py-4">สถานะ</th>
-                <th className="px-5 py-4 text-center">สลิปโอนเงิน</th>
-                <th className="px-5 py-4 text-right">การจัดการ</th>
+              <tr className="border-b border-cream-200 bg-cream-50/80 text-charcoal-600 font-bold text-xs uppercase tracking-wider">
+                <th className="px-3.5 py-3.5 whitespace-nowrap">ลูกค้า / รหัสจอง</th>
+                <th className="px-3.5 py-3.5 min-w-[190px]">ประเภทเรือ</th>
+                <th className="px-3.5 py-3.5 whitespace-nowrap">วัน - รอบเวลา</th>
+                <th className="px-3 py-3.5 whitespace-nowrap">ยอดรวม</th>
+                <th className="px-3.5 py-3.5 whitespace-nowrap">สถานะ</th>
+                <th className="px-3 py-3.5 text-center whitespace-nowrap">สลิปโอนเงิน</th>
+                <th className="px-4 py-3.5 text-right whitespace-nowrap sticky right-0 bg-cream-50/95 backdrop-blur-xs shadow-[-6px_0_12px_-4px_rgba(0,0,0,0.06)] z-10">การจัดการ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-stone-100">
+            <tbody className="divide-y divide-cream-100 bg-white">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center text-stone-400">
+                  <td colSpan={7} className="py-16 text-center text-charcoal-400">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <RefreshCw
                         size={28}
-                        className="animate-spin text-lagoon-800"
+                        className="animate-spin text-forest-700"
                       />
-                      <span className="text-xs font-medium text-stone-500">
+                      <span className="text-xs font-medium text-charcoal-500">
                         กำลังโหลดข้อมูลรายการจอง...
                       </span>
                     </div>
@@ -948,134 +1109,138 @@ function BoatStaffDashboardContent() {
                 </tr>
               ) : paginatedBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-16">
-                    <EmptyState 
-                      title="ไม่พบรายการจองเรือ" 
-                      description="ลองปรับเปลี่ยนข้อความค้นหาหรือเงื่อนไขการกรอง" 
-                    />
+                  <td colSpan={7} className="py-16 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2 px-6 py-8">
+                      <div className="w-14 h-14 rounded-2xl bg-cream-50 border border-cream-200 text-charcoal-400 flex items-center justify-center mb-1">
+                        <Ship size={26} className="stroke-[1.5]" />
+                      </div>
+                      <p className="font-display font-bold text-base text-forest-900">ไม่พบรายการจอง</p>
+                      <p className="text-xs text-charcoal-400 max-w-sm">
+                        {hasActiveFilters
+                          ? "ลองปรับเปลี่ยนคำค้นหาหรือเงื่อนไขการกรองใหม่"
+                          : "ยังไม่มีรายการจองเรือในระบบ"}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 paginatedBookings.map((b: any) => {
                   const bookingId = b.boat_booking_id || b.id;
-                  const cfg = statusConfig[b.status] || {
-                    bg: "bg-stone-100 text-stone-600 border-stone-200",
-                    text: b.status,
-                    dot: "bg-stone-400",
-                  };
 
                   return (
                     <tr
                       key={bookingId}
-                      className="hover:bg-cream-100/60 border-b border-charcoal-50 last:border-0 transition-colors group"
+                      className="hover:bg-cream-50/60 border-b border-cream-100/80 last:border-0 transition-colors group"
                     >
-                      <td className="px-5 py-4 text-stone-400 font-mono text-xs font-semibold">
-                        #{bookingId}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-stone-100 border border-stone-200/60 flex items-center justify-center text-stone-500 shrink-0 font-bold text-xs">
-                            {(b.user_name || "U")[0].toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-stone-800 leading-snug">
+                      <td className="px-4 py-3.5">
+                        <div className="min-w-[130px]">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-xs font-bold text-forest-800 bg-cream-100 px-1.5 py-0.5 rounded-md border border-cream-200 shadow-2xs">
+                              #{bookingId}
+                            </span>
+                            <span className="font-semibold text-charcoal-900 text-xs sm:text-sm">
                               {b.user_name || "ไม่ระบุชื่อ"}
-                            </p>
-                            <p className="text-xs text-stone-500 font-mono flex items-center gap-1 mt-0.5">
-                              <Phone size={10} className="text-stone-400" />
-                              {b.user_phone || b.phone || "-"}
-                            </p>
+                            </span>
                           </div>
+                          <p className="text-xs text-charcoal-500 font-mono flex items-center gap-1 mt-1">
+                            <Phone size={10} className="text-charcoal-400" />
+                            {b.user_phone || b.phone || "-"}
+                          </p>
                         </div>
                       </td>
 
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
-                          <Ship size={16} className="text-stone-400 shrink-0" />
-                          <div>
-                            <p className="font-semibold text-stone-800 leading-snug">
-                              {b.kayak_name || b.boat_name || "-"}
-                            </p>
-                            {b.is_addon && <p className="mt-1 text-xs leading-relaxed text-forest-800">
-                              เรือจากโปรโมชั่นห้องพัก{b.addon_mode === "free" ? " · สิทธิ์ฟรี" : b.addon_mode === "paid" ? " · มีค่าใช้จ่ายรวมกับค่าห้องพัก" : ""}
-                              {b.room_booking_id && <span className="block">{`การจองห้องพัก #${b.room_booking_id}`}</span>}
-                            </p>}
-                            {Array.isArray(b.boats) && b.boats.length > 1 && (
-                              <ul className="mt-1 space-y-0.5 text-xs text-stone-500">
-                                {b.boats.map(
-                                  (line: {
-                                    booking_boat_id: number;
-                                    type_name?: string;
-                                    num_passengers?: number;
-                                    boat_count?: number;
-                                  }) => (
-                                    <li key={line.booking_boat_id}>
-                                      {line.type_name || "เรือ"} ·{" "}
-                                      {line.num_passengers ?? 0} คน ·{" "}
-                                      {line.boat_count ?? 0} ลำ
-                                    </li>
-                                  ),
-                                )}
-                              </ul>
-                            )}
-                            {Array.isArray(b.boats) && b.boats.length === 1 && (
-                              <p className="mt-0.5 text-xs text-stone-500">
-                                {b.boats[0].num_passengers ?? 0} คน ·{" "}
-                                {b.boats[0].boat_count ?? 0} ลำ
-                              </p>
-                            )}
-                          </div>
+                      <td className="px-4 py-3.5">
+                        <div className="min-w-[230px] max-w-[340px] space-y-1.5">
+                          {Array.isArray(b.boats) && b.boats.length > 0 ? (
+                            b.boats.map((line: any, idx: number) => (
+                              <div
+                                key={line.booking_boat_id || `boat-${idx}`}
+                                className="flex items-center justify-between gap-2 bg-cream-50/80 border border-cream-200/90 rounded-xl px-2.5 py-1.5 transition-colors hover:bg-cream-100/70"
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <Ship size={13} className="text-forest-700 shrink-0" />
+                                  <span className="font-semibold text-charcoal-900 text-xs">
+                                    {line.type_name || b.kayak_name || "เรือ"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0 text-[11px]">
+                                  <span className="font-bold text-forest-900 bg-white px-1.5 py-0.5 rounded-md border border-cream-200/90 font-mono shadow-2xs">
+                                    {line.boat_count ?? 1} ลำ
+                                  </span>
+                                  <span className="text-charcoal-400 font-medium whitespace-nowrap">
+                                    ({line.num_passengers ?? 0} คน)
+                                  </span>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-xs bg-cream-50/80 border border-cream-200/90 rounded-xl px-2.5 py-1.5">
+                              <Ship size={13} className="text-forest-700 shrink-0" />
+                              <span className="font-semibold text-charcoal-900">
+                                {b.kayak_name || b.boat_name || "-"}
+                              </span>
+                            </div>
+                          )}
+
+                          {b.is_addon && (
+                            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-lagoon-50 border border-lagoon-200/80 text-lagoon-800 text-[10px] font-semibold">
+                                <span>แพ็กเกจห้องพัก #{b.room_booking_id}</span>
+                                <span className="text-lagoon-600 font-normal">
+                                  • {b.addon_mode === "free" ? "สิทธิ์ฟรี" : "ชำระรวมกับห้อง"}
+                                </span>
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </td>
 
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <span className="font-medium bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200/50 font-mono text-xs text-stone-700">
-                          {b.booking_date
-                            ? new Date(b.booking_date).toLocaleDateString(
-                                "th-TH",
-                                {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "2-digit",
-                                },
-                              )
-                            : "-"}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-1 text-xs text-stone-500 font-mono">
-                          <Timer size={12} className="text-stone-400" />
-                          <span>
-                            {b.start_time && b.end_time
-                              ? `${b.start_time?.slice(0, 5)} - ${b.end_time?.slice(0, 5)}`
+                      <td className="px-3.5 py-3.5 whitespace-nowrap">
+                        <div className="flex flex-col gap-1">
+                          <span className="font-semibold text-charcoal-800 text-xs">
+                            {b.booking_date
+                              ? new Date(b.booking_date).toLocaleDateString(
+                                  "th-TH",
+                                  {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "2-digit",
+                                  },
+                                )
                               : "-"}
                           </span>
+                          <div className="flex items-center gap-1 text-[11px] text-charcoal-500 font-mono">
+                            <Timer size={11} className="text-forest-700/80" />
+                            <span>
+                              {b.start_time && b.end_time
+                                ? `${b.start_time?.slice(0, 5)} - ${b.end_time?.slice(0, 5)}`
+                                : "-"}
+                            </span>
+                          </div>
                         </div>
                       </td>
 
-                      <td className="px-5 py-4 font-bold text-lagoon-900 font-mono text-sm whitespace-nowrap">
+                      <td className="px-3 py-3.5 font-bold text-forest-900 font-mono text-sm whitespace-nowrap">
                         ฿{Number(b.total_price || 0).toLocaleString()}
                       </td>
 
-                      <td className="px-5 py-4 whitespace-nowrap">
+                      <td className="px-3.5 py-3.5 whitespace-nowrap">
                         <div className="flex flex-col items-start gap-1">
                           {b.is_addon && ['pending', 'paid'].includes(b.status) ? (
-                            <span className="inline-block rounded-xl border border-bamboo-200 bg-bamboo-50 px-3 py-1 text-xs font-semibold text-bamboo-800">รออนุมัติห้องพัก #{b.room_booking_id}</span>
+                            <span className="inline-block rounded-xl border border-bamboo-200 bg-bamboo-50 px-2.5 py-1 text-xs font-semibold text-bamboo-800">รออนุมัติห้องพัก #{b.room_booking_id}</span>
                           ) : <BookingStatusBadge status={b.status} />}
                           {b.approved_by_name &&
                             ["approved", "checked_out", "rejected"].includes(
                               b.status,
                             ) && (
-                              <span className="text-xs text-stone-400 ml-1">
+                              <span className="text-[11px] text-charcoal-400 ml-1">
                                 โดย: {b.approved_by_name}
                               </span>
                             )}
                         </div>
                       </td>
 
-                      <td className="px-5 py-4 text-center whitespace-nowrap">
+                      <td className="px-3 py-3.5 text-center whitespace-nowrap">
                         {b.payment_slip ? (
                           <button
                             onClick={() =>
@@ -1085,59 +1250,59 @@ function BoatStaffDashboardContent() {
                                 name: b.user_name || "slip",
                               })
                             }
-                            className="inline-flex items-center gap-1.5 text-xs text-lagoon-700 bg-lagoon-50/80 hover:bg-lagoon-100 border border-lagoon-200/80 px-3 py-1.5 rounded-xl font-semibold transition-all active:scale-95 shadow-2xs"
+                            className="inline-flex items-center gap-1.5 text-xs text-forest-800 bg-forest-50 hover:bg-forest-100 border border-forest-200/80 px-2.5 py-1.5 rounded-xl font-semibold transition-all active:scale-95 shadow-2xs"
                           >
                             <Eye size={13} />
                             <span>ดูสลิป</span>
                           </button>
                         ) : (
-                          <span className="text-xs text-stone-300 italic">
-                            ไม่มีสลิป
+                          <span className="text-charcoal-300 font-mono text-xs">
+                            -
                           </span>
                         )}
                       </td>
 
-                      <td className="px-5 py-4 text-right whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap sticky right-0 bg-white/95 group-hover:bg-cream-50/95 backdrop-blur-xs shadow-[-6px_0_12px_-4px_rgba(0,0,0,0.06)] z-10 transition-colors">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() =>
                               setDetailsModal({ open: true, booking: b })
                             }
-                            className="p-1.5 text-stone-500 hover:text-stone-800 bg-stone-100 hover:bg-stone-200/80 rounded-xl transition-colors"
+                            className="p-1.5 text-charcoal-500 hover:text-charcoal-800 bg-cream-100 hover:bg-cream-200/80 rounded-xl transition-colors"
                             title="ดูรายละเอียดการจอง"
                           >
                             <FileText size={15} />
                           </button>
 
                           {b.status === "checked_out" ? (
-                            <span className="text-xs text-lagoon-700 font-semibold bg-lagoon-50 border border-lagoon-200/80 px-3 py-1 rounded-xl inline-block">
+                            <span className="text-xs text-bamboo-800 font-semibold bg-bamboo-50 border border-bamboo-200 px-3 py-1 rounded-xl inline-block">
                               เช็คเอาต์แล้ว
                             </span>
                           ) : b.status === "approved" ? (
                             <button
                               onClick={() => handleCheckout(bookingId)}
-                              className="inline-flex items-center gap-1.5 text-xs bg-lagoon-600 hover:bg-lagoon-700 text-white font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
+                              className="inline-flex items-center gap-1.5 text-xs bg-bamboo-700 hover:bg-bamboo-800 text-white font-semibold px-3 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
                             >
                               <LogOut size={13} />
                               <span>Check-out</span>
                             </button>
                           ) : b.status === "rejected" ? (
-                            <span className="text-xs text-rose-600 font-semibold bg-rose-50 border border-rose-200/80 px-3 py-1 rounded-xl inline-block">
+                            <span className="text-xs text-rose-600 font-semibold bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-xl inline-block">
                               ปฏิเสธแล้ว
                             </span>
                           ) : b.status === "cancelled" ? (
-                            <span className="text-xs text-stone-500 font-semibold bg-stone-100 border border-stone-200 px-3 py-1 rounded-xl inline-block">
+                            <span className="text-xs text-charcoal-500 font-semibold bg-cream-100 border border-cream-200 px-2.5 py-1 rounded-xl inline-block">
                               ยกเลิกแล้ว
                             </span>
                           ) : b.is_addon && ['pending', 'paid'].includes(b.status) ? (
-                            <span className="inline-block max-w-48 whitespace-normal text-left text-xs leading-relaxed text-charcoal-600">
-                              ให้เจ้าหน้าที่ห้องพักตรวจสลิปและอนุมัติห้อง #{b.room_booking_id} เรือจะอนุมัติอัตโนมัติ ไม่ต้องชำระหรืออนุมัติแยก
+                            <span className="inline-block max-w-44 whitespace-normal text-left text-[11px] leading-relaxed text-charcoal-600">
+                              รอตรวจสลิปห้อง #{b.room_booking_id}
                             </span>
                           ) : b.payment_slip ? (
                             <>
                               <button
                                 onClick={() => handleApprove(bookingId)}
-                                className="inline-flex items-center gap-1 text-xs bg-lagoon-700 hover:bg-lagoon-800 text-white font-semibold px-3 py-1.5 rounded-xl transition-all shadow-xs active:scale-95"
+                                className="inline-flex items-center gap-1 text-xs bg-forest-800 hover:bg-forest-900 text-white font-semibold px-2.5 py-1.5 rounded-xl transition-all shadow-xs active:scale-95"
                               >
                                 <span>อนุมัติ</span>
                               </button>
@@ -1150,13 +1315,13 @@ function BoatStaffDashboardContent() {
                                     customReason: "",
                                   })
                                 }
-                                className="inline-flex items-center gap-1 text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold px-3 py-1.5 rounded-xl border border-rose-200 transition-all active:scale-95"
+                                className="inline-flex items-center gap-1 text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold px-2.5 py-1.5 rounded-xl border border-rose-200 transition-all active:scale-95"
                               >
                                 <span>ปฏิเสธ</span>
                               </button>
                             </>
                           ) : (
-                            <span className="text-xs text-stone-400 italic">
+                            <span className="text-xs text-charcoal-400 italic">
                               รอดำเนินการ
                             </span>
                           )}
@@ -1172,18 +1337,18 @@ function BoatStaffDashboardContent() {
 
         {/* Pagination Footer */}
         {pagination.total > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 bg-stone-50/80 border-t border-stone-200/80 text-xs text-stone-500 print:hidden">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-auto border-t border-cream-200/80 text-xs text-charcoal-500 print:hidden">
             <span>
               แสดง{" "}
-              <strong className="text-stone-800 font-mono">
+              <strong className="text-charcoal-800 font-mono">
                 {(currentPage - 1) * itemsPerPage + 1}
               </strong>{" "}
               ถึง{" "}
-              <strong className="text-stone-800 font-mono">
+              <strong className="text-charcoal-800 font-mono">
                 {Math.min(currentPage * itemsPerPage, pagination.total)}
               </strong>{" "}
               จากทั้งหมด{" "}
-              <strong className="text-stone-800 font-mono">
+              <strong className="text-charcoal-800 font-mono">
                 {pagination.total}
               </strong>{" "}
               รายการ
@@ -1193,14 +1358,14 @@ function BoatStaffDashboardContent() {
               <button
                 onClick={() => handlePageChange(1)}
                 disabled={loading || currentPage === 1}
-                className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
+                className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
               >
                 <ChevronsLeft size={16} />
               </button>
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={loading || currentPage === 1}
-                className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
+                className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -1210,16 +1375,16 @@ function BoatStaffDashboardContent() {
                   <button
                     key={idx}
                     onClick={() => handlePageChange(page)}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold font-mono transition-all ${
+                    className={`px-3 py-1 rounded-xl text-xs font-semibold font-mono transition-all ${
                       currentPage === page
-                        ? "bg-lagoon-800 text-white shadow-2xs"
-                        : "bg-white text-stone-600 border border-stone-200 hover:bg-stone-50"
+                        ? "bg-forest-800 text-white shadow-2xs"
+                        : "bg-white text-charcoal-600 border border-cream-300 hover:bg-cream-100"
                     }`}
                   >
                     {page}
                   </button>
                 ) : (
-                  <span key={idx} className="px-1 text-stone-400 font-bold">
+                  <span key={idx} className="px-1 text-charcoal-400 font-bold">
                     {page}
                   </span>
                 ),
@@ -1228,21 +1393,21 @@ function BoatStaffDashboardContent() {
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={loading || currentPage >= totalPages}
-                className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
+                className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
               >
                 <ChevronRight size={16} />
               </button>
               <button
                 onClick={() => handlePageChange(totalPages)}
                 disabled={loading || currentPage >= totalPages}
-                className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-600 disabled:opacity-40 hover:bg-stone-50 transition-colors shadow-2xs"
+                className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
               >
                 <ChevronsRight size={16} />
               </button>
             </div>
           </div>
         )}
-      </Panel>
+      </div>
       
 
       {/* Slip Modal */}
@@ -1253,13 +1418,13 @@ function BoatStaffDashboardContent() {
         footer={
           <button
             onClick={() => setSlipModal({ open: false, url: "", name: "" })}
-            className="rounded-xl bg-charcoal-100 px-4 py-2 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-charcoal-200"
+            className="rounded-xl bg-cream-100 px-4 py-2 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-cream-200"
           >
             ปิดหน้าต่าง
           </button>
         }
       >
-        <div className="flex justify-center rounded-2xl border border-charcoal-100 bg-cream-50 p-2">
+        <div className="flex justify-center rounded-2xl border border-cream-200 bg-cream-50/80 p-2">
           <img
             src={slipModal.url}
             alt="สลิปการโอนเงิน"
@@ -1281,7 +1446,7 @@ function BoatStaffDashboardContent() {
               <div className="flex w-full gap-2">
                 <button
                   onClick={handlePrintDetails}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-charcoal-100 py-2.5 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-charcoal-200"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-cream-100 py-2.5 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-cream-200"
                 >
                   <Printer size={14} /> พิมพ์ใบยืนยัน
                 </button>
@@ -1295,9 +1460,9 @@ function BoatStaffDashboardContent() {
             }
           >
             <div className="space-y-4 text-sm text-charcoal-600 printable-modal">
-              <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 space-y-1.5 print:bg-white print:border-charcoal-200">
-                <div className="flex items-center gap-2 font-semibold text-charcoal-800 text-sm mb-2">
-                  <User size={15} className="text-charcoal-500 print:hidden" />
+              <div className="p-3.5 bg-cream-50/80 rounded-2xl border border-cream-200/90 space-y-1.5 print:bg-white print:border-cream-300">
+                <div className="flex items-center gap-2 font-semibold text-forest-900 text-sm mb-2">
+                  <User size={15} className="text-forest-700 print:hidden" />
                   <span>ข้อมูลผู้จอง</span>
                 </div>
                 <p><strong className="text-charcoal-700">ชื่อ-สกุล:</strong> {booking.user_name || "ไม่ระบุ"}</p>
@@ -1305,9 +1470,9 @@ function BoatStaffDashboardContent() {
                 <p><strong className="text-charcoal-700">หมายเลขอ้างอิง:</strong> #{booking.boat_booking_id || booking.id}</p>
               </div>
 
-              <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 space-y-1.5 print:bg-white print:border-charcoal-200">
-                <div className="flex items-center gap-2 font-semibold text-charcoal-800 text-sm mb-2">
-                  <Ship size={15} className="text-charcoal-500 print:hidden" />
+              <div className="p-3.5 bg-cream-50/80 rounded-2xl border border-cream-200/90 space-y-1.5 print:bg-white print:border-cream-300">
+                <div className="flex items-center gap-2 font-semibold text-forest-900 text-sm mb-2">
+                  <Ship size={15} className="text-forest-700 print:hidden" />
                   <span>รายละเอียดการใช้งานเรือ</span>
                 </div>
                 <p><strong className="text-charcoal-700">ประเภทเรือ:</strong> {booking.kayak_name || booking.boat_name}</p>
@@ -1329,20 +1494,20 @@ function BoatStaffDashboardContent() {
                 <p><strong className="text-charcoal-700">รอบเวลา:</strong> {booking.start_time && booking.end_time ? `${booking.start_time.slice(0, 5)} - ${booking.end_time.slice(0, 5)} น.` : "-"}</p>
                 
                 {booking.special_request && (
-                  <div className="pt-2 mt-2 border-t border-charcoal-200/60">
+                  <div className="pt-2 mt-2 border-t border-cream-200">
                     <div className="flex items-center gap-1.5 text-charcoal-700 font-semibold mb-1">
                       <MessageSquare size={13} className="text-forest-800 print:hidden" />
                       <span>คำขอพิเศษ:</span>
                     </div>
-                    <p className="text-charcoal-600 bg-white p-2 rounded-xl border border-charcoal-200/80 leading-relaxed italic print:border-charcoal-300">
+                    <p className="text-charcoal-600 bg-white p-2.5 rounded-xl border border-cream-200 leading-relaxed italic print:border-cream-300">
                       {booking.special_request}
                     </p>
                   </div>
                 )}
               </div>
 
-              <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 space-y-1.5 print:bg-white print:border-charcoal-200">
-                <div className="flex items-center gap-2 font-semibold text-charcoal-800 text-sm mb-2">
+              <div className="p-3.5 bg-cream-50/80 rounded-2xl border border-cream-200/90 space-y-1.5 print:bg-white print:border-cream-300">
+                <div className="flex items-center gap-2 font-semibold text-forest-900 text-sm mb-2">
                   <span>สถานที่และการติดต่อ</span>
                 </div>
                 <p><strong className="text-charcoal-700">สถานที่:</strong> {resort?.name || "-"}</p>
@@ -1356,13 +1521,13 @@ function BoatStaffDashboardContent() {
               </div>
 
               {boatTerms && (
-                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-1 text-amber-900 print:bg-white print:border-amber-300">
+                <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-1 text-amber-900 print:bg-white print:border-amber-300">
                   <span className="font-semibold">ข้อควรทราบ</span>
                   <p className="whitespace-pre-line text-xs leading-relaxed">{boatTerms}</p>
                 </div>
               )}
 
-              <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 flex items-center justify-between print:bg-white print:border-charcoal-200">
+              <div className="p-3.5 bg-cream-50/80 rounded-2xl border border-cream-200/90 flex items-center justify-between print:bg-white print:border-cream-300">
                 <span className="font-semibold text-charcoal-700">สถานะรายการ:</span>
                 {booking.is_addon && ['pending', 'paid'].includes(booking.status) ? (
                   <p className="text-sm text-bamboo-800">รอเจ้าหน้าที่ห้องพักอนุมัติห้อง #{booking.room_booking_id} เรือจะอนุมัติอัตโนมัติ ไม่ต้องชำระหรืออนุมัติแยก</p>
@@ -1370,15 +1535,15 @@ function BoatStaffDashboardContent() {
               </div>
 
               {booking.status === "rejected" && (booking.reject_reason || booking.reason) && (
-                <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 space-y-1 text-rose-800 print:bg-white print:border-rose-300">
+                <div className="p-3.5 bg-rose-50/80 rounded-2xl border border-rose-200 space-y-1 text-rose-800 print:bg-white print:border-rose-300">
                   <span className="font-semibold">เหตุผลที่ปฏิเสธ:</span>
                   <p className="italic text-rose-700">{booking.reject_reason || booking.reason}</p>
                 </div>
               )}
 
-              <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 flex justify-between items-center print:bg-white print:border-charcoal-200">
+              <div className="p-3.5 bg-cream-50/80 rounded-2xl border border-cream-200/90 flex justify-between items-center print:bg-white print:border-cream-300">
                 <span className="font-semibold text-charcoal-700">ยอดรวมสุทธิ</span>
-                <span className="text-lg font-extrabold text-forest-800 font-mono">฿{Number(booking.total_price || 0).toLocaleString()}</span>
+                <span className="text-lg font-extrabold text-forest-900 font-mono">฿{Number(booking.total_price || 0).toLocaleString()}</span>
               </div>
             </div>
           </Modal>
@@ -1395,13 +1560,13 @@ function BoatStaffDashboardContent() {
           <div className="flex w-full gap-2">
             <button
               onClick={() => setRejectModal({ open: false, bookingId: null, selectedReason: REJECT_REASONS[0], customReason: "" })}
-              className="flex-1 rounded-xl bg-charcoal-100 py-2.5 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-charcoal-200"
+              className="flex-1 rounded-xl bg-cream-100 py-2.5 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-cream-200"
             >
               ยกเลิก
             </button>
             <button
               onClick={handleRejectSubmit}
-              className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-semibold text-white shadow-md transition-all hover:bg-rose-700 active:scale-95"
+              className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-semibold text-white shadow-xs transition-all hover:bg-rose-700 active:scale-95"
             >
               ยืนยันปฏิเสธ
             </button>
@@ -1418,12 +1583,12 @@ function BoatStaffDashboardContent() {
                 onClick={() => setRejectModal((prev) => ({ ...prev, selectedReason: reason }))}
                 className={`flex w-full items-center justify-between rounded-xl border p-3 text-xs font-semibold transition-all ${
                   isSelected
-                    ? "border-rose-400 bg-rose-50 text-rose-700 shadow-sm"
-                    : "border-charcoal-200 bg-cream-50 text-charcoal-600 hover:bg-cream-100"
+                    ? "border-rose-400 bg-rose-50 text-rose-700 shadow-2xs"
+                    : "border-cream-200 bg-cream-50/80 text-charcoal-600 hover:bg-cream-100"
                 }`}
               >
                 <span>{reason}</span>
-                <div className={`flex h-4 w-4 items-center justify-center rounded-full border ${isSelected ? "border-rose-500 bg-rose-500" : "border-charcoal-300 bg-white"}`}>
+                <div className={`flex h-4 w-4 items-center justify-center rounded-full border ${isSelected ? "border-rose-500 bg-rose-500" : "border-cream-300 bg-white"}`}>
                   {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
                 </div>
               </button>
@@ -1435,7 +1600,7 @@ function BoatStaffDashboardContent() {
               placeholder="โปรดระบุเหตุผลเพิ่มเติม..."
               value={rejectModal.customReason}
               onChange={(e) => setRejectModal((prev) => ({ ...prev, customReason: e.target.value }))}
-              className="w-full rounded-xl border border-charcoal-200 bg-cream-50 p-3 text-xs text-charcoal-800 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+              className="w-full rounded-xl border border-cream-200 bg-cream-50/80 p-3 text-xs text-charcoal-800 outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-400"
             />
           )}
         </div>
@@ -1451,7 +1616,7 @@ function BoatStaffDashboardContent() {
           <div className="flex w-full gap-2">
             <button
               onClick={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
-              className="flex-1 rounded-xl bg-charcoal-100 py-2.5 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-charcoal-200"
+              className="flex-1 rounded-xl bg-cream-100 py-2.5 text-xs font-semibold text-charcoal-700 transition-colors hover:bg-cream-200"
             >
               ยกเลิก
             </button>
@@ -1460,7 +1625,7 @@ function BoatStaffDashboardContent() {
                 confirmModal.onConfirm();
                 setConfirmModal((prev) => ({ ...prev, open: false }));
               }}
-              className={`flex-1 rounded-xl py-2.5 text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90 ${confirmModal.confirmColor}`}
+              className={`flex-1 rounded-xl py-2.5 text-xs font-semibold text-white shadow-xs transition-opacity hover:opacity-90 ${confirmModal.confirmColor}`}
             >
               {confirmModal.confirmText}
             </button>
@@ -1480,7 +1645,7 @@ export default function AdminBoatsPage() {
     <Suspense
       fallback={
         <div className="flex min-h-[60vh] items-center justify-center">
-          <RefreshCw size={28} className="animate-spin text-[#0b3b2c]" />
+          <RefreshCw size={28} className="animate-spin text-forest-800" />
         </div>
       }
     >
