@@ -135,100 +135,125 @@ export default function CancellationPolicyCard(): React.ReactElement {
         type="button"
         onClick={startEditing}
         disabled={loadError}
-        className="btn-secondary flex items-center gap-1.5 py-1.5 px-3 text-sm disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-charcoal-700 bg-cream-100 hover:bg-cream-200 border border-cream-300/80 transition-all active:scale-95 disabled:opacity-50"
       >
-        <Pencil size={14} aria-hidden="true" /> แก้ไข
+        <Pencil size={13} aria-hidden="true" />
+        <span>แก้ไข</span>
       </button>
     ) : null;
 
   return (
-    <Panel title="นโยบายการคืนเงินค่าบริการเรือ" actions={editButton}>
-      <p className="-mt-2 mb-4 text-xs text-charcoal-400">ใช้กับการยกเลิกการจองเรือและบัตรเสริมที่ชำระแล้ว</p>
+    <section className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/90 space-y-4">
+      <div className="flex items-center justify-between gap-3 pb-3 border-b border-cream-200/80">
+        <div className="flex items-center gap-2.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
+          <h2 className="text-base font-bold text-forest-900 font-display">
+            นโยบายการคืนเงินค่าบริการเรือ
+          </h2>
+        </div>
+        {editButton}
+      </div>
 
-        {loading ? (
-          <div className="space-y-2">
-            <div className="h-5 w-3/4 rounded bg-cream-200 animate-pulse" />
-            <div className="h-5 w-2/3 rounded bg-cream-200 animate-pulse" />
-          </div>
-        ) : loadError ? (
-          <p className="text-sm text-rose-600">โหลดนโยบายการคืนเงินไม่สำเร็จ กรุณาลองรีเฟรชหน้า</p>
-        ) : editing ? (
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="full_refund_hours" className="block text-sm font-medium text-charcoal-700 mb-1">
-                ยกเลิกก่อนเข้าพักกี่ชั่วโมงจึงคืนเต็มจำนวน
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="full_refund_hours"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={MAX_HOURS}
-                  step={1}
-                  className="input-field text-sm py-1.5 w-32"
-                  value={form.full_refund_hours}
-                  onChange={(e) => setForm({ ...form, full_refund_hours: e.target.value })}
-                />
-                <span className="text-xs text-charcoal-500">ชั่วโมง</span>
-              </div>
-            </div>
+      <p className="text-xs text-charcoal-500 leading-relaxed">
+        ใช้กับการยกเลิกการจองเรือและบัตรเสริมที่ชำระแล้ว โดยอิงตามจำนวนชั่วโมงก่อนถึงรอบเวลา
+      </p>
 
-            <div>
-              <label htmlFor="late_refund_percent" className="block text-sm font-medium text-charcoal-700 mb-1">
-                คืนเงินกี่เปอร์เซ็นต์ หากยกเลิกหลังกำหนด
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="late_refund_percent"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={MAX_PERCENT}
-                  step={1}
-                  className="input-field text-sm py-1.5 w-32"
-                  value={form.late_refund_percent}
-                  onChange={(e) => setForm({ ...form, late_refund_percent: e.target.value })}
-                />
-                <span className="text-xs text-charcoal-500">%</span>
-              </div>
-            </div>
-
-            {formError && <p className="text-sm text-rose-600">{formError}</p>}
-
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="btn-primary text-sm py-1.5 px-4 flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <Save size={14} /> {saving ? 'กำลังบันทึก...' : 'บันทึก'}
-              </button>
-              <button
-                type="button"
-                onClick={cancelEditing}
-                disabled={saving}
-                className="btn-secondary text-sm py-1.5 px-4 flex items-center gap-1.5"
-              >
-                <X size={14} /> ยกเลิก
-              </button>
+      {loading ? (
+        <div className="space-y-2 pt-1">
+          <div className="h-5 w-3/4 rounded-xl bg-cream-100 animate-pulse" />
+          <div className="h-5 w-2/3 rounded-xl bg-cream-100 animate-pulse" />
+        </div>
+      ) : loadError ? (
+        <p className="text-xs font-medium text-rose-600">โหลดนโยบายการคืนเงินไม่สำเร็จ กรุณาลองรีเฟรชหน้า</p>
+      ) : editing ? (
+        <div className="space-y-4 bg-cream-50/80 p-5 rounded-2xl border border-cream-200/90">
+          <div>
+            <label htmlFor="full_refund_hours" className="block text-xs sm:text-sm font-semibold text-charcoal-800 mb-1.5">
+              ยกเลิกก่อนเข้าพักกี่ชั่วโมงจึงคืนเต็มจำนวน
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="full_refund_hours"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={MAX_HOURS}
+                step={1}
+                className="w-32 rounded-xl border border-cream-300 bg-white px-3 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                value={form.full_refund_hours}
+                onChange={(e) => setForm({ ...form, full_refund_hours: e.target.value })}
+              />
+              <span className="text-xs sm:text-sm text-charcoal-600 font-medium">ชั่วโมง</span>
             </div>
           </div>
-        ) : policy ? (
-          <div className="space-y-2 text-sm text-charcoal-700">
+
+          <div>
+            <label htmlFor="late_refund_percent" className="block text-xs sm:text-sm font-semibold text-charcoal-800 mb-1.5">
+              คืนเงินกี่เปอร์เซ็นต์ หากยกเลิกหลังกำหนด
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="late_refund_percent"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={MAX_PERCENT}
+                step={1}
+                className="w-32 rounded-xl border border-cream-300 bg-white px-3 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                value={form.late_refund_percent}
+                onChange={(e) => setForm({ ...form, late_refund_percent: e.target.value })}
+              />
+              <span className="text-xs sm:text-sm text-charcoal-600 font-medium">%</span>
+            </div>
+          </div>
+
+          {formError && <p className="text-xs font-semibold text-rose-600">{formError}</p>}
+
+          <div className="flex items-center gap-2 pt-2">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-forest-800 hover:bg-forest-900 text-white shadow-xs transition-all active:scale-95 disabled:opacity-50"
+            >
+              <Save size={14} />
+              <span>{saving ? 'กำลังบันทึก...' : 'บันทึกนโยบาย'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={cancelEditing}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-charcoal-600 hover:text-charcoal-900 bg-white hover:bg-cream-100 border border-cream-300 transition-colors"
+            >
+              <X size={14} />
+              <span>ยกเลิก</span>
+            </button>
+          </div>
+        </div>
+      ) : policy ? (
+        <div className="space-y-3 bg-cream-50/70 p-4.5 rounded-2xl border border-cream-200/90 text-xs sm:text-sm text-charcoal-700">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-forest-700" />
             <p>
               ยกเลิกก่อนเข้าพักอย่างน้อย{' '}
-              <span className="font-semibold text-forest-800">{policy.full_refund_hours} ชั่วโมง</span>{' '}
-              คืนเงิน <span className="font-semibold text-forest-800">100%</span>
+              <span className="font-bold text-forest-900 font-mono px-1.5 py-0.5 rounded-md bg-white border border-cream-200">{policy.full_refund_hours} ชั่วโมง</span>{' '}
+              คืนเงิน <span className="font-bold text-forest-900">100% (เต็มจำนวน)</span>
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
             <p>
               ยกเลิกหลังกำหนด คืนเงิน{' '}
-              <span className="font-semibold text-forest-800">{policy.late_refund_percent}%</span>
+              <span className="font-bold text-forest-900 font-mono px-1.5 py-0.5 rounded-md bg-white border border-cream-200">{policy.late_refund_percent}%</span>
             </p>
-            {updatedAtText && <p className="text-xs text-charcoal-500 pt-1">อัปเดตล่าสุด {updatedAtText}</p>}
           </div>
-        ) : null}
-    </Panel>
+          {updatedAtText && (
+            <p className="text-[11px] text-charcoal-400 pt-1 font-mono border-t border-cream-200/60 mt-2">
+              อัปเดตล่าสุด: {updatedAtText}
+            </p>
+          )}
+        </div>
+      ) : null}
+    </section>
   );
 }
