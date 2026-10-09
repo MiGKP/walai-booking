@@ -734,9 +734,9 @@ export default function HomePage() {
           <div className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
             
             {/* Left: Floating text content */}
-            <div className="lg:col-span-5 flex flex-col items-center lg:items-start text-center lg:text-left">
+            <div className="lg:col-span-6 flex flex-col items-center lg:items-start text-center lg:text-left z-20">
               
-              <h1 className="font-display text-5xl md:text-6xl lg:text-6xl xl:text-[5rem] font-bold leading-[1.05] tracking-tight mb-8 whitespace-nowrap">
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-bold leading-[1.15] tracking-tight mb-6">
                 {resortInfo.name && resortInfo.name !== 'สวนวลัยรุกขเวช' ? (
                   <span className="inline-block animate-reveal-up opacity-0 bg-clip-text text-transparent bg-gradient-to-br from-forest-950 via-forest-800 to-bamboo-800" style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}>
                     {resortInfo.name}
@@ -761,44 +761,42 @@ export default function HomePage() {
               </h1>
 
               <p 
-                className="text-lg md:text-xl text-charcoal-500 leading-relaxed max-w-xl mb-12 animate-reveal-up font-medium" 
+                className="text-base sm:text-lg md:text-xl text-charcoal-500 leading-relaxed max-w-xl mb-8 sm:mb-10 animate-reveal-up font-normal" 
                 style={{ animationDelay: '200ms' }}
               >
                 ทิ้งความวุ่นวายไว้ข้างหลัง แล้วมาเอนกายพักใจรับลมเย็นๆ กลางผืนน้ำ ให้เสียงธรรมชาติช่วยเยียวยาความเหนื่อยล้า และชาร์จพลังให้คุณ
               </p>
 
               <div 
-                className="flex flex-col sm:flex-row items-center gap-4 animate-reveal-up w-full sm:w-auto mb-10 lg:mb-0" 
+                className="flex flex-col sm:flex-row items-center gap-3.5 sm:gap-4 animate-reveal-up w-full sm:w-auto mb-10 lg:mb-0" 
                 style={{ animationDelay: '300ms' }}
               >
                 <Link
                   href="/rooms"
-                  className="group relative inline-flex items-center justify-center gap-3 bg-forest-900 text-cream-100 font-medium px-8 py-4 rounded-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-forest-900/20 active:scale-[0.98] w-full sm:w-auto"
+                  className="group relative inline-flex items-center justify-center gap-2.5 bg-forest-900 text-cream-100 font-medium px-7 py-3.5 rounded-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-forest-900/20 hover:bg-forest-800 active:scale-[0.98] w-full sm:w-auto text-base"
                 >
-                  <span className="relative flex items-center gap-2">
-                    <Calendar size={18} />
-                    จองห้องพัก
-                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                  </span>
+                  <Calendar size={18} />
+                  <span>จองห้องพัก</span>
+                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </Link>
                 
                 <Link
                   href="/kayaks"
-                  className="inline-flex items-center justify-center gap-3 font-medium px-8 py-4 rounded-full bg-transparent text-forest-900 border-2 border-forest-900/20 hover:border-forest-900/50 hover:bg-forest-50 active:scale-[0.98] transition-all duration-300 w-full sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2.5 font-medium px-7 py-3.5 rounded-full bg-white/70 text-forest-900 border-2 border-forest-900/20 hover:border-forest-900/50 hover:bg-forest-50 active:scale-[0.98] transition-all duration-300 w-full sm:w-auto text-base backdrop-blur-xs shadow-sm"
                 >
                   <Anchor size={18} />
-                  บริการเรือ
+                  <span>บริการเรือ</span>
                 </Link>
               </div>
             </div>
 
-            {/* Right: Huge Playful Bento Cluster */}
+            {/* Right: Playful Bento Cluster */}
             <div 
-              className="lg:col-span-7 relative w-full h-[400px] sm:h-[500px] lg:h-[600px] animate-reveal-up mt-10 lg:mt-0" 
+              className="lg:col-span-6 relative w-full h-[380px] sm:h-[460px] lg:h-[520px] animate-reveal-up mt-8 lg:mt-0" 
               style={{ animationDelay: '400ms' }}
             >
               {/* Main Hero Image */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[90%] md:w-[85%] h-full md:h-[90%] rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(18,60,48,0.15)] z-10 group">
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[88%] sm:w-[85%] h-full md:h-[90%] rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(18,60,48,0.15)] z-10 group">
                 <img 
                   src="/images/boat.jpg"
                   alt="Walai Resort Kayak"
@@ -806,8 +804,8 @@ export default function HomePage() {
                 />
               </div>
 
-              {/* Floating Accents (Rotated) */}
-              <div className="absolute left-[0%] md:left-[2%] top-[5%] md:top-[8%] w-[45%] md:w-[35%] h-[45%] md:h-[45%] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl shadow-forest-900/20 z-20 border-[8px] border-cream-100 hidden sm:block -rotate-6 group hover:rotate-0 transition-all duration-500 hover:scale-105 cursor-pointer origin-bottom-right">
+              {/* Floating Accents */}
+              <div className="absolute left-0 sm:left-2 top-[6%] md:top-[8%] w-[44%] sm:w-[36%] h-[44%] sm:h-[40%] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-forest-900/20 z-20 border-4 md:border-[6px] border-cream-100 hidden sm:block -rotate-3 group hover:rotate-0 transition-all duration-500 hover:scale-105 cursor-pointer origin-bottom-right">
                 <img 
                   src="/images/balcony.jpg"
                   alt="Resort Balcony"
@@ -815,7 +813,7 @@ export default function HomePage() {
                 />
               </div>
               
-              <div className="absolute left-[5%] md:left-[8%] bottom-[5%] md:bottom-[8%] w-[40%] md:w-[30%] h-[35%] md:h-[35%] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl shadow-forest-900/20 z-20 border-[8px] border-cream-100 hidden sm:block rotate-6 group hover:rotate-0 transition-all duration-500 hover:scale-105 cursor-pointer origin-top-right">
+              <div className="absolute left-[6%] sm:left-[10%] bottom-[6%] md:bottom-[8%] w-[40%] sm:w-[32%] h-[36%] sm:h-[32%] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-forest-900/20 z-20 border-4 md:border-[6px] border-cream-100 hidden sm:block rotate-3 group hover:rotate-0 transition-all duration-500 hover:scale-105 cursor-pointer origin-top-right">
                 <img 
                   src="/images/balcony.jpg" 
                   alt="Relaxing View"
