@@ -37,7 +37,7 @@ const MAX_GALLERY_COUNT = 5;
 
 export default function RoomTypesPage() {
   const router = useRouter();
-  const { ready } = useAuthGuard({ allowedRoles: ["admin"] });
+  const { ready } = useAuthGuard({ allowedRoles: ["admin", "room_staff"] });
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [amenities, setAmenities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

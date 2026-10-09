@@ -33,6 +33,7 @@ import {
   Printer,
   Ship,
   Timer,
+  Layers,
 } from "lucide-react";
 import {
   Modal,
@@ -795,149 +796,164 @@ function BoatStaffDashboardContent() {
         }
       `}</style>
 
-      {/* Top Header Card */}
-      <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 relative print:hidden">
-        <div className="flex items-center gap-3">
-          <span className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10 shrink-0">
-            <Ship size={20} className="stroke-[2.2]" />
-          </span>
-          <div>
-            <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 tracking-tight">
-              จัดการการจองเรือ
-            </h1>
-            <p className="text-xs sm:text-sm text-charcoal-500 mt-1">
-              ตรวจสอบสถานะการจองเรือ อนุมัติสลิปโอนเงิน และบันทึกการคืนเรือคายัค
-            </p>
+      {/* Top Header Card with Integrated Revenue */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/80 relative print:hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10 shrink-0">
+              <Ship size={20} className="stroke-[2.2]" />
+            </span>
+            <div>
+              <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 tracking-tight">
+                จัดการการจองเรือ
+              </h1>
+              <p className="text-xs sm:text-sm text-charcoal-500 mt-0.5">
+                ตรวจสอบสถานะการจองเรือ อนุมัติสลิปโอนเงิน และบันทึกการคืนเรือคายัค
+              </p>
+            </div>
+          </div>
+
+          {/* Revenue Pill / Badge in Top Header */}
+          <div className="flex items-center gap-3 bg-forest-50/70 border border-forest-100/90 px-4 py-2.5 rounded-2xl self-start sm:self-auto shrink-0 shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-forest-800 text-white flex items-center justify-center shadow-sm shrink-0">
+              <Wallet size={18} className="stroke-[2.2]" />
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-forest-700 uppercase tracking-wider block">รายได้ยืนยันแล้ว</span>
+              <div className="flex items-baseline gap-2">
+                <span className="font-display text-lg sm:text-xl font-bold text-forest-950 tracking-tight">
+                  ฿{counts.totalRevenue.toLocaleString()}
+                </span>
+                {counts.pendingRevenue > 0 && (
+                  <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+                    รอตรวจ ฿{counts.pendingRevenue.toLocaleString()}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 5 KPI Stat Summary Cards */}
-      <section className="grid grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4 print:hidden">
-        {/* Card 1: รอตรวจสอบสลิป */}
-        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel transition-all hover:border-forest-200">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-lagoon-700 uppercase tracking-wider">รอตรวจสอบสลิป</p>
-              <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-forest-950 tracking-tight">
-                {counts.has_slip}
-                <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รายการ</span>
-              </p>
-            </div>
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-lagoon-50 text-lagoon-700 border border-lagoon-200 flex items-center justify-center shrink-0">
-              <FileCheck2 size={19} className="stroke-[2.2]" />
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: ยังไม่ชำระเงิน */}
-        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel transition-all hover:border-forest-200">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">ยังไม่ชำระเงิน</p>
-              <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-forest-950 tracking-tight">
-                {counts.pending}
-                <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รายการ</span>
-              </p>
-            </div>
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0">
-              <Clock size={19} className="stroke-[2.2]" />
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: อนุมัติแล้ว */}
-        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel transition-all hover:border-forest-200">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-forest-700 uppercase tracking-wider">อนุมัติแล้ว</p>
-              <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-forest-950 tracking-tight">
-                {counts.approved}
-                <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รายการ</span>
-              </p>
-            </div>
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-forest-50 text-forest-800 border border-forest-100 flex items-center justify-center shrink-0">
-              <ShieldCheck size={19} className="stroke-[2.2]" />
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4: คืนเรือแล้ว */}
-        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel transition-all hover:border-forest-200">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-bamboo-800 uppercase tracking-wider">คืนเรือแล้ว</p>
-              <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-forest-950 tracking-tight">
-                {counts.checked_out}
-                <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รายการ</span>
-              </p>
-            </div>
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-bamboo-50 text-bamboo-800 border border-bamboo-200 flex items-center justify-center shrink-0">
-              <Anchor size={19} className="stroke-[2.2]" />
-            </div>
-          </div>
-        </div>
-
-        {/* Card 5: รายได้ที่ยืนยันแล้ว */}
-        <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel transition-all hover:border-forest-200 col-span-2 lg:col-span-1">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-forest-700 uppercase tracking-wider">รายได้ยืนยันแล้ว</p>
-              <p className="mt-1.5 font-display text-xl sm:text-2xl font-bold text-forest-950 tracking-tight">
-                ฿{counts.totalRevenue.toLocaleString()}
-              </p>
-              {counts.pendingRevenue > 0 && (
-                <p className="mt-0.5 text-[11px] text-charcoal-400">
-                  รอตรวจสอบ: ฿{counts.pendingRevenue.toLocaleString()}
-                </p>
-              )}
-            </div>
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-forest-50 text-forest-800 border border-forest-100 flex items-center justify-center shrink-0">
-              <Wallet size={19} className="stroke-[2.2]" />
-            </div>
-          </div>
-        </div>
+      {/* 5 Interactive Filter Cards */}
+      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-3.5 print:hidden">
+        {[
+          {
+            key: "all" as FilterType,
+            label: "ทั้งหมด",
+            count: counts.all,
+            icon: <Layers size={19} className="stroke-[2.2]" />,
+            activeBorder: "border-forest-800 ring-2 ring-forest-800/20 shadow-md",
+            activeBg: "bg-forest-900 text-white",
+            iconBg: "bg-forest-50 text-forest-800 border-forest-100",
+            activeIconBg: "bg-white/20 text-white border-white/20",
+          },
+          {
+            key: "has_slip" as FilterType,
+            label: "รอตรวจสอบสลิป",
+            count: counts.has_slip,
+            icon: <FileCheck2 size={19} className="stroke-[2.2]" />,
+            activeBorder: "border-lagoon-600 ring-2 ring-lagoon-600/20 shadow-md",
+            activeBg: "bg-lagoon-700 text-white",
+            iconBg: "bg-lagoon-50 text-lagoon-700 border-lagoon-200",
+            activeIconBg: "bg-white/20 text-white border-white/20",
+          },
+          {
+            key: "pending" as FilterType,
+            label: "ยังไม่ชำระเงิน",
+            count: counts.pending,
+            icon: <Clock size={19} className="stroke-[2.2]" />,
+            activeBorder: "border-amber-600 ring-2 ring-amber-600/20 shadow-md",
+            activeBg: "bg-amber-600 text-white",
+            iconBg: "bg-amber-50 text-amber-700 border-amber-200",
+            activeIconBg: "bg-white/20 text-white border-white/20",
+          },
+          {
+            key: "approved" as FilterType,
+            label: "อนุมัติแล้ว",
+            count: counts.approved,
+            icon: <ShieldCheck size={19} className="stroke-[2.2]" />,
+            activeBorder: "border-forest-700 ring-2 ring-forest-700/20 shadow-md",
+            activeBg: "bg-forest-800 text-white",
+            iconBg: "bg-forest-50 text-forest-800 border-forest-100",
+            activeIconBg: "bg-white/20 text-white border-white/20",
+          },
+          {
+            key: "checked_out" as FilterType,
+            label: "คืนเรือแล้ว",
+            count: counts.checked_out,
+            icon: <Anchor size={19} className="stroke-[2.2]" />,
+            activeBorder: "border-bamboo-800 ring-2 ring-bamboo-800/20 shadow-md",
+            activeBg: "bg-bamboo-800 text-white",
+            iconBg: "bg-bamboo-50 text-bamboo-800 border-bamboo-200",
+            activeIconBg: "bg-white/20 text-white border-white/20",
+          },
+        ].map((item) => {
+          const isActive = filter === item.key;
+          return (
+            <button
+              key={item.key}
+              onClick={() => handleFilterChange(item.key)}
+              className={`text-left relative p-4 sm:p-4.5 rounded-3xl transition-all duration-200 border cursor-pointer hover:shadow-md ${
+                isActive
+                  ? `${item.activeBorder} ${item.activeBg}`
+                  : "bg-white border-cream-200/90 shadow-panel hover:border-forest-300"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p
+                    className={`text-xs font-semibold uppercase tracking-wider ${
+                      isActive ? "text-white/80" : "text-charcoal-500"
+                    }`}
+                  >
+                    {item.label}
+                  </p>
+                  <p
+                    className={`mt-1 font-display text-2xl sm:text-3xl font-bold tracking-tight ${
+                      isActive ? "text-white" : "text-forest-950"
+                    }`}
+                  >
+                    {item.count}
+                    <span
+                      className={`text-xs sm:text-sm font-normal ml-1.5 font-sans ${
+                        isActive ? "text-white/80" : "text-charcoal-400"
+                      }`}
+                    >
+                      รายการ
+                    </span>
+                  </p>
+                </div>
+                <div
+                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl border flex items-center justify-center shrink-0 transition-colors ${
+                    isActive ? item.activeIconBg : item.iconBg
+                  }`}
+                >
+                  {item.icon}
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </section>
 
       {/* Filter & Control Bar */}
       <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-panel border border-cream-200/90 space-y-3.5 print:hidden">
-        {/* Row 1: Status Tabs (Left) & Actions (Right) */}
+        {/* Row 1: Actions & Active Filter indicator */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Status Segmented Tabs */}
-          <div className="flex items-center gap-1.5 bg-cream-100 p-1.5 rounded-2xl overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {(
-              [
-                ["all", "ทั้งหมด", counts.all],
-                ["has_slip", "รอตรวจสอบสลิป", counts.has_slip],
-                ["pending", "ยังไม่ชำระ", counts.pending],
-                ["approved", "อนุมัติแล้ว", counts.approved],
-                ["checked_out", "เช็คเอาต์แล้ว", counts.checked_out],
-              ] as const
-            ).map(([val, label, count]) => {
-              const active = filter === val;
-              return (
-                <button
-                  key={val}
-                  onClick={() => handleFilterChange(val as FilterType)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
-                    active
-                      ? "bg-white text-forest-900 shadow-sm font-bold"
-                      : "text-charcoal-600 hover:text-charcoal-900 hover:bg-cream-200/60"
-                  }`}
-                >
-                  <span>{label}</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold transition-all ${
-                      active
-                        ? "bg-forest-800 text-white"
-                        : "bg-cream-200 text-charcoal-700"
-                    }`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-charcoal-500">ตัวกรอง:</span>
+            <span className="text-xs font-bold text-forest-900 bg-cream-100 px-3 py-1 rounded-xl border border-cream-200">
+              {filter === "all"
+                ? "ทั้งหมด"
+                : filter === "has_slip"
+                ? "รอตรวจสอบสลิป"
+                : filter === "pending"
+                ? "ยังไม่ชำระเงิน"
+                : filter === "approved"
+                ? "อนุมัติแล้ว"
+                : "คืนเรือแล้ว"}
+            </span>
           </div>
 
           {/* Action Buttons (Right) */}
@@ -1279,13 +1295,14 @@ function BoatStaffDashboardContent() {
                               เช็คเอาต์แล้ว
                             </span>
                           ) : b.status === "approved" ? (
-                            <button
-                              onClick={() => handleCheckout(bookingId)}
-                              className="inline-flex items-center gap-1.5 text-xs bg-bamboo-700 hover:bg-bamboo-800 text-white font-semibold px-3 py-1.5 rounded-xl shadow-xs transition-all active:scale-95"
+                            <Link
+                              href={`/admin/boats/checkin?date=${b.booking_date ? toISODate(new Date(b.booking_date)) : ""}`}
+                              className="inline-flex items-center gap-1.5 text-xs bg-forest-50 hover:bg-forest-100 text-forest-800 font-semibold px-2.5 py-1.5 rounded-xl border border-forest-200/80 shadow-2xs transition-all active:scale-95"
+                              title="ไปที่หน้าเช็คอินท่าเรือเพื่อปล่อยเรือ"
                             >
-                              <LogOut size={13} />
-                              <span>Check-out</span>
-                            </button>
+                              <Ship size={13} className="text-forest-700" />
+                              <span>รอเช็คอินท่าเรือ</span>
+                            </Link>
                           ) : b.status === "rejected" ? (
                             <span className="text-xs text-rose-600 font-semibold bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-xl inline-block">
                               ปฏิเสธแล้ว

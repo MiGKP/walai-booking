@@ -18,7 +18,6 @@ import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { pickResortInfo } from "@/lib/resort-info";
-import { PageHeader, Panel } from "@/components/admin/ui";
 import CancellationPolicyCard from "@/components/settings/CancellationPolicyCard";
 import TermsListEditor from "@/components/admin/TermsListEditor";
 import KidsPolicyEditor from "@/components/admin/KidsPolicyEditor";
@@ -140,8 +139,8 @@ export default function PoliciesSettingsPage() {
 
   if (!ready || loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-stone-50/50">
-        <Loader2 className="h-8 w-8 animate-spin text-forest-600" />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-forest-700" />
       </div>
     );
   }
@@ -153,72 +152,92 @@ export default function PoliciesSettingsPage() {
     activeTab === "room" ? "room" : activeTab === "boat" ? "boat" : "all";
 
   return (
-    <div className="space-y-6 pb-12 font-sans">
-      <PageHeader
-        title="ตั้งค่านโยบายและข้อกำหนด"
-        actions={
-          <button
-            onClick={handleSave}
-            disabled={saving || loading || loadError}
-            className="flex items-center gap-2 rounded-2xl bg-forest-800 px-5 py-2.5 text-xs font-bold text-white shadow-2xs transition-all hover:bg-forest-900 active:scale-95 disabled:opacity-70 cursor-pointer"
-          >
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            <span>{saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}</span>
-          </button>
-        }
-      />
+    <div className="space-y-6 pb-16 max-w-[1600px] mx-auto">
+      {/* Top Header Card with Soft Icon, Title & Quick Actions */}
+      <div className="bg-white rounded-3xl p-6 sm:p-7 shadow-panel border border-cream-200/80 relative">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10 shrink-0">
+                <ShieldCheck size={20} className="stroke-[2.2]" />
+              </span>
+              <div>
+                <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 tracking-tight">
+                  ตั้งค่านโยบายและข้อกำหนด
+                </h1>
+                <p className="text-xs sm:text-sm text-charcoal-500 font-normal mt-0.5 leading-relaxed">
+                  จัดการเงื่อนไขการเข้าพัก เวลาเช็คอิน กฎความปลอดภัยทางน้ำ และนโยบายการยกเลิกคืนเงิน
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Save Action */}
+          <div className="flex items-center gap-2.5 self-end lg:self-auto">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || loading || loadError}
+              className="inline-flex items-center gap-2 rounded-2xl bg-forest-800 hover:bg-forest-900 px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition-all active:scale-95 disabled:opacity-60 cursor-pointer"
+            >
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              <span>{saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Navigation Tabs (ตัวเลือกหมวดหมู่นโยบาย) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-cream-200">
+      <div className="flex items-center gap-1.5 p-1.5 bg-cream-100/80 rounded-2xl border border-cream-200/90 overflow-x-auto">
         <button
           type="button"
           onClick={() => setActiveTab("all")}
-          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "all"
-              ? "bg-forest-800 text-white shadow-xs"
-              : "bg-white text-charcoal-600 hover:bg-cream-100 hover:text-forest-900 border border-cream-200"
+              ? "bg-white text-forest-900 shadow-xs border border-cream-200/60"
+              : "text-charcoal-600 hover:text-forest-900 hover:bg-white/50"
           }`}
         >
-          <Layers size={14} />
+          <Layers size={14} className={activeTab === "all" ? "text-forest-700" : "text-charcoal-400"} />
           <span>นโยบายทั้งหมด</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("room")}
-          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "room"
-              ? "bg-forest-800 text-white shadow-xs"
-              : "bg-white text-charcoal-600 hover:bg-cream-100 hover:text-forest-900 border border-cream-200"
+              ? "bg-white text-forest-900 shadow-xs border border-cream-200/60"
+              : "text-charcoal-600 hover:text-forest-900 hover:bg-white/50"
           }`}
         >
-          <Bed size={14} />
+          <Bed size={14} className={activeTab === "room" ? "text-forest-700" : "text-charcoal-400"} />
           <span>นโยบายห้องพัก</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("boat")}
-          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "boat"
-              ? "bg-forest-800 text-white shadow-xs"
-              : "bg-white text-charcoal-600 hover:bg-cream-100 hover:text-forest-900 border border-cream-200"
+              ? "bg-white text-forest-900 shadow-xs border border-cream-200/60"
+              : "text-charcoal-600 hover:text-forest-900 hover:bg-white/50"
           }`}
         >
-          <Anchor size={14} />
+          <Anchor size={14} className={activeTab === "boat" ? "text-forest-700" : "text-charcoal-400"} />
           <span>นโยบายบริการเรือ</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab("refund")}
-          className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "refund"
-              ? "bg-forest-800 text-white shadow-xs"
-              : "bg-white text-charcoal-600 hover:bg-cream-100 hover:text-forest-900 border border-cream-200"
+              ? "bg-white text-forest-900 shadow-xs border border-cream-200/60"
+              : "text-charcoal-600 hover:text-forest-900 hover:bg-white/50"
           }`}
         >
-          <CreditCard size={14} />
+          <CreditCard size={14} className={activeTab === "refund" ? "text-forest-700" : "text-charcoal-400"} />
           <span>การยกเลิก & คืนเงิน</span>
         </button>
       </div>
@@ -228,296 +247,292 @@ export default function PoliciesSettingsPage() {
 
       {/* SECTION 2: นโยบายและกฎระเบียบห้องพัก */}
       {showRoom && (
-        <Panel>
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 pb-3 border-b border-stone-100">
-              <div className="w-8 h-8 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center">
-                <Bed size={17} />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-forest-900 font-display">
-                  นโยบายและกฎระเบียบการเข้าพัก (Room Policies)
-                </h2>
-                <p className="text-xs text-charcoal-400">
-                  เวลาเช็คอิน-เช็คเอาต์ กฎระเบียบห้องพัก และนโยบายเตียงเสริม
-                </p>
-              </div>
+        <section className="bg-white rounded-3xl p-6 sm:p-7 shadow-panel border border-cream-200/90 space-y-6">
+          <div className="flex items-center gap-3 pb-4 border-b border-cream-200/80">
+            <div className="w-9 h-9 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center shrink-0">
+              <Bed size={18} />
             </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-forest-900 font-display">
+                นโยบายและกฎระเบียบการเข้าพัก (Room Policies)
+              </h2>
+              <p className="text-xs text-charcoal-500 mt-0.5 leading-relaxed">
+                เวลาเช็คอิน-เช็คเอาต์ กฎระเบียบห้องพัก และนโยบายเตียงเสริม
+              </p>
+            </div>
+          </div>
 
-            {/* Check-in / Check-out */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
-                <Clock size={16} className="text-forest-700" />
-                <h3>เวลาเช็คอิน / เช็คเอาต์</h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                    เวลาเช็คอิน (ตั้งแต่ - ถึง)
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="time"
-                      value={form.checkin_time_from}
-                      onChange={(e) =>
-                        setForm({ ...form, checkin_time_from: e.target.value })
-                      }
-                      className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-forest-500/20 focus:border-forest-700 transition-all font-mono"
-                    />
-                    <span className="text-stone-400">-</span>
-                    <input
-                      type="time"
-                      value={form.checkin_time_to}
-                      onChange={(e) =>
-                        setForm({ ...form, checkin_time_to: e.target.value })
-                      }
-                      className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-forest-500/20 focus:border-forest-700 transition-all font-mono"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                    เวลาเช็คเอาต์ (ก่อน)
-                  </label>
+          {/* Check-in / Check-out */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
+              <Clock size={16} className="text-forest-700" />
+              <h3>เวลาเช็คอิน / เช็คเอาต์</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-charcoal-700 mb-1.5">
+                  เวลาเช็คอิน (ตั้งแต่ - ถึง)
+                </label>
+                <div className="flex items-center gap-2">
                   <input
                     type="time"
-                    value={form.checkout_time}
+                    value={form.checkin_time_from}
                     onChange={(e) =>
-                      setForm({ ...form, checkout_time: e.target.value })
+                      setForm({ ...form, checkin_time_from: e.target.value })
                     }
-                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-forest-500/20 focus:border-forest-700 transition-all font-mono"
+                    className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-medium font-mono text-charcoal-900 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-none transition-all"
                   />
-                </div>
-              </div>
-            </div>
-
-            {/* Important Info */}
-            <div className="space-y-4 pt-4 border-t border-stone-100">
-              <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
-                <AlertCircle size={16} className="text-forest-700" />
-                <h3>กฎและข้อกำหนดที่พัก (Important Details)</h3>
-              </div>
-              <TermsListEditor
-                value={form.important_info}
-                onChange={(val) => setForm({ ...form, important_info: val })}
-                placeholder="เช่น รวมอาหารเช้าสำหรับทุกการจอง, งดส่งเสียงดังหลังเวลา 22:00 น."
-              />
-            </div>
-
-            {/* Kids Policy */}
-            <div className="space-y-4 pt-4 border-t border-stone-100">
-              <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
-                <Users size={16} className="text-forest-700" />
-                <h3>นโยบายเด็กและเตียงเสริม</h3>
-              </div>
-              {user?.role === "admin" && (
-                <div>
-                  <label
-                    htmlFor="infant-age"
-                    className="block text-xs font-semibold text-stone-700 mb-1.5"
-                  >
-                    อายุที่เริ่มนับรวมในความจุห้อง (ปี)
-                  </label>
+                  <span className="text-charcoal-400 font-medium">-</span>
                   <input
-                    id="infant-age"
-                    type="number"
-                    min={0}
-                    max={18}
-                    step={1}
-                    required
-                    value={form.infant_max_age_exclusive}
+                    type="time"
+                    value={form.checkin_time_to}
                     onChange={(e) =>
-                      setForm({
-                        ...form,
-                        infant_max_age_exclusive: e.target.value,
-                      })
+                      setForm({ ...form, checkin_time_to: e.target.value })
                     }
-                    className="w-32 px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-bold font-mono focus:ring-2 focus:ring-forest-500/20 focus:border-forest-700 transition-all"
+                    className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-medium font-mono text-charcoal-900 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-none transition-all"
                   />
-                  <p className="mt-1.5 text-xs text-charcoal-400">
-                    เด็กที่อายุต่ำกว่าค่านี้เข้าพักฟรีและไม่นับความจุห้อง
-                  </p>
                 </div>
-              )}
-              <KidsPolicyEditor
-                value={form.kids_policy}
-                onChange={(val) => setForm({ ...form, kids_policy: val })}
-              />
-            </div>
-
-            {/* Parking Info */}
-            <div className="space-y-4 pt-4 border-t border-stone-100">
-              <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
-                <Car size={16} className="text-forest-700" />
-                <h3>การเดินทางและที่จอดรถ</h3>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                  รายละเอียดที่จอดรถและการเดินทาง
+                <label className="block text-xs font-semibold text-charcoal-700 mb-1.5">
+                  เวลาเช็คเอาต์ (ก่อน)
                 </label>
-                <textarea
-                  rows={3}
-                  value={form.parking_info}
+                <input
+                  type="time"
+                  value={form.checkout_time}
                   onChange={(e) =>
-                    setForm({ ...form, parking_info: e.target.value })
+                    setForm({ ...form, checkout_time: e.target.value })
                   }
-                  placeholder="มีลานจอดรถส่วนตัวให้บริการฟรีในบริเวณรีสอร์ต พร้อมระบบรักษาความปลอดภัย 24 ชม."
-                  className="w-full px-3 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-forest-500/20 focus:border-forest-700 transition-all leading-relaxed"
+                  className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-medium font-mono text-charcoal-900 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-none transition-all"
                 />
               </div>
             </div>
           </div>
-        </Panel>
+
+          {/* Important Info */}
+          <div className="space-y-4 pt-4 border-t border-cream-200/80">
+            <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
+              <AlertCircle size={16} className="text-forest-700" />
+              <h3>กฎและข้อกำหนดที่พัก (Important Details)</h3>
+            </div>
+            <TermsListEditor
+              value={form.important_info}
+              onChange={(val) => setForm({ ...form, important_info: val })}
+              placeholder="เช่น รวมอาหารเช้าสำหรับทุกการจอง, งดส่งเสียงดังหลังเวลา 22:00 น."
+            />
+          </div>
+
+          {/* Kids Policy */}
+          <div className="space-y-4 pt-4 border-t border-cream-200/80">
+            <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
+              <Users size={16} className="text-forest-700" />
+              <h3>นโยบายเด็กและเตียงเสริม</h3>
+            </div>
+            {user?.role === "admin" && (
+              <div>
+                <label
+                  htmlFor="infant-age"
+                  className="block text-xs font-semibold text-charcoal-700 mb-1.5"
+                >
+                  อายุที่เริ่มนับรวมในความจุห้อง (ปี)
+                </label>
+                <input
+                  id="infant-age"
+                  type="number"
+                  min={0}
+                  max={18}
+                  step={1}
+                  required
+                  value={form.infant_max_age_exclusive}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      infant_max_age_exclusive: e.target.value,
+                    })
+                  }
+                  className="w-32 px-3.5 py-2 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-bold font-mono text-forest-950 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-none transition-all"
+                />
+                <p className="mt-1.5 text-xs text-charcoal-400">
+                  เด็กที่อายุต่ำกว่าค่านี้เข้าพักฟรีและไม่นับความจุห้อง
+                </p>
+              </div>
+            )}
+            <KidsPolicyEditor
+              value={form.kids_policy}
+              onChange={(val) => setForm({ ...form, kids_policy: val })}
+            />
+          </div>
+
+          {/* Parking Info */}
+          <div className="space-y-4 pt-4 border-t border-cream-200/80">
+            <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
+              <Car size={16} className="text-forest-700" />
+              <h3>การเดินทางและที่จอดรถ</h3>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-charcoal-700 mb-1.5">
+                รายละเอียดที่จอดรถและการเดินทาง
+              </label>
+              <textarea
+                rows={3}
+                value={form.parking_info}
+                onChange={(e) =>
+                  setForm({ ...form, parking_info: e.target.value })
+                }
+                placeholder="มีลานจอดรถส่วนตัวให้บริการฟรีในบริเวณรีสอร์ต พร้อมระบบรักษาความปลอดภัย 24 ชม."
+                className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-medium text-charcoal-900 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-none transition-all leading-relaxed placeholder:text-charcoal-400"
+              />
+            </div>
+          </div>
+        </section>
       )}
 
       {/* SECTION 3: นโยบายและกฎความปลอดภัยบริการเรือ */}
       {showBoat && (
-        <Panel>
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 pb-3 border-b border-stone-100">
-              <div className="w-8 h-8 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center">
-                <Anchor size={17} />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-forest-900 font-display">
-                  นโยบายและข้อกำหนดบริการเรือ (Boat Safety & Policies)
-                </h2>
-                <p className="text-xs text-charcoal-400">
-                  กฎระเบียบความปลอดภัยการลงเรือ อุปกรณ์ชูชีพ และข้อจำกัดทางสภาพอากาศ
-                </p>
-              </div>
+        <section className="bg-white rounded-3xl p-6 sm:p-7 shadow-panel border border-cream-200/90 space-y-6">
+          <div className="flex items-center gap-3 pb-4 border-b border-cream-200/80">
+            <div className="w-9 h-9 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center shrink-0">
+              <Anchor size={18} />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-forest-900 font-display">
+                นโยบายและข้อกำหนดบริการเรือ (Boat Safety & Policies)
+              </h2>
+              <p className="text-xs text-charcoal-500 mt-0.5 leading-relaxed">
+                กฎระเบียบความปลอดภัยการลงเรือ อุปกรณ์ชูชีพ และข้อจำกัดทางสภาพอากาศ
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
+              <ShieldCheck size={16} className="text-forest-700" />
+              <h3>ข้อกำหนดและกฎความปลอดภัยการลงเรือ</h3>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
-                <ShieldCheck size={16} className="text-forest-700" />
-                <h3>ข้อกำหนดและกฎความปลอดภัยการลงเรือ</h3>
-              </div>
+            <div>
+              <TermsListEditor
+                value={form.boat_terms}
+                onChange={(val) => setForm({ ...form, boat_terms: val })}
+                placeholder="เช่น ผู้โดยสารทุกคนต้องสวมเสื้อชูชีพตลอดเวลาขณะอยู่บนเรือ"
+              />
+              <p className="mt-2.5 text-xs text-charcoal-400">
+                ข้อความนี้จะแสดงให้ลูกค้าเห็นในหน้ารายละเอียดการจองเรือ และขั้นตอนก่อนยืนยันลงเรือ
+              </p>
+            </div>
+          </div>
 
-              <div>
-                <TermsListEditor
-                  value={form.boat_terms}
-                  onChange={(val) => setForm({ ...form, boat_terms: val })}
-                  placeholder="เช่น ผู้โดยสารทุกคนต้องสวมเสื้อชูชีพตลอดเวลาขณะอยู่บนเรือ"
-                />
-                <p className="mt-2.5 text-xs text-charcoal-400">
-                  ข้อความนี้จะแสดงให้ลูกค้าเห็นในหน้ารายละเอียดการจองเรือ และขั้นตอนก่อนยืนยันลงเรือ
-                </p>
-              </div>
+          {/* เวลาเช็คอิน / รายงานตัวก่อนรอบเรือ */}
+          <div className="space-y-4 pt-4 border-t border-cream-200/80">
+            <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
+              <Clock size={16} className="text-forest-700" />
+              <h3>เวลาเช็คอิน / รายงานตัวก่อนรอบเรือ</h3>
             </div>
 
-            {/* เวลาเช็คอิน / รายงานตัวก่อนรอบเรือ */}
-            <div className="space-y-4 pt-4 border-t border-stone-100">
-              <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
-                <Clock size={16} className="text-forest-700" />
-                <h3>เวลาเช็คอิน / รายงานตัวก่อนรอบเรือ</h3>
+            <div className="rounded-2xl border border-cream-200/90 bg-cream-50/60 p-4 sm:p-5 space-y-3.5">
+              <p className="text-xs text-charcoal-500 leading-relaxed">
+                ระยะเวลาขั้นต่ำที่ลูกค้าต้องมารายงานตัวที่จุดบริการเรือก่อนถึงรอบเวลา เพื่อให้เจ้าหน้าที่เตรียมเรือ สวมอุปกรณ์ชูชีพ และแนะนำข้อควรระวัง
+              </p>
+
+              <div className="flex items-center gap-2.5 flex-wrap pt-1">
+                <span className="text-xs sm:text-sm font-semibold text-charcoal-800">
+                  ต้องเช็คอิน / รายงานตัวก่อนรอบเรืออย่างน้อย
+                </span>
+
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={23}
+                    value={Math.floor(Number(form.boat_checkin_advance_minutes) / 60)}
+                    onChange={(e) => {
+                      const h = Math.max(0, parseInt(e.target.value) || 0);
+                      const m = Number(form.boat_checkin_advance_minutes) % 60;
+                      setForm({ ...form, boat_checkin_advance_minutes: h * 60 + m });
+                    }}
+                    className="w-16 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                  />
+                  <span className="text-xs sm:text-sm font-semibold text-charcoal-700">
+                    ชม.
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={59}
+                    step={5}
+                    value={Number(form.boat_checkin_advance_minutes) % 60}
+                    onChange={(e) => {
+                      const m = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
+                      const h = Math.floor(Number(form.boat_checkin_advance_minutes) / 60);
+                      setForm({ ...form, boat_checkin_advance_minutes: h * 60 + m });
+                    }}
+                    className="w-16 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                  />
+                  <span className="text-xs sm:text-sm font-semibold text-charcoal-700">
+                    นาที
+                  </span>
+                </div>
+
+                <span className="text-xs text-charcoal-500 font-medium">
+                  (รวม {form.boat_checkin_advance_minutes} นาที)
+                </span>
               </div>
 
-              <div className="rounded-2xl border border-cream-200/90 bg-cream-50/60 p-4 sm:p-5 space-y-3.5">
-                <p className="text-xs text-charcoal-500 leading-relaxed">
-                  ระยะเวลาขั้นต่ำที่ลูกค้าต้องมารายงานตัวที่จุดบริการเรือก่อนถึงรอบเวลา เพื่อให้เจ้าหน้าที่เตรียมเรือ สวมอุปกรณ์ชูชีพ และแนะนำข้อควรระวัง
-                </p>
+              {/* Quick presets */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-cream-200/60">
+                <span className="text-[11px] text-charcoal-400 font-medium">ตัวเลือกด่วน:</span>
+                {[
+                  { label: "10 นาที", mins: 10 },
+                  { label: "15 นาที", mins: 15 },
+                  { label: "20 นาที", mins: 20 },
+                  { label: "30 นาที", mins: 30 },
+                  { label: "45 นาที", mins: 45 },
+                  { label: "1 ชั่วโมง", mins: 60 },
+                ].map((preset) => {
+                  const isSelected = Number(form.boat_checkin_advance_minutes) === preset.mins;
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() =>
+                        setForm({ ...form, boat_checkin_advance_minutes: preset.mins })
+                      }
+                      className={`text-xs px-2.5 py-1 rounded-xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-forest-800 border-forest-800 text-white font-semibold shadow-xs"
+                          : "bg-white border-cream-300 text-charcoal-600 hover:border-forest-600 hover:text-forest-900"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
 
-                <div className="flex items-center gap-2.5 flex-wrap pt-1">
-                  <span className="text-xs sm:text-sm font-semibold text-charcoal-800">
-                    ต้องเช็คอิน / รายงานตัวก่อนรอบเรืออย่างน้อย
-                  </span>
-
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      max={23}
-                      value={Math.floor(Number(form.boat_checkin_advance_minutes) / 60)}
-                      onChange={(e) => {
-                        const h = Math.max(0, parseInt(e.target.value) || 0);
-                        const m = Number(form.boat_checkin_advance_minutes) % 60;
-                        setForm({ ...form, boat_checkin_advance_minutes: h * 60 + m });
-                      }}
-                      className="w-16 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
-                    />
-                    <span className="text-xs sm:text-sm font-semibold text-charcoal-700">
-                      ชม.
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      max={59}
-                      step={5}
-                      value={Number(form.boat_checkin_advance_minutes) % 60}
-                      onChange={(e) => {
-                        const m = Math.max(0, Math.min(59, parseInt(e.target.value) || 0));
-                        const h = Math.floor(Number(form.boat_checkin_advance_minutes) / 60);
-                        setForm({ ...form, boat_checkin_advance_minutes: h * 60 + m });
-                      }}
-                      className="w-16 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
-                    />
-                    <span className="text-xs sm:text-sm font-semibold text-charcoal-700">
-                      นาที
-                    </span>
-                  </div>
-
-                  <span className="text-xs text-charcoal-500 font-medium">
-                    (รวม {form.boat_checkin_advance_minutes} นาที)
-                  </span>
-                </div>
-
-                {/* Quick presets */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-cream-200/60">
-                  <span className="text-[11px] text-charcoal-400 font-medium">ตัวเลือกด่วน:</span>
-                  {[
-                    { label: "10 นาที", mins: 10 },
-                    { label: "15 นาที", mins: 15 },
-                    { label: "20 นาที", mins: 20 },
-                    { label: "30 นาที", mins: 30 },
-                    { label: "45 นาที", mins: 45 },
-                    { label: "1 ชั่วโมง", mins: 60 },
-                  ].map((preset) => {
-                    const isSelected = Number(form.boat_checkin_advance_minutes) === preset.mins;
-                    return (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() =>
-                          setForm({ ...form, boat_checkin_advance_minutes: preset.mins })
-                        }
-                        className={`text-xs px-2.5 py-1 rounded-xl border transition-all cursor-pointer ${
-                          isSelected
-                            ? "bg-forest-800 border-forest-800 text-white font-bold shadow-2xs"
-                            : "bg-white border-cream-300 text-charcoal-600 hover:border-forest-600 hover:text-forest-900"
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Dynamic Example Preview */}
-                <div className="text-[11px] text-forest-900 bg-forest-50/80 border border-forest-200/70 rounded-xl px-3.5 py-2.5 flex items-center gap-2">
-                  <span className="shrink-0 text-base">💡</span>
-                  <span>
-                    ตัวอย่าง: รอบเรือเวลา <strong>10:00 น.</strong> ผู้โดยสารต้องเดินทางมาถึงและเช็คอินภายในเวลา{" "}
-                    <strong>
-                      {(() => {
-                        const mins = Number(form.boat_checkin_advance_minutes) || 0;
-                        const date = new Date();
-                        date.setHours(10, 0, 0, 0);
-                        date.setMinutes(date.getMinutes() - mins);
-                        return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")} น.`;
-                      })()}
-                    </strong>
-                  </span>
-                </div>
+              {/* Dynamic Example Preview */}
+              <div className="text-[11px] sm:text-xs text-forest-900 bg-forest-50/80 border border-forest-200/70 rounded-2xl px-4 py-3 flex items-center gap-2.5">
+                <span className="shrink-0 text-base">💡</span>
+                <span>
+                  ตัวอย่าง: รอบเรือเวลา <strong>10:00 น.</strong> ผู้โดยสารต้องเดินทางมาถึงและเช็คอินภายในเวลา{" "}
+                  <strong>
+                    {(() => {
+                      const mins = Number(form.boat_checkin_advance_minutes) || 0;
+                      const date = new Date();
+                      date.setHours(10, 0, 0, 0);
+                      date.setMinutes(date.getMinutes() - mins);
+                      return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")} น.`;
+                    })()}
+                  </strong>
+                </span>
               </div>
             </div>
           </div>
-        </Panel>
+        </section>
       )}
     </div>
   );

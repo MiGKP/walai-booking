@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Pencil, Save, X, Bed, Anchor, Clock, Calendar } from 'lucide-react';
+import { Pencil, Save, X, Bed, Anchor, Clock, Calendar, CreditCard } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { notify } from '@/lib/admin-notify';
 
@@ -191,20 +191,23 @@ export default function CancellationPolicyCard({
     ) : null;
 
   return (
-    <section className="bg-white rounded-3xl p-6 sm:p-7 shadow-panel border border-cream-200/90 space-y-5">
-      <div className="flex items-center justify-between gap-3 pb-3 border-b border-cream-200/80">
-        <div className="flex items-center gap-2.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
-          <h2 className="text-base font-bold text-forest-900 font-display">
-            {title}
-          </h2>
+    <section className="bg-white rounded-3xl p-6 sm:p-7 shadow-panel border border-cream-200/90 space-y-6">
+      <div className="flex items-center justify-between gap-3 pb-4 border-b border-cream-200/80">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center shrink-0">
+            <CreditCard size={18} />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-forest-900 font-display">
+              {title}
+            </h2>
+            <p className="text-xs text-charcoal-500 mt-0.5 leading-relaxed">
+              {subtitle}
+            </p>
+          </div>
         </div>
         {editButton}
       </div>
-
-      <p className="text-xs text-charcoal-500 leading-relaxed">
-        {subtitle}
-      </p>
 
       {loading ? (
         <div className="space-y-3 pt-1">
@@ -361,7 +364,7 @@ export default function CancellationPolicyCard({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-bamboo-600 shrink-0" />
                   <p>
                     ยกเลิกหลังกำหนด คืนเงิน{' '}
                     <span className="font-bold text-forest-900 font-mono px-1.5 py-0.5 rounded-md bg-white border border-cream-200">
@@ -390,7 +393,7 @@ export default function CancellationPolicyCard({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-bamboo-600 shrink-0" />
                   <p>
                     ยกเลิกหลังกำหนด คืนเงิน{' '}
                     <span className="font-bold text-forest-900 font-mono px-1.5 py-0.5 rounded-md bg-white border border-cream-200">

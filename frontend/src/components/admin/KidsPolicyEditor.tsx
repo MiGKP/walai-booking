@@ -201,7 +201,7 @@ export default function KidsPolicyEditor({
     <div className="space-y-3.5">
       <div className="flex items-center justify-between">
         <div>
-          <label className="block text-xs font-semibold text-stone-700">
+          <label className="block text-xs font-semibold text-charcoal-700">
             {label}
           </label>
           {helperText && (
