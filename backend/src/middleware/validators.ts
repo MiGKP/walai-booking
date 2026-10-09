@@ -1,5 +1,5 @@
 import { normalizeAuthEmail } from '../services/auth-email';
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
@@ -199,6 +199,15 @@ export const updateKayakBookingStatusValidator = [
     .withMessage('Status must be approved, rejected, pending, or checked_out'),
 ];
 
+export const kayakCheckinSessionsValidator = [
+  query('date').optional().isString().bail().isISO8601({ strict: true }).matches(/^\d{4}-\d{2}-\d{2}$/),
+  query('search').optional().isString().trim().isLength({ max: 100 }),
+];
+
+export const checkinKayakBookingValidator = [
+  param('id').isInt({ min: 1 }).withMessage('Valid booking ID is required'),
+];
+
 export const createKayakValidator = [
   body('name').trim().notEmpty().withMessage('Name is required'),
   body('capacity').isInt({ min: 1, max: 10 }).withMessage('Capacity must be between 1 and 10'),
@@ -306,7 +315,7 @@ export const validatePromoCodeValidator = [
   body('room_type_id').optional({ nullable: true }).isInt({ min: 1 }),
   body('room_type_ids').optional().isArray({ min: 1 }),
   body('room_type_ids.*').optional().isInt({ min: 1 }),
-  body('scope').optional().isIn(['room', 'kayak']).withMessage('scope must be room or kayak'),
+  body('scope').notEmpty().withMessage('กรุณาระบุ scope (room หรือ kayak)').isIn(['room', 'kayak']).withMessage('scope ต้องเป็น room หรือ kayak'),
   body().custom((_, { req }) => {
     const code = req.body.code;
     const hasCode = typeof code === 'string' && code.trim().length > 0;

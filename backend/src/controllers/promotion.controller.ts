@@ -137,7 +137,7 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
       ? Math.round(basePrice - result.totalPrice)
       : 0;
     const lines = result.lines.map((line, index) => {
-      const promo = catalog[index];
+      const promo = catalog.find((c) => c.id === line.promotion_id) ?? catalog[index];
       return {
         id: line.promotion_id,
         code: promo?.code,
@@ -481,7 +481,7 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
         usage_limit || null, is_active !== false,
         room_type_id || null, room_count || 1, boat_ticket_count || 0,
         usage_limit_per_member || null,
-        true, // ทุกโปรต้องเก็บก่อนใช้
+        is_collectible === true || is_collectible === 'true',
         stackable === true,
         parseAppliesTo(applies_to),
         boat_addon_mode === 'paid' ? 'paid' : 'free',
@@ -603,7 +603,7 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
         numOrCurrent('room_count', 1),
         numOrCurrent('boat_ticket_count', 0),
         numOrCurrent('usage_limit_per_member'),
-        true, // ทุกโปรต้องเก็บก่อนใช้
+        boolOrCurrent('is_collectible'),
         boolOrCurrent('stackable'),
         appliesTo,
         boatAddonMode,

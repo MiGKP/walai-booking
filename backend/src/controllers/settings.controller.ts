@@ -519,10 +519,41 @@ export const getCancellationPolicy = async (req: Request, res: Response): Promis
 export const upsertCancellationPolicy = async (req: Request, res: Response): Promise<void> => {
   try {
     const body = req.body as Record<string, unknown>;
-    const fullRefundHours = body.full_refund_hours !== undefined ? Number(body.full_refund_hours) : 48;
-    const lateRefundPercent = body.late_refund_percent !== undefined ? Number(body.late_refund_percent) : 0;
-    const roomRefundDays = body.room_full_refund_days !== undefined ? Number(body.room_full_refund_days) : 3;
-    const roomLatePercent = body.room_late_refund_percent !== undefined ? Number(body.room_late_refund_percent) : 0;
+
+    // ดึงค่าปัจจุบันในฐานข้อมูลก่อน เพื่อไม่ให้การอัปเดตเฉพาะส่วน (partial update) ไปเขียนทับค่าเดิม
+    let current: Record<string, unknown> = {};
+    try {
+      const existing = await pool.query(
+        `SELECT full_refund_hours, late_refund_percent,
+                COALESCE(room_full_refund_days, 3)::int AS room_full_refund_days,
+                COALESCE(room_late_refund_percent, 0)::float8 AS room_late_refund_percent
+         FROM cancellation_policies WHERE id = 1`
+      );
+      if (existing.rows[0]) current = existing.rows[0];
+    } catch (err: unknown) {
+      const pgErr = err as { code?: string };
+      if (pgErr?.code === '42703') {
+        const fallback = await pool.query(
+          `SELECT full_refund_hours, late_refund_percent FROM cancellation_policies WHERE id = 1`
+        );
+        if (fallback.rows[0]) current = fallback.rows[0];
+      } else {
+        throw err;
+      }
+    }
+
+    const fullRefundHours = body.full_refund_hours !== undefined
+      ? Number(body.full_refund_hours)
+      : (current.full_refund_hours !== undefined ? Number(current.full_refund_hours) : 48);
+    const lateRefundPercent = body.late_refund_percent !== undefined
+      ? Number(body.late_refund_percent)
+      : (current.late_refund_percent !== undefined ? Number(current.late_refund_percent) : 0);
+    const roomRefundDays = body.room_full_refund_days !== undefined
+      ? Number(body.room_full_refund_days)
+      : (current.room_full_refund_days !== undefined ? Number(current.room_full_refund_days) : 3);
+    const roomLatePercent = body.room_late_refund_percent !== undefined
+      ? Number(body.room_late_refund_percent)
+      : (current.room_late_refund_percent !== undefined ? Number(current.room_late_refund_percent) : 0);
 
     let row;
     try {
@@ -570,3 +601,128 @@ export const upsertCancellationPolicy = async (req: Request, res: Response): Pro
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
+
+// ─── Pending Notifications for Admin & Staff ─────────────────────────────────
+
+export const getNotificationSummary = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authReq = req as AuthRequest;
+    const role = authReq.user?.role;
+    const pendingRoomSlipFilter = `(rb.status = 'paid' OR (NULLIF(rb.payment_slip, '') IS NOT NULL AND rb.status NOT IN ('approved', 'checked_out', 'rejected', 'cancelled')))`;
+    const pendingBoatSlipFilter = `(bb.status = 'paid' OR (NULLIF(bb.payment_slip, '') IS NOT NULL AND bb.status NOT IN ('approved', 'checked_out', 'rejected', 'cancelled')))`;
+
+    const [roomSlipsCountRes, boatSlipsCountRes, todayCheckinsRes, todayCheckoutsRes, todayBoatCheckinsRes] = await Promise.all([
+      pool.query(`SELECT COUNT(*)::int AS count FROM room_bookings rb WHERE ${pendingRoomSlipFilter}`),
+      pool.query(`SELECT COUNT(*)::int AS count FROM boat_bookings bb WHERE ${pendingBoatSlipFilter}`),
+      pool.query(`SELECT COUNT(*)::int AS count FROM room_bookings rb WHERE rb.check_in::date = CURRENT_DATE AND rb.status = 'approved'`),
+      pool.query(`SELECT COUNT(*)::int AS count FROM room_bookings rb WHERE rb.check_out::date = CURRENT_DATE AND rb.status = 'approved'`),
+      pool.query(`SELECT COUNT(*)::int AS count FROM boat_bookings bb WHERE bb.booking_date::date = CURRENT_DATE AND bb.status = 'approved' AND bb.checkin_at IS NULL`),
+    ]);
+
+    const roomSlips = Number(roomSlipsCountRes.rows[0]?.count || 0);
+    const boatSlips = Number(boatSlipsCountRes.rows[0]?.count || 0);
+    const todayCheckins = Number(todayCheckinsRes.rows[0]?.count || 0);
+    const todayCheckouts = Number(todayCheckoutsRes.rows[0]?.count || 0);
+    const todayBoatCheckins = Number(todayBoatCheckinsRes.rows[0]?.count || 0);
+
+    let totalUrgent = 0;
+    if (role === 'room_staff') {
+      totalUrgent = roomSlips;
+    } else if (role === 'boat_staff') {
+      totalUrgent = boatSlips;
+    } else {
+      totalUrgent = roomSlips + boatSlips;
+    }
+
+    let recentRoomSlips: Array<{
+      id: string;
+      type: string;
+      title: string;
+      customer_name: string;
+      amount: number;
+      detail: string;
+      time: string;
+      href: string;
+    }> = [];
+
+    if (role === 'admin' || role === 'room_staff') {
+      const roomRes = await pool.query(`
+        SELECT rb.room_booking_id, rb.total_price, rb.check_in, rb.check_out,
+               COALESCE(NULLIF(rb.guest_name, ''), CONCAT_WS(' ', m.first_name, m.last_name)) AS customer_name,
+               COALESCE(rb.payment_submitted_at, rb.created_at) AS submitted_time
+        FROM room_bookings rb
+        JOIN members m ON rb.member_id = m.member_id
+        WHERE ${pendingRoomSlipFilter}
+        ORDER BY COALESCE(rb.payment_submitted_at, rb.created_at) DESC
+        LIMIT 5
+      `);
+      recentRoomSlips = roomRes.rows.map((r) => ({
+        id: `room_${r.room_booking_id}`,
+        type: 'room_slip',
+        title: `สลิปจองห้องพัก #${r.room_booking_id}`,
+        customer_name: r.customer_name || 'ลูกค้า',
+        amount: Number(r.total_price || 0),
+        detail: `เข้าพัก ${r.check_in ? new Date(r.check_in).toLocaleDateString('th-TH') : ''}`,
+        time: r.submitted_time,
+        href: role === 'room_staff' ? '/staff/rooms/dashboard?filter=has_slip' : '/admin/rooms?filter=has_slip',
+      }));
+    }
+
+    let recentBoatSlips: Array<{
+      id: string;
+      type: string;
+      title: string;
+      customer_name: string;
+      amount: number;
+      detail: string;
+      time: string;
+      href: string;
+    }> = [];
+
+    if (role === 'admin' || role === 'boat_staff') {
+      const boatRes = await pool.query(`
+        SELECT bb.boat_booking_id, bb.total_price, bb.booking_date, bb.start_time,
+               CONCAT_WS(' ', m.first_name, m.last_name) AS customer_name,
+               bb.created_at AS submitted_time
+        FROM boat_bookings bb
+        JOIN members m ON bb.member_id = m.member_id
+        WHERE ${pendingBoatSlipFilter}
+        ORDER BY bb.created_at DESC
+        LIMIT 5
+      `);
+      recentBoatSlips = boatRes.rows.map((b) => ({
+        id: `boat_${b.boat_booking_id}`,
+        type: 'boat_slip',
+        title: `สลิปจองเรือ #${b.boat_booking_id}`,
+        customer_name: b.customer_name || 'ลูกค้า',
+        amount: Number(b.total_price || 0),
+        detail: `รอบ ${b.booking_date ? new Date(b.booking_date).toLocaleDateString('th-TH') : ''} ${b.start_time ? String(b.start_time).slice(0, 5) : ''}`,
+        time: b.submitted_time,
+        href: role === 'boat_staff' ? '/staff/boats/dashboard?filter=has_slip' : '/admin/boats?filter=has_slip',
+      }));
+    }
+
+    const recentItems = [...recentRoomSlips, ...recentBoatSlips]
+      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      .slice(0, 6);
+
+    res.json({
+      success: true,
+      data: {
+        counts: {
+          room_slips: roomSlips,
+          boat_slips: boatSlips,
+          today_checkins: todayCheckins,
+          today_checkouts: todayCheckouts,
+          today_boat_checkins: todayBoatCheckins,
+          total_urgent: totalUrgent,
+        },
+        recent_items: recentItems,
+      },
+    });
+  } catch (error) {
+    console.error('Get notification summary error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+

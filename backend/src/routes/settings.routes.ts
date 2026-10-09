@@ -6,12 +6,16 @@ import {
   getBoatHours, upsertBoatHours,
   getStats,
   getCancellationPolicy, upsertCancellationPolicy,
+  getNotificationSummary,
 } from '../controllers/settings.controller';
 import { cancellationPolicyValidator, resortInfoValidator } from '../middleware/validators';
 import { validate } from '../middleware/validate.middleware';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
+
+// Notifications pending count — admin, room_staff, boat_staff
+router.get('/notifications/pending', authenticate, authorize('admin', 'room_staff', 'boat_staff'), getNotificationSummary);
 
 // Stats — admin, room_staff, boat_staff
 router.get('/stats', authenticate, authorize('admin', 'room_staff', 'boat_staff'), getStats);

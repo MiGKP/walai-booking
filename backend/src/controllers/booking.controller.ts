@@ -413,6 +413,18 @@ export const createRoomBooking = async (
       res.status(400).json({ success: false, message: 'ไม่สามารถใช้โค้ดเดียวกันกับหลายประเภทห้องในการจองเดียวกันได้' });
       return;
     }
+    if (perItemPromoIds.length > 1) {
+      const promoCheck = await client.query(
+        `SELECT id, stackable FROM promotions WHERE id = ANY($1::int[])`,
+        [perItemPromoIds]
+      );
+      const allStackable = promoCheck.rows.length === perItemPromoIds.length && promoCheck.rows.every((p: { stackable: boolean }) => p.stackable);
+      if (!allStackable) {
+        await safeRollback(client);
+        res.status(400).json({ success: false, message: 'โค้ดนี้ใช้ร่วมกับโปรโมชั่นอื่นไม่ได้' });
+        return;
+      }
+    }
 
     let totalPrice = faceValueTotal;
     const appliedPromotions: Array<{ room_type_id: number; promotion_id: number; discount_amount: number; line: ApplyLine | null }> = [];
@@ -992,7 +1004,32 @@ export const updateRoomBookingStatus = async (
       'SELECT status FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE',
       [id]
     );
-    const previousStatus = previous.rows[0] ? String(previous.rows[0].status) : '';
+    if (previous.rows.length === 0) {
+      await safeRollback(client);
+      res.status(404).json({ success: false, message: 'Booking not found' });
+      return;
+    }
+    const previousStatus = String(previous.rows[0].status);
+
+    const transitionError = assertStatusTransition(previousStatus, status);
+    if (transitionError) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: transitionError });
+      return;
+    }
+
+    // ห้องที่เช็คอินหรือเช็คเอาท์แล้วต้องไม่ถูกย้อนสถานะหรือยกเลิกผ่านการเปลี่ยนสถานะ header
+    if (status === 'rejected' || status === 'cancelled' || status === 'pending') {
+      const activeOrDone = await client.query(
+        "SELECT 1 FROM booking_room WHERE room_booking_id = $1 AND status IN ('checked_in', 'checked_out') LIMIT 1",
+        [id]
+      );
+      if (activeOrDone.rows.length > 0) {
+        await safeRollback(client);
+        res.status(400).json({ success: false, message: 'ไม่สามารถเปลี่ยนสถานะได้ เนื่องจากมีห้องที่เช็คอินหรือเช็คเอาท์แล้ว' });
+        return;
+      }
+    }
 
     let query = `UPDATE room_bookings SET status = $1, updated_at = NOW()`;
     const params: Array<string | number> = [status];
@@ -1011,30 +1048,6 @@ export const updateRoomBookingStatus = async (
     query += ` WHERE room_booking_id = $${params.length} RETURNING *`;
 
     const result = await client.query(query, params);
-    if (result.rows.length === 0) {
-      await safeRollback(client);
-      res.status(404).json({ success: false, message: 'Booking not found' });
-      return;
-    }
-
-    const transitionError = assertStatusTransition(previousStatus, status);
-    if (transitionError) {
-      await safeRollback(client);
-      res.status(400).json({ success: false, message: transitionError });
-      return;
-    }
-    // ห้องที่เช็คอินแล้วต้องไม่ถูกย้อนสถานะหรือยกเลิกผ่านการเปลี่ยนสถานะ header
-    if (status === 'rejected' || status === 'cancelled' || status === 'pending') {
-      const checkedIn = await client.query(
-        "SELECT 1 FROM booking_room WHERE room_booking_id = $1 AND status = 'checked_in' LIMIT 1",
-        [id]
-      );
-      if (checkedIn.rows.length > 0) {
-        await safeRollback(client);
-        res.status(400).json({ success: false, message: 'ไม่สามารถเปลี่ยนสถานะได้ เนื่องจากมีห้องที่เช็คอินแล้ว' });
-        return;
-      }
-    }
 
     await client.query(
       `UPDATE booking_room SET status = $1, updated_at = NOW()

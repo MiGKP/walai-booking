@@ -187,7 +187,17 @@ export function applyPromotionList(
   let remaining = ctx.basePrice;
   const lines: ApplyLine[] = [];
 
-  for (const row of promosInOrder) {
+  // จัดลำดับโปรโมชั่นอย่างคงที่ (deterministic):
+  // หักส่วนลดแบบจำนวนเงินคงที่ (fixed) ก่อน เพื่อให้ส่วนลดแบบเปอร์เซ็นต์ (percent) คิดจากยอดคงเหลือสุทธิ
+  // ป้องกันไม่ให้ client สลับลำดับเพื่อเอายอดลดเปอร์เซ็นต์จากฐานราคาเต็ม
+  const sortedPromos = [...promosInOrder].sort((a, b) => {
+    if (a.discount_type !== b.discount_type) {
+      return a.discount_type === 'fixed' ? -1 : 1;
+    }
+    return a.id - b.id;
+  });
+
+  for (const row of sortedPromos) {
     if (row.usage_limit != null && row.usage_count >= row.usage_limit) {
       throw new PromoApplyError('โปรโมชั่นนี้ถูกใช้ครบจำนวนแล้ว');
     }

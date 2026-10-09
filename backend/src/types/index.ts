@@ -102,6 +102,7 @@ export interface BoatBooking {
   payment_status: 'pending' | 'paid' | 'failed';
   payment_slip?: string;
   status: 'pending' | 'paid' | 'approved' | 'rejected' | 'cancelled' | 'checked_out';
+  reject_reason?: string;
   created_at: Date;
 }
 

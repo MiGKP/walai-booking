@@ -9,7 +9,7 @@ const upload = createImageUpload(10 * 1024 * 1024);
 router.post(
   '/image',
   authenticate,
-  authorize('admin'),
+  authorize('admin', 'room_staff', 'boat_staff'),
   upload.single('image'),
   async (req: Request, res: Response): Promise<void> => {
     if (!req.file) {

@@ -49,13 +49,13 @@ router.patch('/amenity/:id/status', authenticate, authorize('admin', 'room_staff
 router.delete('/amenity/:id', authenticate, authorize('admin', 'room_staff'), deleteAmenity);
 
 // Room type routes (dynamic - must come last)
-router.post('/type', authenticate, authorize('admin'), createRoom);
+router.post('/type', authenticate, authorize('admin', 'room_staff'), createRoom);
 router.get('/:id', optionalAuthenticate, getRoomById);
-router.put('/:id', authenticate, authorize('admin'), updateRoom);
+router.put('/:id', authenticate, authorize('admin', 'room_staff'), updateRoom);
 
 // Route PATCH สำหรับอัปเดตสถานะ
-router.patch('/:id/status', authenticate, authorize('admin'), toggleRoomTypeStatus);
+router.patch('/:id/status', authenticate, authorize('admin', 'room_staff'), toggleRoomTypeStatus);
 
-router.delete('/:id', authenticate, authorize('admin'), deleteRoom);
+router.delete('/:id', authenticate, authorize('admin', 'room_staff'), deleteRoom);
 
 export default router;

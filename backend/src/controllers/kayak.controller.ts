@@ -2274,7 +2274,7 @@ export const updateKayakBookingStatus = async (
   const client = await pool.connect();
   try {
     const id = parsePositiveInt(req.params.id);
-    const { status } = req.body;
+    const { status, reject_reason } = req.body;
     const user = req.user as AuthPayload;
 
     if (id === null) {
@@ -2291,7 +2291,7 @@ export const updateKayakBookingStatus = async (
 
     await lockAddonRoomHeader(client, id);
     const current = await client.query(
-      `SELECT status, is_addon FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE`,
+      `SELECT status, is_addon, checkin_at FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE`,
       [id],
     );
     if (current.rows.length === 0) {
@@ -2304,6 +2304,12 @@ export const updateKayakBookingStatus = async (
     if (transitionError) {
       await safeRollback(client);
       res.status(400).json({ success: false, message: transitionError });
+      return;
+    }
+    // เรือที่ลงน้ำไปแล้ว (เช็คอินแล้ว) ต้องไม่ถูกย้อนสถานะเป็น pending/rejected ผ่าน header
+    if ((status === "rejected" || status === "pending") && current.rows[0].checkin_at) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: "ไม่สามารถเปลี่ยนสถานะได้ เนื่องจากลูกค้าเช็คอินลงเรือแล้ว" });
       return;
     }
     // บัตรเสริมที่ถูกปฏิเสธต้องปรับยอดห้องและบันทึกการคืนเงินเหมือนการยกเลิกโดยลูกค้า
@@ -2346,6 +2352,15 @@ export const updateKayakBookingStatus = async (
     if (status === "approved" || status === "rejected") {
       query += `, approved_by_staff_id = $2`;
       params.push(user.id);
+    }
+
+    if (status === "rejected") {
+      query += `, reject_reason = $${params.length + 1}`;
+      params.push(
+        typeof reject_reason === "string" && reject_reason.trim()
+          ? reject_reason.trim()
+          : "ไม่ระบุเหตุผล",
+      );
     }
 
     params.push(id);
@@ -2455,7 +2470,7 @@ export const checkoutKayakBooking = async (
     }
 
     await client.query(
-      `UPDATE boat_bookings SET status = 'checked_out', updated_at = NOW() WHERE boat_booking_id = $1`,
+      `UPDATE boat_bookings SET status = 'checked_out', checkout_at = COALESCE(checkout_at, NOW()), updated_at = NOW() WHERE boat_booking_id = $1`,
       [id],
     );
     await client.query(
@@ -2475,6 +2490,149 @@ export const checkoutKayakBooking = async (
     res.status(500).json({ success: false, message: "Internal server error" });
   } finally {
     client.release();
+  }
+};
+
+/** เช็คอิน / บันทึกการปล่อยเรือลงน้ำ (ท่าเรือ) */
+export const checkinKayakBooking = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const client = await pool.connect();
+  try {
+    const id = parsePositiveInt(req.params.id);
+    if (id === null) {
+      res.status(400).json({ success: false, message: "Invalid id" });
+      return;
+    }
+    const user = req.user as AuthPayload;
+
+    await client.query("BEGIN");
+    const booking = await client.query(
+      "SELECT status, checkin_at FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE",
+      [id],
+    );
+    if (booking.rows.length === 0) {
+      await safeRollback(client);
+      res.status(404).json({ success: false, message: "Booking not found" });
+      return;
+    }
+    if (booking.rows[0].status !== "approved") {
+      await safeRollback(client);
+      res.status(400).json({
+        success: false,
+        message: `สามารถเช็คอินได้เฉพาะรายการที่อนุมัติแล้วเท่านั้น (สถานะปัจจุบัน: ${booking.rows[0].status})`,
+      });
+      return;
+    }
+
+    await client.query(
+      `UPDATE boat_bookings
+       SET checkin_at = NOW(), checkin_by_staff_id = $2, updated_at = NOW()
+       WHERE boat_booking_id = $1`,
+      [id, user?.id ?? null],
+    );
+    await client.query("COMMIT");
+    res.json({ success: true, message: "เช็คอินปล่อยเรือลงน้ำสำเร็จ" });
+  } catch (error) {
+    await safeRollback(client);
+    console.error("Checkin kayak booking error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  } finally {
+    client.release();
+  }
+};
+
+/** ดึงข้อมูลรอบเรือและรายการเช็คอินประจำวัน (หน้าท่าเรือ) */
+export const getKayakCheckinSessions = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const dateParam = typeof req.query.date === "string" && req.query.date ? req.query.date : null;
+    const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+
+    const params: (string | number)[] = [];
+    let where = `WHERE bb.status IN ('approved', 'checked_out')`;
+
+    if (dateParam) {
+      params.push(dateParam);
+      where += ` AND bb.booking_date::date = $${params.length}::date`;
+    } else {
+      where += ` AND bb.booking_date::date = CURRENT_DATE`;
+    }
+
+    if (search) {
+      params.push(`%${search}%`);
+      where += ` AND (
+        bb.boat_booking_id::text ILIKE $${params.length}
+        OR CONCAT_WS(' ', m.first_name, m.last_name) ILIKE $${params.length}
+        OR m.phone ILIKE $${params.length}
+      )`;
+    }
+
+    const query = `
+      SELECT bb.boat_booking_id,
+             bb.booking_date,
+             bb.start_time,
+             bb.end_time,
+             bb.total_price,
+             bb.status,
+             bb.checkin_at,
+             bb.checkout_at,
+             bb.is_addon,
+             bb.room_booking_id,
+             bb.booking_room_id,
+             CONCAT_WS(' ', m.first_name, m.last_name) AS customer_name,
+             m.phone AS customer_phone,
+             m.email AS customer_email,
+             COALESCE(
+               (
+                 SELECT json_agg(
+                   json_build_object(
+                     'booking_boat_id', bnb.booking_boat_id,
+                     'boat_type_id', bnb.boat_type_id,
+                     'boat_type_name', bt.type_name,
+                     'boat_count', bnb.boat_count,
+                     'num_passengers', bnb.num_passengers
+                   )
+                 )
+                 FROM booking_boat bnb
+                 JOIN boat_types bt ON bt.boat_type_id = bnb.boat_type_id
+                 WHERE bnb.boat_booking_id = bb.boat_booking_id
+               ),
+               '[]'::json
+             ) AS boats
+      FROM boat_bookings bb
+      JOIN members m ON bb.member_id = m.member_id
+      ${where}
+      ORDER BY bb.start_time ASC, bb.boat_booking_id ASC
+    `;
+
+    const result = await pool.query(query, params);
+    const rows = result.rows;
+
+    const summary = {
+      total_bookings: rows.length,
+      waiting_count: rows.filter((r) => r.status === "approved" && !r.checkin_at).length,
+      on_water_count: rows.filter((r) => r.status === "approved" && r.checkin_at).length,
+      checked_out_count: rows.filter((r) => r.status === "checked_out").length,
+      total_boats: rows.reduce((sum, r) => {
+        const boatSum = (r.boats || []).reduce((acc: number, b: any) => acc + (Number(b.boat_count) || 0), 0);
+        return sum + boatSum;
+      }, 0),
+    };
+
+    res.json({
+      success: true,
+      data: {
+        summary,
+        bookings: rows,
+      },
+    });
+  } catch (error) {
+    console.error("Get kayak checkin sessions error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
