@@ -452,7 +452,7 @@ function PaymentContent() {
                           <div className="min-w-0">
                             <p className="truncate text-sm font-bold text-forest-900">{boat.type_name}</p>
                             <p className="text-xs text-charcoal-400">
-                              ผู้โดยสาร {boat.num_passengers} คน · {boat.boat_count} ลำ · ฿{Number(boat.unit_price).toLocaleString()}/ลำ
+                              ผู้โดยสาร {boat.num_passengers} คน · {boat.boat_count} ลำ
                             </p>
                           </div>
                           <span className="shrink-0 text-sm font-bold text-forest-900">฿{Number(boat.subtotal).toLocaleString()}</span>
