@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { CreditCard, Upload, CheckCircle, ArrowLeft, XCircle, Receipt, Landmark, QrCode, Info, MessageSquare } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { useAuth } from '@/hooks/useAuth';
 import { formatThaiDate, formatTimeRange, nightsBetween } from '@/lib/date';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -85,6 +86,8 @@ function PaymentContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { ready } = useAuthGuard();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const booking_type = searchParams.get('booking_type');
   const booking_id = searchParams.get('booking_id');
 
@@ -285,7 +288,10 @@ function PaymentContent() {
         <div className="mt-7 flex flex-col gap-3">
           {payment?.booking_type === 'room' && <RoomBoatTicketSummary summary={bookingDetail?.boat_ticket_summary} bookingId={payment.booking_id} bookingStatus={bookingStatus ?? payment.booking_status ?? 'pending'} hasTickets={payment.has_boat_tickets} />}
           <Link href="/dashboard" className="btn-primary text-center">ดูการจองของฉัน</Link>
-          <Link href="/" className="inline-flex w-full items-center justify-center rounded-xl border border-stone-200 py-3 text-sm font-bold text-forest-800 transition-colors hover:bg-stone-50">กลับหน้าแรก</Link>
+          <Link href={payment?.booking_type === 'kayak' ? '/kayaks' : '/rooms'} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 py-3 text-sm font-bold text-forest-800 transition-colors hover:bg-stone-50">
+            <ArrowLeft size={16} /> ย้อนกลับไปหน้าค้นหา{payment?.booking_type === 'kayak' ? 'เรือ' : 'ห้องพัก'}
+          </Link>
+          <Link href="/" className="inline-flex w-full items-center justify-center rounded-xl border border-transparent py-2 text-xs font-semibold text-stone-500 transition-colors hover:text-stone-800">กลับหน้าแรก</Link>
         </div>
       </div>
     </div>
@@ -297,15 +303,35 @@ function PaymentContent() {
       <div className="max-w-5xl mx-auto p-6 space-y-6">
         {/* Header Section */}
         <div>
-          <Link
-            href="/dashboard"
-            className="group inline-flex items-center gap-2.5 rounded-full bg-white py-1.5 pl-1.5 pr-4 text-sm font-bold text-forest-800 shadow-[0_1px_2px_rgba(18,60,48,0.04),0_6px_16px_-6px_rgba(18,60,48,0.2)] ring-1 ring-stone-200/70 transition-all duration-200 hover:-translate-x-0.5 hover:ring-forest-300"
-          >
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700 transition-colors group-hover:bg-forest-100">
-              <ArrowLeft size={14} />
-            </span>
-            กลับไปการจอง
-          </Link>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Link
+              href={payment?.booking_type === 'kayak' ? '/kayaks' : '/rooms'}
+              className="group inline-flex items-center gap-2.5 rounded-full bg-white py-1.5 pl-2 pr-4 text-sm font-bold text-forest-800 shadow-[0_1px_2px_rgba(18,60,48,0.04),0_6px_16px_-6px_rgba(18,60,48,0.2)] ring-1 ring-stone-200/70 transition-all duration-200 hover:-translate-x-0.5 hover:ring-forest-300"
+            >
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700 transition-colors group-hover:bg-forest-100">
+                <ArrowLeft size={14} />
+              </span>
+              ย้อนกลับไปหน้าค้นหา{payment?.booking_type === 'kayak' ? 'เรือ' : 'ห้องพัก'}
+            </Link>
+
+            {!isAdmin && (
+              <Link
+                href="/dashboard"
+                className="group inline-flex items-center gap-2 rounded-full bg-white py-1.5 px-4 text-sm font-bold text-charcoal-600 shadow-[0_1px_2px_rgba(18,60,48,0.04),0_6px_16px_-6px_rgba(18,60,48,0.2)] ring-1 ring-stone-200/70 transition-all duration-200 hover:ring-forest-300"
+              >
+                การจองของฉัน
+              </Link>
+            )}
+
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="group inline-flex items-center gap-2 rounded-full bg-forest-900 py-1.5 px-4 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:bg-forest-800"
+              >
+                แผงควบคุมแอดมิน
+              </Link>
+            )}
+          </div>
 
           <div className="mt-4 flex items-center gap-2.5">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700"><CreditCard size={18} /></span>
@@ -556,8 +582,16 @@ function PaymentContent() {
                       onClick={() => setStep(2)}
                       className="btn-primary w-full mt-6 text-center shadow-lg shadow-forest-900/20 py-3 text-sm"
                     >
-                      ถัดไป
+                      ถัดไป (ไปหน้าส่งสลิป)
                     </button>
+
+                    <Link
+                      href={payment.booking_type === 'kayak' ? '/kayaks' : '/rooms'}
+                      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white py-3 text-sm font-bold text-forest-800 shadow-2xs transition-colors hover:bg-stone-50"
+                    >
+                      <ArrowLeft size={16} />
+                      ย้อนกลับไปหน้าค้นหา{payment.booking_type === 'kayak' ? 'เรือ' : 'ห้องพัก'}
+                    </Link>
                   </section>
 
                   {/* คำแนะนำและยกเลิกการจอง */}
@@ -593,6 +627,18 @@ function PaymentContent() {
                       </button>
                     </div>
 
+                    {isAdmin && (
+                      <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
+                        <Info className="shrink-0 mt-0.5 text-amber-600" size={16} />
+                        <div>
+                          <p className="font-bold text-amber-950">โหมดตรวจสอบสำหรับแอดมิน (Admin Mode)</p>
+                          <p className="text-amber-800 mt-0.5 leading-relaxed">
+                            คุณเข้าสู่ระบบในฐานะแอดมิน สามารถดูหน้าส่งสลิปเพื่อตรวจสอบระบบได้ แต่ไม่สามารถกดยืนยันการชำระเงินได้
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="mt-4 rounded-xl border-2 border-dashed border-stone-200 p-6 text-center transition-colors hover:border-forest-300">
                       {slipPreview ? (
                         <div className="space-y-3">
@@ -612,13 +658,31 @@ function PaymentContent() {
                         </label>
                       )}
                     </div>
-                    <button
-                      onClick={handleUploadSlip}
-                      disabled={!slip || uploading || !payment}
-                      className="btn-primary w-full mt-5 text-center py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    {isAdmin ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full mt-5 text-center py-3.5 text-sm font-bold rounded-xl bg-stone-200 text-stone-500 cursor-not-allowed shadow-none"
+                      >
+                        แอดมินไม่สามารถยืนยันได้ (โหมดดูตัวอย่าง)
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleUploadSlip}
+                        disabled={!slip || uploading || !payment}
+                        className="btn-primary w-full mt-5 text-center py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {uploading ? 'กำลังอัปโหลดและส่งให้เจ้าหน้าที่...' : 'ยืนยันการชำระเงิน'}
+                      </button>
+                    )}
+
+                    <Link
+                      href={payment.booking_type === 'kayak' ? '/kayaks' : '/rooms'}
+                      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white py-3 text-sm font-bold text-forest-800 shadow-2xs transition-colors hover:bg-stone-50"
                     >
-                      {uploading ? 'กำลังอัปโหลดและส่งให้เจ้าหน้าที่...' : 'ยืนยันการชำระเงิน'}
-                    </button>
+                      <ArrowLeft size={16} />
+                      ย้อนกลับไปหน้าค้นหา{payment.booking_type === 'kayak' ? 'เรือ' : 'ห้องพัก'}
+                    </Link>
                   </section>
                 </>
               )}

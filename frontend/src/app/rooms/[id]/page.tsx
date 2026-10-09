@@ -593,12 +593,71 @@ export default function RoomDetailPage(): React.ReactElement {
                       </div>
                     </button>
                     {openPanel === "calendar" && (
-                      <div className="animate-dropdown absolute left-0 top-full z-40 mt-2 w-[min(600px,calc(100vw-2rem))] rounded-3xl border border-stone-200 bg-white p-5 shadow-2xl">
-                        <div className="mb-4 flex items-center justify-between px-2">
-                          <h3 className="font-display text-base font-medium text-forest-900">เลือกช่วงวันเข้าพัก</h3>
-                          <button type="button" onClick={() => setOpenPanel(null)} className="text-charcoal-300 hover:text-charcoal-500"><X size={18} /></button>
+                      <div
+                        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-forest-950/45 backdrop-blur-xs"
+                        onClick={() => setOpenPanel(null)}
+                      >
+                        <div
+                          className="w-full sm:max-w-[660px] bg-white rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl max-h-[88vh] flex flex-col"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="mb-3 flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
+                            <div>
+                              <h3 className="font-display text-base sm:text-lg font-bold text-forest-900">เลือกช่วงวันเข้าพัก</h3>
+                              {range && nights > 0 ? (
+                                <p className="text-xs text-forest-700 mt-0.5 font-medium">
+                                  {formatThaiDate(range.start)} – {formatThaiDate(range.end)} ({nights} คืน)
+                                </p>
+                              ) : (
+                                <p className="text-xs text-charcoal-400 mt-0.5">
+                                  เลือกวันเช็คอินและวันเช็คเอาท์
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setOpenPanel(null)}
+                              aria-label="ปิดปฏิทิน"
+                              className="p-2 rounded-full text-charcoal-400 hover:text-charcoal-600 hover:bg-stone-100 transition-colors"
+                            >
+                              <X size={20} />
+                            </button>
+                          </div>
+
+                          <div className="py-1 overflow-y-auto flex-1 pr-1 overscroll-contain">
+                            <BookingCalendar
+                              mode="range"
+                              value={range}
+                              onSelect={handleRangeSelect}
+                              cursor={cursor}
+                              onCursorChange={setCursor}
+                              dayStatus={dayStatus}
+                              loading={calendarLoading}
+                              minISO={isAdminOrStaff ? today : addDaysISO(today, 1)}
+                              visibleMonths={2}
+                            />
+                          </div>
+
+                          <div className="pt-3 mt-2 border-t border-stone-100 flex items-center justify-between gap-3 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const defaultStart = isAdminOrStaff ? today : addDaysISO(today, 1);
+                                handleRangeSelect({ start: defaultStart, end: addDaysISO(defaultStart, 1) });
+                              }}
+                              className="text-xs text-charcoal-500 hover:text-forest-800 underline font-medium px-2 py-2"
+                            >
+                              ล้างวันที่เลือก
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setOpenPanel(null)}
+                              className="btn-primary py-2.5 px-6 text-sm rounded-xl font-bold"
+                            >
+                              ตกลง {nights > 0 ? `(${nights} คืน)` : ""}
+                            </button>
+                          </div>
                         </div>
-                        <BookingCalendar mode="range" value={range} onSelect={handleRangeSelect} cursor={cursor} onCursorChange={setCursor} dayStatus={dayStatus} loading={calendarLoading} minISO={isAdminOrStaff ? today : addDaysISO(today, 1)} />
                       </div>
                     )}
                   </div>
@@ -613,50 +672,65 @@ export default function RoomDetailPage(): React.ReactElement {
                       <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "guests" ? "rotate(180deg)" : "rotate(0deg)" }} />
                     </button>
                     {openPanel === "guests" && (
-                      <div className="animate-dropdown absolute right-0 top-full z-40 mt-2 w-[320px] rounded-2xl border border-stone-200 bg-white p-2 shadow-xl">
-                        <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={parseInt(searchParams.get('adults') || '1', 10)} min={1} onChange={(v) => handleGuestsChange({ adults: v, children: parseInt(searchParams.get('children') || '0', 10) })} />
-                        <GuestRow label="เด็ก" hint="อายุ 0–11 ปี" value={parseInt(searchParams.get('children') || '0', 10)} min={0} onChange={(v) => handleGuestsChange({ adults: parseInt(searchParams.get('adults') || '1', 10), children: v })} />
-                        {parseInt(searchParams.get('children') || '0', 10) > 0 && (
-                          <div className="mx-2 my-2 rounded-xl border border-forest-100 bg-forest-50/50 p-3 space-y-2">
-                            <div className="flex items-center gap-1.5">
-                              <Baby size={13} className="text-forest-700 shrink-0" />
-                              <p className="text-xs font-bold uppercase tracking-wide text-forest-800">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
-                            </div>
-                            <div className="space-y-1.5">
-                              {childAges.map((age, index) => (
-                                <div key={index} className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 ${age === null ? "border-amber-300" : "border-stone-200"}`}>
-                                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-forest-800/10 text-xs font-extrabold text-forest-800">{index + 1}</span>
-                                  <div className="relative flex-1">
-                                    <select
-                                      value={age ?? ""}
-                                      onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
-                                      className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-none ${age === null ? "text-amber-600" : "text-forest-800"}`}
-                                    >
-                                      <option value="" disabled>เลือกอายุ</option>
-                                      {Array.from({ length: 18 }, (_, a) => a).map((a) => (
-                                        <option key={a} value={a}>{a} ปี</option>
-                                      ))}
-                                    </select>
-                                    <ChevronDown size={11} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-stone-400" />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                      <div
+                        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-forest-950/45 backdrop-blur-xs lg:static lg:bg-transparent lg:p-0 lg:block lg:backdrop-blur-none"
+                        onClick={() => setOpenPanel(null)}
+                      >
+                        <div
+                          className="w-full sm:max-w-[400px] bg-white rounded-t-3xl sm:rounded-2xl p-5 sm:p-4 shadow-2xl max-h-[85vh] overflow-y-auto lg:absolute lg:right-0 lg:top-full lg:mt-2 lg:w-[320px] lg:rounded-2xl lg:p-2 lg:border lg:border-stone-200 lg:shadow-xl"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center justify-between pb-3 mb-3 border-b border-stone-100 lg:hidden">
+                            <h3 className="font-display text-base font-bold text-forest-900">ระบุจำนวนผู้เข้าพัก</h3>
+                            <button type="button" onClick={() => setOpenPanel(null)} aria-label="ปิด" className="p-1 rounded-full text-charcoal-400 hover:text-charcoal-600">
+                              <X size={20} />
+                            </button>
                           </div>
-                        )}
-                        <div className="px-3 py-2 bg-stone-50 rounded-xl mt-1 mb-2">
-                          <p className="text-xs text-charcoal-400 leading-relaxed">
-                            <span className="font-bold text-forest-700">นโยบายเด็ก:</span> {infantAge === 0 ? 'เด็กทุกอายุนับรวมในความจุห้อง' : `เด็กอายุต่ำกว่า ${infantAge} ปี เข้าพักฟรีและไม่นับความจุห้อง`}
-                          </p>
-                        </div>
-                        <div className="border-t border-stone-100 p-2">
-                          <button
-                            type="button"
-                            onClick={() => setOpenPanel(null)}
-                            className="w-full rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800"
-                          >
-                            ตกลง
-                          </button>
+
+                          <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={parseInt(searchParams.get('adults') || '1', 10)} min={1} onChange={(v) => handleGuestsChange({ adults: v, children: parseInt(searchParams.get('children') || '0', 10) })} />
+                          <GuestRow label="เด็ก" hint="อายุ 0–11 ปี" value={parseInt(searchParams.get('children') || '0', 10)} min={0} onChange={(v) => handleGuestsChange({ adults: parseInt(searchParams.get('adults') || '1', 10), children: v })} />
+                          {parseInt(searchParams.get('children') || '0', 10) > 0 && (
+                            <div className="mx-2 my-2 rounded-xl border border-forest-100 bg-forest-50/50 p-3 space-y-2">
+                              <div className="flex items-center gap-1.5">
+                                <Baby size={13} className="text-forest-700 shrink-0" />
+                                <p className="text-xs font-bold uppercase tracking-wide text-forest-800">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
+                              </div>
+                              <div className="space-y-1.5">
+                                {childAges.map((age, index) => (
+                                  <div key={index} className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 ${age === null ? "border-amber-300" : "border-stone-200"}`}>
+                                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-forest-800/10 text-xs font-extrabold text-forest-800">{index + 1}</span>
+                                    <div className="relative flex-1">
+                                      <select
+                                        value={age ?? ""}
+                                        onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
+                                        className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-none ${age === null ? "text-amber-600" : "text-forest-800"}`}
+                                      >
+                                        <option value="" disabled>เลือกอายุ</option>
+                                        {Array.from({ length: 18 }, (_, a) => a).map((a) => (
+                                          <option key={a} value={a}>{a} ปี</option>
+                                        ))}
+                                      </select>
+                                      <ChevronDown size={11} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-stone-400" />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="px-3 py-2 bg-stone-50 rounded-xl mt-1 mb-2">
+                            <p className="text-xs text-charcoal-400 leading-relaxed">
+                              <span className="font-bold text-forest-700">นโยบายเด็ก:</span> {infantAge === 0 ? 'เด็กทุกอายุนับรวมในความจุห้อง' : `เด็กอายุต่ำกว่า ${infantAge} ปี เข้าพักฟรีและไม่นับความจุห้อง`}
+                            </p>
+                          </div>
+                          <div className="border-t border-stone-100 p-2 mt-2">
+                            <button
+                              type="button"
+                              onClick={() => setOpenPanel(null)}
+                              className="w-full rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800"
+                            >
+                              ตกลง
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}

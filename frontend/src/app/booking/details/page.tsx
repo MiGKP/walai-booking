@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, User, Clock, AlertCircle, ShieldCheck, ChevronDown, ChevronRight, Tag } from 'lucide-react';
 import { useRoomCart, setRoomCart } from '@/lib/room-cart-store';
@@ -15,6 +15,116 @@ import type { CheckoutPromotion } from '@/lib/booking-checkout';
 import type { RoomCartItem } from '@/lib/room-cart';
 
 type Promotion = CheckoutPromotion;
+
+const ARRIVAL_TIME_OPTIONS = [
+  { value: "14:00", label: "14:00 น. - 15:00 น." },
+  { value: "15:00", label: "15:00 น. - 16:00 น." },
+  { value: "16:00", label: "16:00 น. - 17:00 น." },
+  { value: "17:00", label: "17:00 น. - 18:00 น." },
+  { value: "18:00", label: "18:00 น. - 19:00 น." },
+  { value: "19:00", label: "หลัง 19:00 น." },
+];
+
+function CustomSelect({
+  options,
+  value,
+  onChange,
+  placeholder = "เลือก...",
+  className = "",
+  size = "md",
+}: {
+  options: { value: string | number; label: string; disabled?: boolean }[];
+  value: string | number;
+  onChange: (val: any) => void;
+  placeholder?: string;
+  className?: string;
+  size?: "sm" | "md";
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = options.find(
+    (opt) => String(opt.value) === String(value),
+  );
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const isSmall = size === "sm";
+
+  return (
+    <div className={`relative ${className}`} ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          setIsOpen(!isOpen);
+        }}
+        className={`w-full flex items-center justify-between gap-2 border border-stone-200 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs ${
+          isSmall
+            ? "px-3 py-2 bg-white text-xs font-bold text-forest-800"
+            : "px-4 py-3 bg-stone-50 hover:bg-stone-100/70 text-sm font-medium text-forest-900"
+        }`}
+      >
+        <span className="truncate">
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <ChevronDown
+          size={isSmall ? 14 : 16}
+          className={`shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-180 text-forest-800" : "text-stone-400"
+          }`}
+        />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full mt-1.5 w-full bg-white border border-stone-200 rounded-xl shadow-lg z-50 overflow-hidden py-1 max-h-56 overflow-y-auto animate-in fade-in duration-150">
+          {options.map((opt) => {
+            const isSelected = String(opt.value) === String(value);
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                disabled={opt.disabled}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (!opt.disabled) {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }
+                }}
+                className={`w-full text-left transition-colors flex items-center justify-between ${
+                  isSmall ? "px-3 py-2 text-xs font-medium" : "px-4 py-2.5 text-sm font-medium"
+                } ${
+                  isSelected
+                    ? "bg-forest-50 text-forest-900 font-bold"
+                    : opt.disabled
+                    ? "text-stone-300 cursor-not-allowed bg-stone-50/40"
+                    : "text-charcoal-700 hover:bg-cream-50 hover:text-charcoal-900"
+                }`}
+              >
+                <span className="truncate">{opt.label}</span>
+                {isSelected && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-forest-800 shrink-0 ml-2" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 import { Suspense } from 'react';
 
@@ -217,9 +327,14 @@ function BookingDetailsContent() {
   return (
     <div className="min-h-screen bg-stone-50/50 pb-28 pt-24">
       <div className="mx-auto max-w-6xl px-4">
-        <button onClick={() => router.back()} className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-stone-500 hover:text-stone-800 transition-colors">
-          <ArrowLeft size={16} /> กลับไปแก้ไข
-        </button>
+        <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
+          <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-sm font-bold text-stone-500 hover:text-stone-800 transition-colors">
+            <ArrowLeft size={16} /> กลับไปแก้ไข
+          </button>
+          <button onClick={() => router.push('/rooms')} className="inline-flex items-center gap-2 text-sm font-bold text-forest-800 hover:text-forest-900 transition-colors">
+            <ArrowLeft size={16} /> ย้อนกลับไปหน้าค้นหาห้องพัก
+          </button>
+        </div>
         
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start">
           
@@ -261,17 +376,11 @@ function BookingDetailsContent() {
               
               <div className="max-w-xs space-y-1.5">
                 <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">ระบุเวลาโดยประมาณ</label>
-                <div className="relative">
-                  <select value={arrivalTime} onChange={e => setArrivalTime(e.target.value)} className="w-full appearance-none rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm font-medium text-forest-900 focus:border-forest-500 focus:ring-forest-500">
-                    <option value="14:00">14:00 น. - 15:00 น.</option>
-                    <option value="15:00">15:00 น. - 16:00 น.</option>
-                    <option value="16:00">16:00 น. - 17:00 น.</option>
-                    <option value="17:00">17:00 น. - 18:00 น.</option>
-                    <option value="18:00">18:00 น. - 19:00 น.</option>
-                    <option value="19:00">หลัง 19:00 น.</option>
-                  </select>
-                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" size={16} />
-                </div>
+                <CustomSelect
+                  value={arrivalTime}
+                  onChange={(val) => setArrivalTime(String(val))}
+                  options={ARRIVAL_TIME_OPTIONS}
+                />
               </div>
             </section>
             
@@ -391,28 +500,34 @@ function BookingDetailsContent() {
                       </div>
                       
                       {/* Promotion Selector per Type */}
-                      {promotions.length > 0 && (
-                        <div className="bg-stone-50 rounded-xl p-3 border border-stone-100">
-                          <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1.5 block">
-                            โปรโมชั่นสำหรับประเภทนี้
-                          </label>
-                          <select 
-                            value={selectedPromos[group.typeId] || ''} 
-                            onChange={e => handleSelectPromo(group.typeId, e.target.value ? Number(e.target.value) : null)}
-                            className="w-full text-xs font-bold text-forest-800 bg-white border border-stone-200 rounded-lg p-2 focus:ring-forest-500 focus:border-forest-500 truncate"
-                          >
-                            <option value="">ไม่ใช้โปรโมชั่น</option>
-                            {promotions.map(p => {
-                              if (p.applies_to === 'kayak' || (p.room_type_id != null && p.room_type_id !== group.typeId)) return null;
-                              const reasons = roomPromotionReasons(p, group.totalBasePrice, nights, group.typeId, group.rooms.length);
-                              return (
-                                <option key={p.id} value={p.id} disabled={reasons.length > 0 || Object.entries(selectedPromos).some(([key, value]) => Number(key) !== group.typeId && value === p.id)}>
-                                  {p.name} ({roomPromotionLabel(p)}){reasons.length > 0 ? ` — ${reasons.join(' / ')}` : ''}
-                                </option>
-                              );
-                            })}
-                          </select>
-                          <p className="mt-2 text-xs text-charcoal-600">เลือกได้ 1 โปรโมชั่นต่อประเภทห้อง ระบบเลือกส่วนลดสูงสุดที่ใช้ได้ให้ก่อน คุณเปลี่ยนได้</p>
+                      {promotions.length > 0 && (() => {
+                        const promoOptions: { value: string | number; label: string; disabled?: boolean }[] = [
+                          { value: '', label: 'ไม่ใช้โปรโมชั่น' }
+                        ];
+                        promotions.forEach(p => {
+                          if (p.applies_to === 'kayak' || (p.room_type_id != null && p.room_type_id !== group.typeId)) return;
+                          const reasons = roomPromotionReasons(p, group.totalBasePrice, nights, group.typeId, group.rooms.length);
+                          const isDisabled = reasons.length > 0 || Object.entries(selectedPromos).some(([key, val]) => Number(key) !== group.typeId && val === p.id);
+                          promoOptions.push({
+                            value: p.id,
+                            label: `${p.name} (${roomPromotionLabel(p)})${reasons.length > 0 ? ` — ${reasons.join(' / ')}` : ''}`,
+                            disabled: isDisabled
+                          });
+                        });
+
+                        return (
+                          <div className="bg-stone-50 rounded-xl p-3 border border-stone-100">
+                            <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1.5 block">
+                              โปรโมชั่นสำหรับประเภทนี้
+                            </label>
+                            <CustomSelect
+                              size="sm"
+                              value={selectedPromos[group.typeId] || ''}
+                              onChange={val => handleSelectPromo(group.typeId, val ? Number(val) : null)}
+                              placeholder="ไม่ใช้โปรโมชั่น"
+                              options={promoOptions}
+                            />
+                            <p className="mt-2 text-xs text-charcoal-600">เลือกได้ 1 โปรโมชั่นต่อประเภทห้อง ระบบเลือกส่วนลดสูงสุดที่ใช้ได้ให้ก่อน คุณเปลี่ยนได้</p>
                           {promotions.filter(p => p.applies_to !== 'kayak' && (p.room_type_id == null || p.room_type_id === group.typeId)).map(p => {
                             const reasons = roomPromotionReasons(p, group.totalBasePrice, nights, group.typeId, group.rooms.length);
                             return reasons.length > 0 ? <p key={p.id} className="mt-2 text-xs leading-relaxed text-charcoal-600"><strong>{p.name}:</strong> {reasons.join(' · ')}{p.is_collectible && !p.wallet_status && <a href="/promotions" target="_blank" rel="noopener noreferrer" className="ml-1 underline text-forest-700">ไปเก็บคูปอง</a>}</p> : null;
@@ -429,8 +544,9 @@ function BookingDetailsContent() {
                               <Tag size={12} /> ส่วนลด ฿{discount.toLocaleString()}
                             </p>
                           )}
-                        </div>
-                      )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )})}
                 </div>
