@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   Save,
@@ -12,9 +12,6 @@ import {
   Globe,
   Map,
   Loader2,
-  ChevronDown,
-  Check,
-  Calendar,
   AlertCircle,
   Plus,
   Trash2,
@@ -26,6 +23,7 @@ import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import MapPickerModal from "@/components/admin/MapPickerModal";
+import TimeSelect from "@/components/admin/TimeSelect";
 import { Modal } from "@/components/admin/ui";
 
 // Dynamic import LeafletMap with SSR disabled
@@ -39,35 +37,79 @@ const LeafletMap = dynamic(() => import("@/components/admin/LeafletMap"), {
   ),
 });
 
-// รายการวันทั้งหมดในสัปดาห์
-const DAYS_OPTIONS = [
-  { label: "จันทร์", full: "จันทร์" },
-  { label: "อังคาร", full: "อังคาร" },
-  { label: "พุธ", full: "พุธ" },
-  { label: "พฤหัสบดี", full: "พฤหัสบดี" },
-  { label: "ศุกร์", full: "ศุกร์" },
-  { label: "เสาร์", full: "เสาร์" },
-  { label: "อาทิตย์", full: "อาทิตย์" },
-];
+const DAY_NAMES = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+
+interface DayHour {
+  id?: number;
+  day_of_week: number;
+  open_time: string;
+  close_time: string;
+  is_open: boolean;
+}
+
+const defaultHours = (): DayHour[] =>
+  Array.from({ length: 7 }, (_, i) => ({
+    day_of_week: i,
+    open_time: "08:00",
+    close_time: "18:00",
+    is_open: true,
+  }));
 
 export default function BoatLocationPage() {
-  // อนุญาตให้ admin และ boat_staff เข้าถึงได้
   const { ready } = useAuthGuard({ allowedRoles: ["boat_staff", "admin"] });
 
   const [recordId, setRecordId] = useState<number | string | null>(5);
   const [form, setForm] = useState({
-    name: "",
+    name: "จุดบริการเรือ & กิจกรรมทางน้ำ",
     phone: "",
     email: "",
     line_id: "",
     facebook: "",
     address: "",
-    coordinates: "",
-    operating_days: "",
-    operating_hours: "",
+    coordinates: "16.219313, 103.329219",
     additional_terms: "",
   });
+
   const [termsList, setTermsList] = useState<string[]>([""]);
+
+  // เวลาทำการรายวัน 7 วัน และเวลาจองล่วงหน้าขั้นต่ำ
+  const [hours, setHours] = useState<DayHour[]>(defaultHours());
+  const [advanceMinutes, setAdvanceMinutes] = useState("60");
+  const [bulkOpenTime, setBulkOpenTime] = useState("08:00");
+  const [bulkCloseTime, setBulkCloseTime] = useState("18:00");
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(false);
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [statusModal, setStatusModal] = useState<{
+    isOpen: boolean;
+    type: "success" | "error";
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    type: "success",
+    title: "",
+    message: "",
+  });
+
+  const updateDay = <K extends keyof DayHour>(day: number, field: K, value: DayHour[K]): void => {
+    setHours((prev) => prev.map((h) => (h.day_of_week === day ? { ...h, [field]: value } : h)));
+  };
+
+  const handleApplyToAllDays = (): void => {
+    setHours((prev) =>
+      prev.map((h) => ({
+        ...h,
+        open_time: bulkOpenTime,
+        close_time: bulkCloseTime,
+        is_open: true,
+      }))
+    );
+    notify.success(`ตั้งเวลา ${bulkOpenTime} - ${bulkCloseTime} น. ให้กับทุกวันเรียบร้อย`);
+  };
 
   const handleTermChange = (index: number, value: string) => {
     const updated = [...termsList];
@@ -93,79 +135,6 @@ export default function BoatLocationPage() {
     }));
   };
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [isMapOpen, setIsMapOpen] = useState(false);
-
-  // State สำหรับ Modal ยืนยันและแจ้งเตือนผลลัพธ์
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [statusModal, setStatusModal] = useState<{
-    isOpen: boolean;
-    type: "success" | "error";
-    title: string;
-    message: string;
-  }>({
-    isOpen: false,
-    type: "success",
-    title: "",
-    message: "",
-  });
-
-  // State สำหรับการเลือกวันเปิดทำการ (Dropdown)
-  const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [openDaysDropdown, setOpenDaysDropdown] = useState(false);
-  const daysRef = useRef<HTMLDivElement>(null);
-
-  // State & Ref สำหรับ Custom Dropdown เวลาเปิด-ปิด
-  const [openStart, setOpenStart] = useState(false);
-  const [openEnd, setOpenEnd] = useState(false);
-  const startRef = useRef<HTMLDivElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
-
-  // รายการเวลา 00:00 น. - 23:30 น. (ทุกๆ 30 นาที)
-  const timeOptions = Array.from({ length: 48 }, (_, i) => {
-    const hour = String(Math.floor(i / 2)).padStart(2, "0");
-    const min = i % 2 === 0 ? "00" : "30";
-    return `${hour}:${min} น.`;
-  });
-
-  // ถอดค่าเวลาเปิด-ปิดจาก operating_hours (ค่าเริ่มต้น 09:00 น. - 18:00 น.)
-  const startTime = form.operating_hours?.split(" - ")[0] || "09:00 น.";
-  const endTime = form.operating_hours?.split(" - ")[1] || "18:00 น.";
-
-  // แปลงค่า String จาก DB เข้าสู่อาร์เรย์วัน
-  const parseDaysStringToArray = (str: string): string[] => {
-    if (!str) return [];
-    if (str === "เปิดทุกวัน") return DAYS_OPTIONS.map((d) => d.full);
-    if (str === "จันทร์ - ศุกร์")
-      return ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์"];
-    if (str === "เสาร์ - อาทิตย์") return ["เสาร์", "อาทิตย์"];
-    return str
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-  };
-
-  // แปลง Array วัน กลับมาเป็นข้อความ String รูปแบบกระชับ
-  const formatDaysToString = (days: string[]): string => {
-    if (days.length === 0) return "ยังไม่ได้เลือกวัน";
-    if (days.length === 7) return "เปิดทุกวัน";
-
-    const isMonToFri =
-      days.length === 5 &&
-      ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์"].every((d) =>
-        days.includes(d)
-      );
-    if (isMonToFri) return "จันทร์ - ศุกร์";
-
-    const isSatToSun =
-      days.length === 2 && ["เสาร์", "อาทิตย์"].every((d) => days.includes(d));
-    if (isSatToSun) return "เสาร์ - อาทิตย์";
-
-    return days.join(", ");
-  };
-
-  // แปลงพิกัด string เป็น tuple [lat, lng]
   const parseCoordsTuple = (coords: string): [number, number] => {
     if (coords) {
       const parts = coords.split(",").map((p) => parseFloat(p.trim()));
@@ -176,40 +145,21 @@ export default function BoatLocationPage() {
     return [16.219313, 103.329219];
   };
 
-  // ตรวจจับการคลิกนอก Custom Dropdown เพื่อปิดเมนู
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (startRef.current && !startRef.current.contains(e.target as Node)) {
-        setOpenStart(false);
-      }
-      if (endRef.current && !endRef.current.contains(e.target as Node)) {
-        setOpenEnd(false);
-      }
-      if (daysRef.current && !daysRef.current.contains(e.target as Node)) {
-        setOpenDaysDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   useEffect(() => {
     if (!ready) return;
 
     setLoading(true);
-    api
-      .get("/settings/resort")
-      .then((res) => {
-        const rawData = res.data?.data;
-
+    Promise.all([
+      api.get("/settings/resort"),
+      api.get("/settings/boat-hours"),
+    ])
+      .then(([resortRes, hoursRes]) => {
+        const rawData = resortRes.data?.data;
         if (rawData) {
           let d: any = null;
-
           if (Array.isArray(rawData)) {
             d =
-              rawData.find(
-                (item: any) => item.id === 5 || item.name?.includes("เรือ")
-              ) ||
+              rawData.find((item: any) => item.id === 5 || item.name?.includes("เรือ")) ||
               rawData[2] ||
               rawData[0];
           } else {
@@ -218,8 +168,6 @@ export default function BoatLocationPage() {
 
           if (d) {
             setRecordId(d.id || 5);
-            const daysStr = d.operating_days ?? "";
-
             setForm({
               name: d.name || "จุดบริการเรือ & กิจกรรมทางน้ำ",
               phone: d.phone || "",
@@ -227,12 +175,14 @@ export default function BoatLocationPage() {
               line_id: d.line_id || "",
               facebook: d.facebook || "",
               address: d.address || "",
-              coordinates: d.coordinates || "",
-              operating_days: daysStr,
-              operating_hours: d.operating_hours || "",
+              coordinates: d.coordinates || "16.219313, 103.329219",
               additional_terms: d.additional_terms || "",
             });
-            setSelectedDays(parseDaysStringToArray(daysStr));
+
+            if (d.boat_advance_booking_minutes != null) {
+              setAdvanceMinutes(String(d.boat_advance_booking_minutes));
+            }
+
             const termsStr = d.additional_terms || "";
             const parsedTerms = termsStr
               ? termsStr
@@ -243,6 +193,21 @@ export default function BoatLocationPage() {
             setTermsList(parsedTerms.length > 0 ? parsedTerms : [""]);
           }
         }
+
+        const hoursData: DayHour[] = hoursRes.data?.data ?? [];
+        if (hoursData.length > 0) {
+          const merged = defaultHours().map((def) => {
+            const found = hoursData.find((d) => d.day_of_week === def.day_of_week);
+            return found
+              ? {
+                  ...found,
+                  open_time: String(found.open_time).slice(0, 5),
+                  close_time: String(found.close_time).slice(0, 5),
+                }
+              : def;
+          });
+          setHours(merged);
+        }
       })
       .catch((err) => {
         console.error(err);
@@ -251,51 +216,65 @@ export default function BoatLocationPage() {
       .finally(() => setLoading(false));
   }, [ready]);
 
-  const handleDayToggle = (day: string) => {
-    let updated: string[];
-    if (selectedDays.includes(day)) {
-      updated = selectedDays.filter((d) => d !== day);
-    } else {
-      const allDays = DAYS_OPTIONS.map((d) => d.full);
-      updated = [...selectedDays, day].sort(
-        (a, b) => allDays.indexOf(a) - allDays.indexOf(b)
-      );
-    }
-    setSelectedDays(updated);
-    setForm((f) => ({ ...f, operating_days: formatDaysToString(updated) }));
-  };
-
-  const handleQuickSelectDays = (type: "all" | "weekday" | "weekend") => {
-    let days: string[] = [];
-    if (type === "all") days = DAYS_OPTIONS.map((d) => d.full);
-    else if (type === "weekday")
-      days = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์"];
-    else if (type === "weekend") days = ["เสาร์", "อาทิตย์"];
-
-    setSelectedDays(days);
-    setForm((f) => ({ ...f, operating_days: formatDaysToString(days) }));
-  };
-
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setShowConfirmModal(true);
   };
 
-  const confirmSave = async () => {
+  const handleConfirmSave = async () => {
     setShowConfirmModal(false);
     setSaving(true);
+
+    const minutes = Number(advanceMinutes);
+    if (!Number.isInteger(minutes) || minutes < 0 || minutes > 10080) {
+      notify.error("กรุณาระบุเวลาจองล่วงหน้าเป็นจำนวนเต็มระหว่าง 0 ถึง 10080 นาที");
+      setSaving(false);
+      return;
+    }
+
+    // สรุป operating_days & operating_hours เป็นข้อความสรุป
+    const openDaysCount = hours.filter((h) => h.is_open).length;
+    let daysSummary = "เปิดทุกวัน";
+    if (openDaysCount === 0) daysSummary = "ปิดให้บริการชั่วคราว";
+    else if (openDaysCount === 5 && hours[1].is_open && hours[5].is_open && !hours[0].is_open && !hours[6].is_open)
+      daysSummary = "จันทร์ - ศุกร์";
+    else if (openDaysCount === 2 && hours[0].is_open && hours[6].is_open)
+      daysSummary = "เสาร์ - อาทิตย์";
+
+    const firstOpen = hours.find((h) => h.is_open) || hours[0];
+    const hoursSummary = `${firstOpen.open_time} น. - ${firstOpen.close_time} น.`;
+
     try {
-      await api.put("/settings/resort", {
-        ...form,
-        additional_terms: termsList.filter(Boolean).join("\n"),
-        id: recordId || 5,
-      });
+      await Promise.all([
+        ...hours.map((h) =>
+          api.put("/settings/boat-hours", {
+            day_of_week: h.day_of_week,
+            open_time: h.open_time,
+            close_time: h.close_time,
+            is_open: h.is_open,
+          })
+        ),
+        api.put("/settings/resort", {
+          id: recordId || 5,
+          name: form.name,
+          phone: form.phone,
+          email: form.email,
+          line_id: form.line_id,
+          facebook: form.facebook,
+          address: form.address,
+          coordinates: form.coordinates,
+          operating_days: daysSummary,
+          operating_hours: hoursSummary,
+          boat_advance_booking_minutes: minutes,
+          additional_terms: termsList.filter(Boolean).join("\n"),
+        }),
+      ]);
 
       setStatusModal({
         isOpen: true,
         type: "success",
         title: "บันทึกข้อมูลสำเร็จ!",
-        message: "ระบบได้ทำการปรับปรุงข้อมูลจุดบริการเรือเรียบร้อยแล้วค่ะ",
+        message: "ระบบได้ทำการปรับปรุงข้อมูลจุดบริการเรือและเวลาทำการเรียบร้อยแล้วค่ะ",
       });
     } catch (err: unknown) {
       setStatusModal({
@@ -316,7 +295,7 @@ export default function BoatLocationPage() {
 
   return (
     <div className="space-y-6 pb-12 font-sans">
-      {/* Top Header Card (NO subtitle under Heading 1) */}
+      {/* Top Header Card */}
       <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10">
@@ -326,6 +305,9 @@ export default function BoatLocationPage() {
             <h1 className="font-display text-2xl font-bold text-forest-900 tracking-tight">
               ตั้งค่าจุดบริการเรือ & ท่าเรือ
             </h1>
+            <p className="text-xs text-charcoal-500 mt-0.5">
+              จัดการข้อมูลสถานที่ พิกัดท่าเรือ เวลาเปิด-ปิดรายวัน และกฎการจองเรือ
+            </p>
           </div>
         </div>
 
@@ -356,9 +338,9 @@ export default function BoatLocationPage() {
             <div className="bg-cream-100/70 h-[450px] rounded-3xl border border-cream-200" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start w-full">
-            {/* ฝั่งซ้าย: ข้อมูลการติดต่อจุดบริการเรือ + เงื่อนไขเพิ่มเติม */}
-            <div className="space-y-6">
+          <div className="space-y-6">
+            {/* ROW 1: ข้อมูลจุดบริการ และ แผนที่พิกัดท่าเรือ */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start w-full">
               {/* การ์ด 1: ข้อมูลการติดต่อจุดบริการเรือ */}
               <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 space-y-4">
                 <div className="flex items-center gap-2.5 pb-4 border-b border-cream-200">
@@ -380,9 +362,7 @@ export default function BoatLocationPage() {
                       required
                       className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                       value={form.name}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, name: e.target.value }))
-                      }
+                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                       placeholder="เช่น จุดบริการเรือคายัค & กิจกรรมทางน้ำ"
                     />
                   </div>
@@ -390,16 +370,13 @@ export default function BoatLocationPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
-                        <Phone size={14} className="text-charcoal-400" />{" "}
-                        เบอร์โทรศัพท์
+                        <Phone size={14} className="text-charcoal-400" /> เบอร์โทรศัพท์
                       </label>
                       <input
                         type="text"
                         className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs font-mono"
                         value={form.phone}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, phone: e.target.value }))
-                        }
+                        onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                         placeholder="08x-xxx-xxxx"
                       />
                     </div>
@@ -412,9 +389,7 @@ export default function BoatLocationPage() {
                         type="email"
                         className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                         value={form.email}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, email: e.target.value }))
-                        }
+                        onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                         placeholder="boat@walai.com"
                       />
                     </div>
@@ -423,16 +398,13 @@ export default function BoatLocationPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
-                        <MessageCircle size={14} className="text-charcoal-400" />{" "}
-                        Line ID
+                        <MessageCircle size={14} className="text-charcoal-400" /> Line ID
                       </label>
                       <input
                         type="text"
                         className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                         value={form.line_id}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, line_id: e.target.value }))
-                        }
+                        onChange={(e) => setForm((f) => ({ ...f, line_id: e.target.value }))}
                         placeholder="@boat_walai"
                       />
                     </div>
@@ -445,312 +417,28 @@ export default function BoatLocationPage() {
                         type="text"
                         className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                         value={form.facebook}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, facebook: e.target.value }))
-                        }
+                        onChange={(e) => setForm((f) => ({ ...f, facebook: e.target.value }))}
                         placeholder="facebook.com/walai.boat"
                       />
                     </div>
                   </div>
 
-                  {/* วันเปิดทำการ และ เวลาทำการ */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* วันเปิดทำการ */}
-                    <div className="relative" ref={daysRef}>
-                      <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
-                        <Calendar size={14} className="text-forest-800" />{" "}
-                        วันเปิดทำการ
-                      </label>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenDaysDropdown(!openDaysDropdown);
-                          setOpenStart(false);
-                          setOpenEnd(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3.5 py-2.5 bg-cream-50/60 border rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                          openDaysDropdown
-                            ? "border-forest-800 ring-2 ring-forest-800/20 bg-white"
-                            : "border-cream-200 hover:border-cream-300"
-                        }`}
-                      >
-                        <span
-                          className={`truncate ${
-                            form.operating_days
-                              ? "text-charcoal-800 font-bold"
-                              : "text-charcoal-400"
-                          }`}
-                        >
-                          {form.operating_days || "เลือกวันเปิดทำการ"}
-                        </span>
-                        <ChevronDown
-                          size={14}
-                          className={`text-charcoal-400 transition-transform duration-200 shrink-0 ml-1 ${
-                            openDaysDropdown ? "rotate-180 text-forest-800" : ""
-                          }`}
-                        />
-                      </button>
-
-                      {openDaysDropdown && (
-                        <div className="absolute left-0 top-full mt-1.5 w-full bg-white border border-cream-200 rounded-2xl shadow-xl z-50 p-3.5 space-y-3 animate-in fade-in duration-150">
-                          <div className="space-y-1.5">
-                            <span className="text-[11px] font-bold text-charcoal-400 uppercase tracking-wider block px-1">
-                              ตัวเลือกลัด
-                            </span>
-                            <div className="grid grid-cols-3 gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleQuickSelectDays("all")}
-                                className="px-2 py-1.5 text-xs font-bold bg-forest-50 text-forest-800 hover:bg-forest-100 rounded-xl transition-colors cursor-pointer text-center"
-                              >
-                                เปิดทุกวัน
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleQuickSelectDays("weekday")}
-                                className="px-2 py-1.5 text-xs font-bold bg-cream-100 text-charcoal-700 hover:bg-cream-200 rounded-xl transition-colors cursor-pointer text-center"
-                              >
-                                จ. - ศ.
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleQuickSelectDays("weekend")}
-                                className="px-2 py-1.5 text-xs font-bold bg-cream-100 text-charcoal-700 hover:bg-cream-200 rounded-xl transition-colors cursor-pointer text-center"
-                              >
-                                ส. - อา.
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="border-t border-cream-200 pt-2.5 space-y-1">
-                            <span className="text-[11px] font-bold text-charcoal-400 uppercase tracking-wider block px-1">
-                              เลือกแยกตามวัน
-                            </span>
-                            <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
-                              {DAYS_OPTIONS.map((day) => {
-                                const isChecked = selectedDays.includes(
-                                  day.full
-                                );
-                                return (
-                                  <button
-                                    key={day.full}
-                                    type="button"
-                                    onClick={() => handleDayToggle(day.full)}
-                                    className={`w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl transition-colors cursor-pointer ${
-                                      isChecked
-                                        ? "bg-forest-50 text-forest-800 font-bold"
-                                        : "text-charcoal-700 hover:bg-cream-50 font-medium"
-                                    }`}
-                                  >
-                                    <span>วัน{day.label}</span>
-                                    <div
-                                      className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
-                                        isChecked
-                                          ? "bg-forest-800 border-forest-800 text-white"
-                                          : "border-cream-300 bg-white"
-                                      }`}
-                                    >
-                                      {isChecked && <Check size={12} />}
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* เวลาทำการ Service Hours */}
-                    <div>
-                      <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
-                        <Clock size={14} className="text-forest-700" />{" "}
-                        เวลาทำการจุดบริการเรือ
-                      </label>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* เวลาเริ่ม */}
-                        <div className="relative" ref={startRef}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11px] font-bold text-charcoal-500">
-                              เวลาเริ่ม
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenStart(!openStart);
-                              setOpenEnd(false);
-                              setOpenDaysDropdown(false);
-                            }}
-                            className={`w-full flex items-center justify-between px-3 py-2 bg-cream-50/60 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                              openStart
-                                ? "border-forest-800 ring-2 ring-forest-800/20 bg-white"
-                                : "border-cream-200 hover:border-cream-300"
-                            }`}
-                          >
-                            <span className="text-charcoal-800 truncate">
-                              {startTime}
-                            </span>
-                            <ChevronDown
-                              size={14}
-                              className={`text-charcoal-400 transition-transform duration-200 shrink-0 ml-1 ${
-                                openStart ? "rotate-180 text-forest-800" : ""
-                              }`}
-                            />
-                          </button>
-
-                          {openStart && (
-                            <div className="absolute left-0 top-full mt-1.5 w-full bg-white border border-cream-200 rounded-xl shadow-lg z-50 py-1 max-h-48 overflow-y-auto animate-in fade-in duration-150">
-                              {timeOptions.map((time) => (
-                                <button
-                                  key={time}
-                                  type="button"
-                                  onClick={() => {
-                                    setForm((f) => ({
-                                      ...f,
-                                      operating_hours: `${time} - ${endTime}`,
-                                    }));
-                                    setOpenStart(false);
-                                  }}
-                                  className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors cursor-pointer ${
-                                    startTime === time
-                                      ? "bg-forest-50 text-forest-800 font-bold"
-                                      : "text-charcoal-700 hover:bg-cream-50"
-                                  }`}
-                                >
-                                  <span>{time}</span>
-                                  {startTime === time && (
-                                    <Check
-                                      size={12}
-                                      className="text-forest-800"
-                                    />
-                                  )}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* เวลาสิ้นสุด */}
-                        <div className="relative" ref={endRef}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11px] font-bold text-charcoal-500">
-                              เวลาสิ้นสุด
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenEnd(!openEnd);
-                              setOpenStart(false);
-                              setOpenDaysDropdown(false);
-                            }}
-                            className={`w-full flex items-center justify-between px-3 py-2 bg-cream-50/60 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                              openEnd
-                                ? "border-forest-800 ring-2 ring-forest-800/20 bg-white"
-                                : "border-cream-200 hover:border-cream-300"
-                            }`}
-                          >
-                            <span className="text-charcoal-800 truncate">
-                              {endTime}
-                            </span>
-                            <ChevronDown
-                              size={14}
-                              className={`text-charcoal-400 transition-transform duration-200 shrink-0 ml-1 ${
-                                openEnd ? "rotate-180 text-forest-800" : ""
-                              }`}
-                            />
-                          </button>
-
-                          {openEnd && (
-                            <div className="absolute left-0 top-full mt-1.5 w-full bg-white border border-cream-200 rounded-xl shadow-lg z-50 py-1 max-h-48 overflow-y-auto animate-in fade-in duration-150">
-                              {timeOptions.map((time) => (
-                                <button
-                                  key={time}
-                                  type="button"
-                                  onClick={() => {
-                                    setForm((f) => ({
-                                      ...f,
-                                      operating_hours: `${startTime} - ${time}`,
-                                    }));
-                                    setOpenEnd(false);
-                                  }}
-                                  className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors cursor-pointer ${
-                                    endTime === time
-                                      ? "bg-forest-50 text-forest-800 font-bold"
-                                      : "text-charcoal-700 hover:bg-cream-50"
-                                  }`}
-                                >
-                                  <span>{time}</span>
-                                  {endTime === time && (
-                                    <Check
-                                      size={12}
-                                      className="text-forest-800"
-                                    />
-                                  )}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                  <div>
+                    <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
+                      คำอธิบายที่อยู่ / จุดสังเกตท่าเรือ
+                    </label>
+                    <textarea
+                      rows={3}
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all resize-none shadow-2xs"
+                      value={form.address}
+                      onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                      placeholder="รายละเอียดจุดสังเกตบริเวณท่าเรือหรือสะพานเทียบ..."
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* การ์ด 2: เงื่อนไขและข้อกำหนดเพิ่มเติม (เรือพาย) */}
-              <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 space-y-4">
-                <div className="flex items-center justify-between pb-4 border-b border-cream-200">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center">
-                      <AlertCircle size={17} />
-                    </div>
-                    <h2 className="text-base font-bold text-forest-900">
-                      เงื่อนไขและข้อกำหนดเพิ่มเติม (กิจกรรมเรือ)
-                    </h2>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddTerm}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-forest-800 hover:text-forest-900 transition-colors cursor-pointer"
-                  >
-                    <Plus size={14} />
-                    <span>เพิ่มข้อกำหนด</span>
-                  </button>
-                </div>
-
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  {termsList.map((term, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-charcoal-400 w-5 text-center shrink-0">
-                        {index + 1}.
-                      </span>
-                      <input
-                        type="text"
-                        className="flex-1 px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
-                        placeholder={`ข้อกำหนดที่ ${index + 1} (เช่น สวมเสื้อชูชีพตลอดเวลาที่ลงเรือ)`}
-                        value={term}
-                        onChange={(e) => handleTermChange(index, e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTerm(index)}
-                        className="p-2 text-charcoal-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all shrink-0 cursor-pointer"
-                        title="ลบข้อนี้"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* ฝั่งขวา: ตำแหน่งจุดบริการเรือ & พิกัดแผนที่ */}
-            <div className="space-y-6">
+              {/* การ์ด 2: ตำแหน่งจุดบริการเรือ & พิกัดแผนที่ */}
               <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 space-y-4">
                 <div className="flex items-center gap-2.5 pb-4 border-b border-cream-200">
                   <div className="w-8 h-8 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center">
@@ -762,22 +450,7 @@ export default function BoatLocationPage() {
                 </div>
 
                 <div className="space-y-4 pt-1">
-                  <div>
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
-                      คำอธิบายที่อยู่ / จุดสังเกตท่าเรือ
-                    </label>
-                    <textarea
-                      rows={3}
-                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all resize-none shadow-2xs"
-                      value={form.address}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, address: e.target.value }))
-                      }
-                      placeholder="รายละเอียดจุดสังเกตบริเวณท่าเรือ..."
-                    />
-                  </div>
-
-                  <div className="space-y-2 pt-1">
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-charcoal-700 flex items-center gap-1.5">
                         <Globe size={14} className="text-forest-800" />
@@ -813,20 +486,17 @@ export default function BoatLocationPage() {
                       type="text"
                       className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-mono text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all truncate shadow-2xs"
                       value={form.coordinates}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, coordinates: e.target.value }))
-                      }
+                      onChange={(e) => setForm((f) => ({ ...f, coordinates: e.target.value }))}
                       placeholder="16.219313, 103.329219"
                     />
 
-                    {/* กล่องแสดง Map Preview */}
                     <div className="pt-1.5 space-y-1.5">
                       <div className="flex items-center justify-between text-[11px] text-charcoal-500 px-0.5">
                         <span className="flex items-center gap-1 font-medium">
                           <Map size={12} className="text-forest-800" /> ตัวอย่างพิกัดแผนที่ (คลิกบนแผนที่เพื่อเปลี่ยนตำแหน่งได้)
                         </span>
                       </div>
-                      <div className="w-full h-[250px] rounded-2xl overflow-hidden border border-cream-200/90 shadow-2xs relative bg-cream-50/50">
+                      <div className="w-full h-[220px] rounded-2xl overflow-hidden border border-cream-200/90 shadow-2xs relative bg-cream-50/50">
                         <LeafletMap
                           position={parseCoordsTuple(form.coordinates)}
                           showControls={false}
@@ -843,108 +513,297 @@ export default function BoatLocationPage() {
                 </div>
               </div>
             </div>
+
+            {/* ROW 2: เวลาเปิด-ปิดรายวัน 7 วัน & การจองล่วงหน้าขั้นต่ำ */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+              {/* ตารางเวลา 7 วัน */}
+              <div className="xl:col-span-8 bg-white rounded-3xl p-6 shadow-panel border border-cream-200/90 space-y-4">
+                <div className="flex items-center justify-between gap-3 pb-3 border-b border-cream-200/80">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center">
+                      <Clock size={17} />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-bold text-forest-900 font-display">
+                        เวลาเปิด-ปิดบริการเรือรายวัน (7 วัน)
+                      </h2>
+                    </div>
+                  </div>
+                  <span className="text-xs text-charcoal-400 font-medium hidden sm:inline">
+                    ระบบคำนวณรอบเรือจะอิงตามเวลานี้
+                  </span>
+                </div>
+
+                {/* Quick Bulk Time Setter: กำหนดเวลามาตรฐานทุกวัน */}
+                <div className="bg-cream-50/80 border border-cream-200/90 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-xs font-bold text-forest-900">
+                    กำหนดเวลามาตรฐานทุกวัน:
+                  </span>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <TimeSelect
+                      label="เวลาเปิดมาตรฐาน"
+                      value={bulkOpenTime}
+                      onChange={setBulkOpenTime}
+                    />
+                    <span className="text-xs sm:text-sm font-semibold text-charcoal-400 font-mono">–</span>
+                    <TimeSelect
+                      label="เวลาปิดมาตรฐาน"
+                      value={bulkCloseTime}
+                      onChange={setBulkCloseTime}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyToAllDays}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-forest-800 hover:bg-forest-900 text-white shadow-2xs transition-all active:scale-95 cursor-pointer"
+                      title="คัดลอกเวลานี้ไปใส่ให้กับทุกวัน"
+                    >
+                      <span>นำไปใช้ทุกวัน</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="divide-y divide-cream-100 overflow-hidden rounded-2xl border border-cream-200/90 bg-white">
+                  {hours.map((h) => {
+                    const isOpen = h.is_open;
+                    return (
+                      <div
+                        key={h.day_of_week}
+                        className={`flex flex-wrap items-center justify-between gap-3 px-3.5 sm:px-4 py-3 transition-colors ${
+                          isOpen ? "bg-white hover:bg-cream-50/50" : "bg-cream-50/40 opacity-70"
+                        }`}
+                      >
+                        <div className="w-20 sm:w-24 shrink-0 flex items-center gap-2">
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${
+                              isOpen ? "bg-forest-600" : "bg-charcoal-300"
+                            }`}
+                          />
+                          <span
+                            className={`text-xs sm:text-sm font-bold ${
+                              isOpen ? "text-forest-950" : "text-charcoal-400"
+                            }`}
+                          >
+                            วัน{DAY_NAMES[h.day_of_week]}
+                          </span>
+                        </div>
+
+                        <div
+                          className={`flex items-center gap-1.5 sm:gap-2 transition-opacity ${
+                            !isOpen ? "pointer-events-none opacity-40" : ""
+                          }`}
+                        >
+                          <TimeSelect
+                            label={`เวลาเปิด วัน${DAY_NAMES[h.day_of_week]}`}
+                            value={h.open_time}
+                            onChange={(v) => updateDay(h.day_of_week, "open_time", v)}
+                          />
+                          <span className="text-xs sm:text-sm font-semibold text-charcoal-400 font-mono">–</span>
+                          <TimeSelect
+                            label={`เวลาปิด วัน${DAY_NAMES[h.day_of_week]}`}
+                            value={h.close_time}
+                            onChange={(v) => updateDay(h.day_of_week, "close_time", v)}
+                          />
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-2.5 ml-auto sm:ml-0">
+                          <span
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                              isOpen
+                                ? "bg-forest-50 text-forest-800 border-forest-200/80"
+                                : "bg-cream-100 text-charcoal-500 border-cream-200"
+                            }`}
+                          >
+                            {isOpen ? "เปิด" : "ปิด"}
+                          </span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={isOpen}
+                            aria-label={`สถานะวัน${DAY_NAMES[h.day_of_week]}`}
+                            onClick={() => updateDay(h.day_of_week, "is_open", !isOpen)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${
+                              isOpen ? "bg-forest-800" : "bg-cream-300"
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 rounded-full bg-white shadow-xs transition-transform ${
+                                isOpen ? "translate-x-6" : "translate-x-1"
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* กฎการจองล่วงหน้า และ ข้อกำหนดการจองเรือ */}
+              <div className="xl:col-span-4 space-y-6">
+                {/* กฎการจองล่วงหน้า */}
+                <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/90 space-y-4">
+                  <div className="flex items-center gap-2.5 pb-3 border-b border-cream-200/80">
+                    <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
+                    <h2 className="text-base font-bold text-forest-900 font-display">
+                      การจองล่วงหน้าขั้นต่ำ
+                    </h2>
+                  </div>
+
+                  <div className="bg-cream-50/80 border border-cream-200/90 rounded-2xl p-4 space-y-2.5">
+                    <p className="text-xs text-charcoal-500 leading-relaxed">
+                      ระยะเวลาขั้นต่ำที่ลูกค้าต้องจองก่อนถึงรอบเวลา เพื่อให้เจ้าหน้าที่จัดเตรียมเรือ
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap pt-1">
+                      <span className="text-xs sm:text-sm font-semibold text-charcoal-800">
+                        ต้องจองก่อนรอบเริ่มอย่างน้อย
+                      </span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={10080}
+                        step={5}
+                        aria-label="จองล่วงหน้าขั้นต่ำ (นาที)"
+                        value={advanceMinutes}
+                        onChange={(e) => setAdvanceMinutes(e.target.value)}
+                        className="w-20 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                      />
+                      <span className="text-xs sm:text-sm font-semibold text-charcoal-700">
+                        นาที
+                      </span>
+                      <span className="text-xs text-charcoal-400 font-mono">
+                        ({(Number(advanceMinutes) / 60).toFixed(1)} ชม.)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ข้อกำหนดและกฎความปลอดภัยเรือ */}
+                <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/90 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-cream-200/80">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
+                      <h2 className="text-base font-bold text-forest-900 font-display">
+                        ข้อกำหนดการใช้บริการเรือ
+                      </h2>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddTerm}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-forest-800 hover:text-forest-900 transition-colors cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>เพิ่มข้อ</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {termsList.map((term, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-charcoal-400 w-5 text-center shrink-0">
+                          {index + 1}.
+                        </span>
+                        <input
+                          type="text"
+                          className="flex-1 px-3 py-2 bg-cream-50/60 focus:bg-white border border-cream-200 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                          placeholder={`ข้อกำหนดที่ ${index + 1} (เช่น สวมเสื้อชูชีพตลอดเวลา)`}
+                          value={term}
+                          onChange={(e) => handleTermChange(index, e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTerm(index)}
+                          className="p-1.5 text-charcoal-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all shrink-0 cursor-pointer"
+                          title="ลบข้อนี้"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </form>
 
       {/* Map Picker Modal */}
-      <MapPickerModal
-        isOpen={isMapOpen}
-        onClose={() => setIsMapOpen(false)}
-        currentCoordinates={form.coordinates}
-        onSelectCoordinates={(coords) =>
-          setForm((f) => ({ ...f, coordinates: coords }))
-        }
-      />
+      {isMapOpen && (
+        <MapPickerModal
+          isOpen={isMapOpen}
+          onClose={() => setIsMapOpen(false)}
+          currentCoordinates={form.coordinates}
+          onSelectCoordinates={(coords) => {
+            setForm((f) => ({
+              ...f,
+              coordinates: coords,
+            }));
+            setIsMapOpen(false);
+          }}
+        />
+      )}
 
-      {/* ===== Modal ยืนยันการบันทึก ===== */}
+      {/* Modal ยืนยันการบันทึกข้อมูล */}
       <Modal
         open={showConfirmModal}
-        title="ยืนยันการบันทึกข้อมูล"
         onClose={() => setShowConfirmModal(false)}
-        widthClass="max-w-sm"
-        footer={
-          <div className="flex items-center justify-end gap-2.5 w-full">
+        title="ยืนยันการบันทึกข้อมูลจุดบริการเรือ"
+      >
+        <div className="space-y-4">
+          <p className="text-xs sm:text-sm text-charcoal-600">
+            คุณต้องการบันทึกการเปลี่ยนแปลงข้อมูลจุดบริการเรือ เวลาทำการ และกฎการจองใช่หรือไม่?
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
-              disabled={saving}
               onClick={() => setShowConfirmModal(false)}
-              className="flex-1 py-2.5 px-4 bg-cream-100 hover:bg-cream-200 text-charcoal-700 text-xs font-bold rounded-2xl transition-colors cursor-pointer disabled:opacity-50"
+              className="px-4 py-2 border border-cream-300 hover:bg-cream-100 text-charcoal-700 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
             >
               ยกเลิก
             </button>
             <button
               type="button"
-              disabled={saving}
-              onClick={confirmSave}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-4 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-98"
+              onClick={handleConfirmSave}
+              className="px-4 py-2 bg-forest-800 hover:bg-forest-900 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs cursor-pointer"
             >
-              {saving ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  <span>กำลังบันทึก...</span>
-                </>
-              ) : (
-                <>
-                  <Save size={14} />
-                  <span>ยืนยันบันทึก</span>
-                </>
-              )}
+              ยืนยันการบันทึก
             </button>
           </div>
-        }
-      >
-        <div className="text-center space-y-3 py-1">
-          <div className="w-12 h-12 rounded-2xl bg-forest-50 border border-forest-200 text-forest-800 flex items-center justify-center mx-auto shadow-2xs">
-            <Save size={24} className="stroke-[2.2]" />
-          </div>
-          <p className="text-sm font-semibold text-charcoal-800 leading-relaxed max-w-xs mx-auto">
-            คุณต้องการบันทึกการเปลี่ยนแปลงข้อมูลจุดบริการเรือนี้ใช่หรือไม่?
-          </p>
         </div>
       </Modal>
 
-      {/* ===== Modal แจ้งเตือนสถานะผลลัพธ์ ===== */}
+      {/* Modal แจ้งเตือนผลลัพธ์ */}
       <Modal
         open={statusModal.isOpen}
-        onClose={() => setStatusModal((prev) => ({ ...prev, isOpen: false }))}
-        widthClass="max-w-sm"
+        onClose={() => setStatusModal({ ...statusModal, isOpen: false })}
+        title={statusModal.title}
       >
-        <div className="text-center space-y-4 py-2">
-          <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto shadow-2xs ${
-              statusModal.type === "success"
-                ? "bg-forest-50 text-forest-800 border border-forest-200"
-                : "bg-rose-50 text-rose-600 border border-rose-200"
-            }`}
-          >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
             {statusModal.type === "success" ? (
-              <Check size={26} className="stroke-[2.5]" />
+              <div className="w-8 h-8 rounded-full bg-forest-50 text-forest-800 flex items-center justify-center shrink-0">
+                <Sailboat size={18} />
+              </div>
             ) : (
-              <AlertCircle size={26} className="stroke-[2.5]" />
+              <div className="w-8 h-8 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertCircle size={18} />
+              </div>
             )}
+            <p className="text-xs sm:text-sm text-charcoal-600 mt-1">
+              {statusModal.message}
+            </p>
           </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-forest-900">
-              {statusModal.type === "success"
-                ? "บันทึกข้อมูลสำเร็จ!"
-                : statusModal.title || "เกิดข้อผิดพลาด"}
-            </h3>
-            {statusModal.type === "error" && statusModal.message && (
-              <p className="text-xs text-charcoal-600 leading-relaxed max-w-xs mx-auto">
-                {statusModal.message}
-              </p>
-            )}
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={() => setStatusModal({ ...statusModal, isOpen: false })}
+              className="px-4 py-2 bg-forest-800 hover:bg-forest-900 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs cursor-pointer"
+            >
+              ตกลง
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() =>
-              setStatusModal((prev) => ({ ...prev, isOpen: false }))
-            }
-            className="w-full py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-98"
-          >
-            ตกลง
-          </button>
         </div>
       </Modal>
     </div>

@@ -126,7 +126,7 @@ export const deleteBankAccount = async (req: Request, res: Response): Promise<vo
 
 // คอลัมน์ของ resort_info ที่ endpoint สาธารณะส่งออกได้ (ไม่ใช้ SELECT * เพื่อไม่ให้ข้อมูลอื่นรั่ว)
 const RESORT_PUBLIC_COLUMNS =
-  'id, name, address, coordinates, phone, email, facebook, line_id, operating_days, operating_hours, additional_terms, payment_due_days, bank_account_no, bank_account_name, promptpay_id, facilities, checkin_time_from, checkin_time_to, checkout_time, important_info, kids_policy, parking_info, infant_max_age_exclusive, boat_advance_booking_minutes';
+  'id, name, address, coordinates, phone, email, facebook, line_id, operating_days, operating_hours, additional_terms, payment_due_days, bank_account_no, bank_account_name, promptpay_id, facilities, checkin_time_from, checkin_time_to, checkout_time, important_info, kids_policy, parking_info, infant_max_age_exclusive, boat_advance_booking_minutes, boat_checkin_advance_minutes';
 
 // ─── Resort Info (รวม contact + site info ใน table resort_info) ────────────────
 
@@ -228,7 +228,7 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       'operating_days', 'operating_hours', 'additional_terms', 'payment_due_days',
       'promptpay_id', 'bank_account_no', 'bank_account_name',
       'checkin_time_from', 'checkin_time_to', 'checkout_time', 'important_info', 'kids_policy', 'parking_info',
-      'boat_advance_booking_minutes', 'infant_max_age_exclusive',
+      'boat_advance_booking_minutes', 'boat_checkin_advance_minutes', 'infant_max_age_exclusive',
     ];
 
     if (req.body.boat_advance_booking_minutes !== undefined) {
@@ -240,13 +240,24 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
         return;
       }
     }
+
+    if (req.body.boat_checkin_advance_minutes !== undefined) {
+      const rawMinutes = req.body.boat_checkin_advance_minutes;
+      const minutes = typeof rawMinutes === 'number' || (typeof rawMinutes === 'string' && /^\d+$/.test(rawMinutes))
+        ? Number(rawMinutes) : NaN;
+      if (targetId !== 5 || !Number.isInteger(minutes) || minutes < 0 || minutes > 1440) {
+        res.status(400).json({ success: false, message: 'เวลาเช็คอินล่วงหน้าต้องเป็นจำนวนเต็มระหว่าง 0 ถึง 1440 นาที และกำหนดที่จุดบริการเรือเท่านั้น' });
+        return;
+      }
+    }
+
     const updates: { col: string; val: unknown }[] = [];
     for (const col of allowed) {
       if (req.body[col] === undefined) continue;
       if (!isAdmin && ADMIN_ONLY_RESORT_FIELDS.includes(col)) continue;
       // ค่าว่างเป็น NULL ตามเดิม แต่ค่าตัวเลข 0 และ false ต้องคงไว้
       const raw = req.body[col];
-      updates.push({ col, val: ['infant_max_age_exclusive', 'boat_advance_booking_minutes'].includes(col) ? Number(raw) : raw === '' ? null : (raw ?? null) });
+      updates.push({ col, val: ['infant_max_age_exclusive', 'boat_advance_booking_minutes', 'boat_checkin_advance_minutes'].includes(col) ? Number(raw) : raw === '' ? null : (raw ?? null) });
     }
 
     if (updates.length === 0) {
@@ -468,13 +479,37 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// นโยบายคืนเงินบัตรเสริมที่ชำระแล้ว: คืนเต็มจำนวนถ้ายกเลิกก่อนเข้าพัก full_refund_hours ชั่วโมง ที่เหลือคืน late_refund_percent
+// นโยบายคืนเงิน: 
+// - เรือและบัตรเสริม: คืนเต็มจำนวนถ้ายกเลิกก่อนถึงรอบเวลา full_refund_hours ชั่วโมง ที่เหลือคืน late_refund_percent
+// - ห้องพัก: คืนเต็มจำนวนถ้ายกเลิกก่อนวันเข้าพัก room_full_refund_days วัน ที่เหลือคืน room_late_refund_percent
 export const getCancellationPolicy = async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await pool.query(
-      `SELECT full_refund_hours, late_refund_percent, updated_at FROM cancellation_policies WHERE id = 1`
-    );
-    res.json({ success: true, data: result.rows[0] });
+    let row;
+    try {
+      const result = await pool.query(
+        `SELECT full_refund_hours, late_refund_percent,
+                COALESCE(room_full_refund_days, 3)::int AS room_full_refund_days,
+                COALESCE(room_late_refund_percent, 0)::float8 AS room_late_refund_percent,
+                updated_at
+         FROM cancellation_policies WHERE id = 1`
+      );
+      row = result.rows[0];
+    } catch (err: unknown) {
+      const pgErr = err as { code?: string };
+      if (pgErr?.code === '42703') {
+        const fallback = await pool.query(
+          `SELECT full_refund_hours, late_refund_percent, updated_at FROM cancellation_policies WHERE id = 1`
+        );
+        row = fallback.rows[0] ? {
+          ...fallback.rows[0],
+          room_full_refund_days: 3,
+          room_late_refund_percent: 0,
+        } : undefined;
+      } else {
+        throw err;
+      }
+    }
+    res.json({ success: true, data: row });
   } catch (error) {
     console.error('Get cancellation policy error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -484,17 +519,52 @@ export const getCancellationPolicy = async (req: Request, res: Response): Promis
 export const upsertCancellationPolicy = async (req: Request, res: Response): Promise<void> => {
   try {
     const body = req.body as Record<string, unknown>;
-    const result = await pool.query(
-      `INSERT INTO cancellation_policies (id, full_refund_hours, late_refund_percent, updated_at)
-       VALUES (1, $1, $2, NOW())
-       ON CONFLICT (id) DO UPDATE
-         SET full_refund_hours = EXCLUDED.full_refund_hours,
-             late_refund_percent = EXCLUDED.late_refund_percent,
-             updated_at = NOW()
-       RETURNING full_refund_hours, late_refund_percent, updated_at`,
-      [Number(body.full_refund_hours), Number(body.late_refund_percent)]
-    );
-    res.json({ success: true, message: 'บันทึกนโยบายการคืนเงินสำเร็จ', data: result.rows[0] });
+    const fullRefundHours = body.full_refund_hours !== undefined ? Number(body.full_refund_hours) : 48;
+    const lateRefundPercent = body.late_refund_percent !== undefined ? Number(body.late_refund_percent) : 0;
+    const roomRefundDays = body.room_full_refund_days !== undefined ? Number(body.room_full_refund_days) : 3;
+    const roomLatePercent = body.room_late_refund_percent !== undefined ? Number(body.room_late_refund_percent) : 0;
+
+    let row;
+    try {
+      const result = await pool.query(
+        `INSERT INTO cancellation_policies (id, full_refund_hours, late_refund_percent, room_full_refund_days, room_late_refund_percent, updated_at)
+         VALUES (1, $1, $2, $3, $4, NOW())
+         ON CONFLICT (id) DO UPDATE
+           SET full_refund_hours = EXCLUDED.full_refund_hours,
+               late_refund_percent = EXCLUDED.late_refund_percent,
+               room_full_refund_days = EXCLUDED.room_full_refund_days,
+               room_late_refund_percent = EXCLUDED.room_late_refund_percent,
+               updated_at = NOW()
+         RETURNING full_refund_hours, late_refund_percent,
+                   room_full_refund_days::int AS room_full_refund_days,
+                   room_late_refund_percent::float8 AS room_late_refund_percent,
+                   updated_at`,
+        [fullRefundHours, lateRefundPercent, roomRefundDays, roomLatePercent]
+      );
+      row = result.rows[0];
+    } catch (err: unknown) {
+      const pgErr = err as { code?: string };
+      if (pgErr?.code === '42703') {
+        const fallback = await pool.query(
+          `INSERT INTO cancellation_policies (id, full_refund_hours, late_refund_percent, updated_at)
+           VALUES (1, $1, $2, NOW())
+           ON CONFLICT (id) DO UPDATE
+             SET full_refund_hours = EXCLUDED.full_refund_hours,
+                 late_refund_percent = EXCLUDED.late_refund_percent,
+                 updated_at = NOW()
+           RETURNING full_refund_hours, late_refund_percent, updated_at`,
+          [fullRefundHours, lateRefundPercent]
+        );
+        row = {
+          ...fallback.rows[0],
+          room_full_refund_days: roomRefundDays,
+          room_late_refund_percent: roomLatePercent,
+        };
+      } else {
+        throw err;
+      }
+    }
+    res.json({ success: true, message: 'บันทึกนโยบายการคืนเงินสำเร็จ', data: row });
   } catch (error) {
     console.error('Upsert cancellation policy error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });

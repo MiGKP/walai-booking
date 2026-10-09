@@ -140,6 +140,8 @@ export const resortInfoValidator = [
     .withMessage('อายุที่เริ่มนับความจุต้องเป็นจำนวนเต็ม 0-18 ปี'),
   body('boat_advance_booking_minutes').optional().isInt({ min: 0, max: 10080 })
     .withMessage('จองล่วงหน้าขั้นต่ำต้องเป็นจำนวนเต็ม 0-10080 นาที'),
+  body('boat_checkin_advance_minutes').optional().isInt({ min: 0, max: 1440 })
+    .withMessage('เวลาเช็คอินล่วงหน้าต้องเป็นจำนวนเต็ม 0-1440 นาที'),
 ];
 
 export const updateRoomBookingStatusValidator = [
@@ -319,6 +321,8 @@ export const validatePromoCodeValidator = [
 // ─── Cancellation policy ──────────────────────────────────────────────────────
 
 export const cancellationPolicyValidator = [
-  body('full_refund_hours').isInt({ min: 0, max: 8760 }).withMessage('full_refund_hours must be 0 to 8760'),
-  body('late_refund_percent').isFloat({ min: 0, max: 100 }).withMessage('late_refund_percent must be 0 to 100'),
+  body('full_refund_hours').optional().isInt({ min: 0, max: 8760 }).withMessage('full_refund_hours must be 0 to 8760'),
+  body('late_refund_percent').optional().isFloat({ min: 0, max: 100 }).withMessage('late_refund_percent must be 0 to 100'),
+  body('room_full_refund_days').optional().isInt({ min: 0, max: 365 }).withMessage('room_full_refund_days must be 0 to 365'),
+  body('room_late_refund_percent').optional().isFloat({ min: 0, max: 100 }).withMessage('room_late_refund_percent must be 0 to 100'),
 ];

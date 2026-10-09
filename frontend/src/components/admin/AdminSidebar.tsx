@@ -26,6 +26,7 @@ import {
   ChevronDown,
   MapPin,
   LogIn,
+  FileText,
 } from "lucide-react";
 
 interface MenuItem {
@@ -42,6 +43,7 @@ interface MenuGroup {
 
 // ปฏิทินการจองเป็นลิงก์ด้านบนของ sidebar อยู่แล้ว จึงไม่ต้องอยู่ในรายการนี้
 const roomStaffAllowedPaths = [
+  "/admin/policies",
   "/admin/rooms/location",
   "/admin/promotions",
   "/admin/reviews",
@@ -51,10 +53,10 @@ const roomStaffAllowedPaths = [
 ];
 
 const boatStaffAllowedPaths = [
+  "/admin/policies",
   "/admin/boats/location",
   "/admin/boats/types",
   "/admin/boats/rounds",
-  "/staff/boats/boat-hours",
 ];
 
 const menuGroups: MenuGroup[] = [
@@ -66,6 +68,11 @@ const menuGroups: MenuGroup[] = [
         label: "สถานที่หลัก & ชำระเงิน",
         path: "/admin/site-info",
         icon: <Building2 size={16} />,
+      },
+      {
+        label: "นโยบายและข้อกำหนด",
+        path: "/admin/policies",
+        icon: <FileText size={16} />,
       },
       {
         label: "จุดบริการห้องพัก",
@@ -151,11 +158,6 @@ const menuGroups: MenuGroup[] = [
         path: "/admin/boats/rounds",
         icon: <Sailboat size={16} />,
       },
-      {
-        label: "เวลาทำการเรือ",
-        path: "/staff/boats/boat-hours",
-        icon: <Clock size={16} />,
-      },
     ],
   },
 ];
@@ -168,6 +170,7 @@ export default function AdminSidebar() {
   const resolvePath = (path: string) => {
     if (user?.role === "room_staff") {
       if (path === "/admin") return "/staff/rooms/dashboard";
+      if (path === "/admin/policies") return "/admin/policies";
 
       // ถ้า path มี /admin/rooms อยู่แล้ว ให้เปลี่ยนแค่ /admin เป็น /staff (เพื่อไม่ให้ซ้ำ)
       if (path.startsWith("/admin/rooms")) {
@@ -182,6 +185,7 @@ export default function AdminSidebar() {
     if (user?.role === "boat_staff") {
       // หน้าภาพรวมของ boat_staff ชี้ไปที่แดชบอร์ดของระบบเรือ
       if (path === "/admin") return "/staff/boats/dashboard";
+      if (path === "/admin/policies") return "/admin/policies";
       // เมนู "แดชบอร์ดจองเรือ" (/admin/boats) เปลี่ยนเป็นหน้าจัดการการจองเรือแยกต่างหาก
       if (path === "/admin/boats") return "/staff/boats";
       if (path.startsWith("/admin/boats")) {
