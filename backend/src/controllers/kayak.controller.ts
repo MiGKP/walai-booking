@@ -827,12 +827,28 @@ export const createKayakBooking = async (
       return;
     }
 
-    if (user.role !== "customer") {
+    if (user.role !== "customer" && user.role !== "admin") {
       res.status(403).json({
         success: false,
-        message: "เฉพาะสมาชิกลูกค้าเท่านั้นที่สามารถจองเรือได้",
+        message: "เฉพาะสมาชิกลูกค้าหรือผู้ดูแลระบบเท่านั้นที่สามารถจองเรือได้",
       });
       return;
+    }
+
+    let bookingMemberId = user.id;
+    if (user.role === 'admin') {
+      const adminMemberRes = await client.query('SELECT member_id FROM members WHERE email = $1', [user.email]);
+      if (adminMemberRes.rows.length > 0) {
+        bookingMemberId = adminMemberRes.rows[0].member_id;
+      } else {
+        const newAdminMember = await client.query(
+          `INSERT INTO members (email, password, first_name, last_name, phone, is_active)
+           VALUES ($1, 'ADMIN_TEST_ACCOUNT', 'Admin', 'Staff', '0800000000', true)
+           RETURNING member_id`,
+          [user.email]
+        );
+        bookingMemberId = newAdminMember.rows[0].member_id;
+      }
     }
 
     let items: KayakItemInput[];
@@ -1114,7 +1130,7 @@ export const createKayakBooking = async (
     let totalFreeTicketsApplied = 0;
     const totalFreeTicketsRequested = [...freeTicketsByType.values()].reduce((a, b) => a + b, 0);
     if (totalFreeTicketsRequested > 0) {
-      let budget = await getBoatTicketBalance(client, user.id);
+      let budget = await getBoatTicketBalance(client, bookingMemberId);
       for (const line of prepared) {
         const requested = freeTicketsByType.get(line.boat_type_id) ?? 0;
         if (requested <= 0) continue;
@@ -1143,9 +1159,9 @@ export const createKayakBooking = async (
     if (promoIds.length > 0) {
       try {
         const catalog = await loadPromosForApply(client, promoIds);
-        const ctxExtra = await loadApplyContext(client, user.id, promoIds);
+        const ctxExtra = await loadApplyContext(client, bookingMemberId, promoIds);
         applyResult = applyPromotionList(catalog, {
-          memberId: user.id,
+          memberId: bookingMemberId,
           nights: null,
           basePrice: totalPrice,
           now: new Date(),
@@ -1173,7 +1189,7 @@ export const createKayakBooking = async (
        ) VALUES ($1, $2, $3::time, $4::time, $5, $6, 'pending')
        RETURNING *`,
       [
-        user.id,
+        bookingMemberId,
         booking_date,
         startTime,
         endTime,
@@ -1213,7 +1229,7 @@ export const createKayakBooking = async (
 
     if (applyResult.lines.length > 0) {
       await persistBookingPromotions(client, {
-        memberId: user.id,
+        memberId: bookingMemberId,
         boatBookingId: Number(header.boat_booking_id),
         result: applyResult,
       });
@@ -1221,7 +1237,7 @@ export const createKayakBooking = async (
 
     if (totalFreeTicketsApplied > 0) {
       try {
-        await redeemBoatTickets(client, user.id, Number(header.boat_booking_id), totalFreeTicketsApplied);
+        await redeemBoatTickets(client, bookingMemberId, Number(header.boat_booking_id), totalFreeTicketsApplied);
       } catch (err) {
         await safeRollback(client);
         res.status(400).json({

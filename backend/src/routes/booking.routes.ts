@@ -18,8 +18,8 @@ import { bookingListValidator } from '../middleware/pagination-validator';
 
 const router = Router();
 
-router.post('/', authenticate, authorize('customer'), createRoomBookingValidator, validate, createRoomBooking);
-router.post('/room', authenticate, authorize('customer'), createRoomBookingValidator, validate, createRoomBooking);
+router.post('/', authenticate, authorize('customer', 'admin', 'room_staff', 'boat_staff'), createRoomBookingValidator, validate, createRoomBooking);
+router.post('/room', authenticate, authorize('customer', 'admin', 'room_staff', 'boat_staff'), createRoomBookingValidator, validate, createRoomBooking);
 router.get('/my', authenticate, authorize('customer'), getUserRoomBookings);
 router.get('/room/my', authenticate, authorize('customer'), getUserRoomBookings);
 

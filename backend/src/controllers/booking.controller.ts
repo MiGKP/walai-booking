@@ -436,6 +436,22 @@ export const createRoomBooking = async (
     let legacyBoatGrant: { promotionId: number; ticketsPerRoom: number; mode: 'free' | 'paid'; unitPrice: number } | null = null;
     let legacyApplyLine: ApplyLine | null = null;
 
+    let bookingMemberId = user.id;
+    if (user.role !== 'customer') {
+      const adminMemberRes = await client.query('SELECT member_id FROM members WHERE email = $1', [user.email]);
+      if (adminMemberRes.rows.length > 0) {
+        bookingMemberId = adminMemberRes.rows[0].member_id;
+      } else {
+        const newAdminMember = await client.query(
+          `INSERT INTO members (email, password, first_name, last_name, phone, is_active)
+           VALUES ($1, 'ADMIN_TEST_ACCOUNT', COALESCE($2, 'Admin'), 'Staff', COALESCE($3, '0800000000'), true)
+           RETURNING member_id`,
+          [user.email, guestName || 'Admin', guestPhone || '0800000000']
+        );
+        bookingMemberId = newAdminMember.rows[0].member_id;
+      }
+    }
+
     if (usesPerItemPromotions) {
       totalPrice = 0;
       // รวมยอดหน้าตั๋วของแต่ละประเภทห้อง (อาจมีหลายห้องต่อประเภท)
@@ -451,7 +467,7 @@ export const createRoomBooking = async (
           continue;
         }
         try {
-          const { finalPrice, line, boatTicketCount, boatAddonMode, boatAddonPrice } = await applyPromotionDiscount(client, promoId, typeSubtotal, nights, user.id, [roomTypeId]);
+          const { finalPrice, line, boatTicketCount, boatAddonMode, boatAddonPrice } = await applyPromotionDiscount(client, promoId, typeSubtotal, nights, bookingMemberId, [roomTypeId]);
           appliedPromotions.push({
             room_type_id: roomTypeId,
             promotion_id: promoId,
@@ -478,7 +494,7 @@ export const createRoomBooking = async (
       }
     } else if (legacyPromotionId) {
       try {
-        const { finalPrice, line, boatTicketCount, boatAddonMode, boatAddonPrice } = await applyPromotionDiscount(client, legacyPromotionId, faceValueTotal, nights, user.id, [...new Set(lockedRooms.map(room => room.room_type_id))]);
+        const { finalPrice, line, boatTicketCount, boatAddonMode, boatAddonPrice } = await applyPromotionDiscount(client, legacyPromotionId, faceValueTotal, nights, bookingMemberId, [...new Set(lockedRooms.map(room => room.room_type_id))]);
         totalPrice = finalPrice;
         legacyApplyLine = line;
         if (boatTicketCount > 0) {
@@ -509,10 +525,10 @@ export const createRoomBooking = async (
       `INSERT INTO room_bookings (
          member_id, check_in, check_out, guest_count, adults, children, child_ages,
          special_request, arrival_time, promotion_id, status, total_price, guest_name, guest_phone, guest_email
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', $11, $12, $13, $14)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', $11, $12, $13, $14)
        RETURNING *`,
       [
-        user.id,
+        bookingMemberId,
         checkInDate,
         checkOutDate,
         guestTotal,
@@ -568,7 +584,7 @@ export const createRoomBooking = async (
     if (legacyApplyLine) ledgerLines.push(legacyApplyLine);
     if (ledgerLines.length > 0) {
       await persistBookingPromotions(client, {
-        memberId: user.id,
+        memberId: bookingMemberId,
         roomBookingId,
         result: { totalPrice, lines: ledgerLines, headerPromotionId: primaryPromotionId },
       });
@@ -586,7 +602,7 @@ export const createRoomBooking = async (
       await client.query(
         `INSERT INTO member_boat_tickets (member_id, promotion_id, room_booking_id, booking_room_id, total_tickets, mode, unit_price)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [user.id, grant.promotionId, roomBookingId, bookingRoomId, grant.ticketsPerRoom, grant.mode, grant.unitPrice]
+        [bookingMemberId, grant.promotionId, roomBookingId, bookingRoomId, grant.ticketsPerRoom, grant.mode, grant.unitPrice]
       );
       totalBoatTickets += grant.ticketsPerRoom;
     }
