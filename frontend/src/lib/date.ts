@@ -46,7 +46,9 @@ export const fromISODate = (iso: string): Date => {
   return new Date(year, (month ?? 1) - 1, day ?? 1);
 };
 
-export const todayISO = (): string => toISODate(new Date());
+export const todayISO = (): string => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit',
+}).format(new Date());
 
 export const addDaysISO = (iso: string, days: number): string => {
   const date = fromISODate(iso);

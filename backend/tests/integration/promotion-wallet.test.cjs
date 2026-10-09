@@ -38,6 +38,9 @@ test('collected coupon use and cancellation restore its varchar wallet status', 
         [{ status: 'saved', used_at: null }]);
       assert.equal((await client.query('SELECT COUNT(*)::int AS n FROM booking_promotions')).rows[0].n, 0);
       assert.equal((await client.query('SELECT usage_count FROM promotions')).rows[0].usage_count, 0);
+      await restoreBookingPromotions(client, { previousStatus: 'pending', ...header });
+      assert.equal((await client.query('SELECT usage_count FROM promotions')).rows[0].usage_count, 0);
+      assert.equal((await client.query('SELECT status FROM member_promotions')).rows[0].status, 'saved');
     }
   } finally {
     await client.query('ROLLBACK');

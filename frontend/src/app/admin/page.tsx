@@ -10,6 +10,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import api from "@/lib/api";
+import Link from "next/link";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { PageHeader, StatCard, Panel, StatusBadge, EmptyState, Skeleton } from "@/components/admin/ui";
@@ -289,14 +290,16 @@ export default function AdminPage() {
                   <EmptyState title="ไม่มีรายการค้างตรวจสอบ" />
                 ) : (
                   <div className="mt-3 space-y-2">
-                    {g.list.slice(0, 3).map((item, index) => (
-                      <div key={item.id || index} className="flex justify-between rounded-lg bg-white p-2.5 text-xs shadow-panel">
+                    {g.list.slice(0, 3).map((item) => {
+                      const bookingId = item.boat_booking_id ?? item.room_booking_id ?? item.id;
+                      return (
+                      <Link href={`${g.href}?search=${encodeURIComponent(String(bookingId))}`} key={bookingId} className="flex justify-between rounded-lg bg-white p-2.5 text-xs shadow-panel hover:bg-forest-50">
                         <span className="mr-2 truncate font-medium text-charcoal-700">
-                          #{item.id || "?"} {item.customer_name || item.user?.name}
+                          #{bookingId} {item.customer_name || item.user_name || item.user?.name}
                         </span>
                         <span className="shrink-0 font-semibold text-forest-700">{formatMoney(item.total_price)}</span>
-                      </div>
-                    ))}
+                      </Link>
+                    ); })}
                     {g.list.length > 3 && (
                       <p className="pt-1 text-center text-xs font-medium text-charcoal-400">+ อีก {g.list.length - 3} รายการ</p>
                     )}

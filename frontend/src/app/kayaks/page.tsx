@@ -653,8 +653,8 @@ function KayaksPageContent(): React.ReactElement {
 
 
         <RoomBoatRightsChoice memberId={user?.role === 'customer' ? user.id : undefined} enabled={useRoomRights} onChange={setUseRoomRights} />
-        {!useRoomRights && <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:items-start">
-          <div className="space-y-6">
+        {!useRoomRights && <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+          <div className="min-w-0 space-y-6">
             {/* วันที่ + จำนวนผู้โดยสารต่อประเภทเรือ อยู่ในกรอบเดียวกัน วางคู่กัน — ปฏิทินไม่ต้องกว้างเพราะจองทีละวัน */}
             <section className={CARD}>
               <SectionHeading

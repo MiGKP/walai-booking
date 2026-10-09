@@ -126,7 +126,10 @@ export default function AdminCalendarPage() {
 
         const bookingId = b.room_booking_id || b.id;
         const customerName = b.user_name || b.customer_name || 'ลูกค้าทั่วไป';
-        const roomTitle = b.room_name || b.type_name || b.room_type_name || `ห้อง #${b.room_id || b.room_number || ''}`;
+        const roomTitle = Array.isArray(b.rooms) && b.rooms.length > 0
+          ? b.rooms.map((line: { room_name?: string; type_name?: string; room_number?: string; room_id?: number }) =>
+            `${line.room_name || line.type_name || 'ห้องพัก'} (ห้อง ${line.room_number || line.room_id || '-'})`).join(', ')
+          : b.room_name || b.type_name || b.room_type_name || `ห้อง #${b.room_id || b.room_number || ''}`;
 
         // แปลงวันที่โดยปรับ Timezone +7 ชดเชย UTC
         const start = parseLocalDate(b.check_in);

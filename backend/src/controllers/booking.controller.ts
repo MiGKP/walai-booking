@@ -266,11 +266,11 @@ export const createRoomBooking = async (
     // อายุเด็กต้องมีครบตามจำนวนเด็กที่ระบุ (ณ วันเข้าพัก) ใช้กันความจุ/แสดงผลย้อนหลัง
     if (
       childAges.length !== children ||
-      childAges.some((age) => !Number.isInteger(age) || age < 0 || age > 17)
+      childAges.some((age) => !Number.isInteger(age) || age < 0 || age > 11)
     ) {
       res.status(400).json({
         success: false,
-        message: 'กรุณาระบุอายุของเด็กแต่ละคนให้ครบ (0-17 ปี)',
+        message: 'กรุณาระบุอายุของเด็กแต่ละคนให้ครบ (0-11 ปี)',
       });
       return;
     }
@@ -983,10 +983,28 @@ export const updateRoomBookingStatus = async (
     await client.query('BEGIN');
 
     const previous = await client.query(
-      'SELECT status FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE',
+      'SELECT status, total_price, payment_slip FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE',
       [id]
     );
     const previousStatus = previous.rows[0] ? String(previous.rows[0].status) : '';
+
+    if (!previous.rows[0]) {
+      await safeRollback(client);
+      res.status(404).json({ success: false, message: 'Booking not found' });
+      return;
+    }
+    const transitionError = assertStatusTransition(previousStatus, status);
+    if (transitionError) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: transitionError });
+      return;
+    }
+    if (status === 'approved' && Number(previous.rows[0].total_price) > 0
+      && (previousStatus !== 'paid' || !String(previous.rows[0].payment_slip ?? '').trim())) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: 'กรุณาแนบสลิปชำระเงินก่อนอนุมัติการจอง' });
+      return;
+    }
 
     let query = `UPDATE room_bookings SET status = $1, updated_at = NOW()`;
     const params: Array<string | number> = [status];
@@ -1011,12 +1029,6 @@ export const updateRoomBookingStatus = async (
       return;
     }
 
-    const transitionError = assertStatusTransition(previousStatus, status);
-    if (transitionError) {
-      await safeRollback(client);
-      res.status(400).json({ success: false, message: transitionError });
-      return;
-    }
     // ห้องที่เช็คอินแล้วต้องไม่ถูกย้อนสถานะหรือยกเลิกผ่านการเปลี่ยนสถานะ header
     if (status === 'rejected' || status === 'cancelled' || status === 'pending') {
       const checkedIn = await client.query(

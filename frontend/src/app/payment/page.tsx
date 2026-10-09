@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CreditCard, Upload, CheckCircle, ArrowLeft, XCircle, Receipt, Landmark, QrCode, Info, MessageSquare } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
+import { validateSlipFile } from '@/lib/payment-slip';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { formatThaiDate, formatTimeRange, nightsBetween } from '@/lib/date';
 import toast from 'react-hot-toast';
@@ -138,7 +139,15 @@ function PaymentContent() {
   // รับไฟล์สลิปจาก input แล้วสร้าง preview ให้ผู้ใช้เห็นก่อนกดยืนยันอัปโหลด
   const handleSlipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (!file) return;
+    const error = validateSlipFile(file);
+    if (error) {
+      toast.error(error);
+      e.target.value = '';
+      return;
+    }
     if (file) {
+      if (slipPreview) URL.revokeObjectURL(slipPreview);
       setSlip(file);
       setSlipPreview(URL.createObjectURL(file));
     }
@@ -607,8 +616,8 @@ function PaymentContent() {
                             <Upload size={22} />
                           </div>
                           <p className="text-sm font-semibold text-forest-900 mb-1">คลิกเพื่ออัปโหลดสลิปโอนเงิน</p>
-                          <p className="text-xs text-stone-400">รองรับ PNG, JPG ขนาดไม่เกิน 5MB</p>
-                          <input type="file" accept="image/*" className="hidden" onChange={handleSlipChange} />
+                          <p className="text-xs text-stone-400">รองรับ PNG, JPG, GIF, WebP ขนาดไม่เกิน 5MB</p>
+                          <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden" onChange={handleSlipChange} />
                         </label>
                       )}
                     </div>

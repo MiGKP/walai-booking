@@ -1239,7 +1239,8 @@ function RoomStaffDashboardContent() {
                             <span className="text-xs text-stone-500 font-semibold bg-stone-100 border border-stone-200 px-3 py-1 rounded-xl inline-block">
                               ยกเลิกแล้ว
                             </span>
-                          ) : b.payment_slip ? (
+                          ) : ((b.status === "pending" || b.status === "paid") && Number(b.total_price) === 0)
+                            || (b.status === "paid" && String(b.payment_slip || "").trim()) ? (
                             <>
                               <button
                                 onClick={() => handleApprove(bookingId)}
@@ -1420,8 +1421,19 @@ function RoomStaffDashboardContent() {
                     <BedDouble size={15} className="text-charcoal-500 print:hidden" />
                     <span>รายละเอียดห้องพัก</span>
                   </div>
-                  <p><strong className="text-charcoal-700">ชื่อห้อง/ประเภท:</strong> {booking.room_name || booking.type_name}</p>
-                  <p><strong className="text-charcoal-700">หมายเลขห้อง:</strong> {booking.room_number || booking.room_id}</p>
+                  {Array.isArray(booking.rooms) && booking.rooms.length > 0 ? (
+                    <ul className="space-y-2">
+                      {booking.rooms.map((line: { booking_room_id: number; room_number?: string; room_id?: number; room_name?: string; type_name?: string; subtotal?: number | string }) => (
+                        <li key={line.booking_room_id} className="flex flex-wrap justify-between gap-2 border-b border-charcoal-100 pb-2">
+                          <span>{line.room_name || line.type_name || 'ห้องพัก'} · ห้อง {line.room_number || line.room_id}</span>
+                          <span>฿{Number(line.subtotal || 0).toLocaleString('th-TH')}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : <>
+                    <p><strong className="text-charcoal-700">ชื่อห้อง/ประเภท:</strong> {booking.room_name || booking.type_name}</p>
+                    <p><strong className="text-charcoal-700">หมายเลขห้อง:</strong> {booking.room_number || booking.room_id}</p>
+                  </>}
                   <p>
                     <strong className="text-charcoal-700">ระยะเวลาเข้าพัก:</strong>{" "}
                     {booking.check_in ? new Date(booking.check_in).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" }) : "-"} ถึง{" "}

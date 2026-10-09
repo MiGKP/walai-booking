@@ -117,7 +117,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
 
     const file = req.file;
     if (!file) {
-      res.status(400).json({ success: false, message: 'No slip image provided' });
+      res.status(400).json({ success: false, message: 'กรุณาเลือกไฟล์รูปภาพสลิปก่อนอัปโหลด' });
       return;
     }
 
@@ -308,7 +308,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
 
       const bookingCheck = await client.query(
         bType === 'room'
-          ? `SELECT payment_slip, status FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE`
+          ? `SELECT payment_slip, status, total_price FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE`
           : `SELECT payment_slip, status FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE`,
         [bId]
       );
@@ -317,14 +317,15 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
         res.status(404).json({ success: false, message: 'Booking not found' });
         return;
       }
-      if (bookingCheck.rows[0].status !== 'paid') {
+      const zeroChargeRoom = bType === 'room' && Number(bookingCheck.rows[0].total_price) === 0;
+      if (bookingCheck.rows[0].status !== 'paid' && !(zeroChargeRoom && bookingCheck.rows[0].status === 'pending')) {
         await safeRollback(client);
         res.status(400).json({ success: false, message: `Cannot approve booking with status: ${bookingCheck.rows[0].status}` });
         return;
       }
-      if (!bookingCheck.rows[0].payment_slip) {
+      if (!zeroChargeRoom && !String(bookingCheck.rows[0].payment_slip ?? '').trim()) {
         await safeRollback(client);
-        res.status(400).json({ success: false, message: 'Cannot approve: no payment slip uploaded yet' });
+        res.status(400).json({ success: false, message: 'กรุณาแนบสลิปชำระเงินก่อนอนุมัติการจอง' });
         return;
       }
 
@@ -332,7 +333,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
         const headerUpdate = await client.query(
           `UPDATE room_bookings
            SET payment_status = 'paid', status = 'approved', payment_date = NOW(), approved_by_staff_id = $1
-           WHERE room_booking_id = $2 AND status = 'paid'`,
+           WHERE room_booking_id = $2 AND (status = 'paid' OR (status = 'pending' AND total_price = 0))`,
           [authUser.id, bId]
         );
         if (headerUpdate.rowCount === 0) {

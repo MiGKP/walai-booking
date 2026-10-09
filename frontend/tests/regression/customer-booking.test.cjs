@@ -46,6 +46,33 @@ function load(relative, states = [], overrides = {}) {
 
 const kayak = { boat_booking_id: 21, is_addon: true, room_booking_id: 9, kayak_name: 'เรือเสริม', status: 'pending', created_at: new Date().toISOString(), booking_date: '2026-11-02', total_price: 250 };
 
+test('cart capacity uses the configured free-child boundary and counts missing ages conservatively', () => {
+  const { cartOccupyingGuestTotal } = load('src/lib/room-cart.ts');
+  const state = { adults: 2, children: 2, child_ages: [2, 6], items: [] };
+  assert.equal(cartOccupyingGuestTotal(state, 6), 3);
+  assert.equal(cartOccupyingGuestTotal(state, 2), 4);
+  assert.equal(cartOccupyingGuestTotal({ ...state, child_ages: [2] }, 6), 3);
+  assert.equal(cartOccupyingGuestTotal(state, 0), 4);
+});
+
+test('slip selection rejects missing, unsupported and oversized files and accepts the size boundary', () => {
+  const { validateSlipFile } = load('src/lib/payment-slip.ts');
+  assert.match(validateSlipFile(undefined), /เลือก/);
+  assert.match(validateSlipFile({ name: 'slip.pdf', type: 'application/pdf', size: 1 }), /รูปภาพ/);
+  assert.match(validateSlipFile({ name: 'slip.exe', type: 'image/png', size: 1 }), /รูปภาพ/);
+  assert.match(validateSlipFile({ name: 'slip.png', type: 'image/png', size: 5 * 1024 * 1024 + 1 }), /5 MB/);
+  assert.equal(validateSlipFile({ name: 'slip.JPG', type: 'image/jpeg', size: 5 * 1024 * 1024 }), null);
+});
+
+test('landing contact resolves the main settings row and does not invent coordinates or hours', () => {
+  const { getResortLocation } = load('src/lib/resort-info.ts');
+  const actual = getResortLocation([{ id: 4, phone: 'TEST-ROOM' }, { id: 3, phone: 'TEST-MAIN', coordinates: '16, 103', operating_days: 'วันทดสอบ', operating_hours: '09:00–16:00' }]);
+  assert.equal(actual.phone, 'TEST-MAIN');
+  assert.equal(actual.hours, 'วันทดสอบ 09:00–16:00');
+  assert(actual.mapSrc.includes('16%2C103'));
+  assert.deepEqual(getResortLocation([]), { address: undefined, phone: undefined, hours: undefined, mapSrc: undefined });
+});
+
 test('room rights choice rejects exhausted, expired, ended and already-paid priced grants', () => {
   const { canReserveRoomRights } = load('src/components/booking/RoomBoatRightsChoice.tsx');
   const booking = { id: 9, status: 'approved', boat_ticket_summary: { total_tickets: 2, remaining_tickets: 2, bookable_tickets: 2, free_tickets: 2, paid_tickets: 0, valid_from: '2099-11-02', valid_to: '2099-11-03' } };

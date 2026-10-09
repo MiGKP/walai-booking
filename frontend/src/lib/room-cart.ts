@@ -117,6 +117,16 @@ export function cartGuestTotal(state: RoomCartState): number {
   return state.adults + state.children;
 }
 
+export function cartOccupyingGuestTotal(state: RoomCartState, infantMaxAgeExclusive: number): number {
+  const ages = state.child_ages || [];
+  let count = state.adults;
+  for (let index = 0; index < state.children; index += 1) {
+    const age = ages[index];
+    if (!Number.isInteger(age) || age < 0 || age >= infantMaxAgeExclusive) count += 1;
+  }
+  return count;
+}
+
 export function cartEstimatedTotal(state: RoomCartState): number {
   const nights = nightsBetween(state.check_in, state.check_out);
   return state.items.reduce(

@@ -10,11 +10,7 @@ import { resolveMediaUrl } from '@/lib/avatar';
 import { resolveFacebookLink } from '@/lib/social';
 import { maskReviewerName } from '@/lib/format';
 import { FacilityGroup, ROOM_SPECIFIC_FACILITY_CATEGORIES } from '@/lib/facilities';
-import {
-  googleMapsEmbedUrl,
-  googleMapsSearchUrl,
-  parseLatLng,
-} from '@/lib/coordinates';
+import { getResortLocation, pickResortInfo } from '@/lib/resort-info';
 import Navbar from '@/components/layout/Navbar';
 interface ResortInfo {
   name?: string;
@@ -644,12 +640,7 @@ export default function HomePage() {
   const locationRef = useRevealOnScroll();
   const ctaRef = useRevealOnScroll();
   const facebookLink = resolveFacebookLink(resortInfo.facebook);
-  const mapCoords = parseLatLng(resortInfo.coordinates || "16.219759824221544, 103.32908547853327");
-  const mapSrc = mapCoords
-    ? googleMapsEmbedUrl(mapCoords)
-    : googleMapsSearchUrl(
-        resortInfo.name || 'สวนวลัยรุกขเวช มหาสารคาม'
-      );
+  const location = getResortLocation(resortInfo);
 
   useEffect(() => {
     const fetchLandingData = async () => {
@@ -663,7 +654,7 @@ export default function HomePage() {
         ]);
 
       if (resortRes.status === "fulfilled")
-        setResortInfo(resortRes.value.data?.data || {});
+        setResortInfo(pickResortInfo(resortRes.value.data?.data, 'main'));
       if (roomsRes.status === "fulfilled")
         setRoomTypes(roomsRes.value.data?.data || []);
       setLoadingRooms(false);
@@ -1055,13 +1046,12 @@ export default function HomePage() {
                 <div className="flex items-start gap-3">
                   <MapPin className="text-forest-800 shrink-0 mt-1" size={20} />
                   <span>
-                    {resortInfo.address ||
-                      "มหาวิทยาลัยมหาสารคาม ต.ขามเรียง อ.กันทรวิชัย จ.มหาสารคาม"}
+                    {location.address || 'ยังไม่ได้ระบุที่อยู่'}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Phone className="text-forest-800 shrink-0" size={20} />
-                  <span>{resortInfo.phone || "080-000-0000"}</span>
+                  <span>{location.phone || 'ยังไม่ได้ระบุเบอร์ติดต่อ'}</span>
                 </div>
               </div>
 
@@ -1087,22 +1077,20 @@ export default function HomePage() {
                 <div>
                   <p className="font-display font-semibold text-forest-800 mb-0.5">เวลาเปิด-ปิด</p>
                   <p className="text-charcoal-400 text-sm">
-                    {resortInfo.operating_days && resortInfo.operating_hours
-                      ? `${resortInfo.operating_days} ${resortInfo.operating_hours}`
-                      : 'เปิดทุกวัน 08:00 – 20:00 น.'}
+                    {location.hours || 'ยังไม่ได้ระบุเวลาเปิดบริการ'}
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="lg:col-span-7 h-80 md:h-[420px] rounded-2xl overflow-hidden border border-stone-200 relative shadow-sm">
-              <iframe
+              {location.mapSrc ? <iframe
                 title={`แผนที่ ${resortInfo.name || "สวนวลัยรุกขเวช"}`}
                 aria-labelledby={mapTitleId}
-                src={mapSrc}
+                src={location.mapSrc}
                 className="w-full h-full border-0"
                 loading="lazy"
-              />
+              /> : <p className="flex h-full items-center justify-center text-charcoal-500">ยังไม่ได้ระบุตำแหน่งแผนที่</p>}
               <span id={mapTitleId} className="sr-only">
                 แผนที่แสดงตำแหน่ง {resortInfo.name || "สวนวลัยรุกขเวช"}
               </span>

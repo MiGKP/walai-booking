@@ -16,7 +16,7 @@ function load(relative, states = [], overrides = {}) {
     'next/link': ({ children, href, ...props }) => React.createElement('a', { href, ...props }, children),
     'next/navigation': { useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push() {} }), usePathname: () => '/' },
     'lucide-react': new Proxy({}, { get: () => () => null }),
-    'react-hot-toast': { error() {}, success() {} },
+    'react-hot-toast': { error() {}, success() {}, Toaster: () => null },
     '@/lib/api': { get: async () => ({ data: { data: [] } }), getApiErrorMessage: () => 'Mock error' },
     '@/hooks/useAuthGuard': { useAuthGuard: () => ({ ready: true, user: { role: 'customer' } }) },
     '@/hooks/useAuth': { useAuth: () => ({ user: null }) },
@@ -41,6 +41,7 @@ function load(relative, states = [], overrides = {}) {
     let source = fs.readFileSync(file, 'utf8');
     if (file.endsWith(path.join('booking', 'details', 'page.tsx'))) source += '\nexport { BookingDetailsContent as TestContent };';
     if (file.endsWith(path.join('admin', 'boats', 'page.tsx'))) source += '\nexport { BoatStaffDashboardContent as TestContent };';
+    if (file.endsWith(path.join('admin', 'rooms', 'page.tsx'))) source += '\nexport { RoomStaffDashboardContent as TestContent };';
     mod._compile(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText, file);
     return mod.exports;
   }
@@ -48,6 +49,88 @@ function load(relative, states = [], overrides = {}) {
 }
 const summary = { total_tickets: 3, used_tickets: 1, remaining_tickets: 2, free_tickets: 2, paid_tickets: 1, valid_from: '2099-11-02', valid_to: '2099-11-03' };
 const room = { id: 9, status: 'approved', created_at: new Date().toISOString(), check_in_date: '2099-11-01', check_out_date: '2099-11-04', boat_ticket_summary: summary };
+
+test('room rights can select the future 15:00 round with ten boats and adequate rights', () => {
+  const info = { room_status: 'paid', room_line_status: 'paid', balance: 5, mode: 'free', unit_price: 0, valid_from: '2099-11-01', valid_to: '2099-11-02' };
+  const round = { boat_round_id: 25, start_time: '15:00:00', end_time: '15:30:00', remaining: 10, available: true };
+  const hours = Array.from({ length: 7 }, (_, day_of_week) => ({ day_of_week, is_open: true, open_time: '08:00:00', close_time: '18:00:00', advance_booking_minutes: 60 }));
+  const Form = load('src/components/booking/RoomBoatAddonForm.tsx', ['2099-11-01', [{ id: 1, name: 'TEST Boat', capacity: 3 }], '1', 3, [round], '25', false, false, hours]).default;
+  const html = renderToStaticMarkup(React.createElement(Form, { bookingRoomId: 115, info, onCreated() {} }));
+  assert.match(html, /<option value="25" selected="">/);
+  assert(!/<option[^>]*value="25"[^>]*disabled/.test(html));
+  assert(!/<button[^>]*type="submit"[^>]* disabled=""/.test(html));
+});
+
+test('today uses Bangkok date even for a browser in another timezone', t => {
+  const oldTZ = process.env.TZ;
+  process.env.TZ = 'America/Los_Angeles';
+  t.after(() => { if (oldTZ === undefined) delete process.env.TZ; else process.env.TZ = oldTZ; });
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-09T17:15:00Z').getTime() });
+  assert.equal(load('src/lib/date.ts').todayISO(), '2026-10-10');
+});
+
+test('frontend boat cutoff includes exact advance boundary and rejects closed days and insufficient time', () => {
+  const { isBoatSlotBookable } = load('src/lib/boat-time-policy.ts');
+  const hours = { is_open: true, open_time: '08:00:00', close_time: '18:00:00' };
+  const now = new Date('2026-10-09T14:00:00+07:00').getTime();
+  assert.equal(isBoatSlotBookable('2026-10-09', '15:00:00', '15:30:00', hours, 60, now), true);
+  assert.equal(isBoatSlotBookable('2026-10-09', '15:00:00', '15:30:00', hours, 60, now + 1), false);
+  assert.equal(isBoatSlotBookable('2026-10-09', '15:00:00', '15:30:00', { ...hours, is_open: false }, 60, now), false);
+  assert.equal(isBoatSlotBookable('2026-10-09', '17:30:00', '18:30:00', hours, 60, now), false);
+});
+
+test('admin overview identifies normal and room-addon boats by their API booking IDs', () => {
+  const Wrapper = ({ children }) => React.createElement('div', null, children);
+  const Page = load('src/app/admin/page.tsx', [[], [
+    { boat_booking_id: 47, status: 'paid', user_name: 'TEST Normal', total_price: 100 },
+    { boat_booking_id: 48, room_booking_id: 102, is_addon: true, status: 'pending', user_name: 'TEST Addon', total_price: 0 },
+  ], [], [], false], { '@/components/admin/ui': { PageHeader: Wrapper, StatCard: Wrapper, Panel: Wrapper, StatusBadge: Wrapper, EmptyState: Wrapper, Skeleton: Wrapper }, '@/lib/admin-notify': { notify: {} } }).default;
+  const html = renderToStaticMarkup(React.createElement(Page));
+  for (const id of [47, 48]) {
+    assert(html.includes(`#${id}`));
+    assert(html.includes(`href="/admin/boats?search=${id}"`));
+  }
+  assert(html.includes('TEST Normal'));
+  assert(!html.includes('#?'));
+});
+
+test('room staff can approve zero-charge pending rooms but cannot approve unpaid positive amounts', () => {
+  const Wrapper = ({ children }) => React.createElement('div', null, children);
+  for (const [amount, slip, status, expected] of [[0, null, 'pending', true], [100, null, 'pending', false], [100, 'slip.png', 'pending', false], [100, 'slip.png', 'paid', true], [0, null, 'cancelled', false]]) {
+    const Page = load('src/app/admin/rooms/page.tsx', [[{ id: 7, room_booking_id: 7, status, total_price: amount, payment_slip: slip, rooms: [] }], false, { total: 1, totalPages: 1 }, { all: 1, totalRevenue: 0, pendingRevenue: 0 }, [], ''], {
+      '@/components/admin/ui': { PageHeader: Wrapper, StatCard: Wrapper, Panel: Wrapper, Modal: () => null, EmptyState: Wrapper, BookingStatusBadge: Wrapper },
+      '@/lib/admin-notify': { notify: {} }, '@/lib/avatar': { resolveMediaUrl: value => value },
+    }).TestContent;
+    const html = renderToStaticMarkup(React.createElement(Page));
+    assert.equal(html.includes('<span>อนุมัติ</span>'), expected, `${status} / ${amount} / ${slip}`);
+  }
+});
+
+test('room detail and its printable document list every actual room and subtotal', () => {
+  const Wrapper = ({ children }) => React.createElement('div', null, children);
+  const booking = { id: 7, status: 'approved', total_price: 6000, check_in: '2026-10-10', check_out: '2026-10-12', rooms: [
+    { booking_room_id: 1, room_number: 'TEST-W2', room_name: 'TEST Standard', subtotal: 2000 },
+    { booking_room_id: 2, room_number: 'TEST-D3', room_name: 'TEST Deluxe', subtotal: 4000 },
+  ] };
+  const Page = load('src/app/admin/rooms/page.tsx', [[], false, { total: 0, totalPages: 0 }, { totalRevenue: 0 }, [], '', null, 'desc', { open: false }, { open: true, booking }], {
+    '@/components/admin/ui': { PageHeader: Wrapper, StatCard: Wrapper, Panel: Wrapper, Modal: ({ open, children }) => open ? React.createElement('div', null, children) : null, EmptyState: Wrapper, BookingStatusBadge: Wrapper },
+    '@/lib/avatar': { resolveMediaUrl: value => value },
+  }).TestContent;
+  const html = renderToStaticMarkup(React.createElement(Page));
+  for (const text of ['TEST-W2', 'TEST-D3', 'TEST Standard', 'TEST Deluxe', '2,000', '4,000', '6,000']) assert(html.includes(text), text);
+});
+
+test('staff and admin shared calendar names every actual room in a multi-room booking', () => {
+  const Wrapper = ({ children }) => React.createElement('div', null, children);
+  const booking = { id: 7, status: 'approved', check_in: '2026-10-10', check_out: '2026-10-12', user_name: 'TEST Guest', rooms: [
+    { room_number: 'TEST-W2', room_name: 'TEST Standard' }, { room_number: 'TEST-D3', room_name: 'TEST Deluxe' },
+  ] };
+  const Page = load('src/app/admin/calendar/page.tsx', [new Date(2026, 9, 10), 'all', [booking], [], false], {
+    '@/components/admin/ui': { PageHeader: Wrapper, Panel: Wrapper, Modal: () => null }, '@/lib/admin-notify': { notify: {} },
+  }).default;
+  const html = renderToStaticMarkup(React.createElement(Page));
+  for (const text of ['TEST-W2', 'TEST-D3', 'TEST Standard', 'TEST Deluxe']) assert(html.includes(text), text);
+});
 function dashboard(rooms, kayaks = []) {
   const Component = load('src/components/dashboard/MyBookingsPanel.tsx', ['all', rooms, kayaks, 3, false, false, new Set(), new Map()]).default;
   return renderToStaticMarkup(React.createElement(Component, { ready: true }));
