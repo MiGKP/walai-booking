@@ -214,16 +214,9 @@ function BoatCheckinContent(): React.ReactElement {
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-cream-200 text-xs font-medium mb-3 backdrop-blur-sm">
-              <Ship size={14} className="text-teal-300" />
-              <span>จุดปล่อยเรือและท่าเรือ (Pier Operations)</span>
-            </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white">
               เช็คอินท่าเรือ
             </h1>
-            <p className="text-cream-200/80 text-xs sm:text-sm mt-1 max-w-xl">
-              บันทึกการรายงานตัว ปล่อยเรือลงน้ำ และรับคืนเรือหน้าท่าประจำวัน แยกจากการตรวจสลิปหลังบ้าน
-            </p>
           </div>
 
           {/* Quick Date Switcher */}

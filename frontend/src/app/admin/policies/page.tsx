@@ -165,9 +165,6 @@ export default function PoliciesSettingsPage() {
                 <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 tracking-tight">
                   ตั้งค่านโยบายและข้อกำหนด
                 </h1>
-                <p className="text-xs sm:text-sm text-charcoal-500 font-normal mt-0.5 leading-relaxed">
-                  จัดการเงื่อนไขการเข้าพัก เวลาเช็คอิน กฎความปลอดภัยทางน้ำ และนโยบายการยกเลิกคืนเงิน
-                </p>
               </div>
             </div>
           </div>
