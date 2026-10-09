@@ -106,9 +106,9 @@ test('room staff can approve zero-charge pending rooms but cannot approve unpaid
   }
 });
 
-test('room detail and its printable document list every actual room and subtotal', () => {
+test('room detail and its printable document list every actual room, guests and subtotal', () => {
   const Wrapper = ({ children }) => React.createElement('div', null, children);
-  const booking = { id: 7, status: 'approved', total_price: 6000, check_in: '2026-10-10', check_out: '2026-10-12', rooms: [
+  const booking = { id: 7, status: 'approved', guests: 4, adults: 3, children: 1, total_price: 6000, check_in: '2026-10-10', check_out: '2026-10-12', rooms: [
     { booking_room_id: 1, room_number: 'TEST-W2', room_name: 'TEST Standard', subtotal: 2000 },
     { booking_room_id: 2, room_number: 'TEST-D3', room_name: 'TEST Deluxe', subtotal: 4000 },
   ] };
@@ -118,6 +118,10 @@ test('room detail and its printable document list every actual room and subtotal
   }).TestContent;
   const html = renderToStaticMarkup(React.createElement(Page));
   for (const text of ['TEST-W2', 'TEST-D3', 'TEST Standard', 'TEST Deluxe', '2,000', '4,000', '6,000']) assert(html.includes(text), text);
+  assert.match(html, /ผู้เข้าพัก:/);
+  assert.match(html, /4(?:<!-- -->)? คน/);
+  assert.match(html, /ผู้ใหญ่ (?:<!-- -->)?3/);
+  assert.match(html, /เด็ก (?:<!-- -->)?1/);
 });
 
 test('staff and admin shared calendar names every actual room in a multi-room booking', () => {

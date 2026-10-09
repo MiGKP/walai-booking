@@ -1414,6 +1414,13 @@ function RoomStaffDashboardContent() {
                   <p><strong className="text-charcoal-700">ชื่อ-สกุล:</strong> {booking.user_name || "ไม่ระบุ"}</p>
                   <p><strong className="text-charcoal-700">เบอร์โทรศัพท์:</strong> <span className="font-mono text-charcoal-800 font-medium">{booking.user_phone || booking.phone || "-"}</span></p>
                   <p><strong className="text-charcoal-700">หมายเลขอ้างอิง:</strong> #{booking.room_booking_id || booking.id}</p>
+                  <p>
+                    <strong className="text-charcoal-700">ผู้เข้าพัก:</strong>{" "}
+                    {booking.guests ?? booking.guest_count ?? (Number(booking.adults || 0) + Number(booking.children || 0))} คน
+                    {booking.adults != null && booking.children != null && (
+                      <span> (ผู้ใหญ่ {booking.adults} · เด็ก {booking.children})</span>
+                    )}
+                  </p>
                 </div>
 
                 <div className="p-3 bg-cream-50 rounded-xl border border-charcoal-100 space-y-1.5 print:bg-white print:border-charcoal-200">

@@ -223,7 +223,9 @@ function AdminCheckinContent() {
   const matchesSearch = (line: FlatLine) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase().trim();
+    const bookingNumber = q.replace(/^#\s*/, "");
     return (
+      (Boolean(bookingNumber) && String(line.room_booking_id).includes(bookingNumber)) ||
       String(line.user_name || "").toLowerCase().includes(q) ||
       String(line.user_phone || "").toLowerCase().includes(q) ||
       String(line.room_number || "").toLowerCase().includes(q) ||
@@ -505,7 +507,7 @@ function AdminCheckinContent() {
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
         <input
           type="text"
-          placeholder="ค้นหาชื่อ, เบอร์โทร, หมายเลขห้อง..."
+          placeholder="ค้นหาเลขจอง, ชื่อ, เบอร์โทร, หมายเลขห้อง..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full bg-white pl-9 pr-8 py-2 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-[#0b3b2c]/20 text-xs font-medium text-stone-800 placeholder:text-stone-400 transition-all shadow-xs"

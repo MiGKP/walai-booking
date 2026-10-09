@@ -162,6 +162,7 @@ export default function AdminCalendarPage() {
               customer_phone: b.user_phone || b.customer_phone || b.phone || '-',
               customer_email: b.user_email || b.email || '-',
               room_title: roomTitle,
+              guest_count: b.guest_count ?? b.guests ?? ((b.adults ?? 0) + (b.children ?? 0)),
               current_night: nightCount,
               total_nights: totalNights
             },

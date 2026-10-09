@@ -46,6 +46,47 @@ function load(relative, states = [], overrides = {}) {
 
 const kayak = { boat_booking_id: 21, is_addon: true, room_booking_id: 9, kayak_name: 'เรือเสริม', status: 'pending', created_at: new Date().toISOString(), booking_date: '2026-11-02', total_price: 250 };
 
+test('coupon booking links prefill the shared promotion field using promo_code', () => {
+  const Component = load('src/components/booking/PromoCodeFields.tsx', [], {
+    'next/navigation': { useSearchParams: () => new URLSearchParams('promo_code=TESTBOAT'), useRouter: () => ({}) },
+  }).default;
+  const html = renderToStaticMarkup(React.createElement(Component, { basePrice: 20, nights: null, scope: 'kayak', onChange() {} }));
+  assert.match(html, /value="TESTBOAT"/);
+});
+
+test('kayak booking submits only the current validated promotion selection', async () => {
+  const source = fs.readFileSync(path.join(root, 'src/app/kayaks/page.tsx'), 'utf8');
+  const handler = source.slice(source.indexOf('  const handleBooking ='), source.indexOf('  const [useRoomRights'));
+  const js = ts.transpileModule(`${handler}\nreturn handleBooking;`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
+  let payload;
+  const handle = new Function('selectedDate', 'selectedSlot', 'today', 'pastCutoffToday', 'boatHours', 'isBoatSlotBookable', 'cartLines', 'slotFitsCart', 'setBookingLoading', 'api', 'toast', 'router', 'roomBookingId', 'normalizeSlotTime', 'promotionIds', js)('2099-01-02', { start_time: '15:00', end_time: '15:30' }, '2099-01-01', false, [], () => true, [{ boat_type_id: 1, num_passengers: 1, boat_count: 1, free_tickets_used: 0 }], () => true, () => {}, { post: async (_path, body) => { payload = body; return { data: { data: { boat_booking_id: 1 } } }; } }, { success() {}, error() {} }, { push() {} }, null, value => value, [32]);
+  await handle({ preventDefault() {} });
+  assert.deepEqual(payload.promotion_ids, [32]);
+});
+
+test('checkin search finds every room in a booking by plain and hash-prefixed booking number', () => {
+  const source = fs.readFileSync(path.join(root, 'src/app/admin/checkin/page.tsx'), 'utf8');
+  const handler = source.slice(source.indexOf('  const matchesSearch ='), source.indexOf('  const arrivals ='));
+  const js = ts.transpileModule(`${handler}\nreturn matchesSearch;`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
+  const lines = ['W2', 'W10'].map(room_number => ({ room_booking_id: 112, user_name: 'TEST Chapter44', room_number, room_name: 'Standard' }));
+  for (const search of ['112', '#112', ' TEST ', 'w2', 'not-a-booking']) {
+    const match = new Function('search', js)(search);
+    assert.equal(lines.filter(match).length, search === 'w2' ? 1 : search === 'not-a-booking' ? 0 : 2, search);
+  }
+});
+
+test('calendar event retains all physical rooms, group total and guests returned by the booking API', () => {
+  const source = fs.readFileSync(path.join(root, 'src/app/admin/calendar/page.tsx'), 'utf8');
+  const handler = source.slice(source.indexOf('  const events = useMemo'), source.indexOf('  // แมปข้อมูลประจำวัน'));
+  const js = ts.transpileModule(`${handler}\nreturn events;`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
+  const booking = { id: 112, status: 'approved', check_in: '2026-10-09', check_out: '2026-10-10', guests: 4, adults: 3, children: 1, total_price: '9000', rooms: [{ room_number: 'W2', room_name: 'Standard' }, { room_number: 'W10', room_name: 'Deluxe' }] };
+  const events = new Function('useMemo', 'roomBookings', 'kayakBookings', 'filterType', 'parseLocalDate', 'formatDateToYYYYMMDD', js)(fn => fn(), [booking], [], 'rooms', d => new Date(d), d => d.toISOString().slice(0, 10));
+  assert.equal(events.length, 1);
+  assert.equal(events[0].raw.guest_count, 4);
+  assert.equal(events[0].raw.total_price, '9000');
+  assert.match(events[0].raw.room_title, /Standard \(ห้อง W2\).*Deluxe \(ห้อง W10\)/);
+});
+
 test('cart capacity uses the configured free-child boundary and counts missing ages conservatively', () => {
   const { cartOccupyingGuestTotal } = load('src/lib/room-cart.ts');
   const state = { adults: 2, children: 2, child_ages: [2, 6], items: [] };
