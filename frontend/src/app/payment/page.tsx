@@ -211,6 +211,21 @@ function PaymentContent() {
     </div>
   );
 
+  // A cancelled booking may retain pending/paid payment metadata and a slip.
+  // The booking lifecycle must take precedence over those payment fields.
+  if (bookingStatus === 'cancelled') {
+    return (
+      <div className="min-h-screen bg-cream-100 pt-20 flex items-center justify-center px-4 pb-10">
+        <div className={`${CARD} max-w-md w-full text-center`}>
+          <XCircle size={48} className="mx-auto mb-4 text-charcoal-400" />
+          <h1 className="text-xl font-semibold text-forest-900">การจองถูกยกเลิกแล้ว</h1>
+          <p className="mt-3 text-sm leading-relaxed text-charcoal-500">รายการ #{payment?.booking_id ?? booking_id} ถูกยกเลิกแล้ว ไม่สามารถชำระเงินหรือส่งสลิปสำหรับรายการนี้ได้</p>
+          <Link href="/dashboard" className="btn-primary mt-6 block text-center">ดูการจองของฉัน</Link>
+        </div>
+      </div>
+    );
+  }
+
   if (done) {
     const isRejected = bookingStatus === 'rejected';
     const isApproved = bookingStatus === 'approved' || bookingStatus === 'checked_out';

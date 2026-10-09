@@ -46,6 +46,30 @@ function load(relative, states = [], overrides = {}) {
 
 const kayak = { boat_booking_id: 21, is_addon: true, room_booking_id: 9, kayak_name: 'เรือเสริม', status: 'pending', created_at: new Date().toISOString(), booking_date: '2026-11-02', total_price: 250 };
 
+test('cancelled bookings never display payment instructions despite stale payment status or an old slip', () => {
+  for (const kind of ['room', 'kayak']) {
+    for (const hasSlip of [false, true]) {
+      const payment = { id: `${kind}_58`, booking_type: kind, booking_id: 58, amount: 15, status: hasSlip ? 'paid' : 'pending', booking_status: 'cancelled', qr_code_url: 'QR_TEST' };
+      const Page = load('src/app/payment/page.tsx', [payment, null, false, null, '', false, hasSlip, 'cancelled', null, false, false, 1, '']).default;
+      const html = renderToStaticMarkup(React.createElement(Page));
+      assert(html.includes('การจองถูกยกเลิกแล้ว'));
+      assert(html.includes('/dashboard'));
+      assert(!html.includes('QR_TEST'));
+      assert(!html.includes('ยืนยันการชำระเงิน'));
+      assert(!html.includes('ส่งสลิปสำเร็จแล้ว'));
+    }
+  }
+});
+
+test('a pending standalone booking still offers its QR and slip step', () => {
+  const payment = { id: 'kayak_58', booking_type: 'kayak', booking_id: 58, amount: 15, status: 'pending', booking_status: 'pending', qr_code_url: 'QR_TEST' };
+  const Page = load('src/app/payment/page.tsx', [payment, null, false, null, '', false, false, 'pending', null, false, false, 1, '']).default;
+  const html = renderToStaticMarkup(React.createElement(Page));
+  assert(html.includes('QR_TEST'));
+  assert(html.includes('ถัดไป'));
+  assert(!html.includes('การจองถูกยกเลิกแล้ว'));
+});
+
 test('coupon booking links prefill the shared promotion field using promo_code', () => {
   const Component = load('src/components/booking/PromoCodeFields.tsx', [], {
     'next/navigation': { useSearchParams: () => new URLSearchParams('promo_code=TESTBOAT'), useRouter: () => ({}) },
