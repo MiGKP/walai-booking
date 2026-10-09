@@ -186,11 +186,18 @@ export default function RoomDetailPage(): React.ReactElement {
   const [calendarLoading, setCalendarLoading] = useState(true);
 
   const galleryScrollRef = useRef<HTMLDivElement>(null);
+  const promoScrollRef = useRef<HTMLDivElement>(null);
   const [activeImage, setActiveImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [expandedPromoId, setExpandedPromoId] = useState<number | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [avgRating, setAvgRating] = useState<number | null>(null);
+
+  const scrollPromos = (direction: 'left' | 'right') => {
+    if (!promoScrollRef.current) return;
+    const amount = 320;
+    promoScrollRef.current.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+  };
 
   const nights = nightsBetween(range.start, range.end);
   const { user } = useAuth();
@@ -776,59 +783,107 @@ export default function RoomDetailPage(): React.ReactElement {
             {/* Special Offers (Advertisement) */}
             {room.available_promotions && room.available_promotions.length > 0 && (
               <div id="promotions" className="mt-4 scroll-mt-40 rounded-2xl bg-stone-50/50 border border-stone-100 p-4">
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <Tag size={14} className="text-forest-600" />
-                  <h4 className="text-xs font-bold text-stone-600 uppercase tracking-wide">มีโปรโมชั่นพิเศษสำหรับห้องนี้</h4>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="grid h-6 w-6 place-items-center rounded-md bg-forest-100/60 text-forest-700">
+                      <Tag size={13} />
+                    </div>
+                    <h4 className="text-xs font-bold text-stone-700 uppercase tracking-wide">มีโปรโมชั่นพิเศษสำหรับห้องนี้</h4>
+                    <span className="rounded-full bg-forest-50 px-2 py-0.5 text-[11px] font-bold text-forest-700 border border-forest-200/50">
+                      {room.available_promotions.length}
+                    </span>
+                  </div>
+
+                  {/* Left / Right Scroll Buttons */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => scrollPromos('left')}
+                      aria-label="เลื่อนโปรโมชั่นไปทางซ้าย"
+                      className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-stone-600 shadow-2xs transition-colors hover:border-forest-300 hover:bg-forest-50 hover:text-forest-800 active:scale-95"
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollPromos('right')}
+                      aria-label="เลื่อนโปรโมชั่นไปทางขวา"
+                      className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 bg-white text-stone-600 shadow-2xs transition-colors hover:border-forest-300 hover:bg-forest-50 hover:text-forest-800 active:scale-95"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
+
+                {/* Horizontal Scroll Container */}
+                <div
+                  ref={promoScrollRef}
+                  className="flex items-start gap-3 overflow-x-auto scroll-smooth pb-2 pt-1 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
                   {room.available_promotions.map((promo) => {
                     const discountText = roomPromotionLabel(promo);
                     const isExpanded = expandedPromoId === promo.id;
                     
                     return (
-                      <div key={promo.id} className="min-w-0 bg-white rounded-lg border border-stone-100 shadow-sm">
+                      <div
+                        key={promo.id}
+                        className="w-[280px] sm:w-[320px] shrink-0 snap-start bg-white rounded-xl border border-stone-200/90 shadow-2xs hover:border-forest-200 hover:shadow-xs transition-all flex flex-col"
+                      >
                         <button
                           type="button"
                           aria-expanded={isExpanded}
                           aria-controls={`room-promo-${promo.id}`}
-                          className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left hover:bg-stone-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest-700"
+                          className="flex w-full items-start justify-between gap-3 p-3.5 text-left hover:bg-stone-50/50 rounded-xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-forest-700"
                           onClick={() => setExpandedPromoId(isExpanded ? null : promo.id)}
                         >
-                          <div className="min-w-0 space-y-1 break-words">
-                            <span className="block text-sm font-bold text-forest-800">{promo.name}</span>
-                            <span className="block text-xs leading-relaxed text-forest-600">{discountText}</span>
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <span className="block text-sm font-bold text-forest-900 truncate" title={promo.name}>
+                              {promo.name}
+                            </span>
+                            <span className="inline-block text-xs font-semibold text-bamboo-800 bg-bamboo-50 px-2 py-0.5 rounded border border-bamboo-200/60">
+                              {discountText}
+                            </span>
                           </div>
-                          <span className="mt-0.5 flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-forest-600">
+                          <span className="mt-0.5 flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-forest-700">
                             รายละเอียด <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                           </span>
                         </button>
 
-                        {isExpanded && <div id={`room-promo-${promo.id}`} className="border-t border-stone-100">
-                          <div className="p-3 bg-stone-50/30 text-[11px] text-stone-500">
-                            <p className="mb-1.5 text-stone-600 font-medium whitespace-normal">{promo.description || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
-                            <ul className="space-y-1">
-                              <li>โค้ด: <strong>{promo.code}</strong></li>
-                              {Number(promo.min_nights) > 0 && (
-                                <li className="flex gap-2"><span className="text-stone-300">•</span> ขั้นต่ำ {promo.min_nights} คืน</li>
-                              )}
-                              {promo.discount_type === 'percent' && promo.max_discount && (
-                                <li className="flex gap-2"><span className="text-stone-300">•</span> ลดสูงสุด ฿{Number(promo.max_discount).toLocaleString()}</li>
-                              )}
-                              {Number(promo.room_count) > 1 && <li>ต้องจองอย่างน้อย {promo.room_count} ห้องประเภทนี้</li>}
-                              {Number(promo.min_price) > 0 && <li>ยอดค่าห้องขั้นต่ำ ฿{Number(promo.min_price).toLocaleString()}</li>}
-                              {promo.is_collectible && <li>ต้องเก็บคูปองที่ <Link href="/promotions" className="underline text-forest-700">หน้าโปรโมชั่น</Link> ก่อนใช้ และมีสิทธิ์คงเหลือ</li>}
-                              {Number(promo.boat_ticket_count) > 0 && <li>1 สิทธิ์ = เรือ 1 ลำ 1 รอบ ใช้ได้เฉพาะวันระหว่างเช็คอินและเช็คเอาต์ การพัก 1 คืนไม่มีวันใช้สิทธิ์</li>}
-
-                            </ul>
+                        {isExpanded && (
+                          <div id={`room-promo-${promo.id}`} className="border-t border-stone-100">
+                            <div className="p-3 bg-stone-50/50 text-[11px] text-stone-600 rounded-b-xl">
+                              <p className="mb-2 text-stone-700 font-medium whitespace-normal leading-relaxed">
+                                {promo.description || 'ไม่มีรายละเอียดเพิ่มเติม'}
+                              </p>
+                              <ul className="space-y-1 text-stone-500">
+                                <li className="flex items-center gap-1.5">
+                                  <span className="text-stone-400 font-medium">โค้ด:</span>
+                                  <span className="font-bold text-forest-800 bg-white px-1.5 py-0.5 rounded border border-stone-200">
+                                    {promo.code}
+                                  </span>
+                                </li>
+                                {Number(promo.min_nights) > 0 && (
+                                  <li className="flex gap-1.5"><span className="text-stone-300">•</span> ขั้นต่ำ {promo.min_nights} คืน</li>
+                                )}
+                                {promo.discount_type === 'percent' && promo.max_discount && (
+                                  <li className="flex gap-1.5"><span className="text-stone-300">•</span> ลดสูงสุด ฿{Number(promo.max_discount).toLocaleString()}</li>
+                                )}
+                                {Number(promo.room_count) > 1 && <li className="flex gap-1.5"><span className="text-stone-300">•</span> ต้องจองอย่างน้อย {promo.room_count} ห้องประเภทนี้</li>}
+                                {Number(promo.min_price) > 0 && <li className="flex gap-1.5"><span className="text-stone-300">•</span> ยอดค่าห้องขั้นต่ำ ฿{Number(promo.min_price).toLocaleString()}</li>}
+                                {promo.is_collectible && <li className="flex gap-1.5"><span className="text-stone-300">•</span> ต้องเก็บคูปองที่ <Link href="/promotions" className="underline text-forest-700 font-semibold">หน้าโปรโมชั่น</Link> ก่อนใช้</li>}
+                                {Number(promo.boat_ticket_count) > 0 && <li className="flex gap-1.5"><span className="text-stone-300">•</span> 1 สิทธิ์ = เรือ 1 ลำ 1 รอบ ใช้ได้เฉพาะวันระหว่างเช็คอินและเช็คเอาต์</li>}
+                              </ul>
+                            </div>
                           </div>
-                        </div>}
+                        )}
                       </div>
                     );
                   })}
                 </div>
-                <p className="mt-2 text-[10px] text-stone-400 font-medium">
-                  * รายการนี้แสดงโปรโมชั่นของห้อง โปรที่ใช้ได้ขึ้นอยู่กับจำนวนห้อง จำนวนคืน ยอดจอง และคูปองของคุณ หน้าสรุปจะแสดงเหตุผลและเลือกส่วนลดสูงสุดที่ใช้ได้ให้
-                </p>
+                <div className="mt-2 flex items-center justify-between text-[10px] text-stone-400 font-medium">
+                  <span>* รายการนี้แสดงโปรโมชั่นของห้อง หน้าสรุปจะแสดงเหตุผลและเลือกส่วนลดสูงสุดที่ใช้ได้ให้</span>
+                  <span className="hidden sm:inline text-stone-400">เลื่อนซ้าย-ขวาเพื่อดูทั้งหมด</span>
+                </div>
               </div>
             )}
 

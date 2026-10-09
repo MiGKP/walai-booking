@@ -511,7 +511,7 @@ function RoomsPageContent(): React.ReactElement {
         </div>
       </header>
 
-      <div id="rooms-list" className="container mx-auto px-4 lg:py-2">
+      <div id="rooms-list" className="container mx-auto max-w-7xl px-4 lg:py-2">
         <div className="flex flex-col gap-8 lg:flex-row">
           <section className="min-w-0 flex-1">
             <PromoNotice notice={promoNotice} />
@@ -550,14 +550,13 @@ function RoomsPageContent(): React.ReactElement {
                   const finalPrice = unitPrice - discount;
 
                   return (
-                    <article key={room.id} style={{ animationDelay: `${idx * 100}ms` }} className={`animate-reveal-up group relative grid grid-cols-1 overflow-hidden rounded-2xl border bg-white transition-all duration-300 sm:grid-cols-[180px_minmax(0,1fr)] ${isAvailable ? "border-stone-200/80 hover:border-forest-300 hover:shadow-md" : "border-stone-100 bg-stone-50/50 opacity-60"}`}>
-                      <div className="relative h-48 w-full overflow-hidden sm:row-span-2 sm:h-full">
-                        {room.main_image ? <Image src={resolveMediaUrl(room.main_image)} alt={room.room_name} fill sizes="(max-width: 1024px) 100vw, 320px" className="object-cover transition-transform duration-1000 group-hover:scale-105" priority={idx < 2} /> : <div className="h-full w-full bg-stone-50" />}
+                    <article key={room.id} style={{ animationDelay: `${idx * 100}ms` }} className={`animate-reveal-up group relative flex flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 md:flex-row ${isAvailable ? "border-stone-200/80 hover:border-forest-300 hover:shadow-md" : "border-stone-100 bg-stone-50/50 opacity-60"}`}>
+                      <div className="relative h-52 w-full shrink-0 overflow-hidden sm:h-56 md:h-auto md:w-64 lg:w-72 xl:w-80">
+                        {room.main_image ? <Image src={resolveMediaUrl(room.main_image)} alt={room.room_name} fill sizes="(max-width: 768px) 100vw, 320px" className="object-cover transition-transform duration-1000 group-hover:scale-105" priority={idx < 2} /> : <div className="h-full w-full bg-stone-50" />}
                       </div>
-                      <div className="min-w-0 border-b border-stone-100 p-5 sm:col-start-2">
+                      <div className="flex min-w-0 flex-1 flex-col justify-between p-5 lg:p-6">
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
-                            
                             <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${isAvailable ? "bg-forest-50 text-forest-700" : "bg-stone-200 text-stone-600"}`}>
                               {isAvailable ? `ว่าง ${availableCount} ห้อง` : !isCapacityEnough ? "ความจุไม่พอ" : "เต็ม"}
                             </span>
@@ -578,8 +577,8 @@ function RoomsPageContent(): React.ReactElement {
                           </Link>
                         )}
                       </div>
-                      <div className="min-w-0 flex flex-col justify-between bg-stone-50/40 p-5 sm:col-start-2">
-                        <div className="mb-4 flex flex-col items-start gap-1.5 lg:items-end">
+                      <div className="flex w-full shrink-0 flex-col justify-between border-t border-stone-100 bg-stone-50/40 p-5 md:w-64 md:border-l md:border-t-0 lg:w-72 lg:p-6">
+                        <div className="mb-4 flex flex-col items-start gap-1.5 md:items-end">
                           {isAvailable && searchedRange && availableCount <= 2 && (
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-700 shadow-sm whitespace-nowrap">
                               <span className="flex h-1.5 w-1.5 animate-pulse rounded-full bg-orange-500" />
@@ -592,12 +591,12 @@ function RoomsPageContent(): React.ReactElement {
                             </span>
                           )}
                         </div>
-                        <div className="mb-6 flex flex-col items-start gap-1 lg:items-end">
+                        <div className="mb-6 flex flex-col items-start gap-1 md:items-end">
                           <span className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ราคาต่อคืน</span>
-                          {potentialDiscount > 0 ? <div className="flex w-full flex-col items-start lg:items-end"><div className="flex items-baseline gap-1.5"><span className="text-[13px] font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{(unitPrice - potentialDiscount).toLocaleString()}</span></div><span className="mt-1 rounded bg-bamboo-50 border border-bamboo-200 px-2 py-0.5 text-[11px] font-bold text-bamboo-700 shadow-sm">ประหยัด ฿{potentialDiscount.toLocaleString()} เมื่อใช้โปรโมชั่น · เฉลี่ยต่อคืน</span></div> : <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
+                          {potentialDiscount > 0 ? <div className="flex w-full flex-col items-start md:items-end"><div className="flex items-baseline gap-1.5"><span className="text-[13px] font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{(unitPrice - potentialDiscount).toLocaleString()}</span></div><span className="mt-1 rounded bg-bamboo-50 border border-bamboo-200 px-2 py-0.5 text-[11px] font-bold text-bamboo-700 shadow-sm text-left md:text-right">ประหยัด ฿{potentialDiscount.toLocaleString()} เมื่อใช้โปรโมชั่น · เฉลี่ยต่อคืน</span></div> : <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
                         </div>
-                        <div className="flex flex-col mt-auto w-full lg:w-full">
-                          <Link href={`/rooms/${room.id}?${searchParams.toString()}`} className="w-full rounded-xl bg-bamboo-600 py-3.5 text-center text-[14px] font-bold text-white shadow-md transition-all hover:bg-bamboo-700 hover:shadow-lg active:scale-[0.98]">
+                        <div className="mt-auto w-full">
+                          <Link href={`/rooms/${room.id}?${searchParams.toString()}`} className="block w-full rounded-xl bg-bamboo-600 py-3.5 text-center text-[14px] font-bold text-white shadow-md transition-all hover:bg-bamboo-700 hover:shadow-lg active:scale-[0.98]">
                             เช็คห้องว่าง
                           </Link>
                         </div>
@@ -612,13 +611,13 @@ function RoomsPageContent(): React.ReactElement {
           {/* Booking Summary: Desktop Sidebar & Mobile Sticky Bar */}
           {cart && cart.items && cart.items.length > 0 && (
             <>
-              <aside className="hidden lg:block lg:w-[320px] xl:w-[360px] shrink-0">
+              <aside className="hidden xl:block xl:w-[360px] shrink-0">
                 <div className="sticky top-[160px]">
                   <BookingSummaryCard />
                 </div>
               </aside>
               {/* Mobile sticky bar only: hide desktop card on mobile, show mobile bar */}
-              <div className="lg:hidden [&>div:first-child]:hidden">
+              <div className="xl:hidden [&>div:first-child]:hidden">
                 <BookingSummaryCard />
               </div>
             </>
