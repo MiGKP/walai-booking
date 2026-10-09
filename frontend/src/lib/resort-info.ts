@@ -16,6 +16,8 @@ export interface ResortInfoRecord {
   bank_account_no?: string;
   bank_account_name?: string;
   promptpay_id?: string;
+  boat_advance_booking_minutes?: number | null;
+  boat_checkin_advance_minutes?: number | null;
   [key: string]: unknown;
 }
 

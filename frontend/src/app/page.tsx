@@ -16,6 +16,7 @@ import {
   parseLatLng,
 } from '@/lib/coordinates';
 import Navbar from '@/components/layout/Navbar';
+import { pickResortInfo } from '@/lib/resort-info';
 interface ResortInfo {
   name?: string;
   address?: string;
@@ -663,7 +664,7 @@ export default function HomePage() {
         ]);
 
       if (resortRes.status === "fulfilled")
-        setResortInfo(resortRes.value.data?.data || {});
+        setResortInfo(pickResortInfo(resortRes.value.data?.data, 'main'));
       if (roomsRes.status === "fulfilled")
         setRoomTypes(roomsRes.value.data?.data || []);
       setLoadingRooms(false);

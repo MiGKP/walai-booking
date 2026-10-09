@@ -332,6 +332,7 @@ function KayaksPageContent(): React.ReactElement {
   // ดึงเวลาทำการเรือจาก boat_operating_hours (public API)
   const [boatHours, setBoatHours] = useState<DayHour[]>([]);
   const [boatTerms, setBoatTerms] = useState<string>('');
+  const [boatCheckinMinutes, setBoatCheckinMinutes] = useState<number>(15);
 
   useEffect(() => {
     api.get('/settings/boat-hours').then(res => {
@@ -342,6 +343,9 @@ function KayaksPageContent(): React.ReactElement {
     api.get('/settings/resort?id=5').then(res => {
       if (res.data?.data?.additional_terms) {
         setBoatTerms(res.data.data.additional_terms);
+      }
+      if (res.data?.data?.boat_checkin_advance_minutes != null) {
+        setBoatCheckinMinutes(Number(res.data.data.boat_checkin_advance_minutes));
       }
     }).catch(() => {});
   }, []);
@@ -681,6 +685,9 @@ function KayaksPageContent(): React.ReactElement {
                   <div className="rounded-xl bg-forest-50/50 p-4 text-sm text-forest-900/80 border border-forest-100">
                     <ul className="list-disc pl-5 space-y-1">
                       <li>ต้องจองล่วงหน้าอย่างน้อย {boatHours[0] ? ((boatHours[0].advance_booking_minutes ?? 60) % 60 === 0 ? `${(boatHours[0].advance_booking_minutes ?? 60) / 60} ชั่วโมง` : `${boatHours[0].advance_booking_minutes ?? 60} นาที`) : '1 ชั่วโมง'}</li>
+                      {boatCheckinMinutes > 0 && (
+                        <li>ต้องเช็คอิน / รายงานตัวที่ท่าเรือก่อนรอบเวลาอย่างน้อย {boatCheckinMinutes % 60 === 0 ? `${boatCheckinMinutes / 60} ชั่วโมง` : boatCheckinMinutes >= 60 ? `${Math.floor(boatCheckinMinutes / 60)} ชม. ${boatCheckinMinutes % 60} นาที` : `${boatCheckinMinutes} นาที`}</li>
+                      )}
                       {boatTerms && (
                         <li className="whitespace-pre-wrap">{boatTerms}</li>
                       )}
