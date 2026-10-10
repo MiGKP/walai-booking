@@ -62,8 +62,9 @@ export function useAuthGuard(options: GuardOptions = {}) {
 
     if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
       if (user.role === 'customer') router.replace('/dashboard');
-      else if (user.role === 'room_staff') router.replace('/staff/rooms/dashboard');
-      else if (user.role === 'boat_staff') router.replace('/staff/boats/dashboard');
+      else if (user.role === 'admin') router.replace('/admin/profile');
+      else if (user.role === 'room_staff') router.replace('/staff/rooms/profile');
+      else if (user.role === 'boat_staff') router.replace('/staff/boats/profile');
       else router.replace('/');
       return;
     }
