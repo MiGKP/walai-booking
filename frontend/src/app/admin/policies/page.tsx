@@ -43,6 +43,8 @@ export default function PoliciesSettingsPage() {
     // นโยบายเรือ
     boat_terms: "",
     boat_checkin_advance_minutes: 15,
+    room_max_advance_days: "365",
+    boat_max_advance_days: "60",
   });
 
   const [loading, setLoading] = useState(true);
@@ -74,6 +76,8 @@ export default function PoliciesSettingsPage() {
         parking_info: (roomInfo?.parking_info as string) || "",
         boat_terms: (boatInfo?.additional_terms as string) || "",
         boat_checkin_advance_minutes: Number(boatInfo?.boat_checkin_advance_minutes ?? 15),
+        room_max_advance_days: String(roomInfo?.room_max_advance_days ?? 365),
+        boat_max_advance_days: String(boatInfo?.boat_max_advance_days ?? 60),
       });
     } catch (error) {
       console.error("Failed to load policies", error);
@@ -97,6 +101,17 @@ export default function PoliciesSettingsPage() {
       return;
     }
 
+    const roomDays = Number(form.room_max_advance_days);
+    if (!Number.isInteger(roomDays) || roomDays < 1 || roomDays > 730) {
+      notify.error("จองห้องพักล่วงหน้าต้องเป็นจำนวนเต็ม 1-730 วัน");
+      return;
+    }
+    const boatDays = Number(form.boat_max_advance_days);
+    if (!Number.isInteger(boatDays) || boatDays < 1 || boatDays > 365) {
+      notify.error("จองเรือล่วงหน้าต้องเป็นจำนวนเต็ม 1-365 วัน");
+      return;
+    }
+
     try {
       setSaving(true);
       const promises: Promise<unknown>[] = [
@@ -109,12 +124,14 @@ export default function PoliciesSettingsPage() {
           important_info: form.important_info,
           kids_policy: form.kids_policy,
           parking_info: form.parking_info,
+          room_max_advance_days: roomDays,
         }),
         // บันทึกข้อกำหนดและกฎความปลอดภัยเรือ + เวลาเช็คอินก่อนรอบเรือ (id: 5)
         api.put("/settings/resort", {
           id: 5,
           additional_terms: form.boat_terms,
           boat_checkin_advance_minutes: Number(form.boat_checkin_advance_minutes) || 0,
+          boat_max_advance_days: boatDays,
         }),
       ];
 
@@ -360,6 +377,37 @@ export default function PoliciesSettingsPage() {
             />
           </div>
 
+          {/* จองห้องพักล่วงหน้าได้สูงสุด */}
+          <div className="space-y-4 pt-4 border-t border-cream-200/80">
+            <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
+              <Clock size={16} className="text-forest-700" />
+              <h3>จองห้องพักล่วงหน้าได้สูงสุด</h3>
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <input
+                  id="room-max-advance-days"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={730}
+                  step={1}
+                  value={form.room_max_advance_days}
+                  onChange={(e) =>
+                    setForm({ ...form, room_max_advance_days: e.target.value })
+                  }
+                  className="w-24 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                />
+                <label htmlFor="room-max-advance-days" className="text-xs sm:text-sm font-semibold text-charcoal-700">
+                  วันนับจากวันนี้
+                </label>
+              </div>
+              <p className="mt-1.5 text-xs text-charcoal-400">
+                ลูกค้าเลือกวันเช็คอินเกินกำหนดนี้ไม่ได้ (1-730 วัน, ค่าเริ่มต้น 365 วัน = 1 ปี)
+              </p>
+            </div>
+          </div>
+
           {/* Parking Info */}
           <div className="space-y-4 pt-4 border-t border-cream-200/80">
             <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
@@ -415,6 +463,37 @@ export default function PoliciesSettingsPage() {
               />
               <p className="mt-2.5 text-xs text-charcoal-400">
                 ข้อความนี้จะแสดงให้ลูกค้าเห็นในหน้ารายละเอียดการจองเรือ และขั้นตอนก่อนยืนยันลงเรือ
+              </p>
+            </div>
+          </div>
+
+          {/* จองเรือล่วงหน้าได้สูงสุด */}
+          <div className="space-y-4 pt-4 border-t border-cream-200/80">
+            <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
+              <Clock size={16} className="text-forest-700" />
+              <h3>จองเรือล่วงหน้าได้สูงสุด</h3>
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <input
+                  id="boat-max-advance-days"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={365}
+                  step={1}
+                  value={form.boat_max_advance_days}
+                  onChange={(e) =>
+                    setForm({ ...form, boat_max_advance_days: e.target.value })
+                  }
+                  className="w-24 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                />
+                <label htmlFor="boat-max-advance-days" className="text-xs sm:text-sm font-semibold text-charcoal-700">
+                  วันนับจากวันนี้
+                </label>
+              </div>
+              <p className="mt-1.5 text-xs text-charcoal-400">
+                ลูกค้าเลือกวันที่เกินกำหนดนี้ไม่ได้ (1-365 วัน, ค่าเริ่มต้น 60 วัน ≈ 2 เดือน)
               </p>
             </div>
           </div>
