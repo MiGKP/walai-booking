@@ -488,7 +488,7 @@ function SingleRoomsPageContent() {
             </span>
           </span>
 
-          {editingRoomId && (
+          {editingRoomId ? (
             <button
               type="button"
               onClick={handleResetForm}
@@ -496,6 +496,18 @@ function SingleRoomsPageContent() {
             >
               ยกเลิกการแก้ไข
             </button>
+          ) : (
+            (roomTypeIdInput || currentPrefix || draftRooms.length > 0) && (
+              <button
+                type="button"
+                onClick={handleResetForm}
+                className="text-xs font-bold text-charcoal-500 hover:text-rose-600 hover:bg-rose-50 px-2.5 py-1 rounded-xl border border-cream-300 hover:border-rose-200 transition-all flex items-center gap-1 cursor-pointer"
+                title="ล้างค่าทั้งหมดที่กรอกไว้ในส่วนนี้"
+              >
+                <RotateCcw size={12} />
+                <span>ล้างการเลือกทั้งหมด</span>
+              </button>
+            )
           )}
         </div>
 
@@ -530,10 +542,23 @@ function SingleRoomsPageContent() {
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
           <div className={editingRoomId ? "md:col-span-4" : "md:col-span-3"}>
-            <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
-              {editingRoomId ? "ประเภทห้องพัก" : "ประเภทห้องหลัก (Default)"}{" "}
-              <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-charcoal-700">
+                {editingRoomId ? "ประเภทห้องพัก" : "ประเภทห้องหลัก (Default)"}{" "}
+                <span className="text-rose-500">*</span>
+              </label>
+              {roomTypeIdInput && (
+                <button
+                  type="button"
+                  onClick={handleResetForm}
+                  className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-0.5 cursor-pointer"
+                  title="ล้างค่าที่เลือกและรีเซ็ตฟอร์ม"
+                >
+                  <RotateCcw size={11} />
+                  <span>ล้างการเลือก</span>
+                </button>
+              )}
+            </div>
             <CustomSelect
               options={roomTypeFormOptions}
               value={roomTypeIdInput}
@@ -703,14 +728,26 @@ function SingleRoomsPageContent() {
 
           <div className={!editingRoomId ? "md:col-span-3 flex items-center gap-2" : "md:col-span-2 flex items-center gap-2"}>
             {!editingRoomId ? (
-              <button
-                type="button"
-                onClick={handleGenerateDrafts}
-                className="w-full py-2.5 px-3.5 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-              >
-                <LayoutGrid size={14} />
-                <span>สร้างผังตัวอย่าง</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleGenerateDrafts}
+                  className="flex-1 py-2.5 px-3.5 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                >
+                  <LayoutGrid size={14} />
+                  <span>สร้างผังตัวอย่าง</span>
+                </button>
+                {(roomTypeIdInput || currentPrefix || draftRooms.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={handleResetForm}
+                    className="p-2.5 bg-cream-100 hover:bg-cream-200 text-charcoal-600 hover:text-rose-600 border border-cream-300 rounded-2xl transition-all cursor-pointer"
+                    title="ล้างข้อมูลที่เลือกทั้งหมด"
+                  >
+                    <RotateCcw size={15} />
+                  </button>
+                )}
+              </>
             ) : (
               <button
                 type="submit"
@@ -818,7 +855,7 @@ function SingleRoomsPageContent() {
 
             {/* Room Type Dropdown */}
             {roomTypes.length > 0 && (
-              <div className="flex items-center gap-2 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
+              <div className="flex items-center gap-1.5 bg-cream-50/80 pl-3 pr-1.5 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
                 <span className="font-medium text-charcoal-500 whitespace-nowrap">ประเภท:</span>
                 <CustomSelect
                   options={typeFilterOptions}
@@ -826,6 +863,16 @@ function SingleRoomsPageContent() {
                   onChange={(val) => setTypeFilter(String(val))}
                   width="w-36 sm:w-44"
                 />
+                {typeFilter !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => setTypeFilter("all")}
+                    className="p-1 text-charcoal-400 hover:text-rose-600 hover:bg-cream-200/60 rounded-lg transition-colors cursor-pointer"
+                    title="ล้างตัวกรองประเภทห้อง"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Pencil, Save, X, Bed, Anchor, Clock, Calendar, CreditCard, Check } from 'lucide-react';
+import { Pencil, Save, X, Bed, Anchor, Clock, Calendar, CreditCard } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { notify } from '@/lib/admin-notify';
-import { Modal } from '@/components/admin/ui';
 
 export interface CancellationPolicy {
   full_refund_hours: number;
@@ -83,7 +82,6 @@ export default function CancellationPolicyCard({
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -152,7 +150,7 @@ export default function CancellationPolicyCard({
       setPolicy(updated);
       setForm(toForm(updated));
       setEditing(false);
-      setIsSuccessOpen(true);
+      notify.success('บันทึกนโยบายการคืนเงินสำเร็จ');
     } catch (err: unknown) {
       notify.error(getApiErrorMessage(err, 'บันทึกนโยบายการคืนเงินไม่สำเร็จ'));
     } finally {
@@ -414,31 +412,6 @@ export default function CancellationPolicyCard({
           )}
         </div>
       ) : null}
-
-      {/* ========================================================= */}
-      {/* POPUP แจ้งเตือนบันทึกสำเร็จ (เหมือนหน้า /admin/site-info) */}
-      {/* ========================================================= */}
-      <Modal
-        open={isSuccessOpen}
-        onClose={() => setIsSuccessOpen(false)}
-        widthClass="max-w-sm"
-      >
-        <div className="text-center space-y-4 py-2">
-          <div className="w-12 h-12 bg-forest-50 text-forest-800 border border-forest-200 rounded-2xl flex items-center justify-center mx-auto shadow-2xs">
-            <Check size={26} className="stroke-[2.5]" />
-          </div>
-          <h3 className="text-base font-bold text-forest-900">
-            บันทึกข้อมูลสำเร็จ!
-          </h3>
-          <button
-            type="button"
-            onClick={() => setIsSuccessOpen(false)}
-            className="w-full py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-98"
-          >
-            ตกลง
-          </button>
-        </div>
-      </Modal>
     </section>
   );
 }

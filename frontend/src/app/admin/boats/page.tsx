@@ -1249,11 +1249,38 @@ function BoatStaffDashboardContent() {
                 </div>
               )}
 
-              <div className="p-3.5 bg-cream-50/80 rounded-2xl border border-cream-200/90 flex items-center justify-between print:bg-white print:border-cream-300">
-                <span className="font-semibold text-charcoal-700">สถานะรายการ:</span>
-                {booking.is_addon && ['pending', 'paid'].includes(booking.status) ? (
-                  <p className="text-sm text-bamboo-800">รอเจ้าหน้าที่ห้องพักอนุมัติห้อง #{booking.room_booking_id} เรือจะอนุมัติอัตโนมัติ ไม่ต้องชำระหรืออนุมัติแยก</p>
-                ) : <BookingStatusBadge status={booking.status} />}
+              <div className="p-3.5 bg-cream-50/80 rounded-2xl border border-cream-200/90 space-y-2 print:bg-white print:border-cream-300">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-charcoal-700">สถานะรายการ:</span>
+                  {booking.is_addon && ['pending', 'paid'].includes(booking.status) ? (
+                    <p className="text-sm text-bamboo-800">รอเจ้าหน้าที่ห้องพักอนุมัติห้อง #{booking.room_booking_id} เรือจะอนุมัติอัตโนมัติ ไม่ต้องชำระหรืออนุมัติแยก</p>
+                  ) : <BookingStatusBadge status={booking.status} />}
+                </div>
+                {booking.approved_by_name &&
+                  ["approved", "checked_out", "rejected"].includes(booking.status) && (
+                    <div className="text-xs text-charcoal-600 border-t border-cream-200/80 pt-1.5 flex items-center justify-between">
+                      <span>{booking.status === "rejected" ? "ปฏิเสธโดย:" : "อนุมัติโดย:"}</span>
+                      <span className="font-semibold text-forest-900">{booking.approved_by_name}</span>
+                    </div>
+                  )}
+                {booking.checkin_at && (
+                  <div className="text-xs text-charcoal-600 border-t border-cream-200/80 pt-1.5 flex items-center justify-between">
+                    <span>เช็คอินปล่อยเรือลงน้ำ:</span>
+                    <span className="font-medium text-teal-800">
+                      {new Date(booking.checkin_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
+                      {booking.checkin_by_name ? ` (โดย ${booking.checkin_by_name})` : ""}
+                    </span>
+                  </div>
+                )}
+                {booking.checkout_at && (
+                  <div className="text-xs text-charcoal-600 border-t border-cream-200/80 pt-1.5 flex items-center justify-between">
+                    <span>คืนเรือ (เช็คเอาต์):</span>
+                    <span className="font-medium text-charcoal-700">
+                      {new Date(booking.checkout_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
+                      {booking.checkout_by_name ? ` (โดย ${booking.checkout_by_name})` : ""}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {booking.status === "rejected" && (booking.reject_reason || booking.reason) && (

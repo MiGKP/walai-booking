@@ -57,6 +57,10 @@ interface RoomLine {
   status: string;
   checkin_at: string | null;
   checkout_at: string | null;
+  checkin_by_staff_id?: number | null;
+  checkin_by_name?: string | null;
+  checkout_by_staff_id?: number | null;
+  checkout_by_name?: string | null;
 }
 
 interface BoatAddon {
@@ -1531,6 +1535,17 @@ function AdminCheckinContent() {
                           <Users size={12} className="text-charcoal-400" />
                           <span>{formatGuestSummary(line)}</span>
                         </div>
+
+                        {/* Check-in Details */}
+                        {line.checkin_at && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-teal-800 pt-0.5">
+                            <LogIn size={11} className="text-teal-600 shrink-0" />
+                            <span>
+                              เช็คอินเวลา {new Date(line.checkin_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
+                              {line.checkin_by_name ? ` (โดย: ${line.checkin_by_name})` : ""}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Action CTA: Check-out Button */}

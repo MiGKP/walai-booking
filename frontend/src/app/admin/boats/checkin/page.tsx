@@ -46,6 +46,10 @@ interface BoatCheckinBooking {
   checkin_closes_at: string | null;
   checkin_unavailable_reason: string | null;
   checkout_at: string | null;
+  checkin_by_staff_id?: number | null;
+  checkin_by_name?: string | null;
+  checkout_by_staff_id?: number | null;
+  checkout_by_name?: string | null;
   is_addon: boolean;
   room_booking_id: number | null;
   booking_room_id: number | null;
@@ -529,25 +533,39 @@ function BoatCheckinContent(): React.ReactElement {
                             </div>
 
                             {/* Timestamp Details */}
-                            <div className="text-[11px] text-charcoal-400 flex flex-wrap items-center gap-3 pt-0.5">
+                            <div className="text-[11px] text-charcoal-500 flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
                               {b.checkin_at && (
-                                <span className="text-teal-700 font-medium">
-                                  ลงน้ำเวลา:{" "}
-                                  {new Date(b.checkin_at).toLocaleTimeString("th-TH", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}{" "}
-                                  น.
+                                <span className="text-teal-700 font-medium inline-flex items-center gap-1">
+                                  <span>ลงน้ำเวลา:</span>
+                                  <span className="font-semibold text-teal-800">
+                                    {new Date(b.checkin_at).toLocaleTimeString("th-TH", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}{" "}
+                                    น.
+                                  </span>
+                                  {b.checkin_by_name && (
+                                    <span className="text-charcoal-500 font-normal">
+                                      (โดย: <span className="font-medium text-charcoal-700">{b.checkin_by_name}</span>)
+                                    </span>
+                                  )}
                                 </span>
                               )}
                               {b.checkout_at && (
-                                <span>
-                                  คืนเรือเวลา:{" "}
-                                  {new Date(b.checkout_at).toLocaleTimeString("th-TH", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}{" "}
-                                  น.
+                                <span className="text-charcoal-600 font-medium inline-flex items-center gap-1">
+                                  <span>คืนเรือเวลา:</span>
+                                  <span className="font-semibold text-charcoal-800">
+                                    {new Date(b.checkout_at).toLocaleTimeString("th-TH", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}{" "}
+                                    น.
+                                  </span>
+                                  {b.checkout_by_name && (
+                                    <span className="text-charcoal-500 font-normal">
+                                      (โดย: <span className="font-medium text-charcoal-700">{b.checkout_by_name}</span>)
+                                    </span>
+                                  )}
                                 </span>
                               )}
                             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Plus,
   Edit2,
@@ -17,7 +17,7 @@ import {
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
-import { Modal, EmptyState } from "@/components/admin/ui";
+import { EmptyState } from "@/components/admin/ui";
 
 export interface Amenity {
   id: number;
@@ -35,10 +35,12 @@ export default function AmenitiesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
 
-  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingAmenityId, setEditingAmenityId] = useState<number | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [statusInput, setStatusInput] = useState(true);
+
+  const formRef = useRef<HTMLFormElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<Amenity | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
@@ -76,13 +78,17 @@ export default function AmenitiesPage() {
     setEditingAmenityId(item.id);
     setNameInput(item.name);
     setStatusInput(item.status);
-    setIsFormModalOpen(true);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => {
+      nameInputRef.current?.focus();
+    }, 150);
   };
 
   const handleSubmitForm = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!nameInput.trim()) {
       notify.error("กรุณากรอกชื่อสิ่งอำนวยความสะดวก");
+      nameInputRef.current?.focus();
       return;
     }
 
@@ -102,7 +108,6 @@ export default function AmenitiesPage() {
         notify.success("เพิ่มสิ่งอำนวยความสะดวกสำเร็จ");
       }
       handleResetForm();
-      setIsFormModalOpen(false);
       fetchAmenities();
     } catch (err: unknown) {
       notify.error(getApiErrorMessage(err, "ทำรายการไม่สำเร็จ"));
@@ -137,12 +142,25 @@ export default function AmenitiesPage() {
     try {
       await api.delete(`/rooms/amenity/${deleteTarget.id}`);
       notify.success("ลบสิ่งอำนวยความสะดวกเรียบร้อยแล้ว");
+      // หากกำลังแก้ไขตัวที่ถูกลบอยู่ ให้รีเซ็ตฟอร์มด้วย
+      if (editingAmenityId === deleteTarget.id) {
+        handleResetForm();
+      }
       setDeleteTarget(null);
       fetchAmenities();
     } catch (err: unknown) {
       notify.error(getApiErrorMessage(err, "ลบไม่สำเร็จ"));
     }
   };
+
+  const activeCount = useMemo(
+    () => amenities.filter((a) => a.status).length,
+    [amenities]
+  );
+  const inactiveCount = useMemo(
+    () => amenities.filter((a) => !a.status).length,
+    [amenities]
+  );
 
   const filteredAmenities = useMemo(() => {
     return amenities.filter((item) => {
@@ -168,49 +186,137 @@ export default function AmenitiesPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Header */}
-      <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-900/10">
-            <Sparkles size={24} className="stroke-[2.2]" />
-          </div>
-          <div>
-            <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 leading-tight">
-              จัดการสิ่งอำนวยความสะดวก
-            </h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            type="button"
-            onClick={() => {
-              handleResetForm();
-              setIsFormModalOpen(true);
-            }}
-            className="px-4 py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl font-bold text-xs shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-98"
-          >
-            <Plus size={16} />
-            เพิ่มสิ่งอำนวยความสะดวก
-          </button>
-
-          <div className="px-4 py-2.5 bg-cream-50/80 rounded-2xl border border-cream-300 shadow-2xs flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-forest-100 flex items-center justify-center text-forest-800">
-              <Sparkles size={18} />
+      {/* Top Header Card */}
+      <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 relative">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10 shrink-0">
+                <Sparkles size={20} className="stroke-[2.2]" />
+              </span>
+              <div>
+                <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 tracking-tight">
+                  จัดการสิ่งอำนวยความสะดวก
+                </h1>
+              </div>
             </div>
-            <div>
-              <span className="text-[11px] font-semibold text-charcoal-400 block leading-tight">
-                สิ่งอำนวยความสะดวกทั้งหมด
-              </span>
-              <span className="text-xs font-bold text-forest-900">
-                {amenities.length} รายการ
-              </span>
+          </div>
+
+          {/* Quick Info Badge */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="px-3.5 py-2 bg-cream-50/80 rounded-2xl border border-cream-300 shadow-2xs flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-forest-100 flex items-center justify-center text-forest-800">
+                <Sparkles size={16} />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-charcoal-400 block leading-tight">
+                  สิ่งอำนวยความสะดวกทั้งหมด
+                </span>
+                <span className="text-xs font-bold text-forest-900 font-mono">
+                  {amenities.length} รายการ
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Table & Filter Section (Fixed consistent height with min-h-[660px]) */}
+
+
+      {/* FORM: Card Form สำหรับเพิ่ม/แก้ไขสิ่งอำนวยความสะดวก (สไตล์เดียวกับ /admin/boats/rounds) */}
+      <form
+        ref={formRef}
+        onSubmit={handleSubmitForm}
+        className={`bg-white p-5 sm:p-6 rounded-3xl border transition-all duration-300 space-y-4 shadow-panel ${
+          editingAmenityId
+            ? "border-forest-600 ring-2 ring-forest-600/20"
+            : "border-cream-200/90"
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-cream-200/80 pb-3">
+          <span className="text-sm font-bold text-forest-900 flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-forest-800" />
+            {editingAmenityId ? (
+              <span className="flex items-center gap-1.5 text-forest-800">
+                <Edit2 size={16} />
+                แก้ไขข้อมูลสิ่งอำนวยความสะดวก
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <Plus size={16} />
+                เพิ่มสิ่งอำนวยความสะดวกใหม่
+              </span>
+            )}
+          </span>
+          {editingAmenityId && (
+            <button
+              type="button"
+              onClick={handleResetForm}
+              className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+            >
+              ยกเลิกการแก้ไข
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
+          {/* 1. ชื่อสิ่งอำนวยความสะดวก */}
+          <div className="md:col-span-7">
+            <label className="block text-xs font-bold text-charcoal-700 mb-1">
+              ชื่อสิ่งอำนวยความสะดวก <span className="text-rose-500">*</span>
+            </label>
+            <input
+              ref={nameInputRef}
+              type="text"
+              required
+              placeholder="เช่น เครื่องปรับอากาศ, เครื่องทำน้ำอุ่น, ตู้เย็น..."
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+            />
+          </div>
+
+          {/* 2. สถานะการใช้งาน */}
+          <div className="md:col-span-3">
+            <label className="block text-xs font-bold text-charcoal-700 mb-1">
+              สถานะการใช้งาน
+            </label>
+            <div className="flex items-center h-[38px] px-3.5 bg-cream-50/60 border border-cream-300 rounded-xl shadow-2xs">
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none w-full">
+                <input
+                  type="checkbox"
+                  checked={statusInput}
+                  onChange={(e) => setStatusInput(e.target.checked)}
+                  className="w-4 h-4 text-forest-800 rounded border-cream-300 focus:ring-forest-800 accent-forest-800 cursor-pointer"
+                />
+                <span className="text-xs font-bold text-charcoal-700">
+                  {statusInput ? "เปิดใช้งาน (พร้อมเลือก)" : "ปิดใช้งาน (ซ่อน)"}
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* 3. ปุ่มบันทึก/เพิ่ม */}
+          <div className="md:col-span-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full py-2.5 px-4 bg-forest-800 hover:bg-forest-900 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 disabled:opacity-60"
+            >
+              {submitting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : editingAmenityId ? (
+                <Save size={14} />
+              ) : (
+                <Plus size={14} />
+              )}
+              <span>{editingAmenityId ? "บันทึกการแก้ไข" : "เพิ่มรายการ"}</span>
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {/* Table & Filter Section */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[660px]">
         {/* Header & Filter Controls */}
         <div className="pb-4 mb-4 border-b border-cream-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -254,35 +360,62 @@ export default function AmenitiesPage() {
               <button
                 type="button"
                 onClick={() => setStatusFilter("all")}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   statusFilter === "all"
                     ? "bg-white text-forest-900 shadow-2xs"
                     : "text-charcoal-500 hover:text-charcoal-800"
                 }`}
               >
-                ทั้งหมด
+                <span>ทั้งหมด</span>
+                <span
+                  className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono ${
+                    statusFilter === "all"
+                      ? "bg-forest-100 text-forest-800"
+                      : "bg-cream-200/80 text-charcoal-500"
+                  }`}
+                >
+                  {amenities.length}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => setStatusFilter("active")}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   statusFilter === "active"
                     ? "bg-white text-forest-800 shadow-2xs"
                     : "text-charcoal-500 hover:text-forest-800"
                 }`}
               >
-                เปิดใช้งาน
+                <span>เปิดใช้งาน</span>
+                <span
+                  className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono ${
+                    statusFilter === "active"
+                      ? "bg-forest-100 text-forest-800"
+                      : "bg-cream-200/80 text-charcoal-500"
+                  }`}
+                >
+                  {activeCount}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => setStatusFilter("inactive")}
-                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   statusFilter === "inactive"
                     ? "bg-white text-rose-700 shadow-2xs"
                     : "text-charcoal-500 hover:text-rose-700"
                 }`}
               >
-                ปิดใช้งาน
+                <span>ปิดใช้งาน</span>
+                <span
+                  className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono ${
+                    statusFilter === "inactive"
+                      ? "bg-rose-100 text-rose-700"
+                      : "bg-cream-200/80 text-charcoal-500"
+                  }`}
+                >
+                  {inactiveCount}
+                </span>
               </button>
             </div>
           </div>
@@ -316,7 +449,7 @@ export default function AmenitiesPage() {
                       description={
                         search
                           ? "ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ"
-                          : "ยังไม่มีสิ่งอำนวยความสะดวกในระบบ กดเพิ่มรายการใหม่ได้ทันที"
+                          : "ยังไม่มีสิ่งอำนวยความสะดวกในระบบ พิมพ์ชื่อด้านบนแล้วกดเพิ่มรายการได้ทันที"
                       }
                     />
                   </td>
@@ -383,7 +516,7 @@ export default function AmenitiesPage() {
           </table>
         </div>
 
-        {/* Pagination Footer (Pinned at bottom with mt-auto) */}
+        {/* Pagination Footer */}
         {!loading && filteredAmenities.length > 0 && (
           <div className="mt-auto flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-cream-200/80 text-xs text-charcoal-500">
             <span>
@@ -430,94 +563,6 @@ export default function AmenitiesPage() {
           </div>
         )}
       </div>
-
-      {/* Modal: Create & Edit Form */}
-      <Modal
-        open={isFormModalOpen}
-        title={
-          editingAmenityId
-            ? "แก้ไขสิ่งอำนวยความสะดวก"
-            : "เพิ่มสิ่งอำนวยความสะดวกใหม่"
-        }
-        widthClass="max-w-md"
-        onClose={() => setIsFormModalOpen(false)}
-        footer={
-          <div className="flex items-center justify-end gap-2.5 w-full">
-            <button
-              type="button"
-              onClick={() => setIsFormModalOpen(false)}
-              className="px-4 py-2 text-xs font-semibold text-charcoal-600 bg-cream-100 hover:bg-cream-200 rounded-xl transition-colors cursor-pointer"
-            >
-              ยกเลิก
-            </button>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => handleSubmitForm()}
-              className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-forest-800 hover:bg-forest-900 rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-60"
-            >
-              {submitting ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <Save size={15} />
-              )}
-              <span>{editingAmenityId ? "บันทึกการแก้ไข" : "เพิ่มรายการ"}</span>
-            </button>
-          </div>
-        }
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSubmitForm();
-          }}
-          className="space-y-4 py-1"
-        >
-          <div>
-            <label className="block text-xs font-semibold text-charcoal-700 mb-1.5">
-              ชื่อสิ่งอำนวยความสะดวก <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="เช่น เครื่องปรับอากาศ, เครื่องทำน้ำอุ่น..."
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all"
-            />
-          </div>
-
-          {/* Toggle Status */}
-          <div className="flex items-center justify-between p-3 bg-cream-50/70 border border-cream-300 rounded-xl">
-            <div>
-              <label className="block text-xs font-semibold text-charcoal-800 cursor-pointer">
-                สถานะการใช้งาน
-              </label>
-              <p className="text-[11px] font-medium text-charcoal-400 mt-0.5">
-                {statusInput
-                  ? "เปิดใช้งาน (แสดงให้เลือกในประเภทห้องพัก)"
-                  : "ปิดใช้งาน (ซ่อนชั่วคราว)"}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              role="switch"
-              aria-checked={statusInput}
-              onClick={() => setStatusInput(!statusInput)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                statusInput ? "bg-forest-800" : "bg-cream-300"
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                  statusInput ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </div>
-        </form>
-      </Modal>
 
       {/* Modal: Delete Confirmation */}
       {deleteTarget && (

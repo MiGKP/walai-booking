@@ -1194,18 +1194,46 @@ function RoomStaffDashboardContent() {
                       <div className="text-xs text-charcoal-700 font-medium">
                         ห้องที่จอง ({booking.rooms.length} ห้อง):
                       </div>
-                      <div className="flex flex-wrap gap-1.5 pt-0.5">
-                        {booking.rooms.map((r: { booking_room_id: number; room_name?: string; type_name?: string; room_number?: string; room_id?: number; subtotal?: number | string }) => (
-                          <span
+                      <div className="flex flex-col gap-1.5 pt-0.5">
+                        {booking.rooms.map((r: {
+                          booking_room_id: number;
+                          room_name?: string;
+                          type_name?: string;
+                          room_number?: string;
+                          room_id?: number;
+                          subtotal?: number | string;
+                          status?: string;
+                          checkin_at?: string;
+                          checkout_at?: string;
+                          checkin_by_name?: string;
+                          checkout_by_name?: string;
+                        }) => (
+                          <div
                             key={r.booking_room_id}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-cream-200 text-xs text-charcoal-800 font-medium shadow-2xs"
+                            className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl bg-white border border-cream-200 text-xs text-charcoal-800 shadow-2xs"
                           >
-                            <span>{r.room_name || r.type_name || "ห้องพัก"}</span>
-                            <span className="font-mono font-bold text-forest-800 bg-cream-100 px-1.5 py-0.5 rounded-lg border border-cream-200">
-                              {r.room_number || r.room_id || "-"}
-                            </span>
-                            <span>฿{Number(r.subtotal || 0).toLocaleString("th-TH")}</span>
-                          </span>
+                            <div className="flex items-center gap-1.5">
+                              <span>{r.room_name || r.type_name || "ห้องพัก"}</span>
+                              <span className="font-mono font-bold text-forest-800 bg-cream-100 px-1.5 py-0.5 rounded-lg border border-cream-200">
+                                {r.room_number || r.room_id || "-"}
+                              </span>
+                              <span>฿{Number(r.subtotal || 0).toLocaleString("th-TH")}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-charcoal-500">
+                              {r.checkin_at && (
+                                <span className="text-teal-700">
+                                  เช็คอิน: {new Date(r.checkin_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
+                                  {r.checkin_by_name ? ` (${r.checkin_by_name})` : ""}
+                                </span>
+                              )}
+                              {r.checkout_at && (
+                                <span className="text-charcoal-500">
+                                  • เช็คเอาต์: {new Date(r.checkout_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
+                                  {r.checkout_by_name ? ` (${r.checkout_by_name})` : ""}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -1239,25 +1267,34 @@ function RoomStaffDashboardContent() {
                 </div>
 
                 {/* Status Row */}
-                <div className="p-3.5 bg-cream-50/80 rounded-2xl border border-cream-200 flex items-center justify-between print:bg-white print:border-charcoal-200">
-                  <span className="font-semibold text-charcoal-700">สถานะรายการ:</span>
-                  {(() => {
-                    const st = STATUS_BADGE_STYLE[booking.status] || {
-                      bg: "bg-cream-100",
-                      text: "text-charcoal-600",
-                      border: "border-cream-300",
-                      dot: "bg-charcoal-400",
-                      label: booking.status,
-                    };
-                    return (
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold border ${st.bg} ${st.text} ${st.border}`}
-                      >
-                        <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />
-                        {st.label}
-                      </span>
-                    );
-                  })()}
+                <div className="p-3.5 bg-cream-50/80 rounded-2xl border border-cream-200 space-y-2 print:bg-white print:border-charcoal-200">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-charcoal-700">สถานะรายการ:</span>
+                    {(() => {
+                      const st = STATUS_BADGE_STYLE[booking.status] || {
+                        bg: "bg-cream-100",
+                        text: "text-charcoal-600",
+                        border: "border-cream-300",
+                        dot: "bg-charcoal-400",
+                        label: booking.status,
+                      };
+                      return (
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold border ${st.bg} ${st.text} ${st.border}`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />
+                          {st.label}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  {booking.approved_by_name &&
+                    ["approved", "checked_out", "rejected"].includes(booking.status) && (
+                      <div className="text-xs text-charcoal-600 border-t border-cream-200/80 pt-1.5 flex items-center justify-between">
+                        <span>{booking.status === "rejected" ? "ปฏิเสธโดย:" : "อนุมัติโดย:"}</span>
+                        <span className="font-semibold text-forest-900">{booking.approved_by_name}</span>
+                      </div>
+                    )}
                 </div>
 
                 {/* Reject Reason (if rejected) */}
