@@ -25,6 +25,8 @@ import {
   Search,
   Plus,
   Minus,
+  Map,
+  LayoutGrid,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
@@ -34,6 +36,7 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import BookingCalendar, { DateRange, DayStatus } from '@/components/booking/BookingCalendar';
 import BookingSummaryCard from '@/components/booking/BookingSummaryCard';
+import RaftLayoutMap from '@/components/booking/RaftLayoutMap';
 import { fetchRoomCalendar, toRoomDayStatus } from '@/lib/booking-calendar';
 import {
   MonthCursor,
@@ -174,6 +177,7 @@ export default function RoomDetailPage(): React.ReactElement {
   const today = todayISO();
 
   const [room, setRoom] = useState<RoomDetail | null>(null);
+  const [allRoomTypes, setAllRoomTypes] = useState<any[]>([]);
   const [resortInfo, setResortInfo] = useState<ResortInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -280,6 +284,7 @@ export default function RoomDetailPage(): React.ReactElement {
     if (!id) return;
     setLoading(true);
     api.get(`/rooms/${id}`, { params: { check_in: range.start, check_out: range.end } }).then((res) => setRoom(res.data?.data ?? null)).catch(() => toast.error('ไม่พบห้องพัก')).finally(() => setLoading(false));
+    api.get('/rooms').then((res) => setAllRoomTypes(Array.isArray(res.data?.data) ? res.data.data : [])).catch(() => undefined);
     api.get('/settings/resort?id=4').then((res) => setResortInfo(res.data?.data ?? null)).catch(() => undefined);
     api.get(`/reviews/room-type/${id}`).then((res) => {
       setReviews(Array.isArray(res.data?.data) ? res.data.data : []);
@@ -310,6 +315,53 @@ export default function RoomDetailPage(): React.ReactElement {
       a.room_number.localeCompare(b.room_number, undefined, { numeric: true, sensitivity: 'base' })
     );
   }, [room]);
+
+  // ผังห้องทั้งหมดในแพรีสอร์ต (แสดงเด่นเฉพาะห้องประเภทนี้, ห้องประเภทอื่นแสดงจางๆ)
+  const allResortRaftRooms = useMemo(() => {
+    if (!allRoomTypes.length) {
+      return sortedPhysicalRooms.map((r) => ({
+        room_id: r.room_id,
+        room_number: r.room_number,
+        status: r.status,
+        is_available: r.is_available,
+        is_current_type: true,
+        room_name: room?.room_name,
+        room_type_id: room?.id,
+      }));
+    }
+
+    const roomDict: Record<string, {
+      room_id: number;
+      room_number: string;
+      status: string;
+      is_available: boolean;
+      is_current_type: boolean;
+      room_name: string;
+      room_type_id: number;
+    }> = {};
+
+    for (const rt of allRoomTypes) {
+      const isCurrent = rt.id === Number(id);
+      const roomsList = Array.isArray(rt.rooms) ? rt.rooms : [];
+      for (const r of roomsList) {
+        roomDict[r.room_number] = {
+          room_id: r.room_id,
+          room_number: r.room_number,
+          status: r.status || 'available',
+          is_available: isCurrent
+            ? (sortedPhysicalRooms.find((sp) => sp.room_id === r.room_id)?.is_available ?? true)
+            : false,
+          is_current_type: isCurrent,
+          room_name: rt.room_name || '',
+          room_type_id: rt.id,
+        };
+      }
+    }
+
+    return Object.values(roomDict).sort((a, b) =>
+      a.room_number.localeCompare(b.room_number, undefined, { numeric: true, sensitivity: 'base' })
+    );
+  }, [allRoomTypes, sortedPhysicalRooms, room, id]);
 
   const galleryImages = useMemo<string[]>(() => {
     if (!room) return [];
@@ -748,35 +800,19 @@ export default function RoomDetailPage(): React.ReactElement {
               <SectionHeading
                 icon={<BedDouble size={16} />}
                 title="เลือกหมายเลขห้องพักที่ต้องการ"
-                action={<span className="rounded-full bg-forest-50 px-2.5 py-0.5 text-xs font-bold text-forest-700">ว่าง {availableCount} จาก {sortedPhysicalRooms.length} ห้อง</span>}
+                action={
+                  <span className="rounded-full bg-forest-50 px-2.5 py-1 text-xs font-bold text-forest-700">
+                    ว่าง {availableCount} จาก {sortedPhysicalRooms.length} ห้อง
+                  </span>
+                }
               />
-              <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                {sortedPhysicalRooms.map((physical) => {
-                  const isSelected = selectedRoomIds.includes(physical.room_id);
-                  return (
-                    <div key={physical.room_id} className={`group relative flex flex-col justify-between gap-1 rounded-2xl border p-4 text-left transition-all duration-300 ${isSelected ? 'border-forest-900 bg-forest-50/40 shadow-sm' : physical.is_available ? 'border-stone-200 bg-white hover:border-forest-300 hover:shadow-md' : 'border-stone-100 bg-stone-50/50 opacity-60'}`}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-base font-bold text-forest-900">ห้อง {physical.room_number}</span>
-                        {isSelected && <CheckCircle2 size={16} className="text-forest-700" />}
-                      </div>
-                      <span className="mb-2 text-xs text-charcoal-500">{physical.is_available ? `ความจุ ${room.capacity} ท่าน` : 'ถูกจองแล้ว'}</span>
-                      
-                      {physical.is_available ? (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleRoom(physical.room_id)}
-                          className={`mt-auto w-full rounded-xl py-2 text-xs font-bold transition-all ${isSelected ? 'bg-forest-900 text-white shadow-md hover:bg-forest-800' : 'bg-forest-50 text-forest-800 hover:bg-forest-100'}`}
-                        >
-                          {isSelected ? 'เลือกแล้ว' : 'เพิ่มลงตะกร้า'}
-                        </button>
-                      ) : (
-                         <div className="mt-auto w-full rounded-xl bg-stone-100 py-2 text-center text-xs font-bold text-stone-400">
-                           ไม่ว่าง
-                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="mt-4">
+                <RaftLayoutMap
+                  rooms={allResortRaftRooms}
+                  currentRoomTypeName={room.room_name}
+                  selectedRoomIds={selectedRoomIds}
+                  onToggleRoom={handleToggleRoom}
+                />
               </div>
             </section>
 
