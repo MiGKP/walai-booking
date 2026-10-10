@@ -484,13 +484,13 @@ export default function AdminPage() {
               ) : (
                 <div className="space-y-2">
                   {pendingRoomsList.slice(0, 3).map((item, index) => (
-                    <div
+                    <Link href={`/admin/rooms?search=${encodeURIComponent(String(item.room_booking_id || item.id))}`}
                       key={item.room_booking_id || item.id || index}
                       className="flex justify-between items-center rounded-xl bg-white p-3 text-xs border border-cream-200/80 shadow-2xs"
                     >
                       <div className="min-w-0 pr-2">
                         <p className="font-semibold text-charcoal-800 truncate">
-                          #{item.room_booking_id || item.id} {item.customer_name || item.guest_name || "ลูกค้า"}
+                          #{item.room_booking_id || item.id} {item.customer_name || item.user_name || item.guest_name || "ลูกค้า"}
                         </p>
                         <p className="text-[11px] text-charcoal-500">
                           เข้าพัก: {formatThaiDateShort(item.check_in)}
@@ -499,7 +499,7 @@ export default function AdminPage() {
                       <span className="shrink-0 font-bold text-forest-800">
                         {formatMoney(item.total_price)}
                       </span>
-                    </div>
+                    </Link>
                   ))}
                   {pendingRoomsList.length > 3 && (
                     <p className="pt-1 text-center text-[11px] font-medium text-charcoal-400">
@@ -541,13 +541,13 @@ export default function AdminPage() {
               ) : (
                 <div className="space-y-2">
                   {pendingKayaksList.slice(0, 3).map((item, index) => (
-                    <div
+                    <Link href={`/admin/boats?search=${encodeURIComponent(String(item.boat_booking_id || item.id))}`}
                       key={item.boat_booking_id || item.id || index}
                       className="flex justify-between items-center rounded-xl bg-white p-3 text-xs border border-cream-200/80 shadow-2xs"
                     >
                       <div className="min-w-0 pr-2">
                         <p className="font-semibold text-charcoal-800 truncate">
-                          #{item.boat_booking_id || item.id} {item.customer_name || "ลูกค้า"}
+                          #{item.boat_booking_id || item.id} {item.customer_name || item.user_name || "ลูกค้า"}
                         </p>
                         <p className="text-[11px] text-charcoal-500">
                           วันที่: {formatThaiDateShort(item.booking_date)}
@@ -556,7 +556,7 @@ export default function AdminPage() {
                       <span className="shrink-0 font-bold text-lagoon-900">
                         {formatMoney(item.total_price)}
                       </span>
-                    </div>
+                    </Link>
                   ))}
                   {pendingKayaksList.length > 3 && (
                     <p className="pt-1 text-center text-[11px] font-medium text-charcoal-400">

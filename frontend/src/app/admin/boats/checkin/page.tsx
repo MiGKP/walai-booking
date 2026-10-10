@@ -41,6 +41,9 @@ interface BoatCheckinBooking {
   total_price: number;
   status: "approved" | "checked_out";
   checkin_at: string | null;
+  checkin_opens_at: string | null;
+  checkin_closes_at: string | null;
+  checkin_unavailable_reason: string | null;
   checkout_at: string | null;
   is_addon: boolean;
   room_booking_id: number | null;
@@ -91,6 +94,11 @@ function BoatCheckinContent(): React.ReactElement {
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Confirm dialog state
   const [confirmModal, setConfirmModal] = useState<{
@@ -426,6 +434,11 @@ function BoatCheckinContent(): React.ReactElement {
                 <div className="divide-y divide-stone-100">
                   {items.map((b) => {
                     const isWaiting = b.status === "approved" && !b.checkin_at;
+                    const opensMs = b.checkin_opens_at ? new Date(b.checkin_opens_at).getTime() : NaN;
+                    const closesMs = b.checkin_closes_at ? new Date(b.checkin_closes_at).getTime() : NaN;
+                    const canCheckin = isWaiting && nowMs >= opensMs && nowMs < closesMs;
+                    const checkinReason = nowMs < opensMs ? 'ยังไม่ถึงเวลาเปิดเช็คอิน'
+                      : nowMs >= closesMs ? 'รอบเรือสิ้นสุดแล้ว' : b.checkin_unavailable_reason || 'ไม่พบช่วงเวลาเช็คอิน กรุณารีเฟรช';
                     const isOnWater = b.status === "approved" && Boolean(b.checkin_at);
                     const isCheckedOut = b.status === "checked_out";
 
@@ -553,11 +566,12 @@ function BoatCheckinContent(): React.ReactElement {
                                   description: `คุณ ${b.customer_name} มารายงานตัวและรับชูชีพพร้อมลงเรือแล้วหรือไม่?`,
                                 });
                               }}
-                              disabled={actionLoadingId === b.boat_booking_id}
+                              disabled={!canCheckin || actionLoadingId === b.boat_booking_id}
+                              title={canCheckin ? undefined : checkinReason}
                               className="px-3.5 py-2 rounded-xl bg-forest-800 text-cream-100 hover:bg-forest-900 text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
                             >
                               <Ship size={14} />
-                              <span>ปล่อยเรือลงน้ำ (Check-in)</span>
+                              <span>{canCheckin ? 'ปล่อยเรือลงน้ำ (Check-in)' : checkinReason}</span>
                             </button>
                           )}
 

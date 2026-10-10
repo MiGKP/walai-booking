@@ -1,5 +1,6 @@
 import { restoreBoatTicketRedemptions } from '../services/boat-booking-lifecycle';
 import { validateBoatBookingTime } from '../services/boat-booking-time';
+import { boatCheckinWindow, boatCheckinError } from '../services/boat-checkin-time';
 export { restoreBoatTicketRedemptions } from '../services/boat-booking-lifecycle';
 import { parsePagination, paginationMeta } from '../utils/pagination';
 import { Request, Response } from "express";
@@ -1352,7 +1353,7 @@ export const getBoatAddonInfo = async (
 
     const existingRes = await pool.query(
       `SELECT bb.boat_booking_id, bb.booking_date, bb.start_time, bb.end_time, bb.status,
-              bb.addon_mode AS mode, bb.total_price AS price, bb.printed_at, bb.handed_out_at,
+              bb.addon_mode AS mode, bb.total_price AS price, bb.printed_at, bb.handed_out_at, bb.checkin_at,
               bnb.boat_type_id, bt.type_name AS boat_type_name, bnb.boat_count, bnb.num_passengers
        FROM boat_bookings bb
        JOIN booking_boat bnb ON bnb.boat_booking_id = bb.boat_booking_id
@@ -2524,8 +2525,11 @@ export const checkinKayakBooking = async (
     const user = req.user as AuthPayload;
 
     await client.query("BEGIN");
+    await lockAddonRoomHeader(client, id);
     const booking = await client.query(
-      "SELECT status, checkin_at FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE",
+      `SELECT status, checkin_at, booking_date::text, start_time::text, end_time::text,
+              clock_timestamp() AS current_time
+       FROM boat_bookings WHERE boat_booking_id = $1 FOR UPDATE`,
       [id],
     );
     if (booking.rows.length === 0) {
@@ -2542,6 +2546,20 @@ export const checkinKayakBooking = async (
       return;
     }
 
+    if (booking.rows[0].checkin_at) {
+      await safeRollback(client);
+      res.status(409).json({ success: false, message: 'รายการนี้เช็คอินแล้ว' });
+      return;
+    }
+    const settings = await client.query('SELECT boat_checkin_advance_minutes FROM resort_info WHERE id = 5');
+    const advance = Number(settings.rows[0]?.boat_checkin_advance_minutes ?? 15);
+    const window = boatCheckinWindow(booking.rows[0].booking_date, booking.rows[0].start_time, booking.rows[0].end_time, advance);
+    const timeError = boatCheckinError(window, new Date(booking.rows[0].current_time));
+    if (timeError) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: timeError });
+      return;
+    }
     await client.query(
       `UPDATE boat_bookings
        SET checkin_at = NOW(), checkin_by_staff_id = $2, updated_at = NOW()
@@ -2589,7 +2607,7 @@ export const getKayakCheckinSessions = async (
 
     const query = `
       SELECT bb.boat_booking_id,
-             bb.booking_date,
+             bb.booking_date::text,
              bb.start_time,
              bb.end_time,
              bb.total_price,
@@ -2626,7 +2644,15 @@ export const getKayakCheckinSessions = async (
     `;
 
     const result = await pool.query(query, params);
-    const rows = result.rows;
+    const settings = await pool.query('SELECT boat_checkin_advance_minutes FROM resort_info WHERE id = 5');
+    const advance = Number(settings.rows[0]?.boat_checkin_advance_minutes ?? 15);
+    const now = new Date();
+    const rows = result.rows.map((row) => {
+      const window = boatCheckinWindow(row.booking_date, row.start_time, row.end_time, advance);
+      const reason = boatCheckinError(window, now);
+      return { ...row, checkin_opens_at: window?.opensAt ?? null, checkin_closes_at: window?.closesAt ?? null,
+        can_checkin: row.status === 'approved' && !row.checkin_at && !reason, checkin_unavailable_reason: reason };
+    });
 
     const summary = {
       total_bookings: rows.length,
@@ -3299,7 +3325,7 @@ async function cancelBoatAddonInTx(
   await lockAddonRoomHeader(client, boatBookingId);
   const addonRes = await client.query(
     `SELECT bb.boat_booking_id, bb.member_id, bb.room_booking_id, bb.status, bb.total_price,
-            bb.handed_out_at,
+            bb.handed_out_at, bb.checkin_at,
             (EXTRACT(EPOCH FROM ((bb.booking_date + bb.start_time) AT TIME ZONE 'Asia/Bangkok') - NOW()) / 3600)::float8 AS hours_before_start,
             rb.status AS room_status
      FROM boat_bookings bb
@@ -3315,7 +3341,7 @@ async function cancelBoatAddonInTx(
   if (actor.role === "customer" && Number(addon.member_id) !== actor.id) {
     return { ok: false, status: 404, message: "ไม่พบบัตรเสริม" };
   }
-  if (!["pending", "approved"].includes(String(addon.status)) || addon.handed_out_at) {
+  if (!["pending", "approved"].includes(String(addon.status)) || addon.handed_out_at || addon.checkin_at) {
     return { ok: false, status: 400, message: "บัตรเสริมนี้ไม่สามารถยกเลิกได้แล้ว" };
   }
   if (!["pending", "paid", "approved"].includes(String(addon.room_status))) {

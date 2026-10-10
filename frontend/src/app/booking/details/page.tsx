@@ -256,8 +256,8 @@ function BookingDetailsContent() {
       toast.error('กรุณาเลือกวันที่เข้าพักและออกให้ตรงกับรายการในตะกร้า');
       return;
     }
-    if (childAges.length !== childrenCount || childAges.some(age => !Number.isInteger(age) || age < 0 || age > 17)) {
-      toast.error('กรุณาระบุอายุของเด็กแต่ละคนให้ครบ');
+    if (childAges.length !== childrenCount || childAges.some(age => !Number.isInteger(age) || age < 0 || age > 11)) {
+      toast.error('กรุณาระบุอายุเด็กให้ครบ (0–11 ปี) อายุ 12 ปีขึ้นไปให้เลือกเป็นผู้ใหญ่');
       return;
     }
     for (const group of groups) {

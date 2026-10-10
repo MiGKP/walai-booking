@@ -207,7 +207,7 @@ export default function RoomDetailPage(): React.ReactElement {
     const children = parseInt(searchParams.get('children') || '0', 10);
     const raw = (searchParams.get('child_ages') || '').split(',').map((s) => {
       const n = parseInt(s, 10);
-      return Number.isInteger(n) && n >= 0 && n <= 17 ? n : null;
+      return Number.isInteger(n) && n >= 0 && n <= 11 ? n : null;
     });
     const normalized = raw.length && (searchParams.get('child_ages') ?? '') !== '' ? raw : [];
     if (normalized.length === children) return normalized;
@@ -240,6 +240,7 @@ export default function RoomDetailPage(): React.ReactElement {
     if (next && nightsBetween(next.start, next.end) > 0) {
       if (cart && cart.items.length > 0 && (cart.check_in !== next.start || cart.check_out !== next.end)) {
         setRoomCart(null);
+        toast('เปลี่ยนวันที่แล้ว กรุณาเลือกห้องพักใหม่สำหรับวันที่ต้องการ');
       }
       const params = new URLSearchParams(searchParams.toString());
       params.set("check_in", next.start);
@@ -713,7 +714,7 @@ export default function RoomDetailPage(): React.ReactElement {
                                         className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-none ${age === null ? "text-amber-600" : "text-forest-800"}`}
                                       >
                                         <option value="" disabled>เลือกอายุ</option>
-                                        {Array.from({ length: 18 }, (_, a) => a).map((a) => (
+                                        {Array.from({ length: 12 }, (_, a) => a).map((a) => (
                                           <option key={a} value={a}>{a} ปี</option>
                                         ))}
                                       </select>

@@ -20,7 +20,8 @@ const imageFileFilter = (
     allowedExtensions.has(extension) && allowedMimeTypes.has(file.mimetype);
 
   if (!isAllowed) {
-    callback(new Error('Only JPEG, PNG, GIF, and WebP image files are allowed'));
+    const error = Object.assign(new Error('กรุณาเลือกไฟล์รูปภาพ JPEG, PNG, GIF หรือ WebP เท่านั้น'), { status: 400 });
+    callback(error);
     return;
   }
 

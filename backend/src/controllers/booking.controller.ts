@@ -271,11 +271,11 @@ export const createRoomBooking = async (
     // อายุเด็กต้องมีครบตามจำนวนเด็กที่ระบุ (ณ วันเข้าพัก) ใช้กันความจุ/แสดงผลย้อนหลัง
     if (
       childAges.length !== children ||
-      childAges.some((age) => !Number.isInteger(age) || age < 0 || age > 17)
+      childAges.some((age) => !Number.isInteger(age) || age < 0 || age > 11)
     ) {
       res.status(400).json({
         success: false,
-        message: 'กรุณาระบุอายุของเด็กแต่ละคนให้ครบ (0-17 ปี)',
+        message: 'กรุณาระบุอายุของเด็กแต่ละคนให้ครบ (0-11 ปี)',
       });
       return;
     }
@@ -1017,7 +1017,7 @@ export const updateRoomBookingStatus = async (
     await client.query('BEGIN');
 
     const previous = await client.query(
-      'SELECT status FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE',
+      'SELECT status, total_price, payment_slip FROM room_bookings WHERE room_booking_id = $1 FOR UPDATE',
       [id]
     );
     if (previous.rows.length === 0) {
@@ -1045,6 +1045,13 @@ export const updateRoomBookingStatus = async (
         res.status(400).json({ success: false, message: 'ไม่สามารถเปลี่ยนสถานะได้ เนื่องจากมีห้องที่เช็คอินหรือเช็คเอาท์แล้ว' });
         return;
       }
+    }
+
+    if (status === 'approved' && Number(previous.rows[0].total_price) > 0
+      && (previousStatus !== 'paid' || !String(previous.rows[0].payment_slip ?? '').trim())) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: 'กรุณาแนบสลิปชำระเงินก่อนอนุมัติการจอง' });
+      return;
     }
 
     let query = `UPDATE room_bookings SET status = $1, updated_at = NOW()`;

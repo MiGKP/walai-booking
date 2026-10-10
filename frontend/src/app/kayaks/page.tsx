@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users, X, ChevronLeft, ChevronRight, ChevronDown, ImageIcon } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import RoomBoatRightsChoice from '@/components/booking/RoomBoatRightsChoice';
+import PromoCodeFields, { type PromoPreview } from '@/components/booking/PromoCodeFields';
 import { useAuth } from '@/hooks/useAuth';
 import { isBoatSlotBookable } from '@/lib/boat-time-policy';
 import { resolveMediaUrl } from '@/lib/avatar';
@@ -552,6 +553,11 @@ function KayaksPageContent(): React.ReactElement {
   }, [boats, boatCountByType]);
 
   const totalPrice = cartTotal(cartLines);
+  const [promotionSelection, setPromotionSelection] = useState<{ price: number; ids: number[]; preview: PromoPreview | null } | null>(null);
+  // A validation response for an old cart must never discount the current cart.
+  const currentPromotion = promotionSelection?.price === totalPrice ? promotionSelection : null;
+  const promotionIds = currentPromotion?.ids ?? [];
+  const promotionPreview = currentPromotion?.preview ?? null;
   const totalPassengers = cartPassengerTotal(cartLines);
   const totalBoats = cartBoatTotal(cartLines);
 
@@ -629,6 +635,7 @@ function KayaksPageContent(): React.ReactElement {
         start_time: normalizeSlotTime(selectedSlot.start_time),
         end_time: normalizeSlotTime(selectedSlot.end_time),
         room_booking_id: roomBookingId || undefined,
+        promotion_ids: promotionIds,
         items: cartLines.map((line) => ({
           boat_type_id: line.boat_type_id,
           num_passengers: line.num_passengers,
@@ -664,7 +671,7 @@ function KayaksPageContent(): React.ReactElement {
 
 
         <RoomBoatRightsChoice memberId={user?.role === 'customer' ? user.id : undefined} enabled={useRoomRights} onChange={setUseRoomRights} />
-        {!useRoomRights && <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:items-start min-w-0 max-w-full">
+        {!useRoomRights && <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start min-w-0 max-w-full">
           <div className="space-y-6 min-w-0 max-w-full">
             {/* วันที่ + จำนวนผู้โดยสารต่อประเภทเรือ อยู่ในกรอบเดียวกัน วางคู่กัน — ปฏิทินไม่ต้องกว้างเพราะจองทีละวัน */}
             <section className={`${CARD} min-w-0 max-w-full overflow-hidden`}>
@@ -1032,10 +1039,26 @@ function KayaksPageContent(): React.ReactElement {
                 </div>
               )}
 
+              <div className="mt-5 border-t border-stone-100 pt-5">
+                <PromoCodeFields
+                  basePrice={totalPrice}
+                  nights={null}
+                  scope="kayak"
+                  onChange={(ids, preview) => setPromotionSelection({ price: totalPrice, ids, preview })}
+                />
+              </div>
+              <div className="mt-4 flex justify-between text-sm text-charcoal-500">
+                <span>ราคาเต็ม</span><span>฿{totalPrice.toLocaleString()}</span>
+              </div>
+              {promotionPreview && (
+                <div className="mt-2 flex justify-between text-sm text-forest-800">
+                  <span>ส่วนลด</span><span>-฿{promotionPreview.discount_amount.toLocaleString()}</span>
+                </div>
+              )}
               <div className="mt-5 flex items-center justify-between rounded-xl bg-forest-900 px-4 py-3.5">
-                <span className="text-sm font-bold text-cream-100">ราคารวม</span>
+                <span className="text-sm font-bold text-cream-100">ราคาที่ต้องชำระ</span>
                 <span className="font-sans text-2xl font-extrabold leading-none text-cream-100">
-                  ฿{totalPrice.toLocaleString()}
+                  ฿{(promotionPreview?.final_price ?? totalPrice).toLocaleString()}
                 </span>
               </div>
 

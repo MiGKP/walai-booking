@@ -6,7 +6,7 @@ import {
   RoomCartState,
   cartCapacitySum,
   cartEstimatedTotal,
-  cartGuestTotal,
+  cartOccupyingGuestTotal,
   cartRoomCount,
   setCartItemQuantity,
 } from '@/lib/room-cart';
@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import PromoPriceBreakdown from '@/components/booking/PromoPriceBreakdown';
 import BookingCalendar, { DateRange, DayStatus } from '@/components/booking/BookingCalendar';
 import { MonthCursor } from '@/lib/date';
+import { useInfantAgePolicy } from '@/hooks/useInfantAgePolicy';
 
 interface AppliedPromo {
   id: number;
@@ -59,7 +60,8 @@ export default function RoomCartPanel({
 }: RoomCartPanelProps): React.ReactElement {
   const nights = nightsBetween(cart.check_in, cart.check_out);
   const capacity = cartCapacitySum(cart);
-  const guests = cartGuestTotal(cart);
+  const infantAge = useInfantAgePolicy();
+  const guests = cartOccupyingGuestTotal(cart, infantAge);
   const baseTotal = cartEstimatedTotal(cart);
   const roomCount = cartRoomCount(cart);
   const overCapacity = guests > capacity;
