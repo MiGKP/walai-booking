@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   CreditCard,
   Layers,
+  Check,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -21,6 +22,7 @@ import { pickResortInfo } from "@/lib/resort-info";
 import CancellationPolicyCard from "@/components/settings/CancellationPolicyCard";
 import TermsListEditor from "@/components/admin/TermsListEditor";
 import KidsPolicyEditor from "@/components/admin/KidsPolicyEditor";
+import { Modal } from "@/components/admin/ui";
 
 type PolicyTab = "all" | "room" | "boat" | "refund";
 
@@ -48,6 +50,7 @@ export default function PoliciesSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
 
   useEffect(() => {
     if (ready) {
@@ -128,7 +131,7 @@ export default function PoliciesSettingsPage() {
       }
 
       await Promise.all(promises);
-      notify.success("บันทึกนโยบายทั้งหมดสำเร็จ");
+      setIsSuccessOpen(true);
     } catch (error) {
       console.error("Failed to save policies", error);
       notify.error("บันทึกไม่สำเร็จ โปรดลองอีกครั้ง");
@@ -531,6 +534,31 @@ export default function PoliciesSettingsPage() {
           </div>
         </section>
       )}
+
+      {/* ========================================================= */}
+      {/* POPUP แจ้งเตือนบันทึกสำเร็จ (เหมือนหน้า /admin/site-info) */}
+      {/* ========================================================= */}
+      <Modal
+        open={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        widthClass="max-w-sm"
+      >
+        <div className="text-center space-y-4 py-2">
+          <div className="w-12 h-12 bg-forest-50 text-forest-800 border border-forest-200 rounded-2xl flex items-center justify-center mx-auto shadow-2xs">
+            <Check size={26} className="stroke-[2.5]" />
+          </div>
+          <h3 className="text-base font-bold text-forest-900">
+            บันทึกข้อมูลสำเร็จ!
+          </h3>
+          <button
+            type="button"
+            onClick={() => setIsSuccessOpen(false)}
+            className="w-full py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-98"
+          >
+            ตกลง
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -23,13 +23,13 @@ import {
   LogOut,
   ArrowUpRight,
   ArrowLeft,
-  CalendarDays
+  CalendarDays,
 } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { notify } from "@/lib/admin-notify";
-import { Modal } from '@/components/admin/ui';
+import { Modal, CustomSelect } from '@/components/admin/ui';
 import { 
   formatThaiDateShort, 
   formatThaiDateLong, 
@@ -133,6 +133,8 @@ export default function AdminCalendarPage() {
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const goToToday = () => setCurrentDate(new Date());
+  const changeMonth = (newMonth: number) => setCurrentDate(new Date(year, newMonth, 1));
+  const changeYear = (newYear: number) => setCurrentDate(new Date(newYear, month, 1));
 
   // ---------------- Process Daily Breakdowns (No พักต่อเนื่อง) ----------------
   const dailyDataMap = useMemo(() => {
@@ -341,7 +343,7 @@ export default function AdminCalendarPage() {
                 }`}
               >
                 <Sailboat size={13} className={filterType === 'kayaks' ? 'text-white' : 'text-lagoon-700'} />
-                <span>เรือ / คายัค</span>
+                <span>เรือ</span>
               </button>
             </div>
 
@@ -429,8 +431,8 @@ export default function AdminCalendarPage() {
       {/* Main Calendar Panel */}
       <div className="bg-white rounded-3xl shadow-panel border border-cream-200/80 overflow-hidden">
         {/* Calendar Month & Navigation Header */}
-        <div className="p-4 sm:p-5 border-b border-cream-200/80 bg-white flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="p-4 sm:p-5 border-b border-cream-200/80 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-wrap">
             <h2 className="font-display text-xl sm:text-2xl font-bold text-forest-900 tracking-tight">
               {thaiMonthNames[month]} {year + 543}
             </h2>
@@ -438,23 +440,57 @@ export default function AdminCalendarPage() {
               เข้าพัก {stats.checkinsMonth} • ออก {stats.checkoutsMonth} • เรือ {stats.boatsMonth}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={prevMonth}
-              className="p-2 sm:px-3 sm:py-2 rounded-2xl bg-cream-100/90 hover:bg-forest-50/60 hover:border-forest-200 text-charcoal-700 border border-cream-300/80 transition-all active:scale-95 shadow-xs flex items-center gap-1 text-xs font-semibold"
-              title="เดือนก่อนหน้า"
-            >
-              <ChevronLeft size={16} className="text-charcoal-600" />
-              <span className="hidden md:inline">เดือนก่อน</span>
-            </button>
-            <button
-              onClick={nextMonth}
-              className="p-2 sm:px-3 sm:py-2 rounded-2xl bg-cream-100/90 hover:bg-forest-50/60 hover:border-forest-200 text-charcoal-700 border border-cream-300/80 transition-all active:scale-95 shadow-xs flex items-center gap-1 text-xs font-semibold"
-              title="เดือนถัดไป"
-            >
-              <span className="hidden md:inline">เดือนถัดไป</span>
-              <ChevronRight size={16} className="text-charcoal-600" />
-            </button>
+
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {/* Quick Month & Year Select Dropdowns */}
+            <div className="flex items-center gap-1.5 bg-cream-50/80 p-1 rounded-2xl border border-cream-200 shadow-2xs">
+              {/* Month Selector */}
+              <CustomSelect
+                width="w-28 sm:w-32"
+                value={month}
+                onChange={(val) => changeMonth(Number(val))}
+                options={thaiMonthNames.map((name, idx) => ({
+                  value: idx,
+                  label: name,
+                }))}
+                buttonClassName="w-full flex items-center justify-between gap-1.5 px-3 py-1.5 bg-white hover:bg-cream-50/80 border border-cream-200/90 hover:border-forest-300 rounded-xl text-xs font-semibold text-forest-900 transition-all focus:outline-none focus:ring-2 focus:ring-forest-800/20 shadow-2xs"
+              />
+
+              {/* Year Selector */}
+              <CustomSelect
+                width="w-24 sm:w-28"
+                value={year}
+                onChange={(val) => changeYear(Number(val))}
+                options={Array.from({ length: 9 }, (_, idx) => {
+                  const y = new Date().getFullYear() - 3 + idx;
+                  return {
+                    value: y,
+                    label: String(y + 543),
+                  };
+                })}
+                buttonClassName="w-full flex items-center justify-between gap-1.5 px-3 py-1.5 bg-white hover:bg-cream-50/80 border border-cream-200/90 hover:border-forest-300 rounded-xl text-xs font-semibold text-forest-900 transition-all focus:outline-none focus:ring-2 focus:ring-forest-800/20 shadow-2xs"
+              />
+            </div>
+
+            {/* Prev / Next Month Buttons */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={prevMonth}
+                className="p-2 sm:px-3 sm:py-2 rounded-2xl bg-cream-100/90 hover:bg-forest-50/60 hover:border-forest-200 text-charcoal-700 border border-cream-300/80 transition-all active:scale-95 shadow-xs flex items-center gap-1 text-xs font-semibold"
+                title="เดือนก่อนหน้า"
+              >
+                <ChevronLeft size={16} className="text-charcoal-600" />
+                <span className="hidden md:inline">เดือนก่อน</span>
+              </button>
+              <button
+                onClick={nextMonth}
+                className="p-2 sm:px-3 sm:py-2 rounded-2xl bg-cream-100/90 hover:bg-forest-50/60 hover:border-forest-200 text-charcoal-700 border border-cream-300/80 transition-all active:scale-95 shadow-xs flex items-center gap-1 text-xs font-semibold"
+                title="เดือนถัดไป"
+              >
+                <span className="hidden md:inline">เดือนถัดไป</span>
+                <ChevronRight size={16} className="text-charcoal-600" />
+              </button>
+            </div>
           </div>
         </div>
 

@@ -37,7 +37,7 @@ import {
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
-import { Modal } from "@/components/admin/ui";
+import { Modal, CustomSelect } from "@/components/admin/ui";
 import {
   formatThaiDateShort as formatThaiDate,
   formatThaiDateLong,
@@ -1006,19 +1006,22 @@ function AdminCheckinContent() {
         {/* Sorting and Layout Density Controls */}
         <div className="flex items-center gap-2 self-end md:self-auto flex-wrap">
           {/* Sort Selector */}
-          <div className="flex items-center gap-1.5 bg-cream-50 px-2.5 py-1.5 rounded-xl border border-cream-200 text-xs">
-            <ArrowUpDown size={13} className="text-charcoal-400" />
-            <span className="text-charcoal-500 hidden sm:inline">เรียงตาม:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "room" | "time" | "name")}
-              className="bg-transparent font-semibold text-forest-900 focus:outline-none cursor-pointer"
-            >
-              <option value="time">เวลาคาดว่าจะถึง</option>
-              <option value="room">หมายเลขห้อง (Room #)</option>
-              <option value="name">ชื่อผู้เข้าพัก</option>
-            </select>
-          </div>
+          <CustomSelect
+            width="w-44 sm:w-52"
+            options={[
+              { value: "time", label: "เวลาคาดว่าจะถึง" },
+              { value: "room", label: "หมายเลขห้อง (Room #)" },
+              { value: "name", label: "ชื่อผู้เข้าพัก" },
+            ]}
+            value={sortBy}
+            onChange={(val) => setSortBy(val as "room" | "time" | "name")}
+            prefix={
+              <>
+                <ArrowUpDown size={13} className="text-charcoal-400 shrink-0" />
+                <span className="text-charcoal-500 font-normal hidden sm:inline">เรียงตาม:</span>
+              </>
+            }
+          />
 
           {/* View Density Switcher */}
           <div className="flex items-center gap-1 bg-cream-100 p-1 rounded-xl">

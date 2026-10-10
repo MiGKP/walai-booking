@@ -429,9 +429,6 @@ export default function BoatTypesPage() {
             <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 leading-tight">
               จัดการประเภทเรือ
             </h1>
-            <p className="text-xs sm:text-sm text-charcoal-500 mt-1">
-              กำหนดประเภทเรือคายัค อัตราค่าบริการ จำนวนที่นั่ง และจำนวนลำที่พร้อมให้บริการ
-            </p>
           </div>
         </div>
 

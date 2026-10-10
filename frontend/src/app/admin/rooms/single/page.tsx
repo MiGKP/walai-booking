@@ -203,22 +203,41 @@ function SingleRoomsPageContent() {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
+  const fetchNextNumber = async (
+    typeId: string,
+    prefixOverride?: string,
+  ): Promise<void> => {
+    if (!typeId) {
+      if (prefixOverride === undefined) setCurrentPrefix("");
+      return;
+    }
+    try {
+      const url =
+        prefixOverride !== undefined
+          ? `/rooms/single/next-number?room_type_id=${typeId}&prefix=${encodeURIComponent(prefixOverride)}`
+          : `/rooms/single/next-number?room_type_id=${typeId}`;
+      const res = await api.get(url);
+      if (res.data?.success && res.data?.data) {
+        setStartNumInput(res.data.data.next_number);
+        if (prefixOverride === undefined) {
+          setCurrentPrefix(res.data.data.prefix || "");
+        }
+      }
+    } catch {
+      // Fallback
+    }
+  };
+
   const handleRoomTypeChange = async (typeId: string): Promise<void> => {
     setRoomTypeIdInput(typeId);
     if (!editingRoomId) {
-      if (!typeId) {
-        setCurrentPrefix("");
-        return;
-      }
-      try {
-        const res = await api.get(`/rooms/single/next-number?room_type_id=${typeId}`);
-        if (res.data?.success && res.data?.data) {
-          setStartNumInput(res.data.data.next_number);
-          setCurrentPrefix(res.data.data.prefix || "");
-        }
-      } catch {
-        // Fallback
-      }
+      await fetchNextNumber(typeId);
+    }
+  };
+
+  const handlePrefixBlur = async (): Promise<void> => {
+    if (!editingRoomId && roomTypeIdInput) {
+      await fetchNextNumber(roomTypeIdInput, currentPrefix);
     }
   };
 
@@ -480,22 +499,37 @@ function SingleRoomsPageContent() {
           )}
         </div>
 
-        {!editingRoomId && currentPrefix && (
+        {!editingRoomId && (
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-forest-200 bg-forest-50/80 px-3.5 py-2 text-xs text-forest-900">
-            <span className="font-bold">โซน {currentPrefix}</span>
-            <span className="text-forest-300">·</span>
-            <span className="font-semibold font-mono">
-              เลขถัดไป {currentPrefix}
-              {startNumInput === "" ? 1 : startNumInput}
-            </span>
-            <span className="text-xs font-normal text-charcoal-500">
-              (ต่อจากเลขเดิมในโซนนี้)
-            </span>
+            {currentPrefix ? (
+              <>
+                <span className="font-bold">โซน {currentPrefix}</span>
+                <span className="text-forest-300">·</span>
+                <span className="font-semibold font-mono">
+                  เลขถัดไป {currentPrefix}
+                  {startNumInput === "" ? 1 : startNumInput}
+                </span>
+                <span className="text-xs font-normal text-charcoal-500">
+                  (ต่อจากเลขเดิมในโซนนี้)
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="font-bold">ห้องตัวเลขล้วน (ไม่มี Prefix)</span>
+                <span className="text-forest-300">·</span>
+                <span className="font-semibold font-mono">
+                  เลขถัดไป {startNumInput === "" ? 1 : startNumInput}
+                </span>
+                <span className="text-xs font-normal text-charcoal-500">
+                  (สามารถพิมพ์ระบุ Prefix เช่น W, C ได้เอง)
+                </span>
+              </>
+            )}
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
-          <div className={editingRoomId ? "md:col-span-3" : "md:col-span-4"}>
+          <div className={editingRoomId ? "md:col-span-4" : "md:col-span-3"}>
             <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
               {editingRoomId ? "ประเภทห้องพัก" : "ประเภทห้องหลัก (Default)"}{" "}
               <span className="text-rose-500">*</span>
@@ -510,6 +544,22 @@ function SingleRoomsPageContent() {
 
           {!editingRoomId ? (
             <>
+              {/* ช่องระบุหรือแก้ไขตัวอักษรนำหน้า (Prefix) */}
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center justify-between">
+                  <span>ตัวอักษรนำหน้า</span>
+                  <span className="text-[10px] font-normal text-charcoal-400">ระบุเองได้</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="เช่น W, C, A"
+                  value={currentPrefix}
+                  onChange={(e) => setCurrentPrefix(e.target.value.toUpperCase())}
+                  onBlur={handlePrefixBlur}
+                  className="w-full px-3.5 py-2 bg-cream-50/80 focus:bg-white border border-cream-300 focus:border-forest-300 rounded-2xl text-xs font-bold text-charcoal-800 uppercase focus:outline-none focus:ring-2 focus:ring-forest-500/20"
+                />
+              </div>
+
               {/* เริ่มที่ห้องหมายเลข */}
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
@@ -538,7 +588,7 @@ function SingleRoomsPageContent() {
               </div>
 
               {/* ช่องจำนวนห้องพร้อมปุ่ม +/- */}
-              <div className="md:col-span-3">
+              <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
                   จำนวนห้อง <span className="text-rose-500">*</span>
                 </label>
@@ -651,7 +701,7 @@ function SingleRoomsPageContent() {
             </>
           )}
 
-          <div className="md:col-span-2 flex items-center gap-2">
+          <div className={!editingRoomId ? "md:col-span-3 flex items-center gap-2" : "md:col-span-2 flex items-center gap-2"}>
             {!editingRoomId ? (
               <button
                 type="button"

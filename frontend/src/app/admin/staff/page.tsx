@@ -24,11 +24,13 @@ import {
   ChevronsRight,
   Search,
   Loader2,
+  Calendar,
 } from "lucide-react";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { Modal } from "@/components/admin/ui";
+import { formatThaiDateShort } from "@/lib/date";
 
 // Component Custom Dropdown (ดีไซน์ละมุนสไตล์ Walai)
 function CustomSelect({
@@ -72,7 +74,7 @@ function CustomSelect({
           e.preventDefault();
           setIsOpen(!isOpen);
         }}
-        className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 border border-cream-300 rounded-2xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-none focus:ring-2 focus:ring-forest-800/20 shadow-2xs cursor-pointer"
+        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 bg-cream-50/70 hover:bg-cream-50 border border-cream-300 rounded-2xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-none focus:ring-2 focus:ring-forest-800/20 shadow-2xs cursor-pointer"
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
@@ -131,7 +133,13 @@ export default function StaffManagementPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
-  const [staffForm, setStaffForm] = useState({
+  // State สำหรับ Modal เพิ่มพนักงานใหม่
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [usePhoneAsPassword, setUsePhoneAsPassword] = useState(true);
+
+  const initialFormState = {
     name: "",
     email: "",
     password: "",
@@ -142,9 +150,11 @@ export default function StaffManagementPage() {
     district: "",
     province: "",
     postal_code: "",
-  });
+  };
 
-  // Modal State
+  const [staffForm, setStaffForm] = useState(initialFormState);
+
+  // Modal State อื่นๆ
   const [selectedStaff, setSelectedStaff] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<any>(null);
@@ -179,24 +189,35 @@ export default function StaffManagementPage() {
 
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (usePhoneAsPassword) {
+      if (!staffForm.phone || staffForm.phone.trim().length < 8) {
+        notify.error("กรุณาระบุเบอร์โทรศัพท์อย่างน้อย 8-10 หลัก เพื่อใช้เป็นรหัสผ่านเริ่มต้น");
+        return;
+      }
+    } else {
+      if (!staffForm.password || staffForm.password.trim().length < 8) {
+        notify.error("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร");
+        return;
+      }
+    }
+
+    setIsSubmittingCreate(true);
     try {
-      await api.post("/auth/staff", staffForm);
+      const payload = {
+        ...staffForm,
+        password: usePhoneAsPassword ? staffForm.phone.trim() : staffForm.password,
+      };
+      await api.post("/auth/staff", payload);
       notify.success("สร้างบัญชีพนักงานสำเร็จ");
-      setStaffForm({
-        name: "",
-        email: "",
-        password: "",
-        phone: "",
-        role: "room_staff",
-        address: "",
-        subdistrict: "",
-        district: "",
-        province: "",
-        postal_code: "",
-      });
+      setStaffForm(initialFormState);
+      setUsePhoneAsPassword(true);
+      setIsCreateModalOpen(false);
       fetchStaff();
     } catch (err: unknown) {
       notify.error(getApiErrorMessage(err, "ไม่สามารถสร้างบัญชีพนักงานได้"));
+    } finally {
+      setIsSubmittingCreate(false);
     }
   };
 
@@ -247,6 +268,7 @@ export default function StaffManagementPage() {
   const handleUpdateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStaff) return;
+    setIsSubmittingEdit(true);
     try {
       await api.put(`/auth/staff/${editingStaff.id}`, editingStaff);
       notify.success("แก้ไขข้อมูลพนักงานสำเร็จ");
@@ -255,6 +277,8 @@ export default function StaffManagementPage() {
       fetchStaff();
     } catch (err: unknown) {
       notify.error(getApiErrorMessage(err, "แก้ไขข้อมูลไม่สำเร็จ"));
+    } finally {
+      setIsSubmittingEdit(false);
     }
   };
 
@@ -288,6 +312,18 @@ export default function StaffManagementPage() {
   const paginatedStaffList = useMemo(() => {
     return filteredStaffList.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [filteredStaffList, startIndex]);
+
+  // สถิติตัวกรอง
+  const stats = useMemo(() => {
+    return {
+      total: staffList.length,
+      active: staffList.filter((s) => s.status).length,
+      inactive: staffList.filter((s) => !s.status).length,
+      room: staffList.filter((s) => s.role === "room_staff").length,
+      boat: staffList.filter((s) => s.role === "boat_staff").length,
+      admin: staffList.filter((s) => s.role === "admin").length,
+    };
+  }, [staffList]);
 
   const renderRoleBadge = (role: string) => {
     switch (role) {
@@ -325,8 +361,8 @@ export default function StaffManagementPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Header & Page Title */}
-      <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header & Page Title with Action Button */}
+      <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-900/10">
             <Users size={24} className="stroke-[2.2]" />
@@ -338,389 +374,275 @@ export default function StaffManagementPage() {
           </div>
         </div>
 
-        <div className="px-4 py-2.5 bg-cream-50/80 rounded-2xl border border-cream-300 shadow-2xs flex items-center gap-3 self-start sm:self-auto">
-          <div className="w-8 h-8 rounded-xl bg-forest-100 flex items-center justify-center text-forest-800">
-            <Users size={18} />
-          </div>
-          <div>
-            <span className="text-[11px] font-semibold text-charcoal-400 block leading-tight">
+        <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap sm:flex-nowrap">
+          {/* Badge สรุปจำนวน */}
+          <div className="px-4 py-2.5 bg-cream-50/80 rounded-2xl border border-cream-300 shadow-2xs flex items-center gap-2.5">
+            <span className="text-xs font-medium text-charcoal-500">
               พนักงานทั้งหมด
             </span>
-            <span className="text-xs font-bold text-forest-900">
-              {staffList.length} คน
+            <span className="text-xs font-bold text-forest-900 font-mono">
+              {stats.total} คน
             </span>
           </div>
+
+          {/* ปุ่มสร้างพนักงานใหม่ (Primary Action) */}
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl text-xs font-bold shadow-md shadow-forest-900/10 transition-all cursor-pointer active:scale-98"
+          >
+            <UserPlus size={16} />
+            <span>เพิ่มพนักงานใหม่</span>
+          </button>
         </div>
       </div>
 
-      {/* Main Grid Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Form Create Staff Column */}
-        <div className="lg:col-span-5 bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 flex flex-col">
-          <div className="pb-4 mb-4 border-b border-cream-200/80 flex items-center gap-2.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
-            <h2 className="text-base font-bold text-forest-900">
-              เพิ่มพนักงานใหม่
-            </h2>
+      {/* Main Table: Full Width */}
+      <div className="bg-white rounded-3xl p-5 sm:p-7 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[660px]">
+        {/* Top Control Bar: Search & Status Filters */}
+        <div className="space-y-3.5 mb-5">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            {/* Search Box */}
+            <div className="relative flex-1 max-w-md">
+              <Search
+                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-charcoal-400 pointer-events-none"
+              />
+              <input
+                type="text"
+                placeholder="ค้นหาชื่อ, อีเมล หรือเบอร์โทรศัพท์..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-8 py-2.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-charcoal-400 hover:text-charcoal-600 text-xs p-0.5 rounded-full hover:bg-cream-200 cursor-pointer"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            {/* Status Filter Buttons */}
+            <div className="flex items-center gap-1 p-1 bg-cream-100 rounded-2xl text-xs shrink-0 self-start md:self-auto">
+              <button
+                type="button"
+                onClick={() => setStatusFilter("all")}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                  statusFilter === "all"
+                    ? "bg-white text-forest-900 shadow-2xs font-bold"
+                    : "text-charcoal-600 hover:text-charcoal-900"
+                }`}
+              >
+                ทั้งหมด ({stats.total})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("active")}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "active"
+                    ? "bg-forest-800 text-white shadow-2xs font-bold"
+                    : "text-charcoal-600 hover:text-forest-800"
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${statusFilter === "active" ? "bg-white" : "bg-forest-600"}`}
+                />
+                ใช้งาน ({stats.active})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("inactive")}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  statusFilter === "inactive"
+                    ? "bg-rose-600 text-white shadow-2xs font-bold"
+                    : "text-charcoal-600 hover:text-rose-700"
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${statusFilter === "inactive" ? "bg-white" : "bg-rose-600"}`}
+                />
+                ระงับ ({stats.inactive})
+              </button>
+            </div>
           </div>
 
-          <form onSubmit={handleCreateStaff} className="space-y-4">
-            <div className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
-                  ชื่อ-นามสกุล <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="นายสมชาย ใจดี"
-                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
-                  value={staffForm.name}
-                  onChange={(e) =>
-                    setStaffForm({ ...staffForm, name: e.target.value })
-                  }
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
-                  อีเมล <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="staff@walai.com"
-                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
-                  value={staffForm.email}
-                  onChange={(e) =>
-                    setStaffForm({ ...staffForm, email: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
-                    รหัสผ่าน <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="••••••••"
-                    className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
-                    value={staffForm.password}
-                    onChange={(e) =>
-                      setStaffForm({ ...staffForm, password: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
-                    เบอร์โทรศัพท์
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="0812345678"
-                    className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
-                    value={staffForm.phone}
-                    onChange={(e) =>
-                      setStaffForm({ ...staffForm, phone: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
-                  ตำแหน่ง/บทบาท <span className="text-rose-500">*</span>
-                </label>
-                <CustomSelect
-                  options={ROLE_OPTIONS}
-                  value={staffForm.role}
-                  onChange={(val) => setStaffForm({ ...staffForm, role: val })}
-                />
-              </div>
-            </div>
-
-            {/* Address Optional */}
-            <div className="pt-3.5 border-t border-cream-200 space-y-2.5">
-              <span className="text-[11px] font-bold text-charcoal-500 uppercase tracking-wider block">
-                ข้อมูลที่อยู่เพิ่มเติม (ตัวเลือก)
-              </span>
-              <textarea
-                placeholder="บ้านเลขที่, ถนน, อาคาร"
-                className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs resize-none"
-                rows={2}
-                value={staffForm.address}
-                onChange={(e) =>
-                  setStaffForm({ ...staffForm, address: e.target.value })
-                }
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  placeholder="ตำบล/แขวง"
-                  className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
-                  value={staffForm.subdistrict}
-                  onChange={(e) =>
-                    setStaffForm({
-                      ...staffForm,
-                      subdistrict: e.target.value,
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  placeholder="อำเภอ/เขต"
-                  className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
-                  value={staffForm.district}
-                  onChange={(e) =>
-                    setStaffForm({ ...staffForm, district: e.target.value })
-                  }
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  placeholder="จังหวัด"
-                  className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
-                  value={staffForm.province}
-                  onChange={(e) =>
-                    setStaffForm({ ...staffForm, province: e.target.value })
-                  }
-                />
-                <input
-                  type="text"
-                  placeholder="รหัสไปรษณีย์"
-                  maxLength={5}
-                  className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
-                  value={staffForm.postal_code}
-                  onChange={(e) =>
-                    setStaffForm({
-                      ...staffForm,
-                      postal_code: e.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-
+          {/* Role Filter Tabs */}
+          <div className="flex items-center gap-1.5 p-1 bg-cream-100/70 border border-cream-200/80 rounded-2xl overflow-x-auto text-xs [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
-              type="submit"
-              className="w-full py-2.5 px-4 bg-forest-800 hover:bg-forest-900 text-white text-xs font-bold rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xs mt-2 cursor-pointer active:scale-98"
+              type="button"
+              onClick={() => setActiveTab("all")}
+              className={`px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === "all"
+                  ? "bg-white text-forest-900 shadow-2xs font-bold"
+                  : "text-charcoal-600 hover:text-charcoal-900"
+              }`}
             >
-              <UserPlus size={16} />
-              สร้างบัญชีพนักงาน
+              ทุกตำแหน่ง ({stats.total})
             </button>
-          </form>
+            <button
+              type="button"
+              onClick={() => setActiveTab("room_staff")}
+              className={`px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "room_staff"
+                  ? "bg-white text-forest-900 shadow-2xs font-bold"
+                  : "text-charcoal-600 hover:text-charcoal-900"
+              }`}
+            >
+              <Home size={13} className="text-forest-700" />
+              จัดการห้องพัก ({stats.room})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("boat_staff")}
+              className={`px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "boat_staff"
+                  ? "bg-white text-forest-900 shadow-2xs font-bold"
+                  : "text-charcoal-600 hover:text-charcoal-900"
+              }`}
+            >
+              <Ship size={13} className="text-lagoon-700" />
+              จัดการเรือ ({stats.boat})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("admin")}
+              className={`px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "admin"
+                  ? "bg-white text-forest-900 shadow-2xs font-bold"
+                  : "text-charcoal-600 hover:text-charcoal-900"
+              }`}
+            >
+              <ShieldCheck size={13} className="text-forest-800" />
+              ผู้ดูแลระบบ ({stats.admin})
+            </button>
+          </div>
         </div>
 
-        {/* Table Staff List Column */}
-        <div className="lg:col-span-7 bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[660px]">
-          {/* Header */}
-          <div className="pb-4 mb-4 border-b border-cream-200/80 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
-              <h2 className="text-base font-bold text-forest-900">
-                รายชื่อพนักงานในระบบ
-              </h2>
-              <span className="px-2.5 py-0.5 bg-forest-50 text-forest-800 border border-forest-200 rounded-full text-xs font-bold font-mono">
-                {filteredStaffList.length} คน
-              </span>
-            </div>
-          </div>
-
-          {/* Search & Status Filters */}
-          <div className="space-y-3 mb-4">
-            <div className="flex flex-col sm:flex-row items-center gap-2.5">
-              {/* Search Box */}
-              <div className="relative flex-1 w-full">
-                <Search
-                  size={15}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-charcoal-400 pointer-events-none"
-                />
-                <input
-                  type="text"
-                  placeholder="ค้นหาชื่อ, อีเมล หรือเบอร์โทร..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-charcoal-400 hover:text-charcoal-600 text-xs p-0.5 rounded-full hover:bg-cream-200 cursor-pointer"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-
-              {/* Status Filter Tabs */}
-              <div className="flex items-center gap-1 p-1 bg-cream-100 rounded-2xl text-xs w-full sm:w-auto shrink-0 justify-between sm:justify-start">
-                <button
-                  type="button"
-                  onClick={() => setStatusFilter("all")}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                    statusFilter === "all"
-                      ? "bg-white text-forest-900 shadow-2xs font-bold"
-                      : "text-charcoal-600 hover:text-charcoal-900"
-                  }`}
-                >
-                  ทั้งหมด
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStatusFilter("active")}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    statusFilter === "active"
-                      ? "bg-forest-800 text-white shadow-2xs font-bold"
-                      : "text-charcoal-600 hover:text-forest-800"
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${statusFilter === "active" ? "bg-white" : "bg-forest-600"}`} />
-                  ใช้งาน
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStatusFilter("inactive")}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    statusFilter === "inactive"
-                      ? "bg-rose-600 text-white shadow-2xs font-bold"
-                      : "text-charcoal-600 hover:text-rose-700"
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${statusFilter === "inactive" ? "bg-white" : "bg-rose-600"}`} />
-                  ระงับ
-                </button>
-              </div>
-            </div>
-
-            {/* Role Filter Tabs */}
-            <div className="flex items-center gap-1 p-1 bg-cream-100 rounded-2xl overflow-x-auto text-xs [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <button
-                type="button"
-                onClick={() => setActiveTab("all")}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === "all"
-                    ? "bg-white text-forest-900 shadow-2xs font-bold"
-                    : "text-charcoal-600 hover:text-charcoal-900"
-                }`}
-              >
-                ทั้งหมด ({staffList.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("room_staff")}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-                  activeTab === "room_staff"
-                    ? "bg-white text-forest-900 shadow-2xs font-bold"
-                    : "text-charcoal-600 hover:text-charcoal-900"
-                }`}
-              >
-                <Home size={13} className="text-forest-700" />
-                ห้องพัก ({staffList.filter((s) => s.role === "room_staff").length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("boat_staff")}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-                  activeTab === "boat_staff"
-                    ? "bg-white text-forest-900 shadow-2xs font-bold"
-                    : "text-charcoal-600 hover:text-charcoal-900"
-                }`}
-              >
-                <Ship size={13} className="text-lagoon-700" />
-                เรือ ({staffList.filter((s) => s.role === "boat_staff").length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("admin")}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-                  activeTab === "admin"
-                    ? "bg-white text-forest-900 shadow-2xs font-bold"
-                    : "text-charcoal-600 hover:text-charcoal-900"
-                }`}
-              >
-                <ShieldCheck size={13} className="text-forest-800" />
-                ผู้ดูแลระบบ ({staffList.filter((s) => s.role === "admin").length})
-              </button>
-            </div>
-          </div>
-
-          {/* Table Area */}
-          <div className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
-            <table className="w-full text-left border-collapse text-xs md:text-sm">
-              <thead>
-                <tr className="border-b border-cream-200 bg-cream-50/80 text-xs font-bold text-charcoal-600 uppercase tracking-wider select-none shadow-2xs">
-                  <th className="px-4 py-3.5">รายชื่อพนักงาน</th>
-                  <th className="px-3 py-3.5">ตำแหน่ง</th>
-                  <th className="px-3 py-3.5">สถานะ</th>
-                  <th className="px-3 py-3.5 text-center">จัดการ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-cream-100 bg-white text-xs text-charcoal-700">
-                {loading ? (
-                  <tr>
-                    <td
-                      colSpan={4}
-                      className="py-16 text-center text-charcoal-400"
-                    >
-                      <div className="flex flex-col items-center justify-center gap-3">
-                        <Loader2 className="h-6 w-6 animate-spin text-forest-700" />
-                        <p className="text-xs font-medium text-charcoal-500">กำลังโหลดข้อมูล...</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : filteredStaffList.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={4}
-                      className="py-16 text-center text-charcoal-400"
-                    >
-                      <Users
-                        size={32}
-                        className="mx-auto mb-2 text-charcoal-300"
-                      />
+        {/* Full-width Table Area */}
+        <div className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
+          <table className="w-full text-left border-collapse text-xs md:text-sm">
+            <thead>
+              <tr className="border-b border-cream-200 bg-cream-50/80 text-xs font-bold text-charcoal-600 uppercase tracking-wider select-none shadow-2xs">
+                <th className="py-3.5 px-4 w-12 text-center">#</th>
+                <th className="py-3.5 px-4 min-w-[200px]">พนักงาน</th>
+                <th className="py-3.5 px-4 min-w-[220px]">ช่องทางติดต่อ</th>
+                <th className="py-3.5 px-4 min-w-[150px]">ตำแหน่ง/บทบาท</th>
+                <th className="py-3.5 px-4 min-w-[160px]">พื้นที่/ที่อยู่</th>
+                <th className="py-3.5 px-4 min-w-[110px] text-center">สถานะ</th>
+                <th className="py-3.5 px-4 text-center min-w-[120px]">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-cream-100 bg-white text-xs text-charcoal-700">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-20 text-center text-charcoal-400">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <Loader2 className="h-7 w-7 animate-spin text-forest-700" />
                       <p className="text-xs font-medium text-charcoal-500">
-                        ไม่พบข้อมูลพนักงานที่ค้นหา
+                        กำลังโหลดข้อมูลพนักงาน...
                       </p>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedStaffList.map((s: any) => (
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredStaffList.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-20 text-center text-charcoal-400">
+                    <Users size={36} className="mx-auto mb-2 text-charcoal-300" />
+                    <p className="text-xs font-semibold text-charcoal-600">
+                      ไม่พบข้อมูลพนักงาน
+                    </p>
+                    <p className="text-[11px] text-charcoal-400 mt-1">
+                      ลองเปลี่ยนคำค้นหาหรือตัวกรองใหม่อีกครั้ง
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                paginatedStaffList.map((s: any, idx: number) => {
+                  const staffFullName =
+                    s.first_name || s.last_name
+                      ? `${s.first_name || ""} ${s.last_name || ""}`.trim()
+                      : s.name || "ไม่ระบุชื่อ";
+                  const initialLetter = (staffFullName[0] || "พ").toUpperCase();
+
+                  const addressText = [s.province, s.district]
+                    .filter(Boolean)
+                    .join(", ");
+
+                  return (
                     <tr
                       key={s.id}
                       className="hover:bg-cream-50/60 border-b border-cream-100/80 last:border-0 transition-colors"
                     >
-                      <td className="px-4 py-3.5">
-                        <div className="font-bold text-forest-950">
-                          {s.first_name || s.last_name
-                            ? `${s.first_name || ""} ${s.last_name || ""}`.trim()
-                            : s.name || "ไม่ระบุชื่อ"}
+                      {/* # Index */}
+                      <td className="py-3.5 px-4 text-center font-mono text-charcoal-400 font-semibold">
+                        {startIndex + idx + 1}
+                      </td>
+
+                      {/* Staff Name & Avatar */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-2xl bg-forest-100/80 border border-forest-200/60 text-forest-800 font-bold flex items-center justify-center shrink-0 text-xs shadow-2xs">
+                            {initialLetter}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-bold text-forest-950 truncate">
+                              {staffFullName}
+                            </div>
+                            <div className="text-[11px] text-charcoal-400 font-mono mt-0.5">
+                              ID: #{s.id}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-[11px] text-charcoal-400 flex items-center gap-2.5 mt-0.5 font-medium flex-wrap">
-                          <span className="flex items-center gap-1">
-                            <Mail size={11} className="text-forest-700" /> {s.email}
-                          </span>
-                          {s.phone && (
-                            <span className="flex items-center gap-1 font-mono">
-                              <Phone size={11} className="text-forest-700" /> {s.phone}
+                      </td>
+
+                      {/* Contact: Email & Phone */}
+                      <td className="py-3.5 px-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-charcoal-700">
+                            <Mail size={12} className="text-forest-700 shrink-0" />
+                            <span className="truncate">{s.email || "-"}</span>
+                          </div>
+                          {s.phone ? (
+                            <div className="flex items-center gap-1.5 text-charcoal-500 font-mono text-[11px]">
+                              <Phone size={12} className="text-forest-700 shrink-0" />
+                              <span>{s.phone}</span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-charcoal-300 block">
+                              ไม่มีเบอร์โทร
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-3.5 whitespace-nowrap">
+
+                      {/* Role Badge */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
                         {renderRoleBadge(s.role)}
                       </td>
-                      <td className="px-3 py-3.5 whitespace-nowrap">
+
+                      {/* Location / Area */}
+                      <td className="py-3.5 px-4 text-charcoal-600">
+                        {addressText ? (
+                          <div className="flex items-center gap-1.5">
+                            <MapPin size={13} className="text-forest-700 shrink-0" />
+                            <span className="truncate">{addressText}</span>
+                          </div>
+                        ) : (
+                          <span className="text-charcoal-300 text-[11px]">
+                            ไม่ระบุที่อยู่
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
                         {s.status ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-forest-50 text-forest-800 border border-forest-200">
-                            <CheckCircle2
-                              size={11}
-                              className="text-forest-600"
-                            />
+                            <CheckCircle2 size={11} className="text-forest-600" />
                             ใช้งาน
                           </span>
                         ) : (
@@ -730,7 +652,9 @@ export default function StaffManagementPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-3.5 whitespace-nowrap">
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             type="button"
@@ -770,138 +694,361 @@ export default function StaffManagementPage() {
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination Footer */}
-          {filteredStaffList.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-auto border-t border-cream-200 text-xs text-charcoal-500">
-              <span>
-                แสดง{" "}
-                <strong className="text-forest-950 font-mono">
-                  {filteredStaffList.length > 0 ? startIndex + 1 : 0}
-                </strong>{" "}
-                ถึง{" "}
-                <strong className="text-forest-950 font-mono">{endIndex}</strong> จาก{" "}
-                <strong className="text-forest-950 font-mono">{filteredStaffList.length}</strong> คน
-              </span>
-
-              {/* Pagination Controls */}
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(1)}
-                  className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
-                  title="หน้าแรก"
-                >
-                  <ChevronsLeft size={14} />
-                </button>
-                <button
-                  type="button"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                  className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
-                  title="หน้าก่อนหน้า"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                  .reduce<(number | string)[]>((acc, p, idx, arr) => {
-                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
-                      acc.push("...");
-                    }
-                    acc.push(p);
-                    return acc;
-                  }, [])
-                  .map((p, idx) =>
-                    typeof p === "number" ? (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setCurrentPage(p)}
-                        className={`min-w-[32px] h-8 px-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
-                          currentPage === p
-                            ? "bg-forest-800 text-white shadow-xs"
-                            : "bg-white text-charcoal-600 border border-cream-300 hover:bg-cream-100 shadow-2xs"
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ) : (
-                      <span key={idx} className="px-1 text-charcoal-400 font-bold">
-                        {p}
-                      </span>
-                    ),
-                  )}
-
-                <button
-                  type="button"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                  className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
-                  title="หน้าถัดไป"
-                >
-                  <ChevronRight size={14} />
-                </button>
-                <button
-                  type="button"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(totalPages)}
-                  className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
-                  title="หน้าสุดท้าย"
-                >
-                  <ChevronsRight size={14} />
-                </button>
-              </div>
-            </div>
-          )}
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
+
+        {/* Pagination Footer */}
+        {filteredStaffList.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-auto border-t border-cream-200 text-xs text-charcoal-500">
+            <span>
+              แสดง{" "}
+              <strong className="text-forest-950 font-mono">
+                {filteredStaffList.length > 0 ? startIndex + 1 : 0}
+              </strong>{" "}
+              ถึง{" "}
+              <strong className="text-forest-950 font-mono">{endIndex}</strong> จาก{" "}
+              <strong className="text-forest-950 font-mono">{filteredStaffList.length}</strong> คน
+            </span>
+
+            {/* Pagination Controls */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(1)}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าแรก"
+              >
+                <ChevronsLeft size={14} />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าก่อนหน้า"
+              >
+                <ChevronLeft size={14} />
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(
+                  (p) =>
+                    p === 1 ||
+                    p === totalPages ||
+                    Math.abs(p - currentPage) <= 1,
+                )
+                .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
+                    acc.push("...");
+                  }
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  typeof p === "number" ? (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setCurrentPage(p)}
+                      className={`min-w-[32px] h-8 px-2 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                        currentPage === p
+                          ? "bg-forest-800 text-white shadow-xs"
+                          : "bg-white text-charcoal-600 border border-cream-300 hover:bg-cream-100 shadow-2xs"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ) : (
+                    <span
+                      key={idx}
+                      className="px-1 text-charcoal-400 font-bold"
+                    >
+                      {p}
+                    </span>
+                  ),
+                )}
+
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                }
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าถัดไป"
+              >
+                <ChevronRight size={14} />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="p-1.5 bg-white border border-cream-300 rounded-xl text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                title="หน้าสุดท้าย"
+              >
+                <ChevronsRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* MODAL: Edit Staff */}
+      {/* MODAL: เพิ่มพนักงานใหม่ */}
       <Modal
-        open={isEditModalOpen && !!editingStaff}
-        title="แก้ไขข้อมูลพนักงาน"
+        open={isCreateModalOpen}
+        title="เพิ่มพนักงานใหม่"
         onClose={() => {
-          setIsEditModalOpen(false);
-          setEditingStaff(null);
+          if (!isSubmittingCreate) setIsCreateModalOpen(false);
         }}
+        widthClass="max-w-2xl"
       >
-        {editingStaff && (
-          <form
-            onSubmit={handleUpdateStaff}
-            className="space-y-3.5"
-          >
+        <form onSubmit={handleCreateStaff} className="space-y-4">
+          {/* ข้อมูลบัญชีหลัก - Grid 2 คอลัมน์ */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
-                ชื่อ-นามสกุล
+                ชื่อ-นามสกุล <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 required
-                className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
-                value={editingStaff?.name || ""}
+                placeholder="นายสมชาย ใจดี"
+                className="w-full px-3.5 py-2.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                value={staffForm.name}
                 onChange={(e) =>
-                  setEditingStaff({ ...editingStaff, name: e.target.value })
+                  setStaffForm({ ...staffForm, name: e.target.value })
                 }
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
+                อีเมล <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="staff@walai.com"
+                className="w-full px-3.5 py-2.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                value={staffForm.email}
+                onChange={(e) =>
+                  setStaffForm({ ...staffForm, email: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
+                เบอร์โทรศัพท์ {usePhoneAsPassword && <span className="text-rose-500">*</span>}
+              </label>
+              <input
+                type="tel"
+                required={usePhoneAsPassword}
+                placeholder="0812345678"
+                className="w-full px-3.5 py-2.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs font-mono"
+                value={staffForm.phone}
+                onChange={(e) =>
+                  setStaffForm({ ...staffForm, phone: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
+                ตำแหน่ง/บทบาท <span className="text-rose-500">*</span>
+              </label>
+              <CustomSelect
+                options={ROLE_OPTIONS}
+                value={staffForm.role}
+                onChange={(val) => setStaffForm({ ...staffForm, role: val })}
+              />
+            </div>
+
+            {/* Checkbox: ใช้เบอร์โทรเป็นรหัสผ่านเริ่มต้น (เต็ม 2 คอลัมน์) */}
+            <div className="sm:col-span-2 p-3 bg-forest-50/70 border border-forest-200/80 rounded-2xl">
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={usePhoneAsPassword}
+                  onChange={(e) => setUsePhoneAsPassword(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 text-forest-800 rounded border-cream-300 focus:ring-forest-800/20 cursor-pointer accent-forest-800"
+                />
+                <div className="text-xs">
+                  <span className="font-bold text-forest-900 block">
+                    ใช้เบอร์โทรศัพท์เป็นรหัสผ่านเริ่มต้น (แนะนำ)
+                  </span>
+                  <span className="text-charcoal-500 text-[11px] block mt-0.5 leading-relaxed">
+                    พนักงานสามารถใช้เบอร์โทรศัพท์เข้าสู่ระบบ แล้วไปเปลี่ยนรหัสผ่านใหม่เองได้ที่หน้าโปรไฟล์
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {!usePhoneAsPassword && (
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
+                  รหัสผ่านที่กำหนดเอง <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="อย่างน้อย 8 ตัวอักษร"
+                  className="w-full px-3.5 py-2.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                  value={staffForm.password}
+                  onChange={(e) =>
+                    setStaffForm({ ...staffForm, password: e.target.value })
+                  }
+                />
+              </div>
+            )}
+          </div>
+
+          {/* ข้อมูลที่อยู่เพิ่มเติม - Grid 2 คอลัมน์ */}
+          <div className="pt-3 border-t border-cream-200 space-y-2.5">
+            <span className="text-[11px] font-bold text-charcoal-500 uppercase tracking-wider block">
+              ข้อมูลที่อยู่เพิ่มเติม (ตัวเลือก)
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="sm:col-span-2">
+                <input
+                  type="text"
+                  placeholder="บ้านเลขที่, ถนน, ซอย, อาคาร"
+                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                  value={staffForm.address}
+                  onChange={(e) =>
+                    setStaffForm({ ...staffForm, address: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  placeholder="ตำบล/แขวง"
+                  className="w-full px-3 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                  value={staffForm.subdistrict}
+                  onChange={(e) =>
+                    setStaffForm({
+                      ...staffForm,
+                      subdistrict: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  placeholder="อำเภอ/เขต"
+                  className="w-full px-3 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                  value={staffForm.district}
+                  onChange={(e) =>
+                    setStaffForm({ ...staffForm, district: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  placeholder="จังหวัด"
+                  className="w-full px-3 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                  value={staffForm.province}
+                  onChange={(e) =>
+                    setStaffForm({ ...staffForm, province: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  placeholder="รหัสไปรษณีย์"
+                  maxLength={5}
+                  className="w-full px-3 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                  value={staffForm.postal_code}
+                  onChange={(e) =>
+                    setStaffForm({
+                      ...staffForm,
+                      postal_code: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="pt-3 flex gap-2.5">
+            <button
+              type="button"
+              disabled={isSubmittingCreate}
+              onClick={() => setIsCreateModalOpen(false)}
+              className="flex-1 py-2.5 px-4 bg-cream-100 hover:bg-cream-200 text-charcoal-700 text-xs font-bold rounded-2xl transition-colors cursor-pointer disabled:opacity-50"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmittingCreate}
+              className="flex-1 py-2.5 px-4 bg-forest-800 hover:bg-forest-900 text-white text-xs font-bold rounded-2xl transition-all shadow-xs cursor-pointer active:scale-98 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSubmittingCreate ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  <span>กำลังสร้างบัญชี...</span>
+                </>
+              ) : (
+                <>
+                  <UserPlus size={15} />
+                  <span>สร้างบัญชีพนักงาน</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* MODAL: แก้ไขข้อมูลพนักงาน */}
+      <Modal
+        open={isEditModalOpen && !!editingStaff}
+        title="แก้ไขข้อมูลพนักงาน"
+        onClose={() => {
+          if (!isSubmittingEdit) {
+            setIsEditModalOpen(false);
+            setEditingStaff(null);
+          }
+        }}
+        widthClass="max-w-2xl"
+      >
+        {editingStaff && (
+          <form onSubmit={handleUpdateStaff} className="space-y-4">
+            {/* ข้อมูลบัญชีหลัก - Grid 2 คอลัมน์ */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
-                  อีเมล
+                  ชื่อ-นามสกุล <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="w-full px-3.5 py-2.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                  value={editingStaff?.name || ""}
+                  onChange={(e) =>
+                    setEditingStaff({ ...editingStaff, name: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
+                  อีเมล <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="email"
                   required
-                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                  className="w-full px-3.5 py-2.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                   value={editingStaff.email}
                   onChange={(e) =>
                     setEditingStaff({
@@ -911,13 +1058,15 @@ export default function StaffManagementPage() {
                   }
                 />
               </div>
+
               <div>
                 <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
                   เบอร์โทรศัพท์
                 </label>
                 <input
                   type="tel"
-                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                  placeholder="0812345678"
+                  className="w-full px-3.5 py-2.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs font-mono"
                   value={editingStaff.phone}
                   onChange={(e) =>
                     setEditingStaff({
@@ -927,43 +1076,46 @@ export default function StaffManagementPage() {
                   }
                 />
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
+                  ตำแหน่ง/บทบาท <span className="text-rose-500">*</span>
+                </label>
+                <CustomSelect
+                  options={ROLE_OPTIONS}
+                  value={editingStaff.role}
+                  onChange={(val) =>
+                    setEditingStaff({ ...editingStaff, role: val })
+                  }
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
-                ตำแหน่ง
-              </label>
-              <CustomSelect
-                options={ROLE_OPTIONS}
-                value={editingStaff.role}
-                onChange={(val) =>
-                  setEditingStaff({ ...editingStaff, role: val })
-                }
-              />
-            </div>
-
-            <div className="border-t border-cream-200 pt-3.5 space-y-2.5">
+            {/* ข้อมูลที่อยู่ - Grid 2 คอลัมน์ */}
+            <div className="pt-3 border-t border-cream-200 space-y-2.5">
               <span className="text-[11px] font-bold text-charcoal-500 uppercase tracking-wider block">
                 ข้อมูลที่อยู่
               </span>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  placeholder="บ้านเลขที่, ซอย, ถนน"
-                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
-                  value={editingStaff.address}
-                  onChange={(e) =>
-                    setEditingStaff({
-                      ...editingStaff,
-                      address: e.target.value,
-                    })
-                  }
-                />
-                <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="sm:col-span-2">
+                  <input
+                    type="text"
+                    placeholder="บ้านเลขที่, ถนน, ซอย, อาคาร"
+                    className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                    value={editingStaff.address}
+                    onChange={(e) =>
+                      setEditingStaff({
+                        ...editingStaff,
+                        address: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div>
                   <input
                     type="text"
                     placeholder="ตำบล/แขวง"
-                    className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                    className="w-full px-3 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
                     value={editingStaff.subdistrict}
                     onChange={(e) =>
                       setEditingStaff({
@@ -972,10 +1124,12 @@ export default function StaffManagementPage() {
                       })
                     }
                   />
+                </div>
+                <div>
                   <input
                     type="text"
                     placeholder="อำเภอ/เขต"
-                    className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                    className="w-full px-3 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
                     value={editingStaff.district}
                     onChange={(e) =>
                       setEditingStaff({
@@ -985,11 +1139,11 @@ export default function StaffManagementPage() {
                     }
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div>
                   <input
                     type="text"
                     placeholder="จังหวัด"
-                    className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                    className="w-full px-3 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
                     value={editingStaff.province}
                     onChange={(e) =>
                       setEditingStaff({
@@ -998,11 +1152,13 @@ export default function StaffManagementPage() {
                       })
                     }
                   />
+                </div>
+                <div>
                   <input
                     type="text"
                     placeholder="รหัสไปรษณีย์"
                     maxLength={5}
-                    className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                    className="w-full px-3 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
                     value={editingStaff.postal_code}
                     onChange={(e) =>
                       setEditingStaff({
@@ -1018,26 +1174,35 @@ export default function StaffManagementPage() {
             <div className="pt-3 flex gap-2.5">
               <button
                 type="button"
+                disabled={isSubmittingEdit}
                 onClick={() => {
                   setIsEditModalOpen(false);
                   setEditingStaff(null);
                 }}
-                className="flex-1 py-2.5 px-4 bg-cream-100 hover:bg-cream-200 text-charcoal-700 text-xs font-bold rounded-2xl transition-colors cursor-pointer"
+                className="flex-1 py-2.5 px-4 bg-cream-100 hover:bg-cream-200 text-charcoal-700 text-xs font-bold rounded-2xl transition-colors cursor-pointer disabled:opacity-50"
               >
                 ยกเลิก
               </button>
               <button
                 type="submit"
-                className="flex-1 py-2.5 px-4 bg-forest-800 hover:bg-forest-900 text-white text-xs font-bold rounded-2xl transition-all shadow-xs cursor-pointer active:scale-98"
+                disabled={isSubmittingEdit}
+                className="flex-1 py-2.5 px-4 bg-forest-800 hover:bg-forest-900 text-white text-xs font-bold rounded-2xl transition-all shadow-xs cursor-pointer active:scale-98 flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                บันทึกข้อมูล
+                {isSubmittingEdit ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    <span>กำลังบันทึก...</span>
+                  </>
+                ) : (
+                  <span>บันทึกข้อมูล</span>
+                )}
               </button>
             </div>
           </form>
         )}
       </Modal>
 
-      {/* MODAL: Staff Details */}
+      {/* MODAL: รายละเอียดพนักงาน */}
       <Modal
         open={isModalOpen && !!selectedStaff}
         title="รายละเอียดพนักงาน"
@@ -1046,7 +1211,7 @@ export default function StaffManagementPage() {
           <button
             type="button"
             onClick={closeStaffDetails}
-            className="py-2 px-5 bg-cream-100 hover:bg-cream-200 text-charcoal-700 text-xs font-bold rounded-2xl transition-colors cursor-pointer"
+            className="py-2.5 px-5 bg-cream-100 hover:bg-cream-200 text-charcoal-700 text-xs font-bold rounded-2xl transition-colors cursor-pointer"
           >
             ปิด
           </button>
@@ -1055,34 +1220,42 @@ export default function StaffManagementPage() {
         {selectedStaff && (
           <div className="space-y-4 text-xs text-charcoal-700">
             <div className="flex items-center justify-between pb-3.5 border-b border-cream-200">
-              <div>
-                <h4 className="text-sm font-bold text-forest-950">
-                  {selectedStaff.first_name || selectedStaff.last_name
-                    ? `${selectedStaff.first_name || ""} ${selectedStaff.last_name || ""}`.trim()
-                    : selectedStaff.name || "ไม่ระบุชื่อ"}
-                </h4>
-                <p className="text-xs text-charcoal-400 font-mono mt-0.5">
-                  ID: #{selectedStaff.id}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-forest-100 text-forest-800 font-bold flex items-center justify-center text-sm shadow-2xs border border-forest-200/60">
+                  {(
+                    selectedStaff.first_name?.[0] ||
+                    selectedStaff.name?.[0] ||
+                    "พ"
+                  ).toUpperCase()}
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-forest-950">
+                    {selectedStaff.first_name || selectedStaff.last_name
+                      ? `${selectedStaff.first_name || ""} ${selectedStaff.last_name || ""}`.trim()
+                      : selectedStaff.name || "ไม่ระบุชื่อ"}
+                  </h4>
+                  <p className="text-xs text-charcoal-400 font-mono mt-0.5">
+                    ID: #{selectedStaff.id}
+                  </p>
+                </div>
               </div>
               {renderRoleBadge(selectedStaff.role)}
             </div>
 
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-2 text-charcoal-700">
-                <Mail size={14} className="text-forest-700 shrink-0" />
-                <span>{selectedStaff.email}</span>
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center gap-2.5 text-charcoal-700 bg-cream-50/70 p-2.5 rounded-xl border border-cream-200/60">
+                <Mail size={15} className="text-forest-700 shrink-0" />
+                <span className="font-medium">{selectedStaff.email}</span>
               </div>
-              <div className="flex items-center gap-2 text-charcoal-700">
-                <Phone size={14} className="text-forest-700 shrink-0" />
-                <span className="font-mono">{selectedStaff.phone || "ไม่ระบุเบอร์โทรศัพท์"}</span>
+              <div className="flex items-center gap-2.5 text-charcoal-700 bg-cream-50/70 p-2.5 rounded-xl border border-cream-200/60">
+                <Phone size={15} className="text-forest-700 shrink-0" />
+                <span className="font-mono font-medium">
+                  {selectedStaff.phone || "ไม่ระบุเบอร์โทรศัพท์"}
+                </span>
               </div>
-              <div className="flex items-start gap-2 text-charcoal-700">
-                <MapPin
-                  size={14}
-                  className="text-forest-700 mt-0.5 shrink-0"
-                />
-                <span>
+              <div className="flex items-start gap-2.5 text-charcoal-700 bg-cream-50/70 p-2.5 rounded-xl border border-cream-200/60">
+                <MapPin size={15} className="text-forest-700 mt-0.5 shrink-0" />
+                <span className="font-medium leading-relaxed">
                   {[
                     selectedStaff.address,
                     selectedStaff.subdistrict,
@@ -1094,6 +1267,14 @@ export default function StaffManagementPage() {
                     .join(" ") || "ไม่ระบุที่อยู่"}
                 </span>
               </div>
+              {selectedStaff.created_at && (
+                <div className="flex items-center gap-2.5 text-charcoal-500 text-[11px] px-1">
+                  <Calendar size={13} className="text-charcoal-400 shrink-0" />
+                  <span>
+                    วันที่เริ่มใช้งาน: {formatThaiDateShort(selectedStaff.created_at)}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="pt-3.5 border-t border-cream-200 flex items-center justify-between">
@@ -1101,7 +1282,7 @@ export default function StaffManagementPage() {
               {selectedStaff.status ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-forest-50 text-forest-800 border border-forest-200">
                   <CheckCircle2 size={12} className="text-forest-600" />{" "}
-                  ใช้งาน
+                  ใช้งานปกติ
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200">

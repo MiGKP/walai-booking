@@ -24,6 +24,7 @@ import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { toISODate, formatThaiDateLong } from "@/lib/date";
+import { CustomDatePicker } from "@/components/admin/ui";
 
 interface BoatLine {
   booking_boat_id: number;
@@ -232,16 +233,17 @@ function BoatCheckinContent(): React.ReactElement {
             >
               วันนี้
             </button>
-            <div className="relative flex items-center bg-white text-forest-900 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm cursor-pointer hover:bg-cream-50 transition-colors">
-              <Calendar size={14} className="text-forest-700 mr-2 shrink-0 pointer-events-none" />
-              <input
-                id="boat-checkin-date-input"
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="bg-transparent text-xs text-forest-950 font-bold border-0 focus:outline-none focus:ring-0 cursor-pointer [color-scheme:light]"
-              />
-            </div>
+            <CustomDatePicker
+              value={selectedDate}
+              onChange={(val) => {
+                if (val) setSelectedDate(val);
+              }}
+              placeholder="เลือกวันที่"
+              allowClear={false}
+              showCalendarIcon
+              align="right"
+              buttonClassName="flex items-center justify-between gap-2 bg-white text-forest-900 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm hover:bg-cream-50 transition-colors focus:outline-none focus:ring-2 focus:ring-forest-500/20"
+            />
             <button
               type="button"
               onClick={fetchCheckinSessions}

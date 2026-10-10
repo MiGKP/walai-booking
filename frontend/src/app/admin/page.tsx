@@ -371,7 +371,7 @@ export default function AdminPage() {
             </div>
           </div>
           <p className="mt-3 text-[11px] text-charcoal-500 border-t border-cream-100 pt-2 truncate">
-            ห้องพัก {formatMoney(roomRevenue)} • คายัค {formatMoney(kayakRevenue)}
+            ห้องพัก {formatMoney(roomRevenue)} • เรือ {formatMoney(kayakRevenue)}
           </p>
         </div>
 
@@ -526,7 +526,7 @@ export default function AdminPage() {
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-bold text-charcoal-800">
                   <Sailboat size={16} className="text-lagoon-700" />
-                  <span>เรือ / คายัค</span>
+                  <span>เรือ</span>
                 </div>
                 <span className="rounded-full px-2.5 py-0.5 text-xs font-bold border bg-lagoon-50 text-lagoon-800 border-lagoon-200/70">
                   {pendingKayaksList.length} รายการ
@@ -681,7 +681,7 @@ export default function AdminPage() {
             className="mt-4 w-full rounded-xl bg-white hover:bg-lagoon-50 text-lagoon-900 border border-lagoon-200/90 py-2.5 text-xs font-semibold shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1.5"
           >
             <Calendar size={13} />
-            <span>ดูปฏิทินรวมห้องพักและคายัค</span>
+            <span>ดูปฏิทินรวมห้องพักและเรือ</span>
           </button>
         </div>
       </section>
@@ -725,7 +725,7 @@ export default function AdminPage() {
               <div className="flex items-center justify-between p-2.5 rounded-2xl bg-cream-50/70 border border-cream-200/60">
                 <span className="flex items-center gap-2 font-medium">
                   <span className="h-2.5 w-2.5 rounded-full bg-lagoon-600" />
-                  คายัค ({kayakShare}%)
+                  เรือ ({kayakShare}%)
                 </span>
                 <span className="font-bold text-lagoon-900">
                   {formatMoney(kayakRevenue)}
@@ -750,7 +750,7 @@ export default function AdminPage() {
                 c: roomCancelled,
               },
               {
-                name: "สรุปคายัค",
+                name: "สรุปเรือ",
                 icon: <Sailboat size={15} className="text-lagoon-700" />,
                 a: kayakApproved,
                 p: kayakPending,
@@ -789,7 +789,7 @@ export default function AdminPage() {
               ห้องพัก {staffList.filter((s) => s.role === "room_staff").length} คน
             </span>
             <span className="px-2.5 py-0.5 rounded-full bg-lagoon-50 text-lagoon-800 border border-lagoon-200/80 font-medium text-[11px]">
-              คายัค {staffList.filter((s) => s.role === "boat_staff").length} คน
+              เรือ {staffList.filter((s) => s.role === "boat_staff").length} คน
             </span>
             <span className="px-2.5 py-0.5 rounded-full bg-cream-100 text-charcoal-700 border border-cream-300/80 font-medium text-[11px]">
               ผู้ดูแล {staffList.filter((s) => s.role === "admin").length} คน
@@ -949,7 +949,7 @@ export default function AdminPage() {
               icon: <Home size={18} className="text-forest-700" />,
             },
             {
-              label: "จัดการเรือ / คายัค",
+              label: "จัดการเรือ",
               href: "/admin/boats",
               icon: <Sailboat size={18} className="text-lagoon-700" />,
             },

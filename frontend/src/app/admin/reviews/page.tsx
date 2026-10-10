@@ -22,100 +22,9 @@ import api, { getApiErrorMessage } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
-import { Modal } from "@/components/admin/ui";
+import { Modal, CustomSelect, type CustomSelectOption } from "@/components/admin/ui";
 import { formatThaiDateShort, formatThaiDateLong } from "@/lib/date";
 
-interface CustomSelectOption {
-  value: string | number;
-  label: string;
-}
-
-// Custom Dropdown Styled with Soft Cream & Forest Green
-function CustomSelect({
-  options,
-  value,
-  onChange,
-  placeholder = "เลือก...",
-  width = "w-full",
-}: {
-  options: CustomSelectOption[];
-  value: string | number;
-  onChange: (val: string | number) => void;
-  placeholder?: string;
-  width?: string;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const selectedOption = options.find(
-    (opt) => String(opt.value) === String(value),
-  );
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  return (
-    <div className={`relative ${width}`} ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          setIsOpen(!isOpen);
-        }}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-cream-50/80 hover:bg-cream-100/70 border border-charcoal-200/60 rounded-xl text-xs font-semibold text-charcoal-800 transition-all focus:outline-none focus:ring-2 focus:ring-forest-500/20 shadow-2xs"
-      >
-        <span className="truncate">
-          {selectedOption ? selectedOption.label : placeholder}
-        </span>
-        <ChevronDown
-          size={13}
-          className={`text-charcoal-400 shrink-0 transition-transform duration-200 ${
-            isOpen ? "rotate-180 text-forest-700" : ""
-          }`}
-        />
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 top-full mt-1.5 w-full min-w-[180px] bg-white border border-cream-200 rounded-2xl shadow-panel z-50 overflow-hidden py-1.5 max-h-60 overflow-y-auto animate-in fade-in duration-150">
-          {options.map((opt) => {
-            const isSelected = String(opt.value) === String(value);
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onChange(opt.value);
-                  setIsOpen(false);
-                }}
-                className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors flex items-center justify-between ${
-                  isSelected
-                    ? "bg-forest-50 text-forest-900 font-bold"
-                    : "text-charcoal-700 hover:bg-cream-100/80 hover:text-charcoal-900"
-                }`}
-              >
-                <span className="truncate">{opt.label}</span>
-                {isSelected && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-forest-800 shrink-0 ml-2" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // Soft Star Rating Display Component
 function StarDisplay({
@@ -337,39 +246,14 @@ export default function AdminReviewsPage() {
   return (
     <div className="space-y-6 pb-16 max-w-[1600px] mx-auto">
       {/* Top Header with Soft Cream / Forest Green Style */}
-      <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 relative">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10">
-                <MessageSquare size={20} className="stroke-[2.2]" />
-              </span>
-              <div>
-                <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 tracking-tight">
-                  จัดการรีวิว
-                </h1>
-                <p className="text-xs sm:text-sm text-charcoal-500 font-medium">
-                  ดูและจัดการความคิดเห็น คะแนนความพึงพอใจ และข้อเสนอแนะจากผู้เข้าพัก
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Header Actions */}
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              onClick={() => fetchReviews()}
-              className="px-3.5 py-2 text-charcoal-700 bg-white hover:bg-forest-50/50 hover:border-forest-200 rounded-2xl border border-charcoal-200/80 shadow-xs transition-all text-xs font-semibold flex items-center gap-2 active:scale-95"
-            >
-              <RefreshCw
-                size={14}
-                className={
-                  isFetching ? "animate-spin text-forest-700" : "text-charcoal-500"
-                }
-              />
-              <span className="hidden sm:inline">รีเฟรช</span>
-            </button>
-          </div>
+      <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80">
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10 shrink-0">
+            <MessageSquare size={20} className="stroke-[2.2]" />
+          </span>
+          <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 tracking-tight">
+            จัดการรีวิว
+          </h1>
         </div>
       </div>
 
@@ -622,23 +506,43 @@ export default function AdminReviewsPage() {
             </div>
 
             {/* Page Size Selector */}
-            <div className="flex items-center gap-1.5 bg-cream-50/80 px-2.5 py-1.5 rounded-xl border border-charcoal-200/60 text-xs font-medium text-charcoal-700">
-              <SlidersHorizontal size={13} className="text-charcoal-400" />
-              <span className="hidden sm:inline text-charcoal-500">แสดง:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="bg-transparent font-semibold text-forest-900 focus:outline-none cursor-pointer pr-1"
-              >
-                <option value={5}>5 แถว</option>
-                <option value={10}>10 แถว</option>
-                <option value={20}>20 แถว</option>
-                <option value={50}>50 แถว</option>
-              </select>
-            </div>
+            <CustomSelect
+              width="w-32 sm:w-36"
+              options={[
+                { value: 5, label: "5 แถว" },
+                { value: 10, label: "10 แถว" },
+                { value: 20, label: "20 แถว" },
+                { value: 50, label: "50 แถว" },
+              ]}
+              value={pageSize}
+              onChange={(val) => {
+                setPageSize(Number(val));
+                setCurrentPage(1);
+              }}
+              prefix={
+                <>
+                  <SlidersHorizontal size={13} className="text-charcoal-400 shrink-0" />
+                  <span className="hidden sm:inline text-charcoal-500 font-normal">แสดง:</span>
+                </>
+              }
+              align="right"
+            />
+
+            {/* Refresh Button */}
+            <button
+              type="button"
+              onClick={() => fetchReviews()}
+              className="px-3 py-1.5 text-charcoal-700 bg-white hover:bg-forest-50/50 hover:border-forest-200 rounded-xl border border-charcoal-200/60 shadow-2xs transition-all text-xs font-semibold flex items-center gap-1.5 cursor-pointer active:scale-95"
+              title="รีเฟรชข้อมูล"
+            >
+              <RefreshCw
+                size={13}
+                className={
+                  isFetching ? "animate-spin text-forest-700" : "text-charcoal-500"
+                }
+              />
+              <span className="hidden sm:inline">รีเฟรช</span>
+            </button>
           </div>
         </div>
       </div>

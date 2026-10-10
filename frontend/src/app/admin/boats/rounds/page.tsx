@@ -560,9 +560,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
                 <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 tracking-tight">
                   จัดการรอบเวลาพายเรือ
                 </h1>
-                <p className="text-xs sm:text-sm text-charcoal-500 mt-1">
-                  กำหนดรอบเวลาให้บริการพายเรือคายัค จัดสรรโควตาจำนวนเรือแต่ละประเภท และเปิด-ปิดรอบบริการ
-                </p>
               </div>
             </div>
           </div>

@@ -305,9 +305,6 @@ export default function BoatLocationPage() {
             <h1 className="font-display text-2xl font-bold text-forest-900 tracking-tight">
               ตั้งค่าจุดบริการเรือ & ท่าเรือ
             </h1>
-            <p className="text-xs text-charcoal-500 mt-0.5">
-              จัดการข้อมูลสถานที่ พิกัดท่าเรือ เวลาเปิด-ปิดรายวัน และกฎการจองเรือ
-            </p>
           </div>
         </div>
 
@@ -363,7 +360,7 @@ export default function BoatLocationPage() {
                       className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                       value={form.name}
                       onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                      placeholder="เช่น จุดบริการเรือคายัค & กิจกรรมทางน้ำ"
+                      placeholder="เช่น ท่าเรือ & กิจกรรมทางน้ำ"
                     />
                   </div>
 

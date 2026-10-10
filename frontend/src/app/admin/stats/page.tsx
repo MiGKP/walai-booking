@@ -19,83 +19,11 @@ import api from '@/lib/api';
 import { toISODate } from '@/lib/date';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { notify } from '@/lib/admin-notify';
-import { PageHeader, StatCard, Panel, Skeleton, StatusBadge } from '@/components/admin/ui';
+import { PageHeader, StatCard, Panel, Skeleton, StatusBadge, CustomDatePicker, CustomSelect } from '@/components/admin/ui';
 
 const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const YEARS = [2024, 2025, 2026, 2027];
 
-// Component Custom Dropdown
-function CustomSelect({
-  options,
-  value,
-  onChange,
-  placeholder = 'เลือก...',
-  width = 'w-32'
-}: {
-  options: { value: string | number; label: string }[];
-  value: string | number;
-  onChange: (val: any) => void;
-  placeholder?: string;
-  width?: string;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const selectedOption = options.find((opt) => String(opt.value) === String(value));
-
-  // ปิด Dropdown เมื่อคลิกข้างนอก
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  return (
-    <div className={`relative ${width}`} ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-cream-100 hover:bg-cream-200 rounded-xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-none focus:ring-2 focus:ring-forest-800/20"
-      >
-        <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
-        <ChevronDown
-          size={14}
-          className={`text-charcoal-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-forest-800' : ''}`}
-        />
-      </button>
-
-      {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 w-full bg-white rounded-xl shadow-lg ring-1 ring-charcoal-100 z-50 overflow-hidden py-1 max-h-56 overflow-y-auto">
-          {options.map((opt) => {
-            const isSelected = String(opt.value) === String(value);
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => {
-                  onChange(opt.value);
-                  setIsOpen(false);
-                }}
-                className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors flex items-center justify-between ${
-                  isSelected
-                    ? 'bg-forest-50 text-forest-800 font-bold'
-                    : 'text-charcoal-600 hover:bg-cream-100'
-                }`}
-              >
-                <span>{opt.label}</span>
-                {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-forest-600" />}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 interface SideSummary {
   revenue?: number | string;
@@ -289,11 +217,15 @@ export default function StatsPage() {
           {period === 'day' ? (
             <div>
               <label className="mb-2 block text-xs font-medium text-charcoal-400">เลือกวันที่</label>
-              <input
-                type="date"
+              <CustomDatePicker
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="rounded-xl bg-cream-100 px-3.5 py-2 text-xs font-semibold text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-forest-800/20"
+                onChange={(val) => {
+                  if (val) setDate(val);
+                }}
+                placeholder="เลือกวันที่"
+                allowClear={false}
+                showCalendarIcon
+                buttonClassName="flex items-center justify-between gap-2.5 rounded-xl bg-cream-100 hover:bg-white px-3.5 py-2 text-xs font-semibold text-charcoal-700 border border-cream-300 hover:border-forest-300 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
               />
             </div>
           ) : (

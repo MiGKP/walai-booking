@@ -700,7 +700,7 @@ export default function AdminMembersPage() {
                     <Ship size={18} />
                   </div>
                   <div>
-                    <p className="text-[11px] text-charcoal-400">เรือคายัค</p>
+                    <p className="text-[11px] text-charcoal-400">เรือ</p>
                     <p className="text-base font-bold text-forest-950 font-mono">
                       {detailModal.data.boat_booking_count ?? 0} <span className="text-xs font-normal text-charcoal-400">ครั้ง</span>
                     </p>
