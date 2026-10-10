@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Ticket, SlidersHorizontal, X, Star, Sailboat, Home, Check } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
@@ -195,7 +196,7 @@ export default function PromotionsPage(): React.ReactElement {
               >
                 <span className="font-semibold">{notice.message}</span>
                 {notice.tone === 'success' && (
-                  <a href="/dashboard/promotions" className="font-semibold underline">ดูในกระเป๋าโปร</a>
+                  <Link href="/dashboard?tab=coupons" className="font-semibold underline">ดูในกระเป๋าโปร</Link>
                 )}
               </div>
             )}

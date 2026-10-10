@@ -15,7 +15,6 @@ export default function MyCouponsSection(): React.ReactElement {
   const [wallet, setWallet] = useState<WalletPromo[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterTab>('saved');
-  const [removingId, setRemovingId] = useState<number | null>(null);
   const [boatTicketBalance, setBoatTicketBalance] = useState(0);
   const { notice, showNotice } = usePromoNotice();
 
@@ -48,19 +47,6 @@ export default function MyCouponsSection(): React.ReactElement {
   }, [wallet]);
 
   const visible = grouped[filter];
-
-  const handleRemove = async (promotionId: number): Promise<void> => {
-    setRemovingId(promotionId);
-    try {
-      await api.delete(`/promotions/${promotionId}/collect`);
-      showNotice('success', 'เอาโปรโมชั่นออกจากกระเป๋าแล้ว');
-      await loadWallet();
-    } catch (error: unknown) {
-      showNotice('error', getApiErrorMessage(error, 'เอาออกไม่สำเร็จ'));
-    } finally {
-      setRemovingId(null);
-    }
-  };
 
   return (
     <div>
@@ -152,14 +138,6 @@ export default function MyCouponsSection(): React.ReactElement {
                                 roomLabel="ใช้จองห้องพัก"
                                 kayakLabel="ใช้จองเรือ"
                               />
-                              {item.status === 'saved' && <button
-                                type="button"
-                                onClick={() => void handleRemove(item.promotion_id)}
-                                disabled={removingId === item.promotion_id}
-                                className="ml-auto text-xs font-semibold text-red-500 hover:text-red-700 disabled:opacity-50"
-                              >
-                                ลบโปรโมชั่นออก
-                              </button>}
                               {item.remaining != null && (
                                 <span className="ml-auto text-xs text-charcoal-400">เหลือ {item.remaining} สิทธิ์</span>
                               )}

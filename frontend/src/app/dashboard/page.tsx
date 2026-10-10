@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { User, Mail, Phone, Save, Lock, MessageCircle, Facebook, CalendarDays, Camera, Eye, EyeOff, Star, Ticket } from "lucide-react";
+import { useState, useEffect, useMemo, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { User, Mail, Phone, Save, Lock, MessageCircle, Facebook, CalendarDays, Camera, Eye, EyeOff, Star, Ticket, Trash2, AlertTriangle } from "lucide-react";
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -69,10 +69,16 @@ function PasswordField({
   );
 }
 
+const DASHBOARD_TABS = ["bookings", "profile", "security", "reviews", "coupons"] as const;
+type DashboardTab = (typeof DASHBOARD_TABS)[number];
+
 // หน้าโปรไฟล์ของผู้ใช้ ใช้สำหรับแก้ไขข้อมูลส่วนตัว และจัดการรหัสผ่านตามประเภทการสมัครของ member
-export default function DashboardPage() {
+function DashboardContent() {
+  const router = useRouter();
   const { ready, user } = useAuthGuard({ allowedRoles: ['customer'] });
-  const { updateUser } = useAuth();
+  const { updateUser, logout } = useAuth();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
   const [profile, setProfile] = useState({
     first_name: "",
     last_name: "",
@@ -90,16 +96,30 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
-  const [activeTab, setActiveTab] = useState<"bookings" | "profile" | "security" | "reviews" | "coupons">("bookings");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("bookings");
+
+  // State สำหรับ Modal ขอลบบัญชี
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("walai_dashboard_tab");
-    if (saved) {
-      setActiveTab(saved as "bookings" | "profile" | "security" | "reviews" | "coupons");
+    if (tabParam === "coupons" || tabParam === "promotions") {
+      setActiveTab("coupons");
+      localStorage.setItem("walai_dashboard_tab", "coupons");
+    } else if (tabParam && (DASHBOARD_TABS as readonly string[]).includes(tabParam)) {
+      setActiveTab(tabParam as DashboardTab);
+      localStorage.setItem("walai_dashboard_tab", tabParam);
+    } else {
+      const saved = localStorage.getItem("walai_dashboard_tab");
+      if (saved && (DASHBOARD_TABS as readonly string[]).includes(saved)) {
+        setActiveTab(saved as DashboardTab);
+      }
     }
-  }, []);
+  }, [tabParam]);
 
-  const changeTab = (tab: "bookings" | "profile" | "security" | "reviews" | "coupons") => {
+  const changeTab = (tab: DashboardTab) => {
     setActiveTab(tab);
     localStorage.setItem("walai_dashboard_tab", tab);
   };
@@ -233,6 +253,37 @@ export default function DashboardPage() {
       toast.error(getApiErrorMessage(err, "ตั้งรหัสผ่านไม่สำเร็จ"));
     } finally {
       setChangingPw(false);
+    }
+  };
+
+  // ดำเนินการลบบัญชีและทำให้นิรนาม (Soft Delete + Anonymize ตาม PDPA)
+  const handleDeleteAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    if (deleteConfirmText.trim() !== "ลบบัญชี") {
+      toast.error("กรุณาพิมพ์คำว่า 'ลบบัญชี' เพื่อยืนยัน");
+      return;
+    }
+
+    if (user.has_password && !deletePassword) {
+      toast.error("กรุณากรอกรหัสผ่านเพื่อยืนยัน");
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      const res = await api.delete("/auth/account", {
+        data: { password: deletePassword },
+      });
+      toast.success(res.data.message || "ลบบัญชีเรียบร้อยแล้ว");
+      setShowDeleteModal(false);
+      logout();
+      router.push("/");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "ไม่สามารถลบบัญชีได้"));
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -579,12 +630,129 @@ export default function DashboardPage() {
                       </div>
                     </form>
                   )}
+
+                  {/* Danger Zone: ปิด/ลบบัญชีผู้ใช้ */}
+                  <div className="mt-10 pt-6 border-t border-rose-100">
+                    <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-4 sm:p-5">
+                      <div className="flex items-start gap-3">
+                        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-rose-100 text-rose-600">
+                          <Trash2 size={18} />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-sm font-semibold text-rose-900">ลบบัญชีผู้ใช้งาน</h3>
+                          <p className="mt-1 text-xs text-rose-700 leading-relaxed">
+                            การดำเนินการนี้จะปิดการใช้งานบัญชีและลบข้อมูลส่วนบุคคลของคุณ (Anonymize) ออกจากระบบ
+                            โดยประวัติการจองในอดีตจะถูกแปลงเป็นข้อมูลนิรนามเพื่อความถูกต้องทางบัญชี
+                          </p>
+                          <div className="mt-4">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleteConfirmText("");
+                                setDeletePassword("");
+                                setShowDeleteModal(true);
+                              }}
+                              className="rounded-lg border border-rose-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-rose-700 shadow-sm hover:bg-rose-50 transition"
+                            >
+                              ขอลบบัญชีผู้ใช้
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </section>
             )}
           </div>
         </div>
       </div>
+
+      {/* Modal: ยืนยันการลบบัญชีผู้ใช้ */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-rose-600 mb-4">
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-rose-50">
+                <AlertTriangle size={22} />
+              </div>
+              <div>
+                <h3 className="font-sans text-base font-bold text-forest-950">ยืนยันการลบบัญชีผู้ใช้</h3>
+                <p className="text-xs text-stone-500">การดำเนินการนี้ไม่สามารถยกเลิกได้</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-xl bg-stone-50 p-4 text-xs text-charcoal-600 leading-relaxed mb-5">
+              <p className="font-semibold text-charcoal-800">โปรดทราบก่อนดำเนินการ:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>คุณจะไม่สามารถเข้าสู่ระบบด้วยบัญชีนี้ได้อีก</li>
+                <li>คูปองส่วนลดในกระเป๋าที่ยังไม่ได้ใช้จะถูกยกเลิกทันที</li>
+                <li>คุณต้องไม่มีการจองห้องพักหรือกิจกรรมเรือที่รอดำเนินการหรือยังไม่เช็คเอาท์</li>
+                <li>ข้อมูลส่วนบุคคล (ชื่อ, เบอร์โทร, อีเมล) จะถูกแปลงเป็นนิรนามตาม PDPA</li>
+              </ul>
+            </div>
+
+            <form onSubmit={handleDeleteAccount} className="space-y-4">
+              {user.has_password && (
+                <div>
+                  <FieldLabel>กรุณากรอกรหัสผ่านของคุณเพื่อยืนยัน</FieldLabel>
+                  <PasswordField
+                    required
+                    value={deletePassword}
+                    onChange={setDeletePassword}
+                  />
+                </div>
+              )}
+
+              <div>
+                <FieldLabel>
+                  พิมพ์คำว่า <span className="font-bold text-rose-600">ลบบัญชี</span> เพื่อยืนยัน
+                </FieldLabel>
+                <input
+                  type="text"
+                  required
+                  placeholder="ลบบัญชี"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-stone-100">
+                <button
+                  type="button"
+                  disabled={deletingAccount}
+                  onClick={() => setShowDeleteModal(false)}
+                  className="rounded-xl px-4 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-100 transition"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={deletingAccount || deleteConfirmText.trim() !== "ลบบัญชี" || (user.has_password && !deletePassword)}
+                  className="rounded-xl bg-rose-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700 disabled:opacity-50 transition"
+                >
+                  {deletingAccount ? "กำลังลบบัญชี..." : "ยืนยันลบบัญชี"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FDFBF7] pt-20 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-forest-800 border-t-transparent" />
+        </div>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   );
 }
