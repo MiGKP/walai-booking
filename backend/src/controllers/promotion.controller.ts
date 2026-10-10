@@ -17,7 +17,7 @@ import { parsePositiveInt } from '../utils/ids';
 function requireCustomer(req: Request, res: Response): AuthPayload | null {
   const user = (req as AuthRequest).user;
   if (!user || user.role !== 'customer') {
-    res.status(403).json({ success: false, message: 'Forbidden' });
+    res.status(403).json({ success: false, message: 'คุณไม่มีสิทธิ์ใช้งานส่วนนี้' });
     return null;
   }
   return user;
@@ -49,7 +49,7 @@ export const getActivePromotions = async (req: Request, res: Response): Promise<
     res.json({ success: true, data: result.rows.map((row) => ({ ...row, wallet_remaining: row.usage_limit_per_member == null ? null : Math.max(0, Number(row.usage_limit_per_member) - Number(row.member_usage_count ?? 0)) })) });
   } catch (error) {
     console.error('Get active promotions error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -67,7 +67,7 @@ export const getAllPromotions = async (req: Request, res: Response): Promise<voi
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get all promotions error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -180,7 +180,7 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
       return;
     }
     console.error('Validate promo code error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -218,7 +218,7 @@ export const collectPromotion = async (req: Request, res: Response): Promise<voi
     );
     const row = existing.rows[0] as { status: string } | undefined;
     if (!row) {
-      res.status(500).json({ success: false, message: 'Internal server error' });
+      res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
       return;
     }
     if (row.status === 'used') {
@@ -239,7 +239,7 @@ export const collectPromotion = async (req: Request, res: Response): Promise<voi
       return;
     }
     console.error('Collect promotion error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -280,7 +280,7 @@ export const uncollectPromotion = async (req: Request, res: Response): Promise<v
     res.json({ success: true, message: 'เอาโค้ดออกจากกระเป๋าแล้ว' });
   } catch (error) {
     console.error('Uncollect promotion error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -321,7 +321,7 @@ export const getMyPromotions = async (req: Request, res: Response): Promise<void
     res.json({ success: true, data });
   } catch (error) {
     console.error('Get my promotions error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -349,7 +349,7 @@ export const getMyBoatTickets = async (req: Request, res: Response): Promise<voi
     res.json({ success: true, data: { total_remaining: totalRemaining, grants } });
   } catch (error) {
     console.error('Get my boat tickets error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -395,7 +395,7 @@ export const getPromotionRedemptions = async (
     });
   } catch (error) {
     console.error('Get promotion redemptions error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -497,7 +497,7 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
       res.status(mapped.status).json({ success: false, message: mapped.message });
       return;
     }
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -508,7 +508,7 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
 
     const currentRes = await pool.query('SELECT * FROM promotions WHERE id = $1', [id]);
     if (currentRes.rows.length === 0) {
-      res.status(404).json({ success: false, message: 'Promotion not found' });
+      res.status(404).json({ success: false, message: 'ไม่พบโปรโมชั่น' });
       return;
     }
     const current = currentRes.rows[0] as Record<string, unknown>;
@@ -538,11 +538,11 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
     const discountType = has('discount_type') ? String(body.discount_type) : String(current.discount_type);
     const discountValue = numOrCurrent('discount_value') ?? 0;
     if (!['percent', 'fixed'].includes(discountType)) {
-      res.status(400).json({ success: false, message: 'discount_type must be percent or fixed' });
+      res.status(400).json({ success: false, message: 'ประเภทส่วนลดต้องเป็น percent หรือ fixed' });
       return;
     }
     if (!(discountValue > 0)) {
-      res.status(400).json({ success: false, message: 'discount_value must be a positive number' });
+      res.status(400).json({ success: false, message: 'มูลค่าส่วนลดต้องเป็นตัวเลขที่มากกว่า 0' });
       return;
     }
     if (discountType === 'percent' && discountValue > 100) {
@@ -613,14 +613,14 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
     );
 
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: 'Promotion not found' });
+      res.status(404).json({ success: false, message: 'ไม่พบโปรโมชั่น' });
       return;
     }
 
     res.json({ success: true, message: 'อัปเดตโปรโมชั่นสำเร็จ', data: result.rows[0] });
   } catch (error) {
     console.error('Update promotion error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -662,7 +662,7 @@ export const deletePromotion = async (req: Request, res: Response): Promise<void
       res.status(mapped.status).json({ success: false, message: mapped.message });
       return;
     }
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -675,14 +675,14 @@ export const togglePromotion = async (req: Request, res: Response): Promise<void
       [id]
     );
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: 'Promotion not found' });
+      res.status(404).json({ success: false, message: 'ไม่พบโปรโมชั่น' });
       return;
     }
     const active = result.rows[0].is_active;
     res.json({ success: true, message: active ? 'เปิดใช้งานโปรโมชั่นแล้ว' : 'ปิดใช้งานโปรโมชั่นแล้ว', data: result.rows[0] });
   } catch (error) {
     console.error('Toggle promotion error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -702,7 +702,7 @@ export const getPromoEmailPreference = async (req: Request, res: Response): Prom
     res.json({ success: true, data: { opt_out: result.rows[0].promo_email_opt_out === true } });
   } catch (error) {
     console.error('Get promo email preference error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -722,6 +722,6 @@ export const setPromoEmailPreference = async (req: Request, res: Response): Prom
     });
   } catch (error) {
     console.error('Set promo email preference error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };

@@ -53,7 +53,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
           OR (SPLIT_PART(LOWER(email), '@', 2) IN ('gmail.com', 'googlemail.com')
               AND REGEXP_REPLACE(SPLIT_PART(SPLIT_PART(LOWER(email), '@', 1), '+', 1), '[.]', '', 'g') || '@gmail.com' = $2)`, [email, legacyAuthEmail(email)]);
     if (existing.rows.length > 0) {
-      res.status(400).json({ success: false, message: 'Email already registered' });
+      res.status(400).json({ success: false, message: 'อีเมลนี้ถูกใช้สมัครแล้ว' });
       return;
     }
 
@@ -222,7 +222,7 @@ export const initAdmin = async (req: Request, res: Response): Promise<void> => {
 
     const existing = await pool.query('SELECT staff_id FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2))', [email, legacyAuthEmail(email)]);
     if (existing.rows.length > 0) {
-      res.status(400).json({ success: false, message: 'Email already registered' });
+      res.status(400).json({ success: false, message: 'อีเมลนี้ถูกใช้สมัครแล้ว' });
       return;
     }
 
@@ -259,7 +259,7 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
 
     const existing = await pool.query('SELECT staff_id FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2))', [email, legacyAuthEmail(email)]);
     if (existing.rows.length > 0) {
-      res.status(400).json({ success: false, message: 'Email already registered' });
+      res.status(400).json({ success: false, message: 'อีเมลนี้ถูกใช้สมัครแล้ว' });
       return;
     }
 

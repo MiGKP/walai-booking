@@ -237,6 +237,17 @@ export const createRoomBooking = async (
       res.status(400).json({ success: false, message: 'ไม่สามารถจองวันที่ย้อนหลังได้' });
       return;
     }
+    const advanceRow = await client.query('SELECT room_max_advance_days FROM resort_info WHERE id = 4');
+    const rawMaxAdvance = advanceRow.rows[0]?.room_max_advance_days;
+    const maxAdvanceDays = rawMaxAdvance == null ? NaN : Number(rawMaxAdvance);
+    if (Number.isInteger(maxAdvanceDays) && maxAdvanceDays >= 1) {
+      const limit = new Date(`${bangkokToday()}T00:00:00Z`);
+      limit.setUTCDate(limit.getUTCDate() + maxAdvanceDays);
+      if (checkInDate > limit.toISOString().slice(0, 10)) {
+        res.status(400).json({ success: false, message: `จองห้องพักล่วงหน้าได้ไม่เกิน ${maxAdvanceDays} วัน` });
+        return;
+      }
+    }
     const specialRequests =
       typeof body.special_requests === 'string' ? body.special_requests : null;
     // เวลาที่คาดว่าจะถึง เก็บแยกจากคำขอพิเศษ (เดิมฝังรวมกันเป็นข้อความ "[Arrival: HH:MM] ...")
