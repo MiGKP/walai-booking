@@ -51,6 +51,42 @@ function barrier(count) {
   return async () => { if (++arrivals === count) resolve(); await ready; };
 }
 
+for (const state of [
+  { status: 'pending', payment_slip: null },
+  { status: 'paid', payment_slip: '' },
+  { status: 'pending', payment_slip: 'https://example.test/slip.png' },
+]) {
+  test(`room approval rejects inconsistent payment ${JSON.stringify(state)} before writing`, async () => {
+    const writes = [];
+    connectHandler = async () => client(async (sql, values) => {
+      if (sql.includes('FROM room_bookings') && sql.includes('FOR UPDATE')) return rows([{ ...state, total_price: 100 }]);
+      if (sql.startsWith('UPDATE')) { writes.push(sql); return rows([{ status: values[0] }]); }
+      return rows();
+    });
+    queryHandler = async () => rows();
+    const res = response();
+    await booking.updateRoomBookingStatus({ ...request({ status: 'approved' }, { id: '7' }), user: { id: 2, role: 'room_staff' } }, res);
+    assert.equal(res.code, 400);
+    assert.match(res.body.message, /สลิป/);
+    assert.deepEqual(writes, []);
+  });
+}
+
+for (const payment of [
+  { status: 'paid', total_price: 100, payment_slip: 'https://example.test/slip.png' },
+  { status: 'pending', total_price: 0, payment_slip: null },
+]) test(`room approval accepts authorized payment ${JSON.stringify(payment)}`, async () => {
+  connectHandler = async () => client(async (sql, values) => {
+    if (sql.includes('FROM room_bookings') && sql.includes('FOR UPDATE')) return rows([payment]);
+    if (sql.startsWith('UPDATE room_bookings')) return rows([{ status: values[0] }]);
+    return rows();
+  });
+  queryHandler = async () => rows();
+  const res = response();
+  await booking.updateRoomBookingStatus({ ...request({ status: 'approved' }, { id: '7' }), user: { id: 2, role: 'admin' } }, res);
+  assert.equal(res.code, 200);
+});
+
 for (const type of ['room', 'kayak']) {
   test(`concurrent ${type} slip uploads keep the accepted image`, async () => {
     const assets = new Set();
@@ -87,6 +123,19 @@ for (const type of ['room', 'kayak']) {
     assert.equal(deleted.includes(accepted), false);
   });
 }
+
+test('room payment confirmation preserves the authorized zero-charge exception', async () => {
+  const writes = [];
+  connectHandler = async () => client(async (sql, values) => {
+    if (sql.includes('FROM room_bookings')) return rows([{ status: 'pending', total_price: 0, payment_slip: null }]);
+    if (sql.startsWith('UPDATE')) writes.push(sql);
+    return { rows: [], rowCount: 1 };
+  });
+  const res = response();
+  await payment.confirmPayment({ ...request({}, { id: 'room_7' }), user: { id: 2, role: 'room_staff' } }, res);
+  assert.equal(res.code, 200);
+  assert(writes.some(sql => sql.startsWith('UPDATE room_bookings')));
+});
 
 test('slip upload cleans up its own asset if acquiring a DB connection fails', async t => {
   t.mock.method(console, 'error', () => {});
@@ -147,6 +196,17 @@ function roomScenario({ infantAge = 6, busy = new Set() } = {}) {
 function roomBody(items) {
   return { items, check_in_date: '2099-01-01', check_out_date: '2099-01-03', adults: 1, children: 0 };
 }
+
+test('room child age boundary accepts 11 and rejects 12 as an adult', async () => {
+  roomScenario();
+  const child = response();
+  await booking.createRoomBooking(request({ ...roomBody([{ room_type_id: 2, quantity: 2 }]), children: 1, child_ages: [11] }), child);
+  assert.equal(child.code, 201);
+  roomScenario();
+  const adult = response();
+  await booking.createRoomBooking(request({ ...roomBody([{ room_type_id: 2, quantity: 2 }]), children: 1, child_ages: [12] }), adult);
+  assert.equal(adult.code, 400);
+});
 
 function restrictedRoomScenario(typeId) {
   roomScenario();

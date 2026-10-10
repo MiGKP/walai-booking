@@ -56,13 +56,17 @@ export const fromISODate = (iso: string): Date => {
   return new Date(year, (month ?? 1) - 1, day ?? 1);
 };
 
+/** Date-only values keep their calendar components; they are not instants in Bangkok. */
+export const toCalendarISODate = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
 /** วันที่ปัจจุบันในประเทศไทย (Asia/Bangkok) รูปแบบ YYYY-MM-DD */
 export const todayISO = (): string => toISODate(new Date());
 
 export const addDaysISO = (iso: string, days: number): string => {
   const date = fromISODate(iso);
   date.setDate(date.getDate() + days);
-  return toISODate(date);
+  return toCalendarISODate(date);
 };
 
 export const nightsBetween = (checkInISO?: string | null, checkOutISO?: string | null): number => {
@@ -101,8 +105,8 @@ export const shiftMonth = (cursor: MonthCursor, delta: number): MonthCursor => {
 };
 
 export const monthRangeISO = (cursor: MonthCursor): { start: string; end: string } => ({
-  start: toISODate(new Date(cursor.year, cursor.month, 1)),
-  end: toISODate(new Date(cursor.year, cursor.month + 1, 0)),
+  start: toCalendarISODate(new Date(cursor.year, cursor.month, 1)),
+  end: toCalendarISODate(new Date(cursor.year, cursor.month + 1, 0)),
 });
 
 /** Inclusive range covering `monthCount` months starting at cursor (for dual-month calendars). */
@@ -124,7 +128,7 @@ export const buildMonthGrid = (cursor: MonthCursor): (string | null)[] => {
 
   const cells: (string | null)[] = Array.from({ length: leadingBlanks }, () => null);
   for (let day = 1; day <= daysInMonth; day += 1) {
-    cells.push(toISODate(new Date(cursor.year, cursor.month, day)));
+    cells.push(toCalendarISODate(new Date(cursor.year, cursor.month, day)));
   }
   while (cells.length % 7 !== 0) {
     cells.push(null);

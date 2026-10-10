@@ -53,7 +53,7 @@ test('room status transactions serialize on PostgreSQL', { skip: !url }, async t
     await admin.end();
   });
   await pool.query(`
-    CREATE TABLE room_bookings (room_booking_id int PRIMARY KEY, status text, updated_at timestamptz, approved_by_staff_id int, reject_reason text);
+    CREATE TABLE room_bookings (room_booking_id int PRIMARY KEY, status text, updated_at timestamptz, approved_by_staff_id int, reject_reason text, total_price numeric DEFAULT 100, payment_slip text);
     CREATE TABLE rooms (room_id int PRIMARY KEY, status text);
     CREATE TABLE booking_room (booking_room_id int PRIMARY KEY, room_booking_id int REFERENCES room_bookings, room_id int REFERENCES rooms, status text, checkin_at timestamptz, checkout_at timestamptz, updated_at timestamptz);
     CREATE TABLE boat_bookings (boat_booking_id int PRIMARY KEY, room_booking_id int, is_addon boolean, status text, updated_at timestamptz);
@@ -61,7 +61,7 @@ test('room status transactions serialize on PostgreSQL', { skip: !url }, async t
   `);
   async function reset(status) {
     await pool.query('TRUNCATE booking_room, rooms, room_bookings CASCADE');
-    await pool.query("INSERT INTO room_bookings VALUES (1, 'approved', NOW(), NULL, NULL)");
+    await pool.query("INSERT INTO room_bookings (room_booking_id, status, updated_at) VALUES (1, 'approved', NOW())");
     await pool.query("INSERT INTO rooms VALUES (1, 'occupied'), (2, 'occupied')");
     await pool.query('INSERT INTO booking_room (booking_room_id, room_booking_id, room_id, status) VALUES (1,1,1,$1), (2,1,2,$1)', [status]);
   }

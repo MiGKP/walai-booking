@@ -988,7 +988,8 @@ function RoomStaffDashboardContent() {
                             <span className="text-xs text-charcoal-500 font-semibold bg-charcoal-50 border border-charcoal-200/70 px-2.5 py-1 rounded-xl inline-block">
                               ยกเลิกแล้ว
                             </span>
-                          ) : b.payment_slip ? (
+                          ) : ((b.status === "pending" || b.status === "paid") && Number(b.total_price) === 0)
+                            || (b.status === "paid" && String(b.payment_slip || "").trim()) ? (
                             <>
                               <button
                                 onClick={() => handleApprove(bookingId)}
@@ -1176,6 +1177,10 @@ function RoomStaffDashboardContent() {
                     <strong className="text-charcoal-700">หมายเลขอ้างอิง:</strong>{" "}
                     <span className="font-mono">#{booking.room_booking_id || booking.id}</span>
                   </p>
+                  <p><strong className="text-charcoal-700">ผู้เข้าพัก:</strong>{" "}
+                    {booking.guests ?? booking.guest_count ?? (Number(booking.adults || 0) + Number(booking.children || 0))} คน
+                    {booking.adults != null && booking.children != null && <span> (ผู้ใหญ่ {booking.adults} · เด็ก {booking.children})</span>}
+                  </p>
                 </div>
 
                 {/* Room info card */}
@@ -1190,15 +1195,16 @@ function RoomStaffDashboardContent() {
                         ห้องที่จอง ({booking.rooms.length} ห้อง):
                       </div>
                       <div className="flex flex-wrap gap-1.5 pt-0.5">
-                        {booking.rooms.map((r: any, rIdx: number) => (
+                        {booking.rooms.map((r: { booking_room_id: number; room_name?: string; type_name?: string; room_number?: string; room_id?: number; subtotal?: number | string }) => (
                           <span
-                            key={rIdx}
+                            key={r.booking_room_id}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-cream-200 text-xs text-charcoal-800 font-medium shadow-2xs"
                           >
-                            <span>{r.room_name || booking.type_name || "ห้องพัก"}</span>
+                            <span>{r.room_name || r.type_name || "ห้องพัก"}</span>
                             <span className="font-mono font-bold text-forest-800 bg-cream-100 px-1.5 py-0.5 rounded-lg border border-cream-200">
                               {r.room_number || r.room_id || "-"}
                             </span>
+                            <span>฿{Number(r.subtotal || 0).toLocaleString("th-TH")}</span>
                           </span>
                         ))}
                       </div>

@@ -213,7 +213,12 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
       `SELECT 1 FROM room_bookings rb
        JOIN booking_room br ON br.room_booking_id = rb.room_booking_id
        JOIN rooms r ON r.room_id = br.room_id
-       WHERE rb.room_booking_id = $1 AND rb.member_id = $2 AND rb.status = 'checked_out' AND r.room_type_id = $3
+       WHERE rb.room_booking_id = $1 AND rb.member_id = $2
+         AND rb.status IN ('approved', 'checked_out') AND r.room_type_id = $3
+         AND NOT EXISTS (
+           SELECT 1 FROM booking_room x
+           WHERE x.room_booking_id = rb.room_booking_id AND x.status <> 'checked_out'
+         )
        LIMIT 1`,
       [bookingId, user.id, roomTypeId]
     );

@@ -164,7 +164,10 @@ export default function AdminCalendarPage() {
 
       const bookingId = b.room_booking_id || b.id;
       const customerName = b.user_name || b.guest_name || b.customer_name || 'ลูกค้าทั่วไป';
-      const roomTitle = b.room_name || b.type_name || b.room_type_name || `ห้อง #${b.room_id || b.room_number || ''}`;
+      const roomTitle = Array.isArray(b.rooms) && b.rooms.length > 0
+        ? b.rooms.map((line: { room_name?: string; type_name?: string; room_number?: string; room_id?: number }) =>
+          `${line.room_name || line.type_name || 'ห้องพัก'} (ห้อง ${line.room_number || line.room_id || '-'})`).join(', ')
+        : b.room_name || b.type_name || b.room_type_name || `ห้อง #${b.room_id || b.room_number || ''}`;
 
       const start = new Date(checkInStr);
       const end = new Date(checkOutStr);
@@ -177,7 +180,7 @@ export default function AdminCalendarPage() {
         customerPhone: b.user_phone || b.guest_phone || b.customer_phone || b.phone || '-',
         customerEmail: b.user_email || b.guest_email || b.customer_email || b.email || '-',
         roomTitle,
-        guestCount: b.guest_count || b.adults || 2,
+        guestCount: b.guest_count ?? b.guests ?? (Number(b.adults || 0) + Number(b.children || 0)),
         totalNights,
         checkInStr,
         checkOutStr,
@@ -201,7 +204,7 @@ export default function AdminCalendarPage() {
 
     // 2. Process Boats
     kayakBookings.forEach((b) => {
-      const isApprovedStatus = b.status === 'approved' || b.status === 'completed';
+      const isApprovedStatus = b.status === 'approved' || b.status === 'checked_out';
       if (!isApprovedStatus || !b.booking_date) return;
 
       const dateStr = parseDateToYYYYMMDD(b.booking_date);

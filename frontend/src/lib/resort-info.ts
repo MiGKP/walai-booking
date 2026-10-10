@@ -1,4 +1,17 @@
+import { googleMapsEmbedUrl, googleMapsSearchUrl, parseLatLng } from './coordinates';
+
 export type ResortPrefer = 'main' | 'room' | 'boat';
+
+export function getResortLocation(data: unknown): { address: string | undefined; phone: string | undefined; hours: string | undefined; mapSrc: string | undefined } {
+  const info = pickResortInfo(data, 'main');
+  const coords = parseLatLng(info.coordinates);
+  return {
+    address: info.address,
+    phone: info.phone,
+    hours: [info.operating_days, info.operating_hours].filter(Boolean).join(' ') || undefined,
+    mapSrc: coords ? googleMapsEmbedUrl(coords) : info.address ? googleMapsSearchUrl(info.address) : undefined,
+  };
+}
 
 export interface ResortInfoRecord {
   id?: number;

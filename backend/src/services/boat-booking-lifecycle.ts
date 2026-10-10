@@ -21,13 +21,15 @@ export async function cancelBoatAddonsForRoomBooking(
   client: QueryClient, roomBookingId: number, previousRoomStatus?: string,
 ): Promise<void> {
   const addons = await client.query(
-    `SELECT boat_booking_id, status, total_price FROM boat_bookings
+    `SELECT boat_booking_id, status, total_price, checkin_at, handed_out_at FROM boat_bookings
      WHERE room_booking_id = $1 AND is_addon = true
        AND status NOT IN ('cancelled', 'rejected', 'checked_out') FOR UPDATE`,
     [roomBookingId],
   );
   let unpaidCost = 0;
   for (const row of addons.rows) {
+    // A used addon keeps its consumed tickets and inventory even if its parent is cancelled.
+    if (row.checkin_at || row.handed_out_at) continue;
     await restoreBookingPromotions(client, { previousStatus: String(row.status), boatBookingId: Number(row.boat_booking_id) });
     await restoreBoatTicketRedemptions(client, Number(row.boat_booking_id));
     await client.query(

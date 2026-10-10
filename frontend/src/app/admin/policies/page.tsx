@@ -431,12 +431,12 @@ export default function PoliciesSettingsPage() {
 
             <div className="rounded-2xl border border-cream-200/90 bg-cream-50/60 p-4 sm:p-5 space-y-3.5">
               <p className="text-xs text-charcoal-500 leading-relaxed">
-                ระยะเวลาขั้นต่ำที่ลูกค้าต้องมารายงานตัวที่จุดบริการเรือก่อนถึงรอบเวลา เพื่อให้เจ้าหน้าที่เตรียมเรือ สวมอุปกรณ์ชูชีพ และแนะนำข้อควรระวัง
+                เปิดเช็คอินล่วงหน้าก่อนเริ่มรอบตามระยะเวลาที่กำหนด เพื่อเตรียมเรือและอุปกรณ์ชูชีพ โดยปิดเช็คอินเมื่อถึงเวลาสิ้นสุดรอบ
               </p>
 
               <div className="flex items-center gap-2.5 flex-wrap pt-1">
                 <span className="text-xs sm:text-sm font-semibold text-charcoal-800">
-                  ต้องเช็คอิน / รายงานตัวก่อนรอบเรืออย่างน้อย
+                  เปิดเช็คอินก่อนเริ่มรอบเรือ
                 </span>
 
                 <div className="flex items-center gap-1.5">

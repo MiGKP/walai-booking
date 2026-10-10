@@ -143,7 +143,7 @@ export default function Footer() {
                   <Mail size={16} className="text-bamboo-400 shrink-0" />
                   <a
                     href={`mailto:${info.email}`}
-                    className="text-cream-400 hover:text-bamboo-400 transition-colors duration-200"
+                    className="min-w-0 break-words text-cream-400 hover:text-bamboo-400 transition-colors duration-200"
                   >
                     {info.email}
                   </a>

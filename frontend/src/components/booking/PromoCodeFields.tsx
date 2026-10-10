@@ -103,8 +103,11 @@ function PromoCodeFieldsInner({
   onChange,
 }: PromoCodeFieldsProps): React.ReactElement {
   const searchParams = useSearchParams();
-  const urlPromo = (searchParams.get('promo') ?? '').trim().toUpperCase();
+  const urlPromo = (searchParams.get('promo_code') ?? searchParams.get('promo') ?? '').trim().toUpperCase();
   const roomTypeKey = roomTypeIds?.join(',') ?? '';
+  const contextKey = JSON.stringify([basePrice, nights, scope, roomTypeKey, urlPromo]);
+  const contextRef = useRef(contextKey);
+  contextRef.current = contextKey;
   const [promoCode, setPromoCode] = useState(urlPromo);
   const { notice, showNotice } = usePromoNotice();
   const [loading, setLoading] = useState(false);
@@ -149,6 +152,7 @@ function PromoCodeFieldsInner({
   const applyByCode = async (code: string, silent: boolean): Promise<void> => {
     const trimmed = code.trim().toUpperCase();
     if (!trimmed || basePrice <= 0) return;
+    const requestContext = contextKey;
     setLoading(true);
     try {
       const first = await validateRequest({
@@ -156,12 +160,14 @@ function PromoCodeFieldsInner({
         price: basePrice,
         ...(nights != null ? { nights } : {}),
       });
+      if (contextRef.current !== requestContext) return;
       if (canStack && preview) {
         const stacked = await validateRequest({
           promotion_ids: [...preview.lines.map((line) => line.id), first.id],
           price: basePrice,
           ...(nights != null ? { nights } : {}),
         });
+        if (contextRef.current !== requestContext) return;
         applyPayload(stacked);
       } else {
         applyPayload(first);
@@ -170,6 +176,7 @@ function PromoCodeFieldsInner({
         
       }
     } catch (error: unknown) {
+      if (contextRef.current !== requestContext) return;
       const needId = collectIdFromError(error);
       if (needId != null) {
         setCollectId(needId);
@@ -184,7 +191,7 @@ function PromoCodeFieldsInner({
         showNotice('error', stackingBlocked ? `${message} ${STACKING_NOTE}` : message);
       }
     } finally {
-      setLoading(false);
+      if (contextRef.current === requestContext) setLoading(false);
     }
   };
 
@@ -198,6 +205,7 @@ function PromoCodeFieldsInner({
     let cancelled = false;
 
     const syncPromo = async (): Promise<void> => {
+      setLoading(false);
       const ids = lineIdsRef.current;
       if (ids.length > 0 && basePrice > 0) {
         try {
