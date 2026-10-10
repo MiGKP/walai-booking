@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { PoolClient } from 'pg';
 import { safeRollback } from '../utils/safe-rollback';
-import { assertStatusTransition } from '../services/booking-status';
 import QRCode from 'qrcode';
 import generatePayload from 'promptpay-qr';
 import pool from '../config/database';
@@ -47,8 +46,8 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       const result = await pool.query(
         `SELECT total_price, payment_status, payment_slip, status, reject_reason,
                 EXISTS (SELECT 1 FROM member_boat_tickets WHERE room_booking_id = $1 AND booking_room_id IS NOT NULL) AS has_boat_tickets
-         FROM room_bookings WHERE room_booking_id = $1 AND member_id = $2`,
-        [booking_id, user.id]
+         FROM room_bookings WHERE room_booking_id = $1 AND (($2 = 'customer' AND member_id = $3) OR $2 != 'customer')`,
+        [booking_id, user.role, user.id]
       );
       if (result.rows.length === 0) {
         res.status(404).json({ success: false, message: 'Room booking not found' });
@@ -57,8 +56,9 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       booking = result.rows[0];
     } else if (booking_type === 'kayak') {
       const result = await pool.query(
-        'SELECT total_price, payment_status, payment_slip, status, is_addon FROM boat_bookings WHERE boat_booking_id = $1 AND member_id = $2',
-        [booking_id, user.id]
+        `SELECT total_price, payment_status, payment_slip, status, is_addon, reject_reason 
+         FROM boat_bookings WHERE boat_booking_id = $1 AND (($2 = 'customer' AND member_id = $3) OR $2 != 'customer')`,
+        [booking_id, user.role, user.id]
       );
       if (result.rows.length === 0) {
         res.status(404).json({ success: false, message: 'Boat booking not found' });
@@ -112,6 +112,15 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
 export const uploadPaymentSlip = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
+
+    if (user.role !== 'customer') {
+      res.status(403).json({
+        success: false,
+        message: 'ผู้ดูแลระบบและเจ้าหน้าที่สามารถดูหน้าชำระเงินและหน้าส่งสลิปเพื่อตรวจสอบระบบได้เท่านั้น ไม่สามารถยืนยันการชำระเงินได้',
+      });
+      return;
+    }
+
     const { id } = req.params; // format: room_123 or kayak_456
     const [bType, bId] = id.split('_');
 
@@ -174,8 +183,8 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     } catch (error) {
       console.error('Payment slip Cloudinary upload error:', error);
       res.status(503).json({
-        error: 'Payment slip upload is temporarily unavailable',
-        code: 'UPLOAD_FAILED',
+        success: false,
+        message: 'ไม่สามารถอัปโหลดสลิปได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง',
       });
       return;
     }
@@ -403,15 +412,18 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
     let payment;
     if (bType === 'room') {
       const result = await pool.query(
-        `SELECT room_booking_id as booking_id, total_price as amount, payment_status as status, payment_slip as slip_image, (SELECT COUNT(*) > 0 FROM member_boat_tickets WHERE room_booking_id = $1 AND booking_room_id IS NOT NULL) as has_boat_tickets
-         FROM room_bookings WHERE room_booking_id = $1 AND (($3 = 'customer' AND member_id = $2) OR $3 = 'admin')`,
+        `SELECT room_booking_id as booking_id, total_price as amount, payment_status as status,
+                status as booking_status, reject_reason, payment_slip as slip_image,
+                (SELECT COUNT(*) > 0 FROM member_boat_tickets WHERE room_booking_id = $1 AND booking_room_id IS NOT NULL) as has_boat_tickets
+         FROM room_bookings WHERE room_booking_id = $1 AND (($3 = 'customer' AND member_id = $2) OR $3 IN ('admin', 'room_staff'))`,
         [bId, user.id, user.role]
       );
       payment = result.rows[0];
     } else {
       const result = await pool.query(
-        `SELECT boat_booking_id as booking_id, total_price as amount, payment_status as status, payment_slip as slip_image 
-         FROM boat_bookings WHERE boat_booking_id = $1 AND (($3 = 'customer' AND member_id = $2) OR $3 = 'admin')`,
+        `SELECT boat_booking_id as booking_id, total_price as amount, payment_status as status,
+                status as booking_status, reject_reason, payment_slip as slip_image
+         FROM boat_bookings WHERE boat_booking_id = $1 AND (($3 = 'customer' AND member_id = $2) OR $3 IN ('admin', 'boat_staff'))`,
         [bId, user.id, user.role]
       );
       payment = result.rows[0];

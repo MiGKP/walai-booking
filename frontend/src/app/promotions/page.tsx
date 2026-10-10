@@ -8,7 +8,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { setPostLoginRedirect } from '@/lib/auth-redirect';
 import { type CatalogPromo, parseAppliesTo } from '@/lib/promotions';
 import { PromoCollectAction, PromoVoucher } from '@/components/promotions/PromoVoucher';
-import toast from 'react-hot-toast';
 
 type AppliesFilter = 'all' | 'room' | 'kayak' | 'both';
 
@@ -19,6 +18,14 @@ export default function PromotionsPage(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [collectingId, setCollectingId] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+
+  // แจ้งผลในหน้านี้เอง แล้วซ่อนอัตโนมัติหลัง 10 วินาที
+  useEffect(() => {
+    if (notice == null) return;
+    const timer = setTimeout(() => setNotice(null), 10_000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   // Filters — เฉพาะ "ใช้ได้กับ" เท่านั้น
   const [appliesFilter, setAppliesFilter] = useState<AppliesFilter>('all');
@@ -28,7 +35,7 @@ export default function PromotionsPage(): React.ReactElement {
       const res = await api.get<{ data: CatalogPromo[] }>('/promotions/active');
       setPromos(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'โหลดโปรโมชั่นไม่สำเร็จ'));
+      setNotice({ tone: 'error', message: getApiErrorMessage(error, 'โหลดโปรโมชั่นไม่สำเร็จ') });
     } finally {
       setLoading(false);
     }
@@ -47,10 +54,10 @@ export default function PromotionsPage(): React.ReactElement {
     setCollectingId(id);
     try {
       await api.post(`/promotions/${id}/collect`);
-      toast.success('เก็บโปรโมชั่นแล้ว');
+      setNotice({ tone: 'success', message: 'เก็บโปรโมชั่นแล้ว' });
       await loadPromos();
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'เก็บโปรโมชั่นไม่สำเร็จ'));
+      setNotice({ tone: 'error', message: getApiErrorMessage(error, 'เก็บโปรโมชั่นไม่สำเร็จ') });
     } finally {
       setCollectingId(null);
     }
@@ -59,7 +66,10 @@ export default function PromotionsPage(): React.ReactElement {
   const filtered = useMemo(() => {
     return promos.filter((p) => {
       const scope = parseAppliesTo(p.applies_to);
-      if (appliesFilter !== 'all' && scope !== appliesFilter) return false;
+      // โปร "ห้องพักและเรือ" ต้องแสดงในตัวกรองห้องพักและเรือด้วย เพราะใช้ได้กับทั้งสองอย่าง
+      if (appliesFilter === 'all') return true;
+      if (appliesFilter === 'room' || appliesFilter === 'kayak') return scope === appliesFilter || scope === 'both';
+      return scope === appliesFilter;
       return true;
     });
   }, [promos, appliesFilter]);
@@ -178,6 +188,17 @@ export default function PromotionsPage(): React.ReactElement {
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">
+            {notice && (
+              <div
+                role="status"
+                className={`mb-4 flex flex-wrap items-center gap-2 rounded-xl border px-4 py-2.5 text-sm ${notice.tone === 'success' ? 'border-forest-200 bg-forest-50 text-forest-800' : 'border-rose-200 bg-rose-50 text-rose-700'}`}
+              >
+                <span className="font-semibold">{notice.message}</span>
+                {notice.tone === 'success' && (
+                  <a href="/dashboard/promotions" className="font-semibold underline">ดูในกระเป๋าโปร</a>
+                )}
+              </div>
+            )}
             {/* Result count + active chips */}
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <p className="text-sm text-charcoal-400">

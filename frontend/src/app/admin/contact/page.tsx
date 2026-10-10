@@ -60,7 +60,6 @@ export default function ContactInfoPage() {
         <div className="flex-1">
           <PageHeader 
             title="ข้อมูลติดต่อ" 
-            description="แก้ไขช่องทางติดต่อที่แสดงในเว็บไซต์" 
           />
         </div>
       </div>

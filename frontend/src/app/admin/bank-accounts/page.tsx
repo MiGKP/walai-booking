@@ -110,7 +110,6 @@ export default function BankAccountsPage() {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="บัญชีธนาคาร"
-        description="จัดการบัญชีรับชำระเงินของระบบ"
         actions={
           <button onClick={openCreate} className="btn-primary flex items-center gap-2">
             <Plus size={16} /> เพิ่มบัญชี

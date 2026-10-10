@@ -17,7 +17,6 @@ import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
-import CancellationPolicyCard from "@/components/settings/CancellationPolicyCard";
 
 export default function AdminProfilePage() {
   const router = useRouter();
@@ -347,8 +346,6 @@ export default function AdminProfilePage() {
           </form>
         </div>
       </div>
-
-      <CancellationPolicyCard />
     </div>
   );
 }

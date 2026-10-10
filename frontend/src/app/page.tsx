@@ -10,8 +10,8 @@ import { resolveMediaUrl } from '@/lib/avatar';
 import { resolveFacebookLink } from '@/lib/social';
 import { maskReviewerName } from '@/lib/format';
 import { FacilityGroup, ROOM_SPECIFIC_FACILITY_CATEGORIES } from '@/lib/facilities';
-import { getResortLocation, pickResortInfo } from '@/lib/resort-info';
 import Navbar from '@/components/layout/Navbar';
+import { getResortLocation, pickResortInfo } from '@/lib/resort-info';
 interface ResortInfo {
   name?: string;
   address?: string;
@@ -145,7 +145,7 @@ function ScrollMouseIndicator({ targetId }: { targetId: string }) {
       type="button"
       onClick={scrollToTarget}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') scrollToTarget(); }}
-      className={`absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 cursor-pointer group transition-all duration-500 z-10 bg-transparent border-0 p-0 ${
+      className={`absolute bottom-8 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center gap-2 cursor-pointer group transition-all duration-500 z-10 bg-transparent border-0 p-0 ${
         visible
           ? "opacity-100 translate-y-0"
           : "opacity-0 translate-y-4 pointer-events-none"
@@ -216,10 +216,10 @@ function RippleBackground() {
 function EditorialRoomCard({ room, index }: { room: LandingRoomType, index: number }) {
   const isEven = index % 2 === 0;
   return (
-    <Link href={`/rooms/${room.id}`} className="group flex flex-col md:flex-row items-center gap-8 md:gap-16 py-12 md:py-16 border-b border-stone-200/50 last:border-0">
+    <Link href={`/rooms/${room.id}`} className="group flex flex-col md:flex-row items-center gap-6 md:gap-16 py-8 md:py-16 border-b border-stone-200/50 last:border-0">
       {/* Image Side */}
       <div className={`w-full md:w-1/2 ${isEven ? 'md:order-1' : 'md:order-2'}`}>
-        <div className="relative aspect-[4/3] w-full rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_-15px_rgba(18,60,48,0.2)] transition-transform duration-700 group-hover:scale-[1.03]">
+        <div className="relative aspect-[4/3] w-full rounded-2xl sm:rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_-15px_rgba(18,60,48,0.2)] transition-transform duration-700 group-hover:scale-[1.03]">
           {room.main_image ? (
             <Image 
               src={resolveMediaUrl(room.main_image)} 
@@ -235,29 +235,29 @@ function EditorialRoomCard({ room, index }: { room: LandingRoomType, index: numb
       </div>
       
       {/* Text Side */}
-      <div className={`w-full md:w-1/2 ${isEven ? 'md:order-2' : 'md:order-1'} space-y-5 md:px-6`}>
+      <div className={`w-full md:w-1/2 ${isEven ? 'md:order-2' : 'md:order-1'} space-y-4 md:space-y-5 md:px-6`}>
          {room.type_name?.toLowerCase() !== room.room_name?.toLowerCase() && (
-           <span className="text-sm font-semibold tracking-wider text-bamboo-600 uppercase block">{room.type_name}</span>
+           <span className="text-xs sm:text-sm font-semibold tracking-wider text-bamboo-600 uppercase block">{room.type_name}</span>
          )}
-         <h3 className="font-display text-3xl md:text-5xl font-bold text-forest-900 leading-tight group-hover:text-bamboo-700 transition-colors duration-300">
+         <h3 className="font-display text-2xl sm:text-3xl md:text-5xl font-bold text-forest-900 leading-tight group-hover:text-bamboo-700 transition-colors duration-300">
            {room.room_name}
          </h3>
-         <p className="text-charcoal-500 text-base md:text-lg font-light leading-relaxed">
+         <p className="text-charcoal-500 text-sm sm:text-base md:text-lg font-light leading-relaxed">
            {room.description || "สัมผัสประสบการณ์การพักผ่อนริมน้ำสุดพิเศษ ท่ามกลางธรรมชาติที่เงียบสงบ พร้อมสิ่งอำนวยความสะดวกครบครันให้คุณได้พักผ่อนอย่างเต็มที่..."}
          </p>
-         <div className="pt-8 mt-8 border-t border-stone-200/60 flex items-end justify-between">
+         <div className="pt-6 sm:pt-8 mt-6 sm:mt-8 border-t border-stone-200/60 flex items-end justify-between gap-4">
             <div>
-              <span className="text-sm text-charcoal-400">เริ่มต้น</span>
-              <div className="font-display font-bold text-3xl text-forest-900 leading-none mt-1">
+              <span className="text-xs sm:text-sm text-charcoal-400">เริ่มต้น</span>
+              <div className="font-display font-bold text-2xl sm:text-3xl text-forest-900 leading-none mt-1">
                 ฿{formatPrice(room.price_per_night)}
-                <span className="text-sm font-normal text-charcoal-400"> /คืน</span>
+                <span className="text-xs sm:text-sm font-normal text-charcoal-400"> /คืน</span>
               </div>
             </div>
-            <div className="flex items-center gap-3 md:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
               <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-forest-800 bg-forest-50 px-4 py-2.5 rounded-full">
                 <Users size={16} /> พักได้ {room.capacity} ท่าน
               </div>
-              <div className="flex items-center gap-2 text-sm font-semibold text-white bg-forest-900 px-6 py-2.5 rounded-full group-hover:bg-bamboo-600 transition-colors duration-300 shadow-lg shadow-forest-900/20 group-hover:shadow-bamboo-600/30">
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-white bg-forest-900 px-4 sm:px-6 py-2.5 rounded-full group-hover:bg-bamboo-600 transition-colors duration-300 shadow-lg shadow-forest-900/20 group-hover:shadow-bamboo-600/30 shrink-0">
                 ดูรายละเอียด <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
@@ -274,11 +274,11 @@ function RoomCard({ room, large = false, className = "" }: { room: LandingRoomTy
   return (
     <Link
       href={`/rooms/${room.id}`}
-      className={`group block relative pb-16 md:pb-20 ${className}`}
+      className={`group block relative pb-14 sm:pb-16 md:pb-20 ${className}`}
     >
       {/* Image Container (Floating) */}
-      <div className={`relative w-full rounded-[2.5rem] overflow-hidden shadow-[0_20px_60px_-15px_rgba(18,60,48,0.2)] transition-transform duration-700 group-hover:scale-[1.02] ${
-        large ? "h-[360px] md:h-[420px]" : "h-[240px] md:h-[280px]"
+      <div className={`relative w-full rounded-2xl sm:rounded-[2.5rem] overflow-hidden shadow-[0_20px_60px_-15px_rgba(18,60,48,0.2)] transition-transform duration-700 group-hover:scale-[1.02] ${
+        large ? "h-[300px] sm:h-[360px] md:h-[420px]" : "h-[220px] sm:h-[240px] md:h-[280px]"
       }`}>
         {room.main_image ? (
           <Image
@@ -296,26 +296,26 @@ function RoomCard({ room, large = false, className = "" }: { room: LandingRoomTy
       </div>
 
       {/* Floating Glass Text Box (Overlap) */}
-      <div className="absolute -bottom-2 left-4 right-4 md:-bottom-4 md:left-8 md:right-8 bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.05)] rounded-[2rem] p-6 md:p-8 transition-transform duration-700 group-hover:-translate-y-4">
+      <div className="absolute -bottom-2 left-2 right-2 sm:left-4 sm:right-4 md:-bottom-4 md:left-8 md:right-8 bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.05)] rounded-2xl md:rounded-[2rem] p-4 sm:p-6 md:p-8 transition-transform duration-700 group-hover:-translate-y-4">
         {room.type_name?.toLowerCase() !== room.room_name?.toLowerCase() && (
-          <span className="text-xs font-semibold tracking-wider text-bamboo-600 uppercase mb-2 block">{room.type_name}</span>
+          <span className="text-xs font-semibold tracking-wider text-bamboo-600 uppercase mb-1 sm:mb-2 block">{room.type_name}</span>
         )}
         <h3
           className={`font-display font-bold leading-snug text-forest-900 ${
-            large ? "text-2xl md:text-3xl" : "text-xl md:text-2xl"
+            large ? "text-xl sm:text-2xl md:text-3xl" : "text-lg sm:text-xl md:text-2xl"
           }`}
         >
           {room.room_name}
         </h3>
         {large && (
-          <p className="text-charcoal-500 text-sm mt-3 font-light line-clamp-2">
+          <p className="text-charcoal-500 text-xs sm:text-sm mt-2 sm:mt-3 font-light line-clamp-2">
             {room.description || "สัมผัสประสบการณ์การพักผ่อนริมน้ำสุดพิเศษท่ามกลางธรรมชาติ..."}
           </p>
         )}
-        <div className="flex items-end justify-between mt-5 pt-5 border-t border-stone-200/60">
+        <div className="flex items-end justify-between mt-4 sm:mt-5 pt-4 sm:pt-5 border-t border-stone-200/60">
           <div>
             <span className="text-xs text-charcoal-400">เริ่มต้น</span>
-            <div className="font-display font-bold text-xl text-forest-900 leading-none mt-1">
+            <div className="font-display font-bold text-lg sm:text-xl text-forest-900 leading-none mt-1">
               ฿{formatPrice(room.price_per_night)}
               <span className="text-xs font-normal text-charcoal-400"> /คืน</span>
             </div>
@@ -402,13 +402,13 @@ function ReviewGallery({ reviews }: { reviews: LandingReview[] }) {
   }
 
   const ReviewCard = ({ review }: { review: LandingReview }) => (
-    <div className="w-[300px] md:w-[400px] bg-white border border-stone-200/60 rounded-3xl p-6 shadow-sm shrink-0 flex flex-col gap-4 text-left">
+    <div className="w-[280px] sm:w-[320px] md:w-[400px] bg-white border border-stone-200/60 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-sm shrink-0 flex flex-col gap-4 text-left">
        <div className="flex gap-0.5" aria-label={`คะแนน ${review.rating} ดาว`}>
           {Array.from({ length: review.rating }).map((_, j) => (
             <Star key={j} size={14} className="fill-bamboo-400 text-bamboo-400" />
           ))}
        </div>
-       <p className="font-display text-lg text-forest-800 leading-snug font-medium line-clamp-3">
+       <p className="font-display text-base sm:text-lg text-forest-800 leading-snug font-medium line-clamp-3">
          "{review.comment}"
        </p>
        <div className="mt-auto pt-4 border-t border-stone-100 flex items-center justify-between">
@@ -551,7 +551,7 @@ function CoverFlowGallery() {
         style={{ WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)', maskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)' }}
       >
         <div 
-          className="relative h-[420px] md:h-[560px] w-full flex items-center justify-center overflow-hidden touch-pan-y"
+          className="relative h-[360px] sm:h-[440px] md:h-[560px] w-full flex items-center justify-center overflow-hidden touch-pan-y"
           style={{ WebkitMaskImage: 'linear-gradient(to bottom, black 75%, transparent 100%)', maskImage: 'linear-gradient(to bottom, black 75%, transparent 100%)' }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
@@ -592,7 +592,7 @@ function CoverFlowGallery() {
                 cursor: isCenter ? 'grab' : 'pointer'
               }}
             >
-              <div className="relative w-[280px] h-[360px] md:w-[420px] md:h-[500px] rounded-[2.5rem] overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.4)]">
+              <div className="relative w-[230px] h-[300px] xs:w-[260px] xs:h-[340px] sm:w-[320px] sm:h-[400px] md:w-[420px] md:h-[500px] rounded-2xl sm:rounded-[2.5rem] overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.4)]">
                 <img src={src} className="w-full h-full object-cover pointer-events-none select-none" alt="Gallery" />
                 {!isCenter && <div className="absolute inset-0 bg-forest-900/20 pointer-events-none" />}
               </div>
@@ -719,20 +719,20 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           1. HERO SECTION
           ═══════════════════════════════ */}
-      <section className="relative min-h-[90vh] flex flex-col justify-center pt-32 pb-24 overflow-hidden bg-cream-100">
+      <section className="relative min-h-[85vh] lg:min-h-[90vh] flex flex-col justify-center pt-24 pb-12 sm:pt-28 sm:pb-16 lg:pt-32 lg:pb-24 overflow-hidden bg-cream-100">
         <div className="relative container mx-auto px-4 z-10 w-full">
-          <div className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+          <div className="grid lg:grid-cols-12 gap-8 lg:gap-8 items-center">
             
             {/* Left: Floating text content */}
-            <div className="lg:col-span-5 flex flex-col items-center lg:items-start text-center lg:text-left">
+            <div className="lg:col-span-6 flex flex-col items-center lg:items-start text-center lg:text-left z-20">
               
-              <h1 className="font-display text-5xl md:text-6xl lg:text-6xl xl:text-[5rem] font-bold leading-[1.05] tracking-tight mb-8 whitespace-nowrap">
+              <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-bold leading-[1.2] sm:leading-[1.15] tracking-tight mb-4 sm:mb-6">
                 {resortInfo.name && resortInfo.name !== 'สวนวลัยรุกขเวช' ? (
                   <span className="inline-block animate-reveal-up opacity-0 bg-clip-text text-transparent bg-gradient-to-br from-forest-950 via-forest-800 to-bamboo-800" style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}>
                     {resortInfo.name}
                   </span>
                 ) : (
-                  <span className="inline-flex flex-wrap overflow-hidden pb-4 -mb-4 bg-clip-text text-transparent bg-gradient-to-br from-forest-950 via-forest-800 to-bamboo-800">
+                  <span className="inline-flex flex-wrap justify-center lg:justify-start overflow-hidden pb-2 sm:pb-4 -mb-2 sm:-mb-4 bg-clip-text text-transparent bg-gradient-to-br from-forest-950 via-forest-800 to-bamboo-800">
                     {["ส", "ว", "น", "ว", "ลัย", "รุก", "ข", "เวช"].map((syllable, index) => (
                       <span 
                         key={index} 
@@ -751,44 +751,42 @@ export default function HomePage() {
               </h1>
 
               <p 
-                className="text-lg md:text-xl text-charcoal-500 leading-relaxed max-w-xl mb-12 animate-reveal-up font-medium" 
+                className="text-sm sm:text-base md:text-xl text-charcoal-500 leading-relaxed max-w-xl mb-6 sm:mb-8 lg:mb-10 animate-reveal-up font-normal px-2 sm:px-0" 
                 style={{ animationDelay: '200ms' }}
               >
                 ทิ้งความวุ่นวายไว้ข้างหลัง แล้วมาเอนกายพักใจรับลมเย็นๆ กลางผืนน้ำ ให้เสียงธรรมชาติช่วยเยียวยาความเหนื่อยล้า และชาร์จพลังให้คุณ
               </p>
 
               <div 
-                className="flex flex-col sm:flex-row items-center gap-4 animate-reveal-up w-full sm:w-auto mb-10 lg:mb-0" 
+                className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 animate-reveal-up w-full sm:w-auto mb-6 sm:mb-10 lg:mb-0 max-w-sm sm:max-w-none" 
                 style={{ animationDelay: '300ms' }}
               >
                 <Link
                   href="/rooms"
-                  className="group relative inline-flex items-center justify-center gap-3 bg-forest-900 text-cream-100 font-medium px-8 py-4 rounded-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-forest-900/20 active:scale-[0.98] w-full sm:w-auto"
+                  className="group relative inline-flex items-center justify-center gap-2.5 bg-forest-900 text-cream-100 font-medium px-6 sm:px-7 py-3 sm:py-3.5 rounded-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-forest-900/20 hover:bg-forest-800 active:scale-[0.98] w-full sm:w-auto text-sm sm:text-base"
                 >
-                  <span className="relative flex items-center gap-2">
-                    <Calendar size={18} />
-                    จองห้องพัก
-                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                  </span>
+                  <Calendar size={18} />
+                  <span>จองห้องพัก</span>
+                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </Link>
                 
                 <Link
                   href="/kayaks"
-                  className="inline-flex items-center justify-center gap-3 font-medium px-8 py-4 rounded-full bg-transparent text-forest-900 border-2 border-forest-900/20 hover:border-forest-900/50 hover:bg-forest-50 active:scale-[0.98] transition-all duration-300 w-full sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2.5 font-medium px-6 sm:px-7 py-3 sm:py-3.5 rounded-full bg-white/70 text-forest-900 border-2 border-forest-900/20 hover:border-forest-900/50 hover:bg-forest-50 active:scale-[0.98] transition-all duration-300 w-full sm:w-auto text-sm sm:text-base backdrop-blur-xs shadow-sm"
                 >
                   <Anchor size={18} />
-                  บริการเรือ
+                  <span>บริการเรือ</span>
                 </Link>
               </div>
             </div>
 
-            {/* Right: Huge Playful Bento Cluster */}
+            {/* Right: Playful Bento Cluster */}
             <div 
-              className="lg:col-span-7 relative w-full h-[400px] sm:h-[500px] lg:h-[600px] animate-reveal-up mt-10 lg:mt-0" 
+              className="lg:col-span-6 relative w-full h-[250px] sm:h-[420px] lg:h-[520px] animate-reveal-up mt-2 sm:mt-8 lg:mt-0" 
               style={{ animationDelay: '400ms' }}
             >
               {/* Main Hero Image */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[90%] md:w-[85%] h-full md:h-[90%] rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(18,60,48,0.15)] z-10 group">
+              <div className="absolute inset-0 sm:inset-auto sm:right-0 sm:top-1/2 sm:-translate-y-1/2 w-full sm:w-[85%] h-full md:h-[90%] rounded-2xl sm:rounded-[2.5rem] md:rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(18,60,48,0.15)] z-10 group">
                 <img 
                   src="/images/boat.jpg"
                   alt="Walai Resort Kayak"
@@ -796,8 +794,8 @@ export default function HomePage() {
                 />
               </div>
 
-              {/* Floating Accents (Rotated) */}
-              <div className="absolute left-[0%] md:left-[2%] top-[5%] md:top-[8%] w-[45%] md:w-[35%] h-[45%] md:h-[45%] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl shadow-forest-900/20 z-20 border-[8px] border-cream-100 hidden sm:block -rotate-6 group hover:rotate-0 transition-all duration-500 hover:scale-105 cursor-pointer origin-bottom-right">
+              {/* Floating Accents */}
+              <div className="absolute left-0 sm:left-2 top-[6%] md:top-[8%] w-[44%] sm:w-[36%] h-[44%] sm:h-[40%] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-forest-900/20 z-20 border-4 md:border-[6px] border-cream-100 hidden sm:block -rotate-3 group hover:rotate-0 transition-all duration-500 hover:scale-105 cursor-pointer origin-bottom-right">
                 <img 
                   src="/images/balcony.jpg"
                   alt="Resort Balcony"
@@ -805,7 +803,7 @@ export default function HomePage() {
                 />
               </div>
               
-              <div className="absolute left-[5%] md:left-[8%] bottom-[5%] md:bottom-[8%] w-[40%] md:w-[30%] h-[35%] md:h-[35%] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl shadow-forest-900/20 z-20 border-[8px] border-cream-100 hidden sm:block rotate-6 group hover:rotate-0 transition-all duration-500 hover:scale-105 cursor-pointer origin-top-right">
+              <div className="absolute left-[6%] sm:left-[10%] bottom-[6%] md:bottom-[8%] w-[40%] sm:w-[32%] h-[36%] sm:h-[32%] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-forest-900/20 z-20 border-4 md:border-[6px] border-cream-100 hidden sm:block rotate-3 group hover:rotate-0 transition-all duration-500 hover:scale-105 cursor-pointer origin-top-right">
                 <img 
                   src="/images/balcony.jpg" 
                   alt="Relaxing View"
@@ -853,14 +851,14 @@ export default function HomePage() {
 
         {/* Features: editorial layout matching Facilities section */}
         <article className="container mx-auto px-4 md:px-6 relative z-10" ref={experienceRef}>
-          <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-start">
+          <div className="grid lg:grid-cols-12 gap-8 lg:gap-16 items-start">
             {/* Left: sticky label + heading */}
             <div className="lg:col-span-4 lg:sticky lg:top-32">
-              <p className="text-forest-700 font-medium text-sm tracking-widest uppercase mb-3">Why Walai</p>
-              <h2 className="font-display text-3xl md:text-4xl font-bold text-forest-800 leading-tight">
-                ทำไมต้อง<br />วลัยรุกขเวช
+              <p className="text-forest-700 font-medium text-xs sm:text-sm tracking-widest uppercase mb-2 sm:mb-3">Why Walai</p>
+              <h2 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold text-forest-800 leading-tight">
+                ทำไมต้อง<br className="hidden sm:inline" /> วลัยรุกขเวช
               </h2>
-              <p className="text-charcoal-500 text-lg leading-relaxed font-light mt-5">
+              <p className="text-charcoal-500 text-sm sm:text-base md:text-lg leading-relaxed font-light mt-3 sm:mt-5">
                 ประสบการณ์พักผ่อนที่คุณจะไม่ลืม ท่ามกลางธรรมชาติอีสานที่เงียบสงบ พร้อมบริการที่ใส่ใจทุกรายละเอียด
               </p>
             </div>
@@ -870,18 +868,18 @@ export default function HomePage() {
               {features.map((item, idx) => (
                 <div 
                   key={idx} 
-                  className={`group flex flex-col sm:flex-row gap-6 py-8 md:py-10 ${idx !== features.length - 1 ? 'border-b border-stone-200/60' : ''}`}
+                  className={`group flex flex-col sm:flex-row gap-2 sm:gap-6 py-5 sm:py-8 md:py-10 ${idx !== features.length - 1 ? 'border-b border-stone-200/60' : ''}`}
                 >
                   <div className="sm:w-1/3 shrink-0">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
                       <div className="text-bamboo-600 group-hover:text-forest-700 transition-colors duration-300">
                         {item.icon}
                       </div>
-                      <h3 className="font-display text-xl font-semibold text-forest-900">{item.title}</h3>
+                      <h3 className="font-display text-lg sm:text-xl font-semibold text-forest-900">{item.title}</h3>
                     </div>
                   </div>
                   <div className="sm:w-2/3">
-                    <p className="text-charcoal-500 text-base leading-relaxed font-light">{item.desc}</p>
+                    <p className="text-charcoal-500 text-sm sm:text-base leading-relaxed font-light">{item.desc}</p>
                   </div>
                 </div>
               ))}
@@ -1083,7 +1081,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="lg:col-span-7 h-80 md:h-[420px] rounded-2xl overflow-hidden border border-stone-200 relative shadow-sm">
+            <div className="lg:col-span-7 h-64 sm:h-80 md:h-[420px] rounded-2xl overflow-hidden border border-stone-200 relative shadow-sm">
               {location.mapSrc ? <iframe
                 title={`แผนที่ ${resortInfo.name || "สวนวลัยรุกขเวช"}`}
                 aria-labelledby={mapTitleId}

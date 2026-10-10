@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import {
   Save,
   MapPin,
@@ -22,13 +23,26 @@ import {
   AlertCircle,
   Trash2,
   Plus,
+  ExternalLink,
+  Maximize2,
 } from "lucide-react";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import MapPickerModal from "@/components/admin/MapPickerModal";
 import { pickResortInfo } from "@/lib/resort-info";
-import { PageHeader, Panel, Modal } from "@/components/admin/ui";
+import { Modal } from "@/components/admin/ui";
+
+// Dynamic import LeafletMap with SSR disabled
+const LeafletMap = dynamic(() => import("@/components/admin/LeafletMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full min-h-[220px] bg-cream-100/70 animate-pulse flex flex-col items-center justify-center text-xs text-charcoal-400 gap-2">
+      <Loader2 className="w-5 h-5 animate-spin text-forest-800" />
+      <span>กำลังโหลดแผนที่...</span>
+    </div>
+  ),
+});
 
 // รายการวันทั้งหมดในสัปดาห์
 const DAYS_OPTIONS = [
@@ -69,7 +83,7 @@ export default function GeneralSettingsPage() {
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
-  
+
   // State สำหรับ ป๊อปอัพ ยืนยัน / ป๊อปอัพ บันทึกสำเร็จ
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
@@ -130,6 +144,17 @@ export default function GeneralSettingsPage() {
     return days.join(", ");
   };
 
+  // แปลงพิกัด string เป็น tuple [lat, lng]
+  const parseCoordsTuple = (coords: string): [number, number] => {
+    if (coords) {
+      const parts = coords.split(",").map((p) => parseFloat(p.trim()));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        return [parts[0], parts[1]];
+      }
+    }
+    return [16.219313, 103.329219];
+  };
+
   // ตรวจจับการคลิกนอก Dropdown ทั้งหมดเพื่อปิด
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -154,7 +179,7 @@ export default function GeneralSettingsPage() {
       .get("/settings/resort")
       .then((res) => {
         const rawData = res.data?.data;
-        const d = pickResortInfo(rawData, 'main');
+        const d = pickResortInfo(rawData, "main");
 
         if (d && (d.id || d.name || d.phone)) {
           const daysStr = d.operating_days ?? "";
@@ -192,7 +217,6 @@ export default function GeneralSettingsPage() {
       })
       .catch((err) => {
         console.error("Error fetching settings:", err);
-        setLoadError(true);
         setLoadError(true);
         notify.error("โหลดข้อมูลไม่สำเร็จ");
       })
@@ -281,60 +305,69 @@ export default function GeneralSettingsPage() {
 
   return (
     <div className="space-y-6 pb-12 font-sans">
-      <PageHeader
-        title="ตั้งค่าข้อมูลสถานที่ & การติดต่อ"
-        description="จัดการข้อมูลทั่วไป ช่องทางติดต่อ ที่อยู่ พิกัด และรายละเอียดบัญชีรับชำระเงิน"
-        actions={
-          <button
-            type="button"
-            disabled={saving || loading || loadError}
-            onClick={handleOpenConfirmModal}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-forest-800 hover:bg-forest-900 text-white font-semibold text-xs rounded-xl transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50"
-          >
-            {saving ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                <span>กำลังบันทึก...</span>
-              </>
-            ) : (
-              <>
-                <Save size={16} />
-                <span>บันทึกการเปลี่ยนแปลง</span>
-              </>
-            )}
-          </button>
-        }
-      />
+      {/* Top Header Card */}
+      <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10">
+            <Building2 size={20} className="stroke-[2.2]" />
+          </div>
+          <div>
+            <h1 className="font-display text-2xl font-bold text-forest-900 tracking-tight">
+              ตั้งค่าข้อมูลสถานที่ & การติดต่อ
+            </h1>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          disabled={saving || loading || loadError}
+          onClick={handleOpenConfirmModal}
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-forest-800 hover:bg-forest-900 text-white font-bold text-xs rounded-2xl transition-all shadow-2xs shrink-0 cursor-pointer disabled:opacity-50 active:scale-95"
+        >
+          {saving ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              <span>กำลังบันทึก...</span>
+            </>
+          ) : (
+            <>
+              <Save size={16} />
+              <span>บันทึกการเปลี่ยนแปลง</span>
+            </>
+          )}
+        </button>
+      </div>
 
       <form onSubmit={handleOpenConfirmModal} className="space-y-6">
-
         {loading ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-pulse">
-            <div className="bg-stone-200/60 h-[450px] rounded-2xl" />
-            <div className="bg-stone-200/60 h-[450px] rounded-2xl" />
+            <div className="bg-cream-100/70 h-[450px] rounded-3xl border border-cream-200" />
+            <div className="bg-cream-100/70 h-[450px] rounded-3xl border border-cream-200" />
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start w-full">
             {/* ฝั่งซ้าย: ข้อมูลสถานที่ & ช่องทางติดต่อ */}
             <div className="space-y-6">
               {/* การ์ด 1: ข้อมูลทั่วไป & ช่องทางติดต่อ */}
-              <Panel className="space-y-4">
-                <div className="flex items-center gap-2 text-forest-800 font-bold text-sm pb-3 border-b border-stone-100">
-                  <div className="p-1.5 bg-forest-100/70 text-forest-800 rounded-lg">
-                    <Building2 size={18} />
+              <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 space-y-4">
+                <div className="flex items-center gap-2.5 pb-4 border-b border-cream-200">
+                  <div className="w-8 h-8 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center">
+                    <Building2 size={17} />
                   </div>
-                  <h2 className="text-base font-bold">ข้อมูลทั่วไป & ติดต่อ</h2>
+                  <h2 className="text-base font-bold text-forest-900">
+                    ข้อมูลทั่วไป & ช่องทางติดต่อ
+                  </h2>
                 </div>
 
                 <div className="space-y-4 pt-1">
                   <div>
-                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                    <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
                       ชื่อสถานที่ <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
-                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                       value={form.name}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, name: e.target.value }))
@@ -345,13 +378,13 @@ export default function GeneralSettingsPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                        <Phone size={14} className="text-stone-400" />{" "}
+                      <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
+                        <Phone size={14} className="text-charcoal-400" />{" "}
                         เบอร์โทรศัพท์
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all"
+                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs font-mono"
                         value={form.phone}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, phone: e.target.value }))
@@ -360,12 +393,12 @@ export default function GeneralSettingsPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                        <Mail size={14} className="text-stone-400" /> อีเมล
+                      <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
+                        <Mail size={14} className="text-charcoal-400" /> อีเมล
                       </label>
                       <input
                         type="email"
-                        className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all"
+                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                         value={form.email}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, email: e.target.value }))
@@ -377,13 +410,13 @@ export default function GeneralSettingsPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                        <MessageCircle size={14} className="text-stone-400" />{" "}
+                      <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
+                        <MessageCircle size={14} className="text-charcoal-400" />{" "}
                         Line ID
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all"
+                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                         value={form.line_id}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, line_id: e.target.value }))
@@ -392,12 +425,12 @@ export default function GeneralSettingsPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                        <Globe size={14} className="text-stone-400" /> Facebook
+                      <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
+                        <Globe size={14} className="text-charcoal-400" /> Facebook
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all"
+                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                         value={form.facebook}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, facebook: e.target.value }))
@@ -410,7 +443,7 @@ export default function GeneralSettingsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* เลือกวันเปิดทำการ */}
                     <div className="relative" ref={daysRef}>
-                      <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
+                      <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
                         <Calendar size={14} className="text-forest-800" />{" "}
                         วันเปิดทำการ
                       </label>
@@ -418,65 +451,65 @@ export default function GeneralSettingsPage() {
                       <button
                         type="button"
                         onClick={() => setOpenDaysDropdown(!openDaysDropdown)}
-                        className={`w-full flex items-center justify-between px-3.5 py-2 bg-stone-50 border rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 bg-cream-50/60 border rounded-xl text-xs font-medium transition-all cursor-pointer ${
                           openDaysDropdown
                             ? "border-forest-800 ring-2 ring-forest-800/20 bg-white"
-                            : "border-stone-200 hover:border-stone-300"
+                            : "border-cream-200 hover:border-cream-300"
                         }`}
                       >
                         <span
                           className={`truncate ${
                             form.operating_days
-                              ? "text-stone-800 font-semibold"
-                              : "text-stone-400"
+                              ? "text-charcoal-800 font-bold"
+                              : "text-charcoal-400"
                           }`}
                         >
                           {form.operating_days || "เลือกวันเปิดทำการ"}
                         </span>
                         <ChevronDown
                           size={14}
-                          className={`text-stone-400 transition-transform duration-200 shrink-0 ml-1 ${
+                          className={`text-charcoal-400 transition-transform duration-200 shrink-0 ml-1 ${
                             openDaysDropdown ? "rotate-180 text-forest-800" : ""
                           }`}
                         />
                       </button>
 
                       {openDaysDropdown && (
-                        <div className="absolute left-0 top-full mt-1 w-full bg-white border border-stone-200 rounded-2xl shadow-xl z-50 p-3 space-y-3">
-                          <div className="space-y-1">
-                            <span className="text-xs font-bold text-stone-400 uppercase tracking-wider block px-1">
+                        <div className="absolute left-0 top-full mt-1.5 w-full bg-white border border-cream-200 rounded-2xl shadow-xl z-50 p-3.5 space-y-3 animate-in fade-in duration-150">
+                          <div className="space-y-1.5">
+                            <span className="text-[11px] font-bold text-charcoal-400 uppercase tracking-wider block px-1">
                               ตัวเลือกลัด
                             </span>
                             <div className="grid grid-cols-3 gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => handleQuickSelectDays("all")}
-                                className="px-2 py-1 text-xs font-medium bg-forest-50 text-forest-800 hover:bg-forest-100 rounded-lg transition-colors cursor-pointer text-center"
+                                className="px-2 py-1.5 text-xs font-bold bg-forest-50 text-forest-800 hover:bg-forest-100 rounded-xl transition-colors cursor-pointer text-center"
                               >
                                 เปิดทุกวัน
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleQuickSelectDays("weekday")}
-                                className="px-2 py-1 text-xs font-medium bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-lg transition-colors cursor-pointer text-center"
+                                className="px-2 py-1.5 text-xs font-bold bg-cream-100 text-charcoal-700 hover:bg-cream-200 rounded-xl transition-colors cursor-pointer text-center"
                               >
                                 จ. - ศ.
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleQuickSelectDays("weekend")}
-                                className="px-2 py-1 text-xs font-medium bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-lg transition-colors cursor-pointer text-center"
+                                className="px-2 py-1.5 text-xs font-bold bg-cream-100 text-charcoal-700 hover:bg-cream-200 rounded-xl transition-colors cursor-pointer text-center"
                               >
                                 ส. - อา.
                               </button>
                             </div>
                           </div>
 
-                          <div className="border-t border-stone-100 pt-2 space-y-1">
-                            <span className="text-xs font-bold text-stone-400 uppercase tracking-wider block px-1">
+                          <div className="border-t border-cream-200 pt-2.5 space-y-1">
+                            <span className="text-[11px] font-bold text-charcoal-400 uppercase tracking-wider block px-1">
                               เลือกแยกตามวัน
                             </span>
-                            <div className="space-y-0.5 max-h-44 overflow-y-auto pr-1">
+                            <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
                               {DAYS_OPTIONS.map((day) => {
                                 const isChecked = selectedDays.includes(
                                   day.full,
@@ -486,10 +519,10 @@ export default function GeneralSettingsPage() {
                                     key={day.full}
                                     type="button"
                                     onClick={() => handleDayToggle(day.full)}
-                                    className={`w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-xl transition-colors cursor-pointer ${
+                                    className={`w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-xl transition-colors cursor-pointer ${
                                       isChecked
                                         ? "bg-forest-50 text-forest-800 font-bold"
-                                        : "text-stone-700 hover:bg-stone-50 font-normal"
+                                        : "text-charcoal-700 hover:bg-cream-50 font-medium"
                                     }`}
                                   >
                                     <span>วัน{day.label}</span>
@@ -497,7 +530,7 @@ export default function GeneralSettingsPage() {
                                       className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
                                         isChecked
                                           ? "bg-forest-800 border-forest-800 text-white"
-                                          : "border-stone-300 bg-white"
+                                          : "border-cream-300 bg-white"
                                       }`}
                                     >
                                       {isChecked && <Check size={12} />}
@@ -513,44 +546,44 @@ export default function GeneralSettingsPage() {
 
                     {/* เวลาทำการ */}
                     <div>
-                      <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                        <Clock size={14} className="text-forest-600" />{" "}
+                      <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
+                        <Clock size={14} className="text-forest-700" />{" "}
                         เวลาทำการ
                       </label>
 
-                      <div className="flex items-center gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         {/* เวลาเปิด */}
-                        <div className="relative flex-1" ref={startRef}>
+                        <div className="relative" ref={startRef}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] font-bold text-charcoal-500">
+                              เวลาเปิด
+                            </span>
+                          </div>
                           <button
                             type="button"
                             onClick={() => {
                               setOpenStart(!openStart);
                               setOpenEnd(false);
                             }}
-                            className={`w-full flex items-center justify-between px-3 py-2 bg-stone-50 border rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                            className={`w-full flex items-center justify-between px-3 py-2 bg-cream-50/60 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
                               openStart
                                 ? "border-forest-800 ring-2 ring-forest-800/20 bg-white"
-                                : "border-stone-200 hover:border-stone-300"
+                                : "border-cream-200 hover:border-cream-300"
                             }`}
                           >
-                            <div className="flex items-center">
-                              <span className="text-xs uppercase font-bold text-stone-400 mr-2 select-none">
-                                เปิด
-                              </span>
-                              <span className="text-stone-800">
-                                {startTime}
-                              </span>
-                            </div>
+                            <span className="text-charcoal-800 truncate">
+                              {startTime}
+                            </span>
                             <ChevronDown
                               size={14}
-                              className={`text-stone-400 transition-transform duration-200 ${
+                              className={`text-charcoal-400 transition-transform duration-200 shrink-0 ml-1 ${
                                 openStart ? "rotate-180 text-forest-800" : ""
                               }`}
                             />
                           </button>
 
                           {openStart && (
-                            <div className="absolute left-0 top-full mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-lg z-50 py-1 max-h-48 overflow-y-auto">
+                            <div className="absolute left-0 top-full mt-1.5 w-full bg-white border border-cream-200 rounded-xl shadow-lg z-50 py-1 max-h-48 overflow-y-auto animate-in fade-in duration-150">
                               {timeOptions.map((time) => (
                                 <button
                                   key={time}
@@ -562,10 +595,10 @@ export default function GeneralSettingsPage() {
                                     }));
                                     setOpenStart(false);
                                   }}
-                                  className={`w-full flex items-center justify-between px-3 py-1.5 text-xs transition-colors cursor-pointer ${
+                                  className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors cursor-pointer ${
                                     startTime === time
                                       ? "bg-forest-50 text-forest-800 font-bold"
-                                      : "text-stone-700 hover:bg-stone-50"
+                                      : "text-charcoal-700 hover:bg-cream-50"
                                   }`}
                                 >
                                   <span>{time}</span>
@@ -581,40 +614,38 @@ export default function GeneralSettingsPage() {
                           )}
                         </div>
 
-                        <span className="text-xs text-stone-400 font-medium shrink-0">
-                          ถึง
-                        </span>
-
                         {/* เวลาปิด */}
-                        <div className="relative flex-1" ref={endRef}>
+                        <div className="relative" ref={endRef}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] font-bold text-charcoal-500">
+                              เวลาปิด
+                            </span>
+                          </div>
                           <button
                             type="button"
                             onClick={() => {
                               setOpenEnd(!openEnd);
                               setOpenStart(false);
                             }}
-                            className={`w-full flex items-center justify-between px-3 py-2 bg-stone-50 border rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                            className={`w-full flex items-center justify-between px-3 py-2 bg-cream-50/60 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
                               openEnd
                                 ? "border-forest-800 ring-2 ring-forest-800/20 bg-white"
-                                : "border-stone-200 hover:border-stone-300"
+                                : "border-cream-200 hover:border-cream-300"
                             }`}
                           >
-                            <div className="flex items-center">
-                              <span className="text-xs uppercase font-bold text-stone-400 mr-2 select-none">
-                                ปิด
-                              </span>
-                              <span className="text-stone-800">{endTime}</span>
-                            </div>
+                            <span className="text-charcoal-800 truncate">
+                              {endTime}
+                            </span>
                             <ChevronDown
                               size={14}
-                              className={`text-stone-400 transition-transform duration-200 ${
+                              className={`text-charcoal-400 transition-transform duration-200 shrink-0 ml-1 ${
                                 openEnd ? "rotate-180 text-forest-800" : ""
                               }`}
                             />
                           </button>
 
                           {openEnd && (
-                            <div className="absolute left-0 top-full mt-1 w-full bg-white border border-stone-200 rounded-xl shadow-lg z-50 py-1 max-h-48 overflow-y-auto">
+                            <div className="absolute left-0 top-full mt-1.5 w-full bg-white border border-cream-200 rounded-xl shadow-lg z-50 py-1 max-h-48 overflow-y-auto animate-in fade-in duration-150">
                               {timeOptions.map((time) => (
                                 <button
                                   key={time}
@@ -626,10 +657,10 @@ export default function GeneralSettingsPage() {
                                     }));
                                     setOpenEnd(false);
                                   }}
-                                  className={`w-full flex items-center justify-between px-3 py-1.5 text-xs transition-colors cursor-pointer ${
+                                  className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors cursor-pointer ${
                                     endTime === time
                                       ? "bg-forest-50 text-forest-800 font-bold"
-                                      : "text-stone-700 hover:bg-stone-50"
+                                      : "text-charcoal-700 hover:bg-cream-50"
                                   }`}
                                 >
                                   <span>{time}</span>
@@ -648,25 +679,27 @@ export default function GeneralSettingsPage() {
                     </div>
                   </div>
                 </div>
-              </Panel>
+              </div>
 
               {/* การ์ด 2: ที่อยู่และแผนที่ */}
-              <Panel className="space-y-4">
-                <div className="flex items-center gap-2 text-forest-800 font-bold text-sm pb-3 border-b border-stone-100">
-                  <div className="p-1.5 bg-forest-100/70 text-forest-800 rounded-lg">
-                    <MapPin size={18} />
+              <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 space-y-4">
+                <div className="flex items-center gap-2.5 pb-4 border-b border-cream-200">
+                  <div className="w-8 h-8 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center">
+                    <MapPin size={17} />
                   </div>
-                  <h2 className="text-base font-bold">ที่อยู่ & พิกัดแผนที่</h2>
+                  <h2 className="text-base font-bold text-forest-900">
+                    ที่อยู่ & พิกัดแผนที่
+                  </h2>
                 </div>
 
                 <div className="space-y-4 pt-1">
                   <div>
-                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                    <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
                       ที่อยู่สถานที่
                     </label>
                     <textarea
                       rows={3}
-                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all resize-none"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all resize-none shadow-2xs"
                       value={form.address}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, address: e.target.value }))
@@ -675,55 +708,94 @@ export default function GeneralSettingsPage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Globe size={14} className="text-stone-400" />{" "}
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-charcoal-700 flex items-center gap-1.5">
+                        <Globe size={14} className="text-forest-800" />
                         พิกัดแผนที่ (Coordinates)
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsMapOpen(true)}
-                        className="text-xs font-semibold text-forest-800 hover:text-forest-700 flex items-center gap-1 hover:underline cursor-pointer"
-                      >
-                        <Map size={13} /> เลือกจากแผนที่
-                      </button>
-                    </label>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        {form.coordinates && (
+                          <a
+                            href={`https://www.google.com/maps?q=${encodeURIComponent(
+                              form.coordinates.replace(/\s+/g, ""),
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] font-bold text-charcoal-500 hover:text-forest-800 flex items-center gap-1 transition-colors"
+                            title="เปิดดูตำแหน่งบน Google Maps"
+                          >
+                            <ExternalLink size={12} />
+                            <span>Google Maps</span>
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setIsMapOpen(true)}
+                          className="text-xs font-bold text-forest-800 hover:text-forest-900 flex items-center gap-1 hover:underline cursor-pointer"
+                        >
+                          <Maximize2 size={12} />
+                          <span>ขยาย / ค้นหาพิกัด</span>
+                        </button>
+                      </div>
+                    </div>
+
                     <input
                       type="text"
-                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-mono text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all truncate"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-mono text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all truncate shadow-2xs"
                       value={form.coordinates}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, coordinates: e.target.value }))
                       }
-                      placeholder="16.2196, 103.3293"
+                      placeholder="16.219313, 103.329219"
                     />
+
+                    {/* กล่องแสดง Map Preview */}
+                    <div className="pt-1.5 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] text-charcoal-500 px-0.5">
+                        <span className="flex items-center gap-1 font-medium">
+                          <Map size={12} className="text-forest-800" /> ตัวอย่างพิกัดแผนที่ (คลิกบนแผนที่เพื่อเปลี่ยนตำแหน่งได้)
+                        </span>
+                      </div>
+                      <div className="w-full h-[250px] rounded-2xl overflow-hidden border border-cream-200/90 shadow-2xs relative bg-cream-50/50">
+                        <LeafletMap
+                          position={parseCoordsTuple(form.coordinates)}
+                          showControls={false}
+                          setPosition={(pos) =>
+                            setForm((f) => ({
+                              ...f,
+                              coordinates: `${pos[0].toFixed(6)}, ${pos[1].toFixed(6)}`,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </Panel>
+              </div>
             </div>
 
             {/* ฝั่งขวา: ข้อมูลชำระเงิน & เงื่อนไข */}
             {isAdmin && (
-              <Panel className="space-y-4">
-                <div className="flex items-center gap-2 text-forest-800 font-bold text-sm pb-3 border-b border-stone-100">
-                  <div className="p-1.5 bg-forest-100/70 text-forest-800 rounded-lg">
-                    <CreditCard size={18} />
+              <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 space-y-4">
+                <div className="flex items-center gap-2.5 pb-4 border-b border-cream-200">
+                  <div className="w-8 h-8 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center">
+                    <CreditCard size={17} />
                   </div>
-                  <h2 className="text-base font-bold">
+                  <h2 className="text-base font-bold text-forest-900">
                     ข้อมูลการรับชำระเงิน & เงื่อนไข
                   </h2>
                 </div>
 
                 <div className="space-y-4 pt-1">
                   <div>
-                    <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                      <QrCode size={14} className="text-stone-400" />{" "}
+                    <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
+                      <QrCode size={14} className="text-charcoal-400" />{" "}
                       เบอร์พร้อมเพย์ (PromptPay ID)
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-mono text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-mono font-bold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                       value={form.promptpay_id}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, promptpay_id: e.target.value }))
@@ -733,13 +805,13 @@ export default function GeneralSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                      <User size={14} className="text-stone-400" />{" "}
+                    <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
+                      <User size={14} className="text-charcoal-400" />{" "}
                       ชื่อบัญชีธนาคาร
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-semibold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                       value={form.bank_account_name}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -752,13 +824,13 @@ export default function GeneralSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                      <CreditCard size={14} className="text-stone-400" />{" "}
+                    <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
+                      <CreditCard size={14} className="text-charcoal-400" />{" "}
                       เลขที่บัญชีธนาคาร
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-mono text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-mono font-bold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                       value={form.bank_account_no}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -771,8 +843,8 @@ export default function GeneralSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
-                      <Clock size={14} className="text-forest-600" />
+                    <label className="block text-xs font-bold text-charcoal-700 mb-1.5 flex items-center gap-1.5">
+                      <Clock size={14} className="text-forest-700" />
                       กำหนดเวลาต้องชำระเงินหลังจอง
                     </label>
 
@@ -781,7 +853,7 @@ export default function GeneralSettingsPage() {
                         <input
                           type="number"
                           min={0}
-                          className="w-full pl-3.5 pr-10 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all"
+                          className="w-full pl-3.5 pr-10 py-2 bg-cream-50/60 focus:bg-white border border-cream-200 rounded-xl text-xs font-bold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                           value={form.payment_due_days}
                           onChange={(e) =>
                             setForm((f) => ({
@@ -791,12 +863,12 @@ export default function GeneralSettingsPage() {
                           }
                           placeholder="เช่น 1"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-stone-400 pointer-events-none">
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-charcoal-400 pointer-events-none">
                           วัน
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         {[1, 3, 7].map((days) => (
                           <button
                             key={days}
@@ -807,10 +879,10 @@ export default function GeneralSettingsPage() {
                                 payment_due_days: String(days),
                               }))
                             }
-                            className={`px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
+                            className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
                               form.payment_due_days === String(days)
                                 ? "bg-forest-800 text-white border-forest-800 shadow-2xs"
-                                : "bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100 hover:text-stone-900"
+                                : "bg-cream-50/80 text-charcoal-600 border-cream-200 hover:bg-cream-100 hover:text-charcoal-900"
                             }`}
                           >
                             {days} วัน
@@ -819,23 +891,23 @@ export default function GeneralSettingsPage() {
                       </div>
                     </div>
 
-                    <p className="text-xs text-stone-400 mt-1">
+                    <p className="text-xs text-charcoal-400 mt-1">
                       * คำนวณวันครบกำหนดชำระอัตโนมัติหลังทำรายการจอง
                     </p>
                   </div>
 
                   {/* เงื่อนไขและข้อกำหนดเพิ่มเติม */}
                   <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between border-t border-stone-100 pt-3">
-                      <label className="block text-xs font-semibold text-stone-700 flex items-center gap-1.5">
-                        <FileText size={14} className="text-stone-400" />
+                    <div className="flex items-center justify-between border-t border-cream-200 pt-3">
+                      <label className="block text-xs font-bold text-charcoal-700 flex items-center gap-1.5">
+                        <FileText size={14} className="text-charcoal-400" />
                         เงื่อนไขและข้อกำหนดเพิ่มเติม
                       </label>
 
                       <button
                         type="button"
                         onClick={handleAddTerm}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-forest-800 hover:text-forest-700 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-forest-800 hover:text-forest-900 transition-colors cursor-pointer"
                       >
                         <Plus size={14} />
                         <span>เพิ่มข้อกำหนด</span>
@@ -845,12 +917,12 @@ export default function GeneralSettingsPage() {
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                       {termsList.map((term, index) => (
                         <div key={index} className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-stone-400 w-5 text-center shrink-0">
+                          <span className="text-xs font-bold text-charcoal-400 w-5 text-center shrink-0">
                             {index + 1}.
                           </span>
                           <input
                             type="text"
-                            className="flex-1 px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all"
+                            className="flex-1 px-3.5 py-2 bg-cream-50/60 focus:bg-white border border-cream-200 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                             placeholder={`ข้อกำหนดที่ ${index + 1} (เช่น ห้ามส่งเสียงดังหลัง 22:00 น.)`}
                             value={term}
                             onChange={(e) =>
@@ -860,7 +932,7 @@ export default function GeneralSettingsPage() {
                           <button
                             type="button"
                             onClick={() => handleRemoveTerm(index)}
-                            className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all shrink-0 cursor-pointer"
+                            className="p-2 text-charcoal-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all shrink-0 cursor-pointer"
                             title="ลบข้อนี้"
                           >
                             <Trash2 size={15} />
@@ -870,7 +942,7 @@ export default function GeneralSettingsPage() {
                     </div>
                   </div>
                 </div>
-              </Panel>
+              </div>
             )}
           </div>
         )}
@@ -885,12 +957,12 @@ export default function GeneralSettingsPage() {
         onClose={() => setIsConfirmOpen(false)}
         widthClass="max-w-sm"
         footer={
-          <>
+          <div className="flex items-center justify-end gap-2.5 w-full">
             <button
               type="button"
               disabled={saving}
               onClick={() => setIsConfirmOpen(false)}
-              className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+              className="flex-1 py-2.5 px-4 bg-cream-100 hover:bg-cream-200 text-charcoal-700 text-xs font-bold rounded-2xl transition-colors cursor-pointer disabled:opacity-50"
             >
               ยกเลิก
             </button>
@@ -898,7 +970,7 @@ export default function GeneralSettingsPage() {
               type="button"
               disabled={saving}
               onClick={executeSave}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-forest-800 hover:bg-forest-900 text-white rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-4 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 active:scale-98"
             >
               {saving ? (
                 <>
@@ -912,13 +984,17 @@ export default function GeneralSettingsPage() {
                 </>
               )}
             </button>
-          </>
+          </div>
         }
       >
-        <p className="text-xs text-stone-600 leading-relaxed bg-stone-50 p-3.5 rounded-xl border border-stone-100">
-          คุณต้องการบันทึกการเปลี่ยนแปลงข้อมูลสถานที่ รายละเอียดการติดต่อ
-          และบัญชีชำระเงินนี้ใช่หรือไม่?
-        </p>
+        <div className="text-center space-y-3 py-1">
+          <div className="w-12 h-12 rounded-2xl bg-forest-50 border border-forest-200 text-forest-800 flex items-center justify-center mx-auto shadow-2xs">
+            <Save size={24} className="stroke-[2.2]" />
+          </div>
+          <p className="text-sm font-semibold text-charcoal-800 leading-relaxed max-w-xs mx-auto">
+            คุณต้องการบันทึกการเปลี่ยนแปลงข้อมูลสถานที่และข้อมูลทั่วไปนี้ใช่หรือไม่?
+          </p>
+        </div>
       </Modal>
 
       {/* ========================================================= */}
@@ -926,21 +1002,20 @@ export default function GeneralSettingsPage() {
       {/* ========================================================= */}
       <Modal
         open={isSuccessOpen}
-        title="บันทึกข้อมูลสำเร็จ!"
         onClose={() => setIsSuccessOpen(false)}
         widthClass="max-w-sm"
       >
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 bg-forest-100 text-forest-800 rounded-full flex items-center justify-center mx-auto">
-            <Check size={28} />
+        <div className="text-center space-y-4 py-2">
+          <div className="w-12 h-12 bg-forest-50 text-forest-800 border border-forest-200 rounded-2xl flex items-center justify-center mx-auto shadow-2xs">
+            <Check size={26} className="stroke-[2.5]" />
           </div>
-          <p className="text-xs text-stone-500 mt-1">
-            ระบบได้ทำการอัปเดตข้อมูลสถานที่เรียบร้อยแล้ว
-          </p>
+          <h3 className="text-base font-bold text-forest-900">
+            บันทึกข้อมูลสำเร็จ!
+          </h3>
           <button
             type="button"
             onClick={() => setIsSuccessOpen(false)}
-            className="w-full py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer"
+            className="w-full py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-98"
           >
             ตกลง
           </button>

@@ -262,13 +262,6 @@ export default function StatsPage() {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="รายงานสถิติ"
-        description={
-          isAdmin
-            ? 'ภาพรวมรายได้ สถิติการจอง และการดำเนินงานของสวนวลัยรุกขเวช'
-            : showRoom
-            ? 'สถิติการจองและรายได้ของห้องพัก'
-            : 'สถิติการจองและรายได้ของเรือ'
-        }
         actions={
           data && (
             <button

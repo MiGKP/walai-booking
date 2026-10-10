@@ -187,7 +187,17 @@ export function applyPromotionList(
   let remaining = ctx.basePrice;
   const lines: ApplyLine[] = [];
 
-  for (const row of promosInOrder) {
+  // จัดลำดับโปรโมชั่นอย่างคงที่ (deterministic):
+  // หักส่วนลดแบบจำนวนเงินคงที่ (fixed) ก่อน เพื่อให้ส่วนลดแบบเปอร์เซ็นต์ (percent) คิดจากยอดคงเหลือสุทธิ
+  // ป้องกันไม่ให้ client สลับลำดับเพื่อเอายอดลดเปอร์เซ็นต์จากฐานราคาเต็ม
+  const sortedPromos = [...promosInOrder].sort((a, b) => {
+    if (a.discount_type !== b.discount_type) {
+      return a.discount_type === 'fixed' ? -1 : 1;
+    }
+    return a.id - b.id;
+  });
+
+  for (const row of sortedPromos) {
     if (row.usage_limit != null && row.usage_count >= row.usage_limit) {
       throw new PromoApplyError('โปรโมชั่นนี้ถูกใช้ครบจำนวนแล้ว');
     }
@@ -201,8 +211,8 @@ export function applyPromotionList(
         (!ctx.roomTypeIds?.length || ctx.roomTypeIds.some((id) => id !== Number(row.room_type_id)))) {
       throw new PromoApplyError('โปรโมชั่นนี้ใช้กับประเภทห้องที่กำหนดเท่านั้น');
     }
+    const wallet = ctx.walletsByPromoId[row.id];
     if (row.is_collectible) {
-      const wallet = ctx.walletsByPromoId[row.id];
       if (wallet == null || wallet.status === 'expired') {
         throw new PromoApplyError('ต้องเก็บโค้ดนี้ก่อนใช้');
       }
@@ -220,12 +230,9 @@ export function applyPromotionList(
       ctx.nights
     );
     remaining = nextTotal;
-    const wallet = ctx.walletsByPromoId[row.id];
     lines.push({
       promotion_id: row.id,
-      member_promotion_id: row.is_collectible
-        ? (wallet?.member_promotion_id ?? null)
-        : null,
+      member_promotion_id: wallet?.member_promotion_id ?? null,
       discount_amount: discountAmount,
     });
   }

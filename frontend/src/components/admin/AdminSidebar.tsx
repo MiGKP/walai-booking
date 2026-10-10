@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminNotificationStore } from "@/hooks/useAdminNotificationStore";
 import {
   Users,
   Anchor,
@@ -26,6 +27,8 @@ import {
   ChevronDown,
   MapPin,
   LogIn,
+  FileText,
+  Ship,
 } from "lucide-react";
 
 interface MenuItem {
@@ -42,19 +45,23 @@ interface MenuGroup {
 
 // ปฏิทินการจองเป็นลิงก์ด้านบนของ sidebar อยู่แล้ว จึงไม่ต้องอยู่ในรายการนี้
 const roomStaffAllowedPaths = [
+  "/admin/policies",
   "/admin/rooms/location",
   "/admin/promotions",
   "/admin/reviews",
   "/admin/rooms/single",
+  "/admin/rooms/types",
   "/admin/rooms/amenities",
   "/admin/checkin",
 ];
 
 const boatStaffAllowedPaths = [
+  "/admin/policies",
+  "/admin/boats/checkin",
+  "/admin/boats",
   "/admin/boats/location",
   "/admin/boats/types",
   "/admin/boats/rounds",
-  "/staff/boats/boat-hours",
 ];
 
 const menuGroups: MenuGroup[] = [
@@ -66,6 +73,11 @@ const menuGroups: MenuGroup[] = [
         label: "สถานที่หลัก & ชำระเงิน",
         path: "/admin/site-info",
         icon: <Building2 size={16} />,
+      },
+      {
+        label: "นโยบายและข้อกำหนด",
+        path: "/admin/policies",
+        icon: <FileText size={16} />,
       },
       {
         label: "จุดบริการห้องพัก",
@@ -106,7 +118,7 @@ const menuGroups: MenuGroup[] = [
     icon: <Home size={18} />,
     items: [
       {
-        label: "แดชบอร์ดจองห้อง",
+        label: "จัดการการจองห้องพัก",
         path: "/admin/rooms",
         icon: <CreditCard size={16} />,
       },
@@ -137,7 +149,12 @@ const menuGroups: MenuGroup[] = [
     icon: <Anchor size={18} />,
     items: [
       {
-        label: "แดชบอร์ดจองเรือ",
+        label: "เช็คอินท่าเรือ",
+        path: "/admin/boats/checkin",
+        icon: <Ship size={16} />,
+      },
+      {
+        label: "จัดการการจองเรือ",
         path: "/admin/boats",
         icon: <CreditCard size={16} />,
       },
@@ -151,11 +168,6 @@ const menuGroups: MenuGroup[] = [
         path: "/admin/boats/rounds",
         icon: <Sailboat size={16} />,
       },
-      {
-        label: "เวลาทำการเรือ",
-        path: "/staff/boats/boat-hours",
-        icon: <Clock size={16} />,
-      },
     ],
   },
 ];
@@ -163,11 +175,27 @@ const menuGroups: MenuGroup[] = [
 export default function AdminSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { counts } = useAdminNotificationStore();
+
+  const getItemBadge = (label: string): number => {
+    if (label === "จัดการการจองห้องพัก" || label === "แดชบอร์ดจองห้อง") return counts.room_slips;
+    if (label === "เช็คอิน-เช็คเอาต์") return counts.today_checkins;
+    if (label === "จัดการการจองเรือ" || label === "แดชบอร์ดจองเรือ") return counts.boat_slips;
+    if (label === "เช็คอินท่าเรือ") return counts.today_boat_checkins;
+    return 0;
+  };
+
+  const getGroupBadge = (title: string): number => {
+    if (title === "ห้องพัก") return counts.room_slips;
+    if (title === "เรือ") return counts.boat_slips;
+    return 0;
+  };
 
   // ฟังก์ชันแปลง Path จาก /admin เป็น /staff/... ตาม Role
   const resolvePath = (path: string) => {
     if (user?.role === "room_staff") {
       if (path === "/admin") return "/staff/rooms/dashboard";
+      if (path === "/admin/policies") return "/admin/policies";
 
       // ถ้า path มี /admin/rooms อยู่แล้ว ให้เปลี่ยนแค่ /admin เป็น /staff (เพื่อไม่ให้ซ้ำ)
       if (path.startsWith("/admin/rooms")) {
@@ -182,8 +210,8 @@ export default function AdminSidebar() {
     if (user?.role === "boat_staff") {
       // หน้าภาพรวมของ boat_staff ชี้ไปที่แดชบอร์ดของระบบเรือ
       if (path === "/admin") return "/staff/boats/dashboard";
-      // เมนู "แดชบอร์ดจองเรือ" (/admin/boats) เปลี่ยนเป็นหน้าจัดการการจองเรือแยกต่างหาก
-      if (path === "/admin/boats") return "/staff/boats";
+      if (path === "/admin/policies") return "/admin/policies";
+      if (path === "/admin/boats") return "/staff/boats/dashboard";
       if (path.startsWith("/admin/boats")) {
         return path.replace("/admin/boats", "/staff/boats");
       }
@@ -267,14 +295,35 @@ export default function AdminSidebar() {
         <Link
           href={dashboardHref}
           title={collapsed ? "ภาพรวม (Dashboard)" : undefined}
-          className={`flex items-center ${collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"} rounded-xl text-xs font-semibold transition-all ${
+          className={`flex items-center ${collapsed ? "justify-center px-0 py-2.5 relative" : "justify-between px-3 py-2"} rounded-xl text-xs font-semibold transition-all ${
             pathname === dashboardHref
               ? "bg-forest-800 text-cream-100 shadow-sm"
               : "text-charcoal-600 hover:bg-stone-200/50"
           }`}
         >
-          <LayoutDashboard size={18} className="shrink-0" />
-          {!collapsed && <span>ภาพรวม (Dashboard)</span>}
+          <div className="flex items-center gap-2.5">
+            <LayoutDashboard size={18} className="shrink-0" />
+            {!collapsed && <span>ภาพรวม (Dashboard)</span>}
+          </div>
+          {/* Badge for staff overview */}
+          {user?.role === "room_staff" && counts.room_slips > 0 && (
+            collapsed ? (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+            ) : (
+              <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                {counts.room_slips}
+              </span>
+            )
+          )}
+          {user?.role === "boat_staff" && counts.boat_slips > 0 && (
+            collapsed ? (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+            ) : (
+              <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                {counts.boat_slips}
+              </span>
+            )
+          )}
         </Link>
 
         {/* Calendar Link */}
@@ -297,6 +346,7 @@ export default function AdminSidebar() {
           const hasActiveChild = group.items.some(
             (item) => item.path === pathname,
           );
+          const groupBadge = getGroupBadge(group.title);
 
           return (
             <div
@@ -315,27 +365,37 @@ export default function AdminSidebar() {
                   }
                 }}
                 title={collapsed ? group.title : undefined}
-                className={`w-full flex items-center ${collapsed ? "justify-center px-0 py-2.5" : "justify-between px-3 py-2"} text-xs font-semibold rounded-xl transition-all ${
+                className={`w-full flex items-center ${collapsed ? "justify-center px-0 py-2.5 relative" : "justify-between px-3 py-2"} text-xs font-semibold rounded-xl transition-all ${
                   hasActiveChild
                     ? "text-forest-800 bg-forest-800/5"
                     : "text-charcoal-600 hover:bg-stone-200/50"
                 }`}
               >
-                <div className={`flex items-center ${collapsed ? "" : "gap-2.5"}`}>
+                <div className={`flex items-center ${collapsed ? "relative" : "gap-2.5"}`}>
                   <span
                     className={`shrink-0 ${hasActiveChild ? "text-forest-800" : "text-charcoal-400"}`}
                   >
                     {group.icon}
                   </span>
                   {!collapsed && <span>{group.title}</span>}
+                  {collapsed && groupBadge > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-rose-500 ring-1 ring-white" />
+                  )}
                 </div>
                 {!collapsed && (
-                  <ChevronDown
-                    size={15}
-                    className={`text-charcoal-400 transition-transform duration-200 shrink-0 ${
-                      isOpen ? "rotate-180" : ""
-                    }`}
-                  />
+                  <div className="flex items-center gap-1.5">
+                    {groupBadge > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                        {groupBadge}
+                      </span>
+                    )}
+                    <ChevronDown
+                      size={15}
+                      className={`text-charcoal-400 transition-transform duration-200 shrink-0 ${
+                        isOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </div>
                 )}
               </button>
 
@@ -344,23 +404,35 @@ export default function AdminSidebar() {
                 <div className={collapsed ? "py-1 space-y-1 my-1 flex flex-col items-center" : "pl-4 pr-1 py-1 space-y-0.5 border-l-2 border-stone-200 ml-5 my-1"}>
                   {group.items.map((item) => {
                     const isActive = pathname === item.path;
+                    const itemBadge = getItemBadge(item.label);
                     return (
                       <Link
                         key={item.path}
                         href={item.path}
-                                      title={collapsed ? item.label : undefined}
-                        className={`flex items-center ${collapsed ? "justify-center p-2 rounded-xl" : "gap-2 px-2.5 py-1.5 rounded-lg"} text-xs transition-all ${
+                        title={collapsed ? item.label : undefined}
+                        className={`flex items-center ${collapsed ? "justify-center p-2 rounded-xl relative" : "justify-between px-2.5 py-1.5 rounded-lg"} text-xs transition-all ${
                           isActive
                             ? "bg-forest-800/10 text-forest-800 font-bold"
                             : "text-charcoal-500 hover:text-forest-800 hover:bg-stone-100"
                         }`}
                       >
-                        <span
-                          className={`shrink-0 ${isActive ? "text-forest-800" : "text-charcoal-400"}`}
-                        >
-                          {item.icon}
-                        </span>
-                        {!collapsed && <span>{item.label}</span>}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className={`shrink-0 ${isActive ? "text-forest-800" : "text-charcoal-400"}`}
+                          >
+                            {item.icon}
+                          </span>
+                          {!collapsed && <span className="truncate">{item.label}</span>}
+                        </div>
+                        {itemBadge > 0 && (
+                          collapsed ? (
+                            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 ring-1 ring-white" />
+                          ) : (
+                            <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-bold shrink-0">
+                              {itemBadge}
+                            </span>
+                          )
+                        )}
                       </Link>
                     );
                   })}

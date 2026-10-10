@@ -20,6 +20,7 @@ function load(relative, states = [], overrides = {}) {
     'react-hot-toast': { error() {}, success() {} },
     '@/lib/api': { get: async () => ({ data: { data: [] } }), getApiErrorMessage: () => 'Mock error' },
     '@/hooks/useAuthGuard': { useAuthGuard: () => ({ ready: true, user: { role: 'customer' } }) },
+    '@/hooks/useAuth': { useAuth: () => ({ user: { role: 'customer' } }) },
     '@/hooks/useConfirmStore': { useConfirmStore: { getState: () => ({}) } },
     '@/lib/toastConfirm': { toastConfirm() {} },
     ...overrides,
@@ -90,7 +91,7 @@ test('kayak booking submits only the current validated promotion selection', asy
 
 test('checkin search finds every room in a booking by plain and hash-prefixed booking number', () => {
   const source = fs.readFileSync(path.join(root, 'src/app/admin/checkin/page.tsx'), 'utf8');
-  const handler = source.slice(source.indexOf('  const matchesSearch ='), source.indexOf('  const arrivals ='));
+  const handler = source.slice(source.indexOf('  const matchesSearch ='), source.indexOf('  const sortItems ='));
   const js = ts.transpileModule(`${handler}\nreturn matchesSearch;`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
   const lines = ['W2', 'W10'].map(room_number => ({ room_booking_id: 112, user_name: 'TEST Chapter44', room_number, room_name: 'Standard' }));
   for (const search of ['112', '#112', ' TEST ', 'w2', 'not-a-booking']) {
@@ -100,15 +101,14 @@ test('checkin search finds every room in a booking by plain and hash-prefixed bo
 });
 
 test('calendar event retains all physical rooms, group total and guests returned by the booking API', () => {
-  const source = fs.readFileSync(path.join(root, 'src/app/admin/calendar/page.tsx'), 'utf8');
-  const handler = source.slice(source.indexOf('  const events = useMemo'), source.indexOf('  // แมปข้อมูลประจำวัน'));
-  const js = ts.transpileModule(`${handler}\nreturn events;`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
   const booking = { id: 112, status: 'approved', check_in: '2026-10-09', check_out: '2026-10-10', guests: 4, adults: 3, children: 1, total_price: '9000', rooms: [{ room_number: 'W2', room_name: 'Standard' }, { room_number: 'W10', room_name: 'Deluxe' }] };
-  const events = new Function('useMemo', 'roomBookings', 'kayakBookings', 'filterType', 'parseLocalDate', 'formatDateToYYYYMMDD', js)(fn => fn(), [booking], [], 'rooms', d => new Date(d), d => d.toISOString().slice(0, 10));
+  const days = require('./calendar-fixture.cjs')([booking]);
+  const events = days['2026-10-09'].checkins;
   assert.equal(events.length, 1);
-  assert.equal(events[0].raw.guest_count, 4);
+  assert.equal(events[0].guestCount, 4);
   assert.equal(events[0].raw.total_price, '9000');
-  assert.match(events[0].raw.room_title, /Standard \(ห้อง W2\).*Deluxe \(ห้อง W10\)/);
+  assert.match(events[0].roomTitle, /Standard \(ห้อง W2\).*Deluxe \(ห้อง W10\)/);
+  assert.equal(days['2026-10-10'].checkouts.length, 1);
 });
 
 test('cart capacity uses the configured free-child boundary and counts missing ages conservatively', () => {

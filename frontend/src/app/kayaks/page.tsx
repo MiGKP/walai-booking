@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users, X, ChevronLeft, ChevronRight, ChevronDown, ImageIcon } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
@@ -333,6 +333,7 @@ function KayaksPageContent(): React.ReactElement {
   // ดึงเวลาทำการเรือจาก boat_operating_hours (public API)
   const [boatHours, setBoatHours] = useState<DayHour[]>([]);
   const [boatTerms, setBoatTerms] = useState<string>('');
+  const [boatCheckinMinutes, setBoatCheckinMinutes] = useState<number>(15);
 
   useEffect(() => {
     api.get('/settings/boat-hours').then(res => {
@@ -343,6 +344,9 @@ function KayaksPageContent(): React.ReactElement {
     api.get('/settings/resort?id=5').then(res => {
       if (res.data?.data?.additional_terms) {
         setBoatTerms(res.data.data.additional_terms);
+      }
+      if (res.data?.data?.boat_checkin_advance_minutes != null) {
+        setBoatCheckinMinutes(Number(res.data.data.boat_checkin_advance_minutes));
       }
     }).catch(() => {});
   }, []);
@@ -388,6 +392,14 @@ function KayaksPageContent(): React.ReactElement {
     if (typeof window === 'undefined') return null;
     try { return sessionStorage.getItem('kayak_slot') ?? null; } catch { return null; }
   });
+
+  const slotScrollRef = useRef<HTMLDivElement>(null);
+  const scrollSlots = (direction: 'left' | 'right') => {
+    if (slotScrollRef.current) {
+      const amount = direction === 'left' ? -220 : 220;
+      slotScrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+    }
+  };
 
   // persist ค่าเรือที่เลือก (boatCountByType) ข้าม refresh ด้วย sessionStorage
   const [boatCountByType, setBoatCountByType] = useState<Record<number, number>>(() => {
@@ -631,7 +643,6 @@ function KayaksPageContent(): React.ReactElement {
           free_tickets_used: line.free_tickets_used,
         })),
       });
-      toast.success('จองเรือสำเร็จ!');
       router.push(
         `/payment?booking_type=kayak&booking_id=${res.data.data.boat_booking_id}`
       );
@@ -645,7 +656,7 @@ function KayaksPageContent(): React.ReactElement {
   const [useRoomRights, setUseRoomRights] = useState(false);
 
   return (
-    <div className="min-h-screen bg-cream-100 pb-24 pt-4">
+    <div className="min-h-screen bg-cream-100 pb-24 pt-4 overflow-x-hidden">
       {galleryBoat && (
         <ImageModal 
           images={galleryBoat.images?.length ? galleryBoat.images : (galleryBoat.image ? [galleryBoat.image] : [])} 
@@ -653,24 +664,24 @@ function KayaksPageContent(): React.ReactElement {
           onClose={() => setGalleryBoat(null)} 
         />
       )}
-      <div className="container mx-auto px-4 pt-16 sm:pt-20">
+      <div className="container mx-auto px-4 pt-16 sm:pt-20 max-w-full">
         
 
 
 
 
         <RoomBoatRightsChoice memberId={user?.role === 'customer' ? user.id : undefined} enabled={useRoomRights} onChange={setUseRoomRights} />
-        {!useRoomRights && <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
-          <div className="min-w-0 space-y-6">
+        {!useRoomRights && <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start min-w-0 max-w-full">
+          <div className="space-y-6 min-w-0 max-w-full">
             {/* วันที่ + จำนวนผู้โดยสารต่อประเภทเรือ อยู่ในกรอบเดียวกัน วางคู่กัน — ปฏิทินไม่ต้องกว้างเพราะจองทีละวัน */}
-            <section className={CARD}>
+            <section className={`${CARD} min-w-0 max-w-full overflow-hidden`}>
               <SectionHeading
                 icon={<Anchor size={16} />}
                 title="บริการเรือ และข้อกำหนดการจอง"
               />
 
-              <div className="mt-5 flex flex-col gap-5 lg:flex-row">
-                <div className="w-full shrink-0 flex flex-col gap-4 lg:w-[300px]">
+              <div className="mt-5 flex flex-col gap-5 lg:flex-row min-w-0 max-w-full">
+                <div className="w-full shrink-0 flex flex-col gap-4 lg:w-[300px] min-w-0 max-w-full">
                   <div className="rounded-xl border border-stone-200 p-3 lg:p-4">
                     <BookingCalendar
                       mode="single"
@@ -689,6 +700,9 @@ function KayaksPageContent(): React.ReactElement {
                   <div className="rounded-xl bg-forest-50/50 p-4 text-sm text-forest-900/80 border border-forest-100">
                     <ul className="list-disc pl-5 space-y-1">
                       <li>ต้องจองล่วงหน้าอย่างน้อย {boatHours[0] ? ((boatHours[0].advance_booking_minutes ?? 60) % 60 === 0 ? `${(boatHours[0].advance_booking_minutes ?? 60) / 60} ชั่วโมง` : `${boatHours[0].advance_booking_minutes ?? 60} นาที`) : '1 ชั่วโมง'}</li>
+                      {boatCheckinMinutes > 0 && (
+                        <li>ต้องเช็คอิน / รายงานตัวที่ท่าเรือก่อนรอบเวลาอย่างน้อย {boatCheckinMinutes % 60 === 0 ? `${boatCheckinMinutes / 60} ชั่วโมง` : boatCheckinMinutes >= 60 ? `${Math.floor(boatCheckinMinutes / 60)} ชม. ${boatCheckinMinutes % 60} นาที` : `${boatCheckinMinutes} นาที`}</li>
+                      )}
                       {boatTerms && (
                         <li className="whitespace-pre-wrap">{boatTerms}</li>
                       )}
@@ -696,20 +710,43 @@ function KayaksPageContent(): React.ReactElement {
                   </div>
                 </div>
 
-                <div className="min-w-0 flex-1 space-y-5">
+                <div className="min-w-0 max-w-full flex-1 space-y-5">
                   {/* รอบเวลา — แสดง shell จาก schedule ก่อนเลือกวัน (ไม่มีตัวเลขเรือ) */}
-                  <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-charcoal-300">เลือกรอบเวลา</p>
+                  <div className="min-w-0 max-w-full">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-300">เลือกรอบเวลา</p>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => scrollSlots('left')}
+                          aria-label="เลื่อนรอบเวลาไปทางซ้าย"
+                          className="grid h-6 w-6 place-items-center rounded-full border border-stone-200 bg-white text-stone-500 hover:border-forest-300 hover:bg-forest-50 hover:text-forest-800 transition-colors active:scale-95"
+                        >
+                          <ChevronLeft size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => scrollSlots('right')}
+                          aria-label="เลื่อนรอบเวลาไปทางขวา"
+                          className="grid h-6 w-6 place-items-center rounded-full border border-stone-200 bg-white text-stone-500 hover:border-forest-300 hover:bg-forest-50 hover:text-forest-800 transition-colors active:scale-95"
+                        >
+                          <ChevronRight size={13} />
+                        </button>
+                      </div>
+                    </div>
                     {!selectedDate ? (
                       // shell preview — กดไม่ได้ แต่เห็นว่ามีรอบไหนบ้าง
-                      <div className="space-y-1.5">
-                        <div className="flex gap-2 overflow-x-auto pb-1">
+                      <div className="space-y-1.5 min-w-0 max-w-full">
+                        <div
+                          ref={slotScrollRef}
+                          className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        >
                           {scheduleSlots.length === 0
-                            ? [0, 1, 2].map((i) => <div key={i} className="h-14 w-28 shrink-0 animate-pulse rounded-xl bg-stone-100" />)
+                            ? [0, 1, 2].map((i) => <div key={i} className="h-14 w-28 shrink-0 animate-pulse rounded-xl bg-stone-100 snap-start" />)
                             : scheduleSlots.map((s) => (
                               <div
                                 key={s.boat_round_id}
-                                className="shrink-0 cursor-not-allowed rounded-xl border border-stone-100 bg-stone-50/60 px-4 py-2.5 opacity-60"
+                                className="shrink-0 snap-start cursor-not-allowed rounded-xl border border-stone-100 bg-stone-50/60 px-4 py-2.5 opacity-60"
                               >
                                 <span className="block text-xs font-semibold tabular-nums text-charcoal-400">
                                   {formatTimeRange(s.start_time, s.end_time)}
@@ -719,17 +756,23 @@ function KayaksPageContent(): React.ReactElement {
                             ))
                           }
                         </div>
-                        <p className="text-xs text-charcoal-400">เลือกวันในปฏิทินเพื่อดูจำนวนเรือที่ว่าง</p>
+                        <p className="text-xs text-charcoal-400">เลื่อนซ้าย-ขวา เพื่อดูรอบเวลา · เลือกวันในปฏิทินเพื่อดูจำนวนเรือที่ว่าง</p>
                       </div>
                     ) : slotsLoading ? (
-                      <div className="flex gap-2 overflow-x-auto pb-1">
-                        {[0, 1, 2].map((i) => <div key={i} className="h-14 w-28 shrink-0 animate-pulse rounded-xl bg-stone-100" />)}
+                      <div
+                        ref={slotScrollRef}
+                        className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                      >
+                        {[0, 1, 2].map((i) => <div key={i} className="h-14 w-28 shrink-0 animate-pulse rounded-xl bg-stone-100 snap-start" />)}
                       </div>
                     ) : slots.length === 0 ? (
                       <p className="text-xs text-charcoal-400">วันนี้ไม่มีรอบให้บริการ</p>
                     ) : (
-                      <>
-                        <div className="flex gap-2 overflow-x-auto pb-1">
+                      <div className="space-y-1 min-w-0 max-w-full">
+                        <div
+                          ref={slotScrollRef}
+                          className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        >
                           {slots.map((slot) => {
                             const isSelected = slot.key === selectedSlotKey;
                             const fits = cartLines.length === 0 ? slot.available : slotFitsCart(slot, cartLines);
@@ -740,7 +783,7 @@ function KayaksPageContent(): React.ReactElement {
                                 disabled={!fits && !isSelected}
                                 aria-pressed={isSelected}
                                 onClick={() => handleSelectSlot(slot.key)}
-                                className={`shrink-0 rounded-xl border px-4 py-2.5 text-left transition-colors ${
+                                className={`shrink-0 snap-start rounded-xl border px-4 py-2.5 text-left transition-colors ${
                                   isSelected
                                     ? fits ? 'border-forest-800 bg-forest-800 text-cream-100' : 'border-rose-500 bg-rose-50 text-rose-700'
                                     : fits
@@ -758,7 +801,8 @@ function KayaksPageContent(): React.ReactElement {
                             );
                           })}
                         </div>
-                      </>
+                        <p className="text-[11px] text-charcoal-400">เลื่อนซ้าย-ขวา เพื่อดูรอบเวลาเพิ่มเติม</p>
+                      </div>
                     )}
                   </div>
 

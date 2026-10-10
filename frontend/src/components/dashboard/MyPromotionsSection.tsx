@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Ticket } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
-import toast from 'react-hot-toast';
+import { PromoNotice, usePromoNotice } from '@/components/promotions/PromoNotice';
 import { PromoVoucher, PromoBookingLinks } from '@/components/promotions/PromoVoucher';
-import { canUseWalletPromotion, type WalletPromo, type WalletStatus } from '@/lib/promotions';
+import { promoDaysLeft, canUseWalletPromotion, type WalletPromo, type WalletStatus } from '@/lib/promotions';
 
 type FilterTab = 'saved' | 'used' | 'expired';
 
@@ -17,13 +17,14 @@ export default function MyCouponsSection(): React.ReactElement {
   const [filter, setFilter] = useState<FilterTab>('saved');
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [boatTicketBalance, setBoatTicketBalance] = useState(0);
+  const { notice, showNotice } = usePromoNotice();
 
   const loadWallet = useCallback(async (): Promise<void> => {
     try {
       const res = await api.get<{ data: WalletPromo[] }>('/promotions/mine');
       setWallet(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'โหลดโปรโมชั่นไม่สำเร็จ'));
+      showNotice('error', getApiErrorMessage(error, 'โหลดโปรโมชั่นไม่สำเร็จ'));
     } finally {
       setLoading(false);
     }
@@ -52,10 +53,10 @@ export default function MyCouponsSection(): React.ReactElement {
     setRemovingId(promotionId);
     try {
       await api.delete(`/promotions/${promotionId}/collect`);
-      toast.success('เอาโปรโมชั่นออกจากกระเป๋าแล้ว');
+      showNotice('success', 'เอาโปรโมชั่นออกจากกระเป๋าแล้ว');
       await loadWallet();
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'เอาออกไม่สำเร็จ'));
+      showNotice('error', getApiErrorMessage(error, 'เอาออกไม่สำเร็จ'));
     } finally {
       setRemovingId(null);
     }
@@ -90,6 +91,9 @@ export default function MyCouponsSection(): React.ReactElement {
           </button>
         ))}
       </div>
+
+      <PromoNotice notice={notice} />
+      <EmailPreferenceToggle />
 
       {loading ? (
         <div className="space-y-3">
@@ -133,7 +137,16 @@ export default function MyCouponsSection(): React.ReactElement {
                         footer={
                           canUseWalletPromotion(item.status, item.remaining) ? (
                             <>
-                              <PromoBookingLinks 
+                              {(() => {
+                                const daysLeft = promoDaysLeft(item.end_date);
+                                if (daysLeft === null || daysLeft < 0 || daysLeft > 3) return null;
+                                return (
+                                  <p className="w-full text-xs font-semibold text-amber-700">
+                                    {daysLeft === 0 ? 'หมดอายุวันนี้ ใช้ได้ถึงเที่ยงคืน' : `เหลืออีก ${daysLeft} วันก่อนหมดอายุ`}
+                                  </p>
+                                );
+                              })()}
+                              <PromoBookingLinks
                                 code={item.code} 
                                 appliesTo={item.applies_to}
                                 roomLabel="ใช้จองห้องพัก"
@@ -164,5 +177,55 @@ export default function MyCouponsSection(): React.ReactElement {
           </div>
       )}
     </div>
+  );
+}
+
+// ปิด/เปิดการรับอีเมลแจ้งเตือนโปรโมชั่นใกล้หมดอายุ
+function EmailPreferenceToggle(): React.ReactElement {
+  const [optOut, setOptOut] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const { notice, showNotice } = usePromoNotice();
+
+  useEffect(() => {
+    api.get<{ data: { opt_out: boolean } }>('/promotions/email-preference')
+      .then((res) => setOptOut(res.data?.data?.opt_out === true))
+      .catch(() => undefined);
+  }, []);
+
+  const toggle = async (): Promise<void> => {
+    setSaving(true);
+    try {
+      const res = await api.put<{ message?: string; data: { opt_out: boolean } }>(
+        '/promotions/email-preference',
+        { opt_out: !optOut }
+      );
+      setOptOut(res.data?.data?.opt_out === true);
+      showNotice('success', res.data?.message ?? 'บันทึกแล้ว');
+    } catch (error: unknown) {
+      showNotice('error', getApiErrorMessage(error, 'บันทึกการตั้งค่าไม่สำเร็จ'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+    <PromoNotice notice={notice} />
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm">
+      <span className="text-charcoal-500">
+        {optOut
+          ? 'ปิดการรับอีเมลแจ้งเตือนโปรโมชั่นใกล้หมดอายุอยู่'
+          : 'รับอีเมลแจ้งเตือนเมื่อโปรโมชั่นในกระเป๋าใกล้หมดอายุ (ก่อน 3 วันและก่อน 1 วัน)'}
+      </span>
+      <button
+        type="button"
+        onClick={() => void toggle()}
+        disabled={saving}
+        className="text-xs font-semibold text-forest-800 underline disabled:opacity-50"
+      >
+        {optOut ? 'เปิดรับอีเมล' : 'ปิดรับอีเมล'}
+      </button>
+    </div>
+    </>
   );
 }

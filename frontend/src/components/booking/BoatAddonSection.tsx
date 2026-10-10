@@ -19,6 +19,7 @@ interface BoatAddon {
   price: number | string | null;
   printed_at: string | null;
   handed_out_at: string | null;
+  checkin_at?: string | null;
   boat_type_name: string | null;
   boat_count: number | null;
   num_passengers: number | null;
@@ -116,7 +117,7 @@ export default function BoatAddonSection({ bookingRoomId, roomBookingStatus, onC
   }, [fetchAddons]);
 
   const canCancel = (addon: BoatAddon): boolean =>
-    (addon.status === 'pending' || addon.status === 'approved') && addon.handed_out_at == null;
+    (addon.status === 'pending' || addon.status === 'approved') && addon.handed_out_at == null && addon.checkin_at == null;
 
   const performCancel = async (addon: BoatAddon): Promise<void> => {
     setCancellingId(addon.boat_booking_id);

@@ -34,6 +34,43 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-display;
   }
+
+  /* — Global Minimal Scrollbar (สำหรับทุกหน้า ทุก Element ในเว็บไซต์) — */
+  html,
+  body,
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(18, 60, 48, 0.22) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(18, 60, 48, 0.22);
+    border-radius: 9999px;
+    transition: background-color 200ms ease;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(18, 60, 48, 0.42);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 
 /* ——————————————————————————————
@@ -106,25 +143,33 @@
     @apply bg-forest-50 text-forest-700 text-xs font-medium px-2.5 py-1 rounded-full;
   }
 
-  /* — Scrollbar มินิมอล (โทนเทาเป็นกลาง ไม่มีปุ่มลูกศรบน-ล่าง) — ใช้กับกล่องที่ overflow-y-auto ภายในตัวเอง */
-  .scrollbar-forest {
+  /* — Scrollbar มินิมอลสำหรับ class-specific — */
+  .scrollbar-forest,
+  .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: #D4CEC3 transparent;
+    scrollbar-color: rgba(18, 60, 48, 0.22) transparent;
   }
-  .scrollbar-forest::-webkit-scrollbar {
-    width: 4px;
+  .scrollbar-forest::-webkit-scrollbar,
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
-  .scrollbar-forest::-webkit-scrollbar-track {
+  .scrollbar-forest::-webkit-scrollbar-track,
+  .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }
-  .scrollbar-forest::-webkit-scrollbar-thumb {
-    background-color: #D4CEC3;
+  .scrollbar-forest::-webkit-scrollbar-thumb,
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(18, 60, 48, 0.22);
     border-radius: 9999px;
+    transition: background-color 200ms ease;
   }
-  .scrollbar-forest::-webkit-scrollbar-thumb:hover {
-    background-color: #ADA89D;
+  .scrollbar-forest::-webkit-scrollbar-thumb:hover,
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(18, 60, 48, 0.42);
   }
-  .scrollbar-forest::-webkit-scrollbar-button {
+  .scrollbar-forest::-webkit-scrollbar-button,
+  .custom-scrollbar::-webkit-scrollbar-button {
     display: none;
     height: 0;
     width: 0;
@@ -141,11 +186,11 @@
   @keyframes dropdownIn {
     from {
       opacity: 0;
-      transform: translateY(-6px) scale(0.97);
+      translate: 0 -6px;
     }
     to {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      translate: 0 0;
     }
   }
 
@@ -193,6 +238,68 @@
   .stagger-4 { transition-delay: 320ms; }
   .stagger-5 { transition-delay: 400ms; }
   .stagger-6 { transition-delay: 480ms; }
+
+  /* — Scrollbar Hide Utilities — */
+  .no-scrollbar,
+  .scrollbar-none,
+  .scrollbar-hide {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+  .no-scrollbar::-webkit-scrollbar,
+  .scrollbar-none::-webkit-scrollbar,
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  /* — Minimal Range Slider (input type="range") — */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    background-color: var(--color-stone-200);
+    border-radius: 9999px;
+    height: 6px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    margin-top: -5px;
+    background-color: var(--color-forest);
+    height: 16px;
+    width: 16px;
+    border-radius: 9999px;
+    border: 2px solid #FFFFFF;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: transform 150ms ease, background-color 150ms ease;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    background-color: #0E3026;
+  }
+  input[type="range"]::-moz-range-track {
+    background-color: var(--color-stone-200);
+    border-radius: 9999px;
+    height: 6px;
+  }
+  input[type="range"]::-moz-range-thumb {
+    background-color: var(--color-forest);
+    height: 16px;
+    width: 16px;
+    border-radius: 9999px;
+    border: 2px solid #FFFFFF;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: transform 150ms ease, background-color 150ms ease;
+  }
+  input[type="range"]::-moz-range-thumb:hover {
+    transform: scale(1.15);
+    background-color: #0E3026;
+  }
 }
 
 /* ——————————————————————————————

@@ -75,6 +75,7 @@ interface MonthPanelProps {
   onFocusDay: (iso: string) => void;
   onHoverDay: (iso: string | null) => void;
   onSelectDay: (iso: string) => void;
+  hideTitle?: boolean;
 }
 
 function MonthPanel({
@@ -92,14 +93,17 @@ function MonthPanel({
   onFocusDay,
   onHoverDay,
   onSelectDay,
+  hideTitle = false,
 }: MonthPanelProps): React.ReactElement {
   const cells = useMemo(() => buildMonthGrid(cursor), [cursor]);
 
   return (
     <div className="min-w-0 flex-1">
-      <p className="mb-3 text-center font-display text-base font-medium text-forest-900">
-        {formatMonthLabel(cursor)}
-      </p>
+      {!hideTitle && (
+        <p className="mb-3 text-center font-display text-base font-medium text-forest-900">
+          {formatMonthLabel(cursor)}
+        </p>
+      )}
 
       <div className="grid grid-cols-7 mb-1 border-b border-stone-100 pb-1.5">
         {THAI_WEEKDAYS_SHORT.map((label) => (
@@ -219,6 +223,7 @@ export default function BookingCalendar(
   } = props;
   const today = todayISO();
   const minISO = props.minISO ?? today;
+
   const monthCount: 1 | 2 = visibleMonths === 1 ? 1 : 2;
 
   const [pendingStart, setPendingStart] = useState<string | null>(null);
@@ -366,12 +371,12 @@ export default function BookingCalendar(
         >
           <ChevronLeft size={18} />
         </button>
-        <p aria-live="polite" className="text-xs sm:text-sm font-medium text-charcoal-500 text-center">
+        <p aria-live="polite" className="text-sm font-semibold text-forest-900 text-center font-display">
           {monthCount === 2
             ? (
               <span className="inline-flex items-center gap-2">
                 {formatMonthLabel(months[0])}
-                <span aria-hidden="true" className="h-1 w-1 rounded-full bg-bamboo-400" />
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-bamboo-400" />
                 {formatMonthLabel(months[1])}
               </span>
             )
@@ -419,6 +424,7 @@ export default function BookingCalendar(
               onFocusDay={setFocusedISO}
               onHoverDay={setHoveredISO}
               onSelectDay={handleSelect}
+              hideTitle={false}
             />
           </div>
         ))}

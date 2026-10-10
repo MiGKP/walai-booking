@@ -16,7 +16,7 @@ const upload = createImageUpload(5 * 1024 * 1024);
 
 const router = Router();
 
-router.post('/', authenticate, authorize('customer'), createPaymentValidator, validate, createPayment);
+router.post('/', authenticate, authorize('customer', 'admin', 'room_staff', 'boat_staff'), createPaymentValidator, validate, createPayment);
 router.post('/:id/slip', authenticate, authorize('customer'), upload.single('slip'), uploadPaymentSlip);
 router.get('/my', authenticate, authorize('customer'), getUserPayments);
 router.get('/:id', authenticate, getPaymentById);

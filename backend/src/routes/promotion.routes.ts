@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { body } from 'express-validator';
 import {
   getActivePromotions,
   getAllPromotions,
@@ -12,6 +13,8 @@ import {
   getMyPromotions,
   getMyBoatTickets,
   getPromotionRedemptions,
+  getPromoEmailPreference,
+  setPromoEmailPreference,
 } from '../controllers/promotion.controller';
 import { authenticate, authorize, optionalAuthenticate } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
@@ -34,6 +37,8 @@ router.post(
 );
 
 router.get('/mine', authenticate, getMyPromotions);
+router.get('/email-preference', authenticate, getPromoEmailPreference);
+router.put('/email-preference', authenticate, body('opt_out').isBoolean().withMessage('opt_out must be a boolean'), validate, setPromoEmailPreference);
 router.get('/boat-tickets/mine', authenticate, getMyBoatTickets);
 router.get(
   '/:id/redemptions',
@@ -59,9 +64,9 @@ router.delete(
 );
 
 router.get('/', authenticate, authorize('admin', 'room_staff'), getAllPromotions);
-router.post('/', authenticate, authorize('admin', 'room_staff'), createPromotionValidator, validate, createPromotion);
-router.put('/:id', authenticate, authorize('admin', 'room_staff'), updatePromotionValidator, validate, updatePromotion);
-router.delete('/:id', authenticate, authorize('admin', 'room_staff'), deletePromotion);
-router.put('/:id/toggle', authenticate, authorize('admin', 'room_staff'), togglePromotion);
+router.post('/', authenticate, authorize('admin'), createPromotionValidator, validate, createPromotion);
+router.put('/:id', authenticate, authorize('admin'), updatePromotionValidator, validate, updatePromotion);
+router.delete('/:id', authenticate, authorize('admin'), deletePromotion);
+router.put('/:id/toggle', authenticate, authorize('admin'), togglePromotion);
 
 export default router;

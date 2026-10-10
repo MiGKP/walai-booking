@@ -457,3 +457,42 @@ export const sendBookingStatusEmail = async (params: {
   }
 };
 
+
+export const sendPromotionExpiryEmail = async (params: {
+  to: string;
+  recipientName?: string;
+  promoName: string;
+  code: string;
+  endDate: string;
+  daysLeft: number;
+  promoUrl: string;
+}): Promise<void> => {
+  const appName = process.env.APP_NAME || 'Walai Booking';
+  const recipientName = params.recipientName?.trim() || 'คุณลูกค้า';
+  const when = params.daysLeft === 0 ? 'วันนี้เป็นวันสุดท้าย (ใช้ได้ถึงเที่ยงคืน)' : `เหลืออีก ${params.daysLeft} วัน`;
+
+  await sendMailSafely({
+    from: getMailFrom(),
+    to: params.to,
+    subject: `โค้ด ${params.code} ของคุณใกล้หมดอายุแล้ว — ${appName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; background: #f5f7fb; padding: 24px; color: #1f2937;">
+        <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 32px; border: 1px solid #e5e7eb;">
+          <div style="margin-bottom: 24px;">
+            <div style="display: inline-block; background: #ccfbf1; color: #0f766e; font-weight: 700; padding: 10px 14px; border-radius: 999px;">${escapeHtml(appName)}</div>
+          </div>
+          <h1 style="font-size: 22px; margin: 0 0 12px; color: #111827;">โปรโมชั่นของคุณใกล้หมดอายุ</h1>
+          <p style="font-size: 15px; line-height: 1.7; margin: 0 0 8px;">สวัสดี ${escapeHtml(recipientName)}</p>
+          <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
+            โค้ด <strong>${escapeHtml(params.code)}</strong> (${escapeHtml(params.promoName)}) ${when}<br />
+            วันสิ้นสุด <strong>${escapeHtml(params.endDate)}</strong>
+          </p>
+          <a href="${escapeHtml(params.promoUrl)}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 24px;">
+            ใช้โปรโมชั่น
+          </a>
+          <p style="font-size: 13px; color: #9ca3af; margin: 0;">ไม่ต้องการรับอีเมลแจ้งเตือนโปรโมชั่น? <a href="${escapeHtml(params.promoUrl)}" style="color: #0f766e;">ปิดการรับอีเมลได้ที่นี่</a></p>
+        </div>
+      </div>
+    `,
+  });
+};

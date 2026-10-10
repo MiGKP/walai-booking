@@ -19,13 +19,14 @@ import {
   Sailboat,
   Tag,
   CheckCircle2,
-  Search, ShoppingCart, Loader2, Baby,
+  Search, Loader2, Baby,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useInfantAgePolicy } from "@/hooks/useInfantAgePolicy";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
 import toast from "react-hot-toast";
+import { PromoNotice, usePromoNotice } from "@/components/promotions/PromoNotice";
 import BookingCalendar, {
   DateRange,
   DayStatus,
@@ -144,7 +145,6 @@ function RoomsPageContent(): React.ReactElement {
   const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
   const router = useRouter();
   const cart = useRoomCart();
-  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const today = todayISO();
@@ -169,6 +169,7 @@ function RoomsPageContent(): React.ReactElement {
   
   const [collectedPromos, setCollectedPromos] = useState<Set<number>>(new Set());
   const [collectingId, setCollectingId] = useState<number | null>(null);
+  const { notice: promoNotice, showNotice: showPromoNotice } = usePromoNotice();
 
   const pickerRef = useRef<HTMLDivElement>(null);
   const nights = range ? nightsBetween(range.start, range.end) : 0;
@@ -231,7 +232,7 @@ function RoomsPageContent(): React.ReactElement {
 
   const handleCollectPromo = async (promoId: number): Promise<void> => {
     if (!user) {
-      toast.error('กรุณาเข้าสู่ระบบก่อนเก็บโปรโมชั่น');
+      showPromoNotice('error', 'กรุณาเข้าสู่ระบบก่อนเก็บโปรโมชั่น');
       router.push('/auth/login');
       return;
     }
@@ -239,14 +240,14 @@ function RoomsPageContent(): React.ReactElement {
     try {
       await api.post(`/promotions/${promoId}/collect`);
       setCollectedPromos((prev) => new Set(prev).add(promoId));
-      toast.success('เก็บโปรโมชั่นสำเร็จ อย่าลืมกดใช้ในหน้าชำระเงินนะ', { duration: 4000 });
+      showPromoNotice('success', 'เก็บโปรโมชั่นสำเร็จ อย่าลืมกดใช้ในหน้าชำระเงินนะ');
     } catch (err: unknown) {
       const msg = getApiErrorMessage(err, 'ไม่สามารถเก็บโปรโมชั่นได้');
       if (msg.includes('เก็บโปรโมชั่นนี้ไปแล้ว') || msg.includes('already collected') || msg.includes('ซ้ำ')) {
          setCollectedPromos((prev) => new Set(prev).add(promoId));
-         toast('คุณมีโปรโมชั่นนี้ในกระเป๋าแล้วครับ');
+         showPromoNotice('success', 'คุณมีโปรโมชั่นนี้ในกระเป๋าแล้วครับ');
       } else {
-         toast.error(msg || 'ไม่สามารถเก็บโปรโมชั่นได้');
+         showPromoNotice('error', msg || 'ไม่สามารถเก็บโปรโมชั่นได้');
       }
     } finally {
       setCollectingId(null);
@@ -268,7 +269,7 @@ function RoomsPageContent(): React.ReactElement {
     }
     if (cart && cart.items.length > 0 && (cart.check_in !== t || cart.check_out !== tm)) {
       setRoomCart(null);
-      toast('เปลี่ยนวันที่แล้ว กรุณาเลือกห้องพักใหม่สำหรับวันที่ต้องการ');
+        toast('เปลี่ยนวันที่แล้ว กรุณาเลือกห้องพักใหม่สำหรับวันที่ต้องการ');
     }
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
@@ -353,50 +354,65 @@ function RoomsPageContent(): React.ReactElement {
                   <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "guests" ? "rotate(180deg)" : "rotate(0deg)" }} />
                 </button>
                 {openPanel === "guests" && (
-                  <div className="animate-dropdown absolute left-1/2 top-full z-40 mt-2 w-[320px] -translate-x-1/2 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl lg:left-0 lg:translate-x-0">
-                    <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={guests.adults} min={1} onChange={(v) => handleGuestsChange({ ...guests, adults: v })} />
-                    <GuestRow label="เด็ก" hint="อายุ 0–11 ปี" value={guests.children} min={0} onChange={(v) => handleGuestsChange({ ...guests, children: v })} />
-                    {guests.children > 0 && (
-                      <div className="mx-2 my-2 rounded-xl border border-forest-100 bg-forest-50/50 p-3 space-y-2">
-                        <div className="flex items-center gap-1.5">
-                          <Baby size={13} className="text-forest-700 shrink-0" />
-                          <p className="text-xs font-bold uppercase tracking-wide text-forest-800">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
-                        </div>
-                        <div className="space-y-1.5">
-                          {childAges.map((age, index) => (
-                            <div key={index} className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 ${age === null ? "border-amber-300" : "border-stone-200"}`}>
-                              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-forest-800/10 text-xs font-extrabold text-forest-800">{index + 1}</span>
-                              <div className="relative flex-1">
-                                <select
-                                  value={age ?? ""}
-                                  onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
-                                  className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-none ${age === null ? "text-amber-600" : "text-forest-800"}`}
-                                >
-                                  <option value="" disabled>เลือกอายุ</option>
-                                  {Array.from({ length: 12 }, (_, a) => a).map((a) => (
-                                    <option key={a} value={a}>{a} ปี</option>
-                                  ))}
-                                </select>
-                                <ChevronDown size={11} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-stone-400" />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                  <div
+                    className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-forest-950/45 backdrop-blur-xs lg:static lg:bg-transparent lg:p-0 lg:block lg:backdrop-blur-none"
+                    onClick={() => setOpenPanel(null)}
+                  >
+                    <div
+                      className="w-full sm:max-w-[400px] bg-white rounded-t-3xl sm:rounded-2xl p-5 sm:p-4 shadow-2xl max-h-[85vh] overflow-y-auto lg:absolute lg:left-0 lg:top-full lg:mt-2 lg:w-[320px] lg:rounded-2xl lg:p-2 lg:border lg:border-stone-200 lg:shadow-xl"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-between pb-3 mb-3 border-b border-stone-100 lg:hidden">
+                        <h3 className="font-display text-base font-bold text-forest-900">ระบุจำนวนผู้เข้าพัก</h3>
+                        <button type="button" onClick={() => setOpenPanel(null)} aria-label="ปิด" className="p-1 rounded-full text-charcoal-400 hover:text-charcoal-600">
+                          <X size={20} />
+                        </button>
                       </div>
-                    )}
-                    <div className="px-3 py-2 bg-stone-50 rounded-xl mt-1 mb-2">
-                      <p className="text-xs text-charcoal-400 leading-relaxed">
-                        <span className="font-bold text-forest-700">นโยบายเด็ก:</span> {infantAge === 0 ? 'เด็กทุกอายุนับรวมในความจุห้อง' : `เด็กอายุต่ำกว่า ${infantAge} ปี เข้าพักฟรีและไม่นับความจุห้อง`}
-                      </p>
-                    </div>
-                    <div className="border-t border-stone-100 p-2">
-                      <button
-                        type="button"
-                        onClick={() => setOpenPanel(null)}
-                        className="w-full rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800"
-                      >
-                        ตกลง
-                      </button>
+
+                      <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={guests.adults} min={1} onChange={(v) => handleGuestsChange({ ...guests, adults: v })} />
+                      <GuestRow label="เด็ก" hint="อายุ 0–11 ปี" value={guests.children} min={0} onChange={(v) => handleGuestsChange({ ...guests, children: v })} />
+                      {guests.children > 0 && (
+                        <div className="mx-2 my-2 rounded-xl border border-forest-100 bg-forest-50/50 p-3 space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <Baby size={13} className="text-forest-700 shrink-0" />
+                            <p className="text-xs font-bold uppercase tracking-wide text-forest-800">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
+                          </div>
+                          <div className="space-y-1.5">
+                            {childAges.map((age, index) => (
+                              <div key={index} className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 ${age === null ? "border-amber-300" : "border-stone-200"}`}>
+                                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-forest-800/10 text-xs font-extrabold text-forest-800">{index + 1}</span>
+                                <div className="relative flex-1">
+                                  <select
+                                    value={age ?? ""}
+                                    onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
+                                    className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-none ${age === null ? "text-amber-600" : "text-forest-800"}`}
+                                  >
+                                    <option value="" disabled>เลือกอายุ</option>
+                                    {Array.from({ length: 12 }, (_, a) => a).map((a) => (
+                                      <option key={a} value={a}>{a} ปี</option>
+                                    ))}
+                                  </select>
+                                  <ChevronDown size={11} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-stone-400" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="px-3 py-2 bg-stone-50 rounded-xl mt-1 mb-2">
+                        <p className="text-xs text-charcoal-400 leading-relaxed">
+                          <span className="font-bold text-forest-700">นโยบายเด็ก:</span> {infantAge === 0 ? 'เด็กทุกอายุนับรวมในความจุห้อง' : `เด็กอายุต่ำกว่า ${infantAge} ปี เข้าพักฟรีและไม่นับความจุห้อง`}
+                        </p>
+                      </div>
+                      <div className="border-t border-stone-100 p-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => setOpenPanel(null)}
+                          className="w-full rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800"
+                        >
+                          ตกลง
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -414,12 +430,71 @@ function RoomsPageContent(): React.ReactElement {
                   </div>
                 </button>
                 {openPanel === "calendar" && (
-                  <div className="animate-dropdown absolute right-0 top-full z-40 mt-2 w-[min(600px,calc(100vw-2rem))] rounded-3xl border border-stone-200 bg-white p-5 shadow-2xl">
-                    <div className="mb-4 flex items-center justify-between px-2">
-                      <h3 className="font-display text-base font-medium text-forest-900">เลือกช่วงวันเข้าพัก</h3>
-                      <button type="button" onClick={() => setOpenPanel(null)} className="text-charcoal-300 hover:text-charcoal-500"><X size={18} /></button>
+                  <div
+                    className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-forest-950/45 backdrop-blur-xs"
+                    onClick={() => setOpenPanel(null)}
+                  >
+                    <div
+                      className="w-full sm:max-w-[660px] bg-white rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl max-h-[88vh] flex flex-col"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="mb-3 flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
+                        <div>
+                          <h3 className="font-display text-base sm:text-lg font-bold text-forest-900">เลือกช่วงวันเข้าพัก</h3>
+                          {range && nights > 0 ? (
+                            <p className="text-xs text-forest-700 mt-0.5 font-medium">
+                              {formatThaiDate(range.start)} – {formatThaiDate(range.end)} ({nights} คืน)
+                            </p>
+                          ) : (
+                            <p className="text-xs text-charcoal-400 mt-0.5">
+                              เลือกวันเช็คอินและวันเช็คเอาท์
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setOpenPanel(null)}
+                          aria-label="ปิดปฏิทิน"
+                          className="p-2 rounded-full text-charcoal-400 hover:text-charcoal-600 hover:bg-stone-100 transition-colors"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+
+                      <div className="py-1 overflow-y-auto flex-1 pr-1 overscroll-contain">
+                        <BookingCalendar
+                          mode="range"
+                          value={range}
+                          onSelect={handleRangeSelect}
+                          cursor={cursor}
+                          onCursorChange={setCursor}
+                          dayStatus={dayStatus}
+                          loading={calendarLoading}
+                          minISO={isAdminOrStaff ? today : addDaysISO(today, 1)}
+                          visibleMonths={2}
+                        />
+                      </div>
+
+                      <div className="pt-3 mt-2 border-t border-stone-100 flex items-center justify-between gap-3 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const initial = { start: defaultCheckIn, end: addDaysISO(defaultCheckIn, 1) };
+                            handleRangeSelect(initial);
+                          }}
+                          className="text-xs text-charcoal-500 hover:text-forest-800 underline font-medium px-2 py-2"
+                        >
+                          ล้างวันที่เลือก
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOpenPanel(null)}
+                          className="btn-primary py-2.5 px-6 text-sm rounded-xl font-bold"
+                        >
+                          ตกลง {nights > 0 ? `(${nights} คืน)` : ""}
+                        </button>
+                      </div>
                     </div>
-                    <BookingCalendar mode="range" value={range} onSelect={handleRangeSelect} cursor={cursor} onCursorChange={setCursor} dayStatus={dayStatus} loading={calendarLoading} minISO={isAdminOrStaff ? today : addDaysISO(today, 1)} />
                   </div>
                 )}
               </div>
@@ -438,9 +513,10 @@ function RoomsPageContent(): React.ReactElement {
         </div>
       </header>
 
-      <div id="rooms-list" className="container mx-auto px-4 lg:py-2">
+      <div id="rooms-list" className="container mx-auto max-w-7xl px-4 lg:py-2">
         <div className="flex flex-col gap-8 lg:flex-row">
           <section className="min-w-0 flex-1">
+            <PromoNotice notice={promoNotice} />
             {loading && rooms.length === 0 ? (
               <div className="grid gap-6">{[0, 1].map((index) => <div key={index} className="h-64 w-full animate-pulse rounded-2xl border border-stone-100 bg-white" />)}</div>
             ) : roomsByType.length === 0 && !loading ? (
@@ -476,14 +552,13 @@ function RoomsPageContent(): React.ReactElement {
                   const finalPrice = unitPrice - discount;
 
                   return (
-                    <article key={room.id} style={{ animationDelay: `${idx * 100}ms` }} className={`animate-reveal-up group relative grid grid-cols-1 overflow-hidden rounded-2xl border bg-white transition-all duration-300 sm:grid-cols-[180px_minmax(0,1fr)] ${isAvailable ? "border-stone-200/80 hover:border-forest-300 hover:shadow-md" : "border-stone-100 bg-stone-50/50 opacity-60"}`}>
-                      <div className="relative h-48 w-full overflow-hidden sm:row-span-2 sm:h-full">
-                        {room.main_image ? <Image src={resolveMediaUrl(room.main_image)} alt={room.room_name} fill sizes="(max-width: 1024px) 100vw, 320px" className="object-cover transition-transform duration-1000 group-hover:scale-105" priority={idx < 2} /> : <div className="h-full w-full bg-stone-50" />}
+                    <article key={room.id} style={{ animationDelay: `${idx * 100}ms` }} className={`animate-reveal-up group relative flex flex-col overflow-hidden rounded-2xl border bg-white transition-all duration-300 md:flex-row ${isAvailable ? "border-stone-200/80 hover:border-forest-300 hover:shadow-md" : "border-stone-100 bg-stone-50/50 opacity-60"}`}>
+                      <div className="relative h-52 w-full shrink-0 overflow-hidden sm:h-56 md:h-auto md:w-64 lg:w-72 xl:w-80">
+                        {room.main_image ? <Image src={resolveMediaUrl(room.main_image)} alt={room.room_name} fill sizes="(max-width: 768px) 100vw, 320px" className="object-cover transition-transform duration-1000 group-hover:scale-105" priority={idx < 2} /> : <div className="h-full w-full bg-stone-50" />}
                       </div>
-                      <div className="min-w-0 border-b border-stone-100 p-5 sm:col-start-2">
+                      <div className="flex min-w-0 flex-1 flex-col justify-between p-5 lg:p-6">
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
-                            
                             <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${isAvailable ? "bg-forest-50 text-forest-700" : "bg-stone-200 text-stone-600"}`}>
                               {isAvailable ? `ว่าง ${availableCount} ห้อง` : !isCapacityEnough ? "ความจุไม่พอ" : "เต็ม"}
                             </span>
@@ -504,8 +579,8 @@ function RoomsPageContent(): React.ReactElement {
                           </Link>
                         )}
                       </div>
-                      <div className="min-w-0 flex flex-col justify-between bg-stone-50/40 p-5 sm:col-start-2">
-                        <div className="mb-4 flex flex-col items-start gap-1.5 lg:items-end">
+                      <div className="flex w-full shrink-0 flex-col justify-between border-t border-stone-100 bg-stone-50/40 p-5 md:w-64 md:border-l md:border-t-0 lg:w-72 lg:p-6">
+                        <div className="mb-4 flex flex-col items-start gap-1.5 md:items-end">
                           {isAvailable && searchedRange && availableCount <= 2 && (
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-700 shadow-sm whitespace-nowrap">
                               <span className="flex h-1.5 w-1.5 animate-pulse rounded-full bg-orange-500" />
@@ -518,12 +593,12 @@ function RoomsPageContent(): React.ReactElement {
                             </span>
                           )}
                         </div>
-                        <div className="mb-6 flex flex-col items-start gap-1 lg:items-end">
+                        <div className="mb-6 flex flex-col items-start gap-1 md:items-end">
                           <span className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ราคาต่อคืน</span>
-                          {potentialDiscount > 0 ? <div className="flex w-full flex-col items-start lg:items-end"><div className="flex items-baseline gap-1.5"><span className="text-[13px] font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{(unitPrice - potentialDiscount).toLocaleString()}</span></div><span className="mt-1 rounded bg-bamboo-50 border border-bamboo-200 px-2 py-0.5 text-[11px] font-bold text-bamboo-700 shadow-sm">ประหยัด ฿{potentialDiscount.toLocaleString()} เมื่อใช้โปรโมชั่น · เฉลี่ยต่อคืน</span></div> : <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
+                          {potentialDiscount > 0 ? <div className="flex w-full flex-col items-start md:items-end"><div className="flex items-baseline gap-1.5"><span className="text-[13px] font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{(unitPrice - potentialDiscount).toLocaleString()}</span></div><span className="mt-1 rounded bg-bamboo-50 border border-bamboo-200 px-2 py-0.5 text-[11px] font-bold text-bamboo-700 shadow-sm text-left md:text-right">ประหยัด ฿{potentialDiscount.toLocaleString()} เมื่อใช้โปรโมชั่น · เฉลี่ยต่อคืน</span></div> : <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
                         </div>
-                        <div className="flex flex-col mt-auto w-full lg:w-full">
-                          <Link href={`/rooms/${room.id}?${searchParams.toString()}`} className="w-full rounded-xl bg-bamboo-600 py-3.5 text-center text-[14px] font-bold text-white shadow-md transition-all hover:bg-bamboo-700 hover:shadow-lg active:scale-[0.98]">
+                        <div className="mt-auto w-full">
+                          <Link href={`/rooms/${room.id}?${searchParams.toString()}`} className="block w-full rounded-xl bg-bamboo-600 py-3.5 text-center text-[14px] font-bold text-white shadow-md transition-all hover:bg-bamboo-700 hover:shadow-lg active:scale-[0.98]">
                             เช็คห้องว่าง
                           </Link>
                         </div>
@@ -535,58 +610,22 @@ function RoomsPageContent(): React.ReactElement {
             )}
           </section>
           
-          {/* Desktop Booking Summary Sidebar */}
+          {/* Booking Summary: Desktop Sidebar & Mobile Sticky Bar */}
           {cart && cart.items && cart.items.length > 0 && (
-            <aside className="hidden lg:block lg:w-[320px] xl:w-[360px] shrink-0">
-              <div className="sticky top-[160px]">
+            <>
+              <aside className="hidden xl:block xl:w-[360px] shrink-0">
+                <div className="sticky top-[160px]">
+                  <BookingSummaryCard />
+                </div>
+              </aside>
+              {/* Mobile sticky bar only: hide desktop card on mobile, show mobile bar */}
+              <div className="xl:hidden [&>div:first-child]:hidden">
                 <BookingSummaryCard />
               </div>
-            </aside>
+            </>
           )}
         </div>
       </div>
-
-      {/* Floating Cart Button (Mobile Only) */}
-      {cart && cart.items && cart.items.length > 0 && (
-        <button
-          onClick={() => setIsCartDrawerOpen(true)}
-          className="lg:hidden fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-[#0A2E1F] text-white shadow-2xl transition-transform hover:scale-105 active:scale-95"
-        >
-          <div className="relative">
-            <ShoppingCart size={24} />
-            <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-[#0A2E1F]">
-              {cart.items.length}
-            </span>
-          </div>
-        </button>
-      )}
-
-      {/* Slide-over Drawer for Cart */}
-      {isCartDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm transition-opacity"
-            onClick={() => setIsCartDrawerOpen(false)}
-          />
-          
-          {/* Drawer Panel */}
-          <div className="relative w-full max-w-md h-full bg-white shadow-2xl animate-in slide-in-from-right duration-300 overflow-y-auto">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-100 bg-white/80 px-6 py-4 backdrop-blur-md">
-              <h2 className="text-lg font-display font-bold text-[#0A2E1F]">ตะกร้าห้องพัก</h2>
-              <button
-                onClick={() => setIsCartDrawerOpen(false)}
-                className="rounded-full p-2 text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-6">
-              <BookingSummaryCard />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

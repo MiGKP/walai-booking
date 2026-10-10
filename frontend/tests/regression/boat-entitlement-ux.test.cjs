@@ -42,6 +42,7 @@ function load(relative, states = [], overrides = {}) {
     if (file.endsWith(path.join('booking', 'details', 'page.tsx'))) source += '\nexport { BookingDetailsContent as TestContent };';
     if (file.endsWith(path.join('admin', 'boats', 'page.tsx'))) source += '\nexport { BoatStaffDashboardContent as TestContent };';
     if (file.endsWith(path.join('admin', 'rooms', 'page.tsx'))) source += '\nexport { RoomStaffDashboardContent as TestContent };';
+    if (file.endsWith(path.join('boats', 'checkin', 'page.tsx'))) source += '\nexport { BoatCheckinContent as TestContent };';
     mod._compile(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText, file);
     return mod.exports;
   }
@@ -84,7 +85,7 @@ test('admin overview identifies normal and room-addon boats by their API booking
   const Page = load('src/app/admin/page.tsx', [[], [
     { boat_booking_id: 47, status: 'paid', user_name: 'TEST Normal', total_price: 100 },
     { boat_booking_id: 48, room_booking_id: 102, is_addon: true, status: 'pending', user_name: 'TEST Addon', total_price: 0 },
-  ], [], [], false], { '@/components/admin/ui': { PageHeader: Wrapper, StatCard: Wrapper, Panel: Wrapper, StatusBadge: Wrapper, EmptyState: Wrapper, Skeleton: Wrapper }, '@/lib/admin-notify': { notify: {} } }).default;
+  ], [], [], [], [], [], false], { '@/components/admin/ui': { PageHeader: Wrapper, StatCard: Wrapper, Panel: Wrapper, StatusBadge: Wrapper, EmptyState: Wrapper, Skeleton: Wrapper }, '@/lib/admin-notify': { notify: {} } }).default;
   const html = renderToStaticMarkup(React.createElement(Page));
   for (const id of [47, 48]) {
     assert(html.includes(`#${id}`));
@@ -112,7 +113,7 @@ test('room detail and its printable document list every actual room, guests and 
     { booking_room_id: 1, room_number: 'TEST-W2', room_name: 'TEST Standard', subtotal: 2000 },
     { booking_room_id: 2, room_number: 'TEST-D3', room_name: 'TEST Deluxe', subtotal: 4000 },
   ] };
-  const Page = load('src/app/admin/rooms/page.tsx', [[], false, { total: 0, totalPages: 0 }, { totalRevenue: 0 }, [], '', null, 'desc', { open: false }, { open: true, booking }], {
+  const Page = load('src/app/admin/rooms/page.tsx', [[], false, { total: 0, totalPages: 0 }, { totalRevenue: 0 }, [], '', { open: false }, { open: true, booking }], {
     '@/components/admin/ui': { PageHeader: Wrapper, StatCard: Wrapper, Panel: Wrapper, Modal: ({ open, children }) => open ? React.createElement('div', null, children) : null, EmptyState: Wrapper, BookingStatusBadge: Wrapper },
     '@/lib/avatar': { resolveMediaUrl: value => value },
   }).TestContent;
@@ -129,8 +130,9 @@ test('staff and admin shared calendar names every actual room in a multi-room bo
   const booking = { id: 7, status: 'approved', check_in: '2026-10-10', check_out: '2026-10-12', user_name: 'TEST Guest', rooms: [
     { room_number: 'TEST-W2', room_name: 'TEST Standard' }, { room_number: 'TEST-D3', room_name: 'TEST Deluxe' },
   ] };
-  const Page = load('src/app/admin/calendar/page.tsx', [new Date(2026, 9, 10), 'all', [booking], [], false], {
-    '@/components/admin/ui': { PageHeader: Wrapper, Panel: Wrapper, Modal: () => null }, '@/lib/admin-notify': { notify: {} },
+  const day = require('./calendar-fixture.cjs')([booking])['2026-10-10'];
+  const Page = load('src/app/admin/calendar/page.tsx', [new Date(2026, 9, 10), 'all', [booking], [], false, day, 'checkins'], {
+    '@/components/admin/ui': { PageHeader: Wrapper, Panel: Wrapper, Modal: ({ open, children }) => open ? React.createElement('div', null, children) : null }, '@/lib/admin-notify': { notify: {} },
   }).default;
   const html = renderToStaticMarkup(React.createElement(Page));
   for (const text of ['TEST-W2', 'TEST-D3', 'TEST Standard', 'TEST Deluxe']) assert(html.includes(text), text);
@@ -193,9 +195,9 @@ function details(overrides = {}) {
 }
 test('checkout keeps ineligible room offers visible with a disabled option and explanation', () => {
   const offer = { ...promo, name: 'ROOMANDBOAT', min_nights: 2, room_count: 5, is_collectible: true };
-  const Component = load('src/app/booking/details/page.tsx', ['First', 'Last', 'guest@example.test', '0800000000', '14:00', false, false, false, '', [offer], {}, false], { '@/lib/room-cart-store': { useRoomCart: () => cart, setRoomCart() {} } }).default;
+  const Component = load('src/app/booking/details/page.tsx', ['First', 'Last', 'guest@example.test', '0800000000', '14:00', false, false, false, '', [offer], {}, null, false, true, true], { '@/lib/room-cart-store': { useRoomCart: () => cart, setRoomCart() {} } }).default;
   const html = renderToStaticMarkup(React.createElement(Component));
-  assert.match(html, /<option[^>]*value="7"[^>]*disabled/);
+  assert.match(html, /<button[^>]*disabled[^>]*>[^]*?ROOMANDBOAT/);
   assert(html.includes('ต้องพักอย่างน้อย 2 คืน'));
   assert(html.includes('ต้องจองอย่างน้อย 5 ห้อง'));
   assert(html.includes('ต้องเก็บคูปองที่หน้าโปรโมชั่นก่อน'));
@@ -268,10 +270,33 @@ test('boat staff row and details identify room promotion origin and parent booki
     '@/lib/avatar': { resolveMediaUrl: value => value },
   }).TestContent;
   const html = renderToStaticMarkup(React.createElement(Page));
-  assert.equal(html.split('เรือจากโปรโมชั่นห้องพัก').length - 1, 2);
-  assert.equal(html.split('การจองห้องพัก #9').length - 1, 2);
+  assert(html.includes('แพ็กเกจห้องพัก #9'));
+  assert(html.includes('เรือจากโปรโมชั่นห้องพัก'));
+  assert(html.includes('การจองห้องพัก #9'));
   assert(html.includes('มีค่าใช้จ่าย'));
 });
+test('checked-in addon never advertises cancellation even without card handout', () => {
+  const Section = load('src/components/booking/BoatAddonSection.tsx', [[{
+    boat_booking_id: 7, status: 'approved', handed_out_at: null, checkin_at: '2026-10-10T05:00:00Z',
+    booking_date: '2026-10-10', start_time: '12:00', end_time: '13:00', mode: 'free', price: 0,
+  }], false, null, null]).default;
+  const html = renderToStaticMarkup(React.createElement(Section, { bookingRoomId: 51, roomBookingStatus: 'approved' }));
+  assert(!html.includes('ยกเลิกบัตรเสริม'));
+});
+for (const [now, disabled] of [['2026-10-10T04:44:59Z', true], ['2026-10-10T04:45:00Z', false], ['2026-10-10T06:00:00Z', true]]) {
+  test(`boat staff check-in button respects the API time window at ${now}`, () => {
+    const Wrapper = ({ children }) => React.createElement('div', null, children);
+    const booking = { boat_booking_id: 7, booking_date: '2026-10-10', start_time: '12:00', end_time: '13:00',
+      status: 'approved', checkin_at: null, checkin_opens_at: '2026-10-10T04:45:00Z', checkin_closes_at: '2026-10-10T06:00:00Z',
+      customer_name: 'TEST Boat', boats: [], total_price: 0 };
+    const Page = load('src/app/admin/boats/checkin/page.tsx', ['2026-10-10', '', 'all', [booking], { total_bookings: 1, waiting_count: 1, on_water_count: 0, checked_out_count: 0, total_boats: 1 }, false, null, new Date(now).getTime()], {
+      '@/components/admin/ui': { Modal: () => null }, '@/lib/admin-notify': { notify: {} },
+    }).TestContent;
+    const html = renderToStaticMarkup(React.createElement(Page));
+    if(disabled) assert.match(html, /<button[^>]*disabled[^>]*title="(?:ยังไม่ถึงเวลาเปิดเช็คอิน|รอบเรือสิ้นสุดแล้ว)"/);
+    else assert.match(html, /<button(?![^>]*disabled)[^>]*>[^]*?ปล่อยเรือลงน้ำ \(Check-in\)/);
+  });
+}
 test('authoritative bookable count prevents mixed-paid and ended-room phantom CTAs', () => {
   const html = dashboard([{ ...room, boat_ticket_summary: { ...summary, bookable_tickets: 0 } }]);
   assert(html.includes('คงเหลือ 2 สิทธิ์'));

@@ -13,6 +13,8 @@ import {
   getAllKayakBookings,
   updateKayakBookingStatus,
   checkoutKayakBooking,
+  checkinKayakBooking,
+  getKayakCheckinSessions,
   createKayak,
   createBoatRound,
   updateKayak,
@@ -38,6 +40,8 @@ import {
   createKayakValidator,
   updateKayakValidator,
   createBoatRoundValidator,
+  kayakCheckinSessionsValidator,
+  checkinKayakBookingValidator,
 } from '../middleware/validators';
 
 import { bookingListValidator } from '../middleware/pagination-validator';
@@ -64,12 +68,14 @@ router.put('/room-addon/:boatBookingId/print', authenticate, authorize('admin', 
 router.put('/room-addon/:boatBookingId/hand-out', authenticate, authorize('admin', 'room_staff'), handOutBoatAddon);
 
 // Bookings routes (specific before dynamic)
-router.post('/bookings', authenticate, authorize('customer'), createKayakBookingValidator, validate, createKayakBooking);
+router.post('/bookings', authenticate, authorize('customer', 'admin'), createKayakBookingValidator, validate, createKayakBooking);
 router.get('/bookings/my', authenticate, authorize('customer'), getUserKayakBookings);
 router.get('/bookings/all', authenticate, authorize('admin', 'boat_staff'), bookingListValidator, validate, getAllKayakBookings);
+router.get('/checkin-sessions', authenticate, authorize('admin', 'boat_staff'), kayakCheckinSessionsValidator, validate, getKayakCheckinSessions);
 router.get('/bookings/:id', authenticate, getKayakBookingById);
 router.put('/bookings/:id/cancel', authenticate, authorize('customer'), cancelKayakBooking);
 router.put('/bookings/:id/status', authenticate, authorize('admin', 'boat_staff'), updateKayakBookingStatusValidator, validate, updateKayakBookingStatus);
+router.put('/bookings/:id/checkin', authenticate, authorize('admin', 'boat_staff'), checkinKayakBookingValidator, validate, checkinKayakBooking);
 router.put('/bookings/:id/checkout', authenticate, authorize('admin', 'boat_staff'), checkoutKayakBooking);
 
 // Rounds routes

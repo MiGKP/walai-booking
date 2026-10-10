@@ -1,6 +1,8 @@
 -- ขั้นที่ 2: ตรวจแถวข้อมูลของรีสอร์ท (SELECT อย่างเดียว)
 -- หน้าบ้านดึงข้อมูลจากแถว id 3 เป็นหลัก ถ้าไม่มีแถวนี้ GET /settings/resort จะได้ค่า null
--- ผลที่คาดหวัง: มีแถว id = 3 พร้อมชื่อสถานที่ และมีเลขบัญชี/PromptPay ที่ถูกต้อง
+-- id 3 = ข้อมูลสถานที่โดยรวม (ชื่อ, เบอร์, บัญชี, PromptPay)
+-- id 5 = การตั้งค่าเรือ (เช่น boat_advance_booking_minutes จาก migration 2026-10-08)
+-- ผลที่คาดหวัง: มีแถว id = 3 พร้อมชื่อสถานที่ และมีเลขบัญชี/PromptPay ที่ถูกต้อง, และมีแถว id = 5
 
 SELECT id, name, phone, bank_account_no, bank_account_name, promptpay_id
 FROM resort_info

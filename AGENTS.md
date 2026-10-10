@@ -149,7 +149,7 @@ Typical room flow:
 ### Room booking mechanics
 
 - One `room_bookings` row = **one physical room** (`room_id`), not a room type alone.
-- Create path picks an available room with `FOR UPDATE SKIP LOCKED` (see `createRoomBooking`).
+- Create path picks an available room with `FOR UPDATE` (see `createRoomBooking`).
 - Price is computed by DB trigger `calculate_booking_price` on insert (nights × rate, promotion applied).
 - Trigger `update_room_status_on_booking` sets room `occupied` when approved and `available` on cancel/reject/check-out.
 - Calendar availability APIs: `GET /api/rooms/calendar`, `GET /api/kayaks/calendar`, `GET /api/kayaks/rounds-availability`.

@@ -137,7 +137,7 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
       ? Math.round(basePrice - result.totalPrice)
       : 0;
     const lines = result.lines.map((line, index) => {
-      const promo = catalog[index];
+      const promo = catalog.find((c) => c.id === line.promotion_id) ?? catalog[index];
       return {
         id: line.promotion_id,
         code: promo?.code,
@@ -193,13 +193,6 @@ export const collectPromotion = async (req: Request, res: Response): Promise<voi
     const promo = catalog[0];
     if (!promo) {
       res.status(404).json({ success: false, message: 'ไม่พบข้อมูลโปรโมชั่น' });
-      return;
-    }
-    if (!promo.is_collectible) {
-      res.status(409).json({
-        success: false,
-        message: 'โปรโมชั่นนี้ไม่ต้องเก็บโค้ด',
-      });
       return;
     }
     if (!isPromoInWindow(promo, new Date())) {
@@ -406,6 +399,27 @@ export const getPromotionRedemptions = async (
   }
 };
 
+// กติกาความสมเหตุสมผลของโปรโมชั่น ใช้ทั้งตอนสร้างและแก้ไข — คืนข้อความ error หรือ null เมื่อผ่าน
+function promoRuleError(rule: {
+  start: string | null;
+  end: string | null;
+  usageLimit: number | null;
+  perMember: number | null;
+  addonMode: 'free' | 'paid';
+  addonPrice: number | null;
+}): string | null {
+  if (rule.start && rule.end && rule.start > rule.end) {
+    return 'วันเริ่มต้องไม่อยู่หลังวันสิ้นสุด';
+  }
+  if (rule.usageLimit != null && rule.perMember != null && rule.perMember > rule.usageLimit) {
+    return 'จำกัดต่อสมาชิกต้องไม่มากกว่าจำกัดจำนวนรวม';
+  }
+  if (rule.addonMode === 'paid' && !(rule.addonPrice != null && rule.addonPrice > 0)) {
+    return 'บัตรเสริมแบบขายต้องระบุราคาต่อครั้งมากกว่า 0 บาท';
+  }
+  return null;
+}
+
 export const createPromotion = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
@@ -433,6 +447,18 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
       res.status(400).json({ success: false, message: 'ส่วนลดเป็นเปอร์เซ็นต์ต้องไม่เกิน 100' });
       return;
     }
+    const ruleError = promoRuleError({
+      start: start_date ? String(start_date).slice(0, 10) : null,
+      end: end_date ? String(end_date).slice(0, 10) : null,
+      usageLimit: usage_limit ? Number(usage_limit) : null,
+      perMember: usage_limit_per_member ? Number(usage_limit_per_member) : null,
+      addonMode: boat_addon_mode === 'paid' ? 'paid' : 'free',
+      addonPrice: boat_addon_price != null && boat_addon_price !== '' ? Number(boat_addon_price) : null,
+    });
+    if (ruleError) {
+      res.status(400).json({ success: false, message: ruleError });
+      return;
+    }
     const existing = await pool.query('SELECT id FROM promotions WHERE UPPER(code) = UPPER($1)', [code]);
     if (existing.rows.length > 0) {
       res.status(409).json({ success: false, message: 'โค้ดโปรโมชั่นนี้มีในระบบแล้ว' });
@@ -455,7 +481,7 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
         usage_limit || null, is_active !== false,
         room_type_id || null, room_count || 1, boat_ticket_count || 0,
         usage_limit_per_member || null,
-        is_collectible === true,
+        is_collectible === true || is_collectible === 'true',
         stackable === true,
         parseAppliesTo(applies_to),
         boat_addon_mode === 'paid' ? 'paid' : 'free',
@@ -521,6 +547,18 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
     }
     if (discountType === 'percent' && discountValue > 100) {
       res.status(400).json({ success: false, message: 'ส่วนลดเป็นเปอร์เซ็นต์ต้องไม่เกิน 100' });
+      return;
+    }
+    const ruleError = promoRuleError({
+      start: textOrCurrent('start_date')?.slice(0, 10) ?? null,
+      end: textOrCurrent('end_date')?.slice(0, 10) ?? null,
+      usageLimit: numOrCurrent('usage_limit'),
+      perMember: numOrCurrent('usage_limit_per_member'),
+      addonMode: (has('boat_addon_mode') ? body.boat_addon_mode : current.boat_addon_mode) === 'paid' ? 'paid' : 'free',
+      addonPrice: numOrCurrent('boat_addon_price'),
+    });
+    if (ruleError) {
+      res.status(400).json({ success: false, message: ruleError });
       return;
     }
 
@@ -644,6 +682,46 @@ export const togglePromotion = async (req: Request, res: Response): Promise<void
     res.json({ success: true, message: active ? 'เปิดใช้งานโปรโมชั่นแล้ว' : 'ปิดใช้งานโปรโมชั่นแล้ว', data: result.rows[0] });
   } catch (error) {
     console.error('Toggle promotion error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// การตั้งค่าการรับอีเมลแจ้งเตือนโปรโมชั่นของลูกค้า
+export const getPromoEmailPreference = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = requireCustomer(req, res);
+    if (!user) return;
+    const result = await pool.query(
+      'SELECT promo_email_opt_out FROM members WHERE member_id = $1',
+      [user.id]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ success: false, message: 'ไม่พบข้อมูลสมาชิก' });
+      return;
+    }
+    res.json({ success: true, data: { opt_out: result.rows[0].promo_email_opt_out === true } });
+  } catch (error) {
+    console.error('Get promo email preference error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const setPromoEmailPreference = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = requireCustomer(req, res);
+    if (!user) return;
+    const optOut = req.body.opt_out === true || req.body.opt_out === 'true';
+    await pool.query(
+      'UPDATE members SET promo_email_opt_out = $1, updated_at = NOW() WHERE member_id = $2',
+      [optOut, user.id]
+    );
+    res.json({
+      success: true,
+      message: optOut ? 'ปิดการรับอีเมลแจ้งเตือนโปรโมชั่นแล้ว' : 'เปิดการรับอีเมลแจ้งเตือนโปรโมชั่นแล้ว',
+      data: { opt_out: optOut },
+    });
+  } catch (error) {
+    console.error('Set promo email preference error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

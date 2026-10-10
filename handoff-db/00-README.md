@@ -6,7 +6,7 @@
 | ลำดับ | ไฟล์ | ทำอะไร | แก้ข้อมูลไหม |
 |---|---|---|---|
 | 1 | `01-check-prod-columns.sql` | ตรวจว่ามีคอลัมน์ครบหรือไม่ | ไม่ (SELECT) |
-| 2 | `02-check-resort-row.sql` | ตรวจว่ามีแถว resort_info id 3 | ไม่ (SELECT) |
+| 2 | `02-check-resort-row.sql` | ตรวจว่ามีแถว resort_info id 3 (ข้อมูลสถานที่โดยรวม) และ id 5 (ค่าการตั้งค่าเรือ) | ไม่ (SELECT) |
 | 3 | `03-check-staff-column.sql` | ตรวจชื่อ `approved_by_staff_id` ให้ตรงกับโค้ด | ไม่ (SELECT) |
 | 4 | `04-migration-missing-columns.sql` | เพิ่มคอลัมน์ที่ขาด | ใช่ (ALTER) |
 | 5 | `05-migration-security-hardening.sql` | เพิ่มคอลัมน์ความปลอดภัย | ใช่ (ALTER) |

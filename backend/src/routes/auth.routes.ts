@@ -46,6 +46,7 @@ router.get('/staff', authenticate, authorize('admin'), getAllStaff);
 router.get('/staff/:id', authenticate, authorize('admin'), getStaffById);
 router.put('/staff/:id', authenticate, authorize('admin'), updateStaff);
 router.put('/staff/:id/status', authenticate, authorize('admin'), toggleStaffStatus);
+router.patch('/staff/:id/status', authenticate, authorize('admin'), toggleStaffStatus);
 router.delete('/staff/:id', authenticate, authorize('admin'), deleteStaff);
 
 router.post('/register', registerValidator, validate, register);

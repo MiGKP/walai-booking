@@ -1,5 +1,5 @@
 import { normalizeAuthEmail } from '../services/auth-email';
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
@@ -117,6 +117,7 @@ export const createRoomBookingValidator = [
   body('child_ages').optional().isArray().withMessage('child_ages must be an array'),
   body('child_ages.*').optional().isInt({ min: 0, max: 11 }).withMessage('Each child age must be 0-11'),
   body('special_requests').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 500 }).withMessage('Special requests cannot exceed 500 characters'),
+  body('arrival_time').optional({ nullable: true, checkFalsy: true }).matches(/^([01]\d|2[0-3]):[0-5]\d$/).withMessage('arrival_time must be HH:MM (24h)'),
   body('promotion_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Invalid promotion_id'),
   body('promotion_ids').optional().isArray(),
   body('promotion_ids.*').optional().isInt({ min: 1 }),
@@ -139,6 +140,8 @@ export const resortInfoValidator = [
     .withMessage('อายุที่เริ่มนับความจุต้องเป็นจำนวนเต็ม 0-18 ปี'),
   body('boat_advance_booking_minutes').optional().isInt({ min: 0, max: 10080 })
     .withMessage('จองล่วงหน้าขั้นต่ำต้องเป็นจำนวนเต็ม 0-10080 นาที'),
+  body('boat_checkin_advance_minutes').optional().isInt({ min: 0, max: 1440 })
+    .withMessage('เวลาเช็คอินล่วงหน้าต้องเป็นจำนวนเต็ม 0-1440 นาที'),
 ];
 
 export const updateRoomBookingStatusValidator = [
@@ -194,6 +197,15 @@ export const updateKayakBookingStatusValidator = [
   body('status')
     .isIn(['approved', 'rejected', 'pending', 'checked_out'])
     .withMessage('Status must be approved, rejected, pending, or checked_out'),
+];
+
+export const kayakCheckinSessionsValidator = [
+  query('date').optional().isString().bail().isISO8601({ strict: true }).matches(/^\d{4}-\d{2}-\d{2}$/),
+  query('search').optional().isString().trim().isLength({ max: 100 }),
+];
+
+export const checkinKayakBookingValidator = [
+  param('id').isInt({ min: 1 }).withMessage('Valid booking ID is required'),
 ];
 
 export const createKayakValidator = [
@@ -303,7 +315,7 @@ export const validatePromoCodeValidator = [
   body('room_type_id').optional({ nullable: true }).isInt({ min: 1 }),
   body('room_type_ids').optional().isArray({ min: 1 }),
   body('room_type_ids.*').optional().isInt({ min: 1 }),
-  body('scope').optional().isIn(['room', 'kayak']).withMessage('scope must be room or kayak'),
+  body('scope').notEmpty().withMessage('กรุณาระบุ scope (room หรือ kayak)').isIn(['room', 'kayak']).withMessage('scope ต้องเป็น room หรือ kayak'),
   body().custom((_, { req }) => {
     const code = req.body.code;
     const hasCode = typeof code === 'string' && code.trim().length > 0;
@@ -318,6 +330,8 @@ export const validatePromoCodeValidator = [
 // ─── Cancellation policy ──────────────────────────────────────────────────────
 
 export const cancellationPolicyValidator = [
-  body('full_refund_hours').isInt({ min: 0, max: 8760 }).withMessage('full_refund_hours must be 0 to 8760'),
-  body('late_refund_percent').isFloat({ min: 0, max: 100 }).withMessage('late_refund_percent must be 0 to 100'),
+  body('full_refund_hours').optional().isInt({ min: 0, max: 8760 }).withMessage('full_refund_hours must be 0 to 8760'),
+  body('late_refund_percent').optional().isFloat({ min: 0, max: 100 }).withMessage('late_refund_percent must be 0 to 100'),
+  body('room_full_refund_days').optional().isInt({ min: 0, max: 365 }).withMessage('room_full_refund_days must be 0 to 365'),
+  body('room_late_refund_percent').optional().isFloat({ min: 0, max: 100 }).withMessage('room_late_refund_percent must be 0 to 100'),
 ];

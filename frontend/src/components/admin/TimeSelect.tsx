@@ -47,7 +47,7 @@ export default function TimeSelect({
         disabled={disabled}
         value={hour}
         onChange={(e) => emit(Number(e.target.value), minute)}
-        className="input-field w-20 py-1.5 text-center text-sm"
+        className="rounded-xl border border-cream-300 bg-cream-50/70 hover:bg-cream-100/70 px-2.5 py-1.5 text-center text-xs sm:text-sm font-semibold font-mono text-forest-950 transition-all focus:border-forest-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/15 disabled:opacity-50 cursor-pointer"
       >
         {HOURS.map((h) => (
           <option key={h} value={h}>
@@ -55,13 +55,13 @@ export default function TimeSelect({
           </option>
         ))}
       </select>
-      <span className="text-sm font-semibold text-charcoal-400">:</span>
+      <span className="text-sm font-bold text-charcoal-400 font-mono">:</span>
       <select
         aria-label={`${label} นาที`}
         disabled={disabled}
         value={minute}
         onChange={(e) => emit(hour, Number(e.target.value))}
-        className="input-field w-20 py-1.5 text-center text-sm"
+        className="rounded-xl border border-cream-300 bg-cream-50/70 hover:bg-cream-100/70 px-2.5 py-1.5 text-center text-xs sm:text-sm font-semibold font-mono text-forest-950 transition-all focus:border-forest-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/15 disabled:opacity-50 cursor-pointer"
       >
         {minuteOptions.map((m) => (
           <option key={m} value={m}>
@@ -69,7 +69,7 @@ export default function TimeSelect({
           </option>
         ))}
       </select>
-      <span className="text-xs text-charcoal-400">น.</span>
+      <span className="text-xs text-charcoal-500 font-medium">น.</span>
     </div>
   );
 }

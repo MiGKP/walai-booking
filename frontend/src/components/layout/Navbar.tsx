@@ -305,15 +305,58 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            aria-label={isOpen ? "ปิดเมนู" : "เปิดเมนู"}
-            aria-expanded={isOpen}
-            className="md:hidden p-2 rounded-lg text-charcoal hover:bg-forest-50 transition-colors"
-          >
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          {/* Mobile Navigation Links + Menu Button */}
+          <div className="flex md:hidden items-center gap-2 sm:gap-3">
+            <Link
+              href="/rooms"
+              className={`text-xs sm:text-sm transition-colors relative py-1 px-1 sm:px-1.5 ${
+                isActive("/rooms")
+                  ? "text-forest-900 font-bold"
+                  : "text-charcoal-600 hover:text-forest-800 font-medium"
+              }`}
+            >
+              ห้องพัก
+              {isActive("/rooms") && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-forest-800 rounded-full" />
+              )}
+            </Link>
+            <Link
+              href="/kayaks"
+              className={`text-xs sm:text-sm transition-colors relative py-1 px-1 sm:px-1.5 ${
+                isActive("/kayaks")
+                  ? "text-forest-900 font-bold"
+                  : "text-charcoal-600 hover:text-forest-800 font-medium"
+              }`}
+            >
+              เรือ
+              {isActive("/kayaks") && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-forest-800 rounded-full" />
+              )}
+            </Link>
+            <Link
+              href="/promotions"
+              className={`text-xs sm:text-sm transition-colors relative py-1 px-1 sm:px-1.5 ${
+                isActive("/promotions")
+                  ? "text-forest-900 font-bold"
+                  : "text-charcoal-600 hover:text-forest-800 font-medium"
+              }`}
+            >
+              โปรโมชั่น
+              {isActive("/promotions") && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-forest-800 rounded-full" />
+              )}
+            </Link>
+
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              aria-label={isOpen ? "ปิดเมนู" : "เปิดเมนู"}
+              aria-expanded={isOpen}
+              className="p-1.5 rounded-lg text-charcoal hover:bg-forest-50 transition-colors ml-0.5"
+            >
+              {isOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
       </div>
 

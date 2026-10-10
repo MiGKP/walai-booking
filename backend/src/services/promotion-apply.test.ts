@@ -106,35 +106,41 @@ describe('applyPromotionList', () => {
     );
   });
 
-  it('applies stackable codes on remaining total in order', (): void => {
-    const result = applyPromotionList(
-      [
-        promo({
-          id: 1,
-          stackable: true,
-          discount_type: 'percent',
-          discount_value: 10,
-        }),
-        promo({
-          id: 2,
-          stackable: true,
-          discount_type: 'fixed',
-          discount_value: 50,
-        }),
-      ],
-      {
-        memberId: 1,
-        nights: 2,
-        basePrice: 1000,
-        now,
-        memberUsedCountByPromoId: {},
-        walletsByPromoId: {},
-      }
-    );
-    assert.equal(result.lines[0].discount_amount, 100);
-    assert.equal(result.lines[1].discount_amount, 50);
-    assert.equal(result.totalPrice, 850);
-    assert.equal(result.headerPromotionId, null);
+  it('applies stackable codes deterministically (fixed before percent)', (): void => {
+    const promoPercent = promo({
+      id: 1,
+      stackable: true,
+      discount_type: 'percent',
+      discount_value: 10,
+    });
+    const promoFixed = promo({
+      id: 2,
+      stackable: true,
+      discount_type: 'fixed',
+      discount_value: 50,
+    });
+    const ctx = {
+      memberId: 1,
+      nights: 2,
+      basePrice: 1000,
+      now,
+      memberUsedCountByPromoId: {},
+      walletsByPromoId: {},
+    };
+
+    // Regardless of whether percent or fixed is passed first in array
+    const result1 = applyPromotionList([promoPercent, promoFixed], ctx);
+    const result2 = applyPromotionList([promoFixed, promoPercent], ctx);
+
+    // Fixed 50 applied first: remaining 950. Percent 10% applied on 950: 95. Total 855.
+    assert.equal(result1.lines[0].discount_amount, 50);
+    assert.equal(result1.lines[1].discount_amount, 95);
+    assert.equal(result1.totalPrice, 855);
+    assert.equal(result1.headerPromotionId, null);
+
+    assert.equal(result2.totalPrice, 855);
+    assert.equal(result2.lines[0].discount_amount, 50);
+    assert.equal(result2.lines[1].discount_amount, 95);
   });
 
   it('requires a saved wallet row when collectible', (): void => {

@@ -70,14 +70,23 @@ function LocationMarker({
 interface LeafletMapProps {
   position: [number, number];
   setPosition: (pos: [number, number]) => void;
+  showControls?: boolean;
 }
 
-export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
+export default function LeafletMap({
+  position,
+  setPosition,
+  showControls = true,
+}: LeafletMapProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearch = async (
+    e?: React.FormEvent | React.KeyboardEvent | React.MouseEvent
+  ) => {
+    if (e && "preventDefault" in e) {
+      e.preventDefault();
+    }
     if (!searchQuery.trim()) return;
 
     setSearching(true);
@@ -117,65 +126,72 @@ export default function LeafletMap({ position, setPosition }: LeafletMapProps) {
   };
 
   return (
-    <div className="relative w-full h-full">
-      {/* ส่วนค้นหาและปุ่มลัดสถานที่สำคัญ */}
-      <div className="absolute top-3 left-3 right-3 z-[1000] flex flex-col gap-2 max-w-lg mx-auto">
-        
-        {/* ช่องค้นหา + ปุ่ม GPS */}
-        <div className="flex gap-2">
-          <form
-            onSubmit={handleSearch}
-            className="flex-1 flex items-center bg-white/95 backdrop-blur-xs rounded-xl shadow-md border border-stone-200 overflow-hidden px-3 py-1"
-          >
-            <input
-              type="text"
-              className="w-full text-xs py-1.5 focus:outline-none text-stone-800"
-              placeholder="พิมพ์ค้นหา อําเภอ, จังหวัด (เช่น บรบือ, มหาสารคาม)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <button
-              type="submit"
-              disabled={searching}
-              className="text-stone-500 hover:text-forest-800 p-1 cursor-pointer"
+    <div className="relative w-full h-full z-0">
+      {/* ส่วนค้นหาและปุ่มลัดสถานที่สำคัญ (แสดงเฉพาะเมื่อ showControls = true) */}
+      {showControls && (
+        <div className="absolute top-2.5 left-2.5 right-2.5 z-[500] flex flex-col gap-1.5 max-w-lg mx-auto">
+          {/* ช่องค้นหา + ปุ่ม GPS */}
+          <div className="flex gap-1.5">
+            <div
+              className="flex-1 flex items-center bg-white/95 backdrop-blur-xs rounded-xl shadow-md border border-cream-200 overflow-hidden px-3 py-1"
             >
-              {searching ? (
-                <Loader2 className="w-4 h-4 animate-spin text-forest-700" />
-              ) : (
-                <Search className="w-4 h-4" />
-              )}
-            </button>
-          </form>
+              <input
+                type="text"
+                className="w-full text-xs py-1 focus:outline-none text-charcoal-800 placeholder:text-charcoal-400"
+                placeholder="พิมพ์ค้นหา อําเภอ, จังหวัด (เช่น บรบือ, มหาสารคาม)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSearch(e);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleSearch}
+                disabled={searching}
+                className="text-charcoal-400 hover:text-forest-800 p-1 cursor-pointer"
+              >
+                {searching ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-forest-800" />
+                ) : (
+                  <Search className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
 
-          <button
-            type="button"
-            onClick={handleCurrentLocation}
-            title="ตำแหน่งปัจจุบัน"
-            className="p-2.5 bg-white/95 backdrop-blur-xs text-stone-700 hover:text-forest-800 rounded-xl shadow-md border border-stone-200 flex items-center justify-center cursor-pointer shrink-0"
-          >
-            <Navigation className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* ปุ่มลัดตำแหน่งที่ใช้บ่อย (Quick Preset Buttons) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-xs font-semibold text-stone-600 bg-white/90 px-2 py-1 rounded-lg border border-stone-200 shrink-0 shadow-2xs">
-            ทางลัด:
-          </span>
-          {PRESET_LOCATIONS.map((loc) => (
             <button
-              key={loc.name}
               type="button"
-              onClick={() => setPosition(loc.coords)}
-              className="text-xs font-medium bg-forest-800/90 hover:bg-forest-900 text-white px-2.5 py-1 rounded-lg shadow-sm transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+              onClick={handleCurrentLocation}
+              title="ตำแหน่งปัจจุบัน"
+              className="p-2 bg-white/95 backdrop-blur-xs text-charcoal-700 hover:text-forest-800 rounded-xl shadow-md border border-cream-200 flex items-center justify-center cursor-pointer shrink-0"
             >
-              <MapPin className="w-3 h-3" />
-              {loc.name}
+              <Navigation className="w-3.5 h-3.5" />
             </button>
-          ))}
-        </div>
+          </div>
 
-      </div>
+          {/* ปุ่มลัดตำแหน่งที่ใช้บ่อย (Quick Preset Buttons) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+            <span className="text-[11px] font-bold text-charcoal-600 bg-white/95 px-2 py-0.5 rounded-lg border border-cream-200 shrink-0 shadow-2xs">
+              ทางลัด:
+            </span>
+            {PRESET_LOCATIONS.map((loc) => (
+              <button
+                key={loc.name}
+                type="button"
+                onClick={() => setPosition(loc.coords)}
+                className="text-[11px] font-bold bg-forest-800 hover:bg-forest-900 text-white px-2.5 py-0.5 rounded-lg shadow-2xs transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+              >
+                <MapPin className="w-2.5 h-2.5" />
+                {loc.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <MapContainer center={position} zoom={15} scrollWheelZoom={true} className="w-full h-full">
         <ChangeView center={position} />
