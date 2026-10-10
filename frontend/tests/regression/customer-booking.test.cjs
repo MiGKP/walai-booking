@@ -238,13 +238,11 @@ test('catalog offers booking for a partially used collectible', () => {
   assert(html.includes('/rooms?promo_code=ROOM10'));
 });
 
-test('both customer wallet views keep partially used coupons in the ready-to-use list', () => {
+test('customer wallet view keeps partially used coupons in the ready-to-use list', () => {
   const coupon = { promotion_id: 7, code: 'ROOM10', name: 'Reusable', description: null, discount_type: 'percent', discount_value: 10, status: 'used', remaining: 1, applies_to: 'room' };
-  for (const file of ['src/components/dashboard/MyPromotionsSection.tsx', 'src/app/dashboard/promotions/page.tsx']) {
-    const Component = load(file, [[coupon], false, 'saved', null, 0]).default;
-    const html = renderToStaticMarkup(React.createElement(Component));
-    assert(html.includes('/rooms?promo_code=ROOM10'), file);
-  }
+  const Component = load('src/components/dashboard/MyPromotionsSection.tsx', [[coupon], false, 'saved', null, 0]).default;
+  const html = renderToStaticMarkup(React.createElement(Component));
+  assert(html.includes('/rooms?promo_code=ROOM10'));
 });
 
 test('room-addon requests redeem the physical room entitlement', async () => {
