@@ -263,7 +263,13 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    const password_hash = await bcrypt.hash(password, 12);
+    const rawPassword = (password && String(password).trim()) || (phone && String(phone).trim());
+    if (!rawPassword || rawPassword.length < 8) {
+      res.status(400).json({ success: false, message: 'รหัสผ่านหรือเบอร์โทรศัพท์ต้องมีความยาวอย่างน้อย 8 ตัวอักษร' });
+      return;
+    }
+
+    const password_hash = await bcrypt.hash(rawPassword, 12);
     const result = await pool.query(
       `INSERT INTO staff (first_name, last_name, email, password, phone, role, status, address, subdistrict, district, province, postal_code)
        VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9, $10, $11) RETURNING staff_id, first_name, last_name, email, phone, role, created_at`,

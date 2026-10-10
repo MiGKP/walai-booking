@@ -67,8 +67,13 @@ export const createStaffValidator = [
   body('name').trim().notEmpty().withMessage('Name is required'),
   body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
   body('password')
-    .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters'),
+    .custom((val, { req }) => {
+      const pwd = (val && String(val).trim()) || (req.body.phone && String(req.body.phone).trim());
+      if (!pwd || pwd.length < 8) {
+        throw new Error('รหัสผ่านหรือเบอร์โทรศัพท์ต้องมีความยาวอย่างน้อย 8 ตัวอักษร');
+      }
+      return true;
+    }),
   body('role')
     .isIn(['admin', 'room_staff', 'boat_staff'])
     .withMessage('Role must be admin, room_staff, or boat_staff'),

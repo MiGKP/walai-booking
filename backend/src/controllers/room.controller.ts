@@ -1057,7 +1057,7 @@ export const createBatchSingleRooms = async (
   let client: PoolClient | null = null;
   try {
     client = await pool.connect();
-    const { rooms, room_type_id, quantity, start_number = 1 } = req.body;
+    const { rooms, room_type_id, quantity, start_number = 1, prefix: customPrefix } = req.body;
     const roomsToInsert: { roomTypeId: number; roomNumber: string }[] = [];
 
     // --- กรณีที่ 1: รับข้อมูลแบบ Mapped Array จากหน้า Visual Preview บน Frontend ---
@@ -1115,10 +1115,31 @@ export const createBatchSingleRooms = async (
         return;
       }
 
-      const typeName = typeCheck.rows[0].type_name || "";
-      const words = typeName.trim().split(/\s+/);
-      const targetWord = words[1] || words[0] || "";
-      const cleanPrefix = targetWord.charAt(0).toUpperCase();
+      let cleanPrefix = "";
+      if (typeof customPrefix === "string") {
+        cleanPrefix = customPrefix.trim().toUpperCase();
+      } else {
+        // หาจากห้องเดิมในประเภทนี้
+        const existingRoomsRes = await client.query(
+          `SELECT room_number FROM rooms WHERE room_type_id = $1 ORDER BY id DESC LIMIT 20`,
+          [parsedRoomTypeId],
+        );
+        let detected: string | null = null;
+        for (const row of existingRoomsRes.rows) {
+          const m = String(row.room_number || "").trim().match(/^([A-Za-z_-]+)(\d+)$/);
+          if (m && m[1]) {
+            detected = m[1].toUpperCase();
+            break;
+          }
+        }
+        if (detected !== null) {
+          cleanPrefix = detected;
+        } else {
+          const typeName = typeCheck.rows[0].type_name || "";
+          const englishMatch = typeName.match(/[A-Za-z]/);
+          cleanPrefix = englishMatch ? englishMatch[0].toUpperCase() : "";
+        }
+      }
 
       for (let i = 0; i < parsedQuantity; i++) {
         roomsToInsert.push({
@@ -1188,7 +1209,7 @@ export const getNextRoomNumber = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { room_type_id } = req.query;
+    const { room_type_id, prefix: requestedPrefix } = req.query;
 
     if (!room_type_id) {
       res
@@ -1197,7 +1218,7 @@ export const getNextRoomNumber = async (
       return;
     }
 
-    // 1. ดึง type_name เพื่อหา Prefix จากคำที่ 2
+    // 1. ดึงประเภทห้องเพื่อตรวจสอบความถูกต้อง
     const typeRes = await pool.query(
       `SELECT type_name FROM room_types WHERE id = $1`,
       [room_type_id],
@@ -1208,26 +1229,82 @@ export const getNextRoomNumber = async (
       return;
     }
 
-    const typeName = typeRes.rows[0].type_name || "";
-    const words = typeName.trim().split(/\s+/);
-    // ถอดตัวอักษรแรกของคำที่ 2 (หากไม่มีให้ใช้คำแรก)
-    const targetWord = words[1] || words[0] || "";
-    const prefix = targetWord.charAt(0).toUpperCase();
+    let prefix = "";
+
+    // กรณี A: ถ้าผู้ใช้ระบุ prefix มาเอง (เช่น จากการพิมพ์ใน Frontend)
+    if (typeof requestedPrefix === "string") {
+      prefix = requestedPrefix.trim().toUpperCase();
+    } else {
+      // กรณี B: ตรวจจับอัตโนมัติจากห้องพักเดิมที่มีอยู่จริงของประเภทนี้ (Smart Auto-Detect)
+      const existingRoomsRes = await pool.query(
+        `SELECT room_number 
+         FROM rooms 
+         WHERE room_type_id = $1 
+         ORDER BY id DESC 
+         LIMIT 20`,
+        [room_type_id],
+      );
+
+      let detectedPrefix: string | null = null;
+      for (const row of existingRoomsRes.rows) {
+        const numStr = String(row.room_number || "").trim();
+        const match = numStr.match(/^([A-Za-z_-]+)(\d+)$/);
+        if (match && match[1]) {
+          detectedPrefix = match[1].toUpperCase();
+          break;
+        }
+      }
+
+      if (detectedPrefix !== null) {
+        prefix = detectedPrefix;
+      } else {
+        // หากยังไม่เคยมีห้องเดิมในประเภทนี้ ให้หาตัวอักษรภาษาอังกฤษแรกในชื่อประเภท (ถ้ามี)
+        const typeName = typeRes.rows[0].type_name || "";
+        const englishMatch = typeName.match(/[A-Za-z]/);
+        if (englishMatch) {
+          prefix = englishMatch[0].toUpperCase();
+        } else {
+          // หากเป็นภาษาไทยล้วน เช่น "ห้องธรรมดา" ให้เป็นค่าว่าง (ไม่นำตัวอักษรไทยตัวแรกมาเดา)
+          prefix = "";
+        }
+      }
+    }
 
     // 2. ค้นหาเลขห้องล่าสุดที่ขึ้นต้นด้วย Prefix นี้
-    const result = await pool.query(
-      `SELECT room_number 
-       FROM rooms 
-       WHERE room_number ~ ('^' || $1 || '[0-9]+$') 
-       ORDER BY CAST(SUBSTRING(room_number FROM LENGTH($1) + 1) AS INTEGER) DESC 
-       LIMIT 1`,
-      [prefix],
-    );
-
     let nextNumber = 1;
-    if (result.rows.length > 0) {
-      const currentNumStr = result.rows[0].room_number.replace(prefix, "");
-      nextNumber = parseInt(currentNumStr, 10) + 1;
+    if (prefix) {
+      const result = await pool.query(
+        `SELECT room_number 
+         FROM rooms 
+         WHERE room_number ~* ('^' || $1 || '[0-9]+$') 
+         ORDER BY CAST(SUBSTRING(room_number FROM LENGTH($1) + 1) AS INTEGER) DESC 
+         LIMIT 1`,
+        [prefix],
+      );
+
+      if (result.rows.length > 0) {
+        const currentNumStr = result.rows[0].room_number.slice(prefix.length);
+        const parsed = parseInt(currentNumStr, 10);
+        if (!isNaN(parsed)) {
+          nextNumber = parsed + 1;
+        }
+      }
+    } else {
+      // กรณีไม่มี Prefix (ห้องเป็นตัวเลขล้วน เช่น 101, 102)
+      const result = await pool.query(
+        `SELECT room_number 
+         FROM rooms 
+         WHERE room_number ~ '^[0-9]+$' 
+         ORDER BY CAST(room_number AS INTEGER) DESC 
+         LIMIT 1`,
+      );
+
+      if (result.rows.length > 0) {
+        const parsed = parseInt(result.rows[0].room_number, 10);
+        if (!isNaN(parsed)) {
+          nextNumber = parsed + 1;
+        }
+      }
     }
 
     res.status(200).json({
