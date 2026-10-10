@@ -58,7 +58,11 @@ const ROOMS_JSON_SQL = `COALESCE((
     'subtotal', br.subtotal,
     'status', br.status,
     'checkin_at', br.checkin_at,
-    'checkout_at', br.checkout_at
+    'checkout_at', br.checkout_at,
+    'checkin_by_staff_id', br.checkin_by_staff_id,
+    'checkout_by_staff_id', br.checkout_by_staff_id,
+    'checkin_by_name', (SELECT CONCAT_WS(' ', s_in.first_name, s_in.last_name) FROM staff s_in WHERE s_in.staff_id = br.checkin_by_staff_id),
+    'checkout_by_name', (SELECT CONCAT_WS(' ', s_out.first_name, s_out.last_name) FROM staff s_out WHERE s_out.staff_id = br.checkout_by_staff_id)
   ) ORDER BY br.booking_room_id)
   FROM booking_room br
   JOIN rooms r ON r.room_id = br.room_id
@@ -1156,7 +1160,8 @@ export const updateRoomBookingStatus = async (
  *  (ต้องเรียกภายใน transaction เดียวกับที่ UPDATE booking_room มาก่อนหน้า) */
 async function syncHeaderStatusIfAllCheckedOut(
   client: import('pg').PoolClient,
-  roomBookingId: number
+  roomBookingId: number,
+  staffId?: number | null
 ): Promise<void> {
   if (!roomBookingId) return;
   const remaining = await client.query(
@@ -1166,9 +1171,9 @@ async function syncHeaderStatusIfAllCheckedOut(
   );
   if (remaining.rows[0]?.cnt === 0) {
     await client.query(
-      `UPDATE room_bookings SET status = 'checked_out', updated_at = NOW()
+      `UPDATE room_bookings SET status = 'checked_out', checkout_by_staff_id = COALESCE(checkout_by_staff_id, $2), updated_at = NOW()
        WHERE room_booking_id = $1 AND status = 'approved'`,
-      [roomBookingId]
+      [roomBookingId, staffId ?? null]
     );
   }
 }
@@ -1180,6 +1185,8 @@ export const checkinBookingRoom = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
+    const user = req.user as AuthPayload | undefined;
+    const staffId = ["admin", "room_staff", "boat_staff"].includes(user?.role || "") ? user?.id : null;
     const bookingRoomId = Number(req.params.bookingRoomId);
     if (!Number.isInteger(bookingRoomId) || bookingRoomId < 1) {
       res.status(400).json({ success: false, message: 'Invalid booking_room id' });
@@ -1231,9 +1238,9 @@ export const checkinBookingRoom = async (
 
     await client.query(
       `UPDATE booking_room
-       SET status = 'checked_in', checkin_at = NOW(), updated_at = NOW()
+       SET status = 'checked_in', checkin_at = NOW(), checkin_by_staff_id = $2, updated_at = NOW()
        WHERE booking_room_id = $1`,
-      [bookingRoomId]
+      [bookingRoomId, staffId]
     );
 
     await client.query('COMMIT');
@@ -1259,6 +1266,8 @@ export const checkoutRoomBooking = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
+    const user = req.user as AuthPayload | undefined;
+    const staffId = ["admin", "room_staff", "boat_staff"].includes(user?.role || "") ? user?.id : null;
     const { id } = req.params;
 
     await client.query('BEGIN');
@@ -1282,10 +1291,10 @@ export const checkoutRoomBooking = async (
 
     const lines = await client.query(
       `UPDATE booking_room
-       SET status = 'checked_out', checkout_at = NOW(), updated_at = NOW()
+       SET status = 'checked_out', checkout_at = NOW(), checkout_by_staff_id = $2, updated_at = NOW()
        WHERE room_booking_id = $1 AND status = 'checked_in'
        RETURNING room_id`,
-      [id]
+      [id, staffId]
     );
     if ((lines.rowCount ?? 0) === 0) {
       await safeRollback(client);
@@ -1300,7 +1309,7 @@ export const checkoutRoomBooking = async (
       );
     }
 
-    await syncHeaderStatusIfAllCheckedOut(client, Number(id));
+    await syncHeaderStatusIfAllCheckedOut(client, Number(id), staffId);
 
     await client.query('COMMIT');
     res.json({
@@ -1328,6 +1337,8 @@ export const checkoutBookingRoom = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
+    const user = req.user as AuthPayload | undefined;
+    const staffId = ["admin", "room_staff", "boat_staff"].includes(user?.role || "") ? user?.id : null;
     const bookingRoomId = Number(req.params.bookingRoomId);
     if (!Number.isInteger(bookingRoomId) || bookingRoomId < 1) {
       res.status(400).json({ success: false, message: 'Invalid booking_room id' });
@@ -1377,16 +1388,16 @@ export const checkoutBookingRoom = async (
 
     await client.query(
       `UPDATE booking_room
-       SET status = 'checked_out', checkout_at = NOW(), updated_at = NOW()
+       SET status = 'checked_out', checkout_at = NOW(), checkout_by_staff_id = $2, updated_at = NOW()
        WHERE booking_room_id = $1`,
-      [bookingRoomId]
+      [bookingRoomId, staffId]
     );
     await client.query(
       `UPDATE rooms SET status = 'available' WHERE room_id = $1 AND status <> 'maintenance'`,
       [line.room_id]
     );
 
-    await syncHeaderStatusIfAllCheckedOut(client, line.room_booking_id);
+    await syncHeaderStatusIfAllCheckedOut(client, line.room_booking_id, staffId);
 
     await client.query('COMMIT');
     res.json({ success: true, message: 'เช็คเอาต์ห้องสำเร็จ' });

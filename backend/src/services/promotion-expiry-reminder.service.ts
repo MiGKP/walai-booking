@@ -68,7 +68,7 @@ export const sendPendingPromotionExpiryReminders = async (): Promise<void> => {
             code: row.code,
             endDate: new Date(`${row.end_date}T00:00:00+07:00`).toLocaleDateString('th-TH', { dateStyle: 'medium' }),
             daysLeft: Number(row.days_left),
-            promoUrl: `${frontendUrl}/dashboard/promotions`,
+            promoUrl: `${frontendUrl}/dashboard?tab=coupons`,
           });
           console.log(`[Promo Expiry] Stage ${row.target_stage} sent to ${row.email} for wallet #${row.member_promotion_id}`);
         } catch (mailErr) {

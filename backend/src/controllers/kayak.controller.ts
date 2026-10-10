@@ -1993,6 +1993,8 @@ export const getAllKayakBookings = async (
               ) as kayak_name,
               CONCAT_WS(' ', m.first_name, m.last_name) as user_name, m.email as user_email, m.phone as user_phone,
               CONCAT_WS(' ', s.first_name, s.last_name) as approved_by_name,
+              (SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ', s_in.first_name, s_in.last_name)), ''), s_in.role) FROM staff s_in WHERE s_in.staff_id = bb.checkin_by_staff_id) AS checkin_by_name,
+              (SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ', s_out.first_name, s_out.last_name)), ''), s_out.role) FROM staff s_out WHERE s_out.staff_id = bb.checkout_by_staff_id) AS checkout_by_name,
               ${BOATS_JSON_SQL} AS boats
        ${from} ${where}
        ORDER BY bb.created_at DESC, bb.boat_booking_id DESC
@@ -2369,6 +2371,9 @@ export const updateKayakBookingStatus = async (
     if (status === "approved" || status === "rejected") {
       query += `, approved_by_staff_id = $2`;
       params.push(user.id);
+    } else if (status === "checked_out") {
+      query += `, checkout_at = COALESCE(checkout_at, NOW()), checkout_by_staff_id = COALESCE(checkout_by_staff_id, $2)`;
+      params.push(user.id);
     }
 
     if (status === "rejected") {
@@ -2486,9 +2491,12 @@ export const checkoutKayakBooking = async (
       return;
     }
 
+    const user = req.user as AuthPayload | undefined;
+    const staffId = ["admin", "boat_staff", "room_staff"].includes(user?.role || "") ? user?.id : null;
+
     await client.query(
-      `UPDATE boat_bookings SET status = 'checked_out', checkout_at = COALESCE(checkout_at, NOW()), updated_at = NOW() WHERE boat_booking_id = $1`,
-      [id],
+      `UPDATE boat_bookings SET status = 'checked_out', checkout_at = COALESCE(checkout_at, NOW()), checkout_by_staff_id = COALESCE(checkout_by_staff_id, $2), updated_at = NOW() WHERE boat_booking_id = $1`,
+      [id, staffId],
     );
     await client.query(
       `UPDATE booking_boat SET status = 'checked_out', updated_at = NOW() WHERE boat_booking_id = $1`,
@@ -2613,7 +2621,11 @@ export const getKayakCheckinSessions = async (
              bb.total_price,
              bb.status,
              bb.checkin_at,
+             bb.checkin_by_staff_id,
+             (SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ', s_in.first_name, s_in.last_name)), ''), s_in.role) FROM staff s_in WHERE s_in.staff_id = bb.checkin_by_staff_id) AS checkin_by_name,
              bb.checkout_at,
+             bb.checkout_by_staff_id,
+             (SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ', s_out.first_name, s_out.last_name)), ''), s_out.role) FROM staff s_out WHERE s_out.staff_id = bb.checkout_by_staff_id) AS checkout_by_name,
              bb.is_addon,
              bb.room_booking_id,
              bb.booking_room_id,

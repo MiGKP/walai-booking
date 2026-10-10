@@ -779,6 +779,142 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
   }
 };
 
+/**
+ * ขอลบบัญชีผู้ใช้ของลูกค้า (Soft Delete + Anonymize ข้อมูลส่วนบุคคลตาม PDPA)
+ * - ต้องไม่มีการจองที่ค้างอยู่ (pending, paid, approved ที่ยังไม่ได้ check_out หรือไม่ได้ cancelled/rejected)
+ * - ถ้ามีรหัสผ่าน ให้ตรวจยืนยัน password เพื่อความปลอดภัย
+ * - เปลี่ยนข้อมูลส่วนบุคคลเป็นนิรนาม (Anonymized) และปลด email/google_id
+ * - ปิดสถานะบัญชี is_active = false, deleted_at = NOW()
+ */
+export const deleteAccount = async (req: Request, res: Response): Promise<void> => {
+  const client = await pool.connect();
+  try {
+    const authUser = req.user as AuthPayload;
+    if (authUser.role !== 'customer') {
+      res.status(403).json({ success: false, message: 'เฉพาะบัญชีลูกค้าเท่านั้นที่สามารถดำเนินการนี้ได้' });
+      return;
+    }
+
+    const { password } = req.body;
+
+    await client.query('BEGIN');
+
+    // 1. ตรวจสอบข้อมูลผู้ใช้
+    const userRes = await client.query(
+      'SELECT member_id, password, auth_provider, image_profile, email FROM members WHERE member_id = $1 FOR UPDATE',
+      [authUser.id]
+    );
+
+    if (userRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, message: 'ไม่พบบัญชีผู้ใช้' });
+      return;
+    }
+
+    const member = userRes.rows[0];
+
+    // ถ้าบัญชีมีรหัสผ่าน ต้องตรวจความถูกต้องของรหัสผ่าน
+    if (member.password) {
+      if (!password || typeof password !== 'string') {
+        await client.query('ROLLBACK');
+        res.status(400).json({ success: false, message: 'กรุณากรอกรหัสผ่านเพื่อยืนยันการลบบัญชี' });
+        return;
+      }
+      const isValid = await bcrypt.compare(password, member.password);
+      if (!isValid) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ success: false, message: 'รหัสผ่านไม่ถูกต้อง' });
+        return;
+      }
+    }
+
+    // 2. ตรวจสอบว่ามีการจองห้องพักที่ยังไม่เสร็จสิ้นหรือไม่
+    const activeRoomBookings = await client.query(
+      `SELECT room_booking_id FROM room_bookings
+       WHERE member_id = $1 AND status IN ('pending', 'paid', 'approved')
+       LIMIT 1`,
+      [authUser.id]
+    );
+
+    if (activeRoomBookings.rows.length > 0) {
+      await client.query('ROLLBACK');
+      res.status(400).json({
+        success: false,
+        message: 'ไม่สามารถลบบัญชีได้เนื่องจากคุณมีรายการจองห้องพักที่รอดำเนินการหรือยังไม่ได้เช็คเอาท์',
+      });
+      return;
+    }
+
+    // 3. ตรวจสอบว่ามีการจองเรือคายัคที่ยังไม่เสร็จสิ้นหรือไม่
+    const activeBoatBookings = await client.query(
+      `SELECT boat_booking_id FROM boat_bookings
+       WHERE member_id = $1 AND status IN ('pending', 'paid', 'approved')
+       LIMIT 1`,
+      [authUser.id]
+    );
+
+    if (activeBoatBookings.rows.length > 0) {
+      await client.query('ROLLBACK');
+      res.status(400).json({
+        success: false,
+        message: 'ไม่สามารถลบบัญชีได้เนื่องจากคุณมีรายการจองกิจกรรมเรือที่รอดำเนินการหรือยังไม่ได้เสร็จสิ้น',
+      });
+      return;
+    }
+
+    // 4. ลบรูปโปรไฟล์ออกจาก Cloudinary หากมี (fire-and-forget เพื่อไม่บล็อกถ้าลบไม่สำเร็จ)
+    if (member.image_profile) {
+      const publicId = extractCloudinaryPublicId(member.image_profile);
+      if (publicId) {
+        deleteCloudinaryImage(publicId).catch((err) =>
+          console.error('Failed to delete avatar from Cloudinary on account deletion:', err)
+        );
+      }
+    }
+
+    // 5. เคลียร์คูปองในกระเป๋าที่ยังไม่ได้ใช้
+    await client.query(
+      `DELETE FROM member_promotions WHERE member_id = $1 AND status = 'saved'`,
+      [authUser.id]
+    );
+
+    // 6. ทำให้นิรนาม (Anonymize) และปิดบัญชี
+    const anonymousEmail = `deleted_${authUser.id}_${Date.now()}@privacy.local`;
+    await client.query(
+      `UPDATE members
+       SET first_name = 'ผู้ใช้งาน',
+           last_name = 'ที่ถูกลบ',
+           email = $1,
+           phone = NULL,
+           line_id = NULL,
+           facebook = NULL,
+           image_profile = NULL,
+           avatar_url = NULL,
+           google_id = NULL,
+           password = NULL,
+           password_changed_at = NOW(),
+           is_active = false,
+           deleted_at = NOW(),
+           updated_at = NOW()
+       WHERE member_id = $2`,
+      [anonymousEmail, authUser.id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: 'บัญชีของคุณถูกลบและทำให้นิรนามเรียบร้อยแล้ว ขอบคุณที่เคยใช้บริการ',
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Delete account error:', error);
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการลบบัญชี' });
+  } finally {
+    client.release();
+  }
+};
+
 // ดึงรายชื่อสมาชิกทั้งหมด พร้อม filter ด้วย name/email และสถานะ
 export const getAllMembers = async (req: Request, res: Response): Promise<void> => {
   try {

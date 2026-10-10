@@ -169,7 +169,7 @@ Typical room flow:
 - `applies_to` is `room` | `kayak` | `both` (existing rows default `both`). Validate and booking create must send `scope: 'room' | 'kayak'`. Wrong type returns 400 Thai.
 - Restore global `usage_count` only when header was `pending` or `paid` and becomes `cancelled` or `rejected`.
 - Room header `promotion_id` is set only when exactly one code is applied. Kayak uses ledger rows only.
-- Customer collect UI: `/promotions` (catalog + เก็บคูปอง) and `/dashboard/coupons` (wallet, shown even when empty). `GET /api/promotions/active` may include `wallet_status` when a customer JWT is present.
+- Customer collect UI: `/promotions` (catalog + เก็บคูปอง) and `/dashboard?tab=coupons` (wallet in dashboard, shown even when empty). `GET /api/promotions/active` may include `wallet_status` when a customer JWT is present.
 
 ### Mail
 
