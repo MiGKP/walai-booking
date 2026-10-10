@@ -22,9 +22,8 @@ import {
   User as UserIcon,
   Clock,
   Globe,
-  MessageCircle,
-  Facebook,
-} from "lucide-react";
+  MessageCircle} from 'lucide-react';
+import { SiFacebook as Facebook } from '@icons-pack/react-simple-icons';
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
@@ -228,7 +227,7 @@ export default function AdminMembersPage() {
                   setSearch(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full pl-9 pr-8 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full pl-9 pr-8 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
               />
               {search && (
                 <button
@@ -440,12 +439,12 @@ export default function AdminMembersPage() {
                               })
                             }
                             title={isActive ? "ระงับการใช้งาน" : "เปิดการใช้งาน"}
-                            className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-forest-800/20 ${
+                            className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 ${
                               isActive ? "bg-forest-800" : "bg-charcoal-300"
                             }`}
                           >
                             <span
-                              className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${
+                              className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform ${
                                 isActive ? "translate-x-5" : "translate-x-1"
                               }`}
                             />

@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import type { Transporter, SendMailOptions } from 'nodemailer';
 
 const requiredMailEnv = ['MAIL_HOST', 'MAIL_PORT', 'MAIL_USER', 'MAIL_PASS'] as const;
 
@@ -124,7 +125,7 @@ const sendViaResend = async (payload: MailPayload): Promise<boolean> => {
   return true;
 };
 
-const createGmailTransporter = (secure: boolean): nodemailer.Transporter => {
+const createGmailTransporter = (secure: boolean): Transporter => {
   const port = secure ? 465 : 587;
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
@@ -143,7 +144,7 @@ const createGmailTransporter = (secure: boolean): nodemailer.Transporter => {
   });
 };
 
-const createGenericTransporter = (): nodemailer.Transporter => {
+const createGenericTransporter = (): Transporter => {
   return nodemailer.createTransport({
     host: String(process.env.MAIL_HOST),
     port: Number(process.env.MAIL_PORT),
@@ -166,7 +167,7 @@ const sendViaSmtp = async (payload: MailPayload): Promise<void> => {
 
   const host = String(process.env.MAIL_HOST || '');
   const isGmail = host.includes('gmail.com');
-  const mailOptions: nodemailer.SendMailOptions = {
+  const mailOptions: SendMailOptions = {
     from: getMailFrom(),
     to: payload.to,
     subject: payload.subject,
@@ -209,7 +210,7 @@ const getMailProvider = (): 'brevo' | 'resend' | 'smtp' => {
   return 'smtp';
 };
 
-const sendMailSafely = async (options: nodemailer.SendMailOptions): Promise<void> => {
+const sendMailSafely = async (options: SendMailOptions): Promise<void> => {
   const payload: MailPayload = {
     to: String(options.to),
     subject: String(options.subject || ''),

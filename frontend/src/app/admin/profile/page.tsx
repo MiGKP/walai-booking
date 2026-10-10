@@ -10,9 +10,8 @@ import {
   Lock,
   ShieldCheck,
   MessageSquare,
-  Facebook,
-  MapPin,
-} from "lucide-react";
+  MapPin} from 'lucide-react';
+import { SiFacebook as Facebook } from '@icons-pack/react-simple-icons';
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -98,7 +97,7 @@ export default function AdminProfilePage() {
     /* ปรับ p-2 md:p-3 ให้ชิดขอบบนมากขึ้น และ space-y-3 ให้ช่องว่างระหว่างการ์ดแคบลง */
     <div className="w-full p-2 md:p-3 space-y-3 font-sans">
       {/* Header Card - Compact */}
-      <div className="bg-white rounded-2xl p-3.5 md:p-4 border border-stone-200/80 shadow-sm flex items-center gap-3.5">
+      <div className="bg-white rounded-2xl p-3.5 md:p-4 border border-stone-200/80 shadow-xs flex items-center gap-3.5">
         <div className="w-10 h-10 rounded-xl bg-[#133E31]/10 flex items-center justify-center text-[#133E31] shrink-0">
           <ShieldCheck size={24} />
         </div>
@@ -118,7 +117,7 @@ export default function AdminProfilePage() {
       {/* Grid 2 ฝั่ง - ชิดบนมากขึ้น */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 items-start">
         {/* การ์ดฝั่งซ้าย: ข้อมูลส่วนตัว */}
-        <div className="bg-white rounded-2xl p-4 md:p-5 border border-stone-200/80 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-stone-200/80 shadow-xs">
           <div className="flex items-center gap-2 pb-2.5 mb-3 border-b border-stone-100">
             <User className="text-[#133E31]" size={18} />
             <h2 className="text-base font-bold text-[#133E31]">
@@ -135,7 +134,7 @@ export default function AdminProfilePage() {
                 <input
                   type="text"
                   required
-                  className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
+                  className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                   value={profile.first_name}
                   onChange={(e) =>
                     setProfile({ ...profile, first_name: e.target.value })
@@ -148,7 +147,7 @@ export default function AdminProfilePage() {
                 </label>
                 <input
                   type="text"
-                  className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
+                  className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                   value={profile.last_name}
                   onChange={(e) =>
                     setProfile({ ...profile, last_name: e.target.value })
@@ -186,7 +185,7 @@ export default function AdminProfilePage() {
                 />
                 <input
                   type="tel"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                   placeholder="08X-XXX-XXXX"
                   value={profile.phone}
                   onChange={(e) =>
@@ -208,7 +207,7 @@ export default function AdminProfilePage() {
                   />
                   <input
                     type="text"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                     placeholder="line_admin"
                     value={profile.line_id}
                     onChange={(e) =>
@@ -228,7 +227,7 @@ export default function AdminProfilePage() {
                   />
                   <input
                     type="text"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                     placeholder="ชื่อ Facebook"
                     value={profile.facebook}
                     onChange={(e) =>
@@ -250,7 +249,7 @@ export default function AdminProfilePage() {
                 />
                 <textarea
                   rows={2}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30 resize-none"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30 resize-none"
                   placeholder="กรอกที่อยู่ปัจจุบัน..."
                   value={profile.address}
                   onChange={(e) =>
@@ -264,7 +263,7 @@ export default function AdminProfilePage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-2 bg-[#133E31] hover:bg-[#0D2B22] text-white text-sm font-semibold rounded-xl flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50"
+                className="px-4 py-2 bg-[#133E31] hover:bg-[#0D2B22] text-white text-sm font-semibold rounded-xl flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
               >
                 <Save size={15} />
                 {saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
@@ -274,7 +273,7 @@ export default function AdminProfilePage() {
         </div>
 
         {/* การ์ดฝั่งขวา: เปลี่ยนรหัสผ่าน */}
-        <div className="bg-white rounded-2xl p-4 md:p-5 border border-stone-200/80 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 md:p-5 border border-stone-200/80 shadow-xs">
           <div className="flex items-center gap-2 pb-2.5 mb-3 border-b border-stone-100">
             <Lock className="text-[#133E31]" size={18} />
             <h2 className="text-base font-bold text-[#133E31]">
@@ -290,7 +289,7 @@ export default function AdminProfilePage() {
               <input
                 type="password"
                 required
-                className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
+                className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                 value={passwords.current_password}
                 onChange={(e) =>
                   setPasswords({
@@ -309,7 +308,7 @@ export default function AdminProfilePage() {
                 type="password"
                 required
                 minLength={6}
-                className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
+                className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                 value={passwords.new_password}
                 onChange={(e) =>
                   setPasswords({ ...passwords, new_password: e.target.value })
@@ -325,7 +324,7 @@ export default function AdminProfilePage() {
                 type="password"
                 required
                 minLength={6}
-                className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
+                className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                 value={passwords.confirm}
                 onChange={(e) =>
                   setPasswords({ ...passwords, confirm: e.target.value })

@@ -72,7 +72,7 @@ function CustomSelect({
           e.preventDefault();
           setIsOpen(!isOpen);
         }}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-cream-50/80 hover:bg-cream-100/70 border border-charcoal-200/60 rounded-xl text-xs font-semibold text-charcoal-800 transition-all focus:outline-none focus:ring-2 focus:ring-forest-500/20 shadow-2xs"
+        className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-cream-50/80 hover:bg-cream-100/70 border border-charcoal-200/60 rounded-xl text-xs font-semibold text-charcoal-800 transition-all focus:outline-hidden focus:ring-2 focus:ring-forest-500/20 shadow-2xs"
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
@@ -590,7 +590,7 @@ export default function AdminReviewsPage() {
               placeholder="ค้นหาชื่อผู้รีวิว, อีเมล, ชื่อห้อง, หรือข้อความ..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-9 pr-9 py-2 rounded-xl border border-charcoal-200/60 focus:outline-none focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
+              className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-9 pr-9 py-2 rounded-xl border border-charcoal-200/60 focus:outline-hidden focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
             />
             {searchInput && (
               <button
@@ -631,7 +631,7 @@ export default function AdminReviewsPage() {
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="bg-transparent font-semibold text-forest-900 focus:outline-none cursor-pointer pr-1"
+                className="bg-transparent font-semibold text-forest-900 focus:outline-hidden cursor-pointer pr-1"
               >
                 <option value={5}>5 แถว</option>
                 <option value={10}>10 แถว</option>

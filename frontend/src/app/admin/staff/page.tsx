@@ -72,7 +72,7 @@ function CustomSelect({
           e.preventDefault();
           setIsOpen(!isOpen);
         }}
-        className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 border border-cream-300 rounded-2xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-none focus:ring-2 focus:ring-forest-800/20 shadow-2xs cursor-pointer"
+        className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 border border-cream-300 rounded-2xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 shadow-2xs cursor-pointer"
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
@@ -165,7 +165,7 @@ export default function StaffManagementPage() {
     setCurrentPage(1);
   }, [activeTab, statusFilter, searchQuery]);
 
-  const fetchStaff = async () => {
+  async function fetchStaff() {
     setLoading(true);
     try {
       const res = await api.get("/auth/staff");
@@ -175,7 +175,7 @@ export default function StaffManagementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -374,7 +374,7 @@ export default function StaffManagementPage() {
                   type="text"
                   required
                   placeholder="นายสมชาย ใจดี"
-                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                   value={staffForm.name}
                   onChange={(e) =>
                     setStaffForm({ ...staffForm, name: e.target.value })
@@ -390,7 +390,7 @@ export default function StaffManagementPage() {
                   type="email"
                   required
                   placeholder="staff@walai.com"
-                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                   value={staffForm.email}
                   onChange={(e) =>
                     setStaffForm({ ...staffForm, email: e.target.value })
@@ -407,7 +407,7 @@ export default function StaffManagementPage() {
                     type="password"
                     required
                     placeholder="••••••••"
-                    className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                    className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                     value={staffForm.password}
                     onChange={(e) =>
                       setStaffForm({ ...staffForm, password: e.target.value })
@@ -421,7 +421,7 @@ export default function StaffManagementPage() {
                   <input
                     type="tel"
                     placeholder="0812345678"
-                    className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                    className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                     value={staffForm.phone}
                     onChange={(e) =>
                       setStaffForm({ ...staffForm, phone: e.target.value })
@@ -449,7 +449,7 @@ export default function StaffManagementPage() {
               </span>
               <textarea
                 placeholder="บ้านเลขที่, ถนน, อาคาร"
-                className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs resize-none"
+                className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs resize-none"
                 rows={2}
                 value={staffForm.address}
                 onChange={(e) =>
@@ -460,7 +460,7 @@ export default function StaffManagementPage() {
                 <input
                   type="text"
                   placeholder="ตำบล/แขวง"
-                  className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                  className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
                   value={staffForm.subdistrict}
                   onChange={(e) =>
                     setStaffForm({
@@ -472,7 +472,7 @@ export default function StaffManagementPage() {
                 <input
                   type="text"
                   placeholder="อำเภอ/เขต"
-                  className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                  className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
                   value={staffForm.district}
                   onChange={(e) =>
                     setStaffForm({ ...staffForm, district: e.target.value })
@@ -483,7 +483,7 @@ export default function StaffManagementPage() {
                 <input
                   type="text"
                   placeholder="จังหวัด"
-                  className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                  className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
                   value={staffForm.province}
                   onChange={(e) =>
                     setStaffForm({ ...staffForm, province: e.target.value })
@@ -493,7 +493,7 @@ export default function StaffManagementPage() {
                   type="text"
                   placeholder="รหัสไปรษณีย์"
                   maxLength={5}
-                  className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                  className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
                   value={staffForm.postal_code}
                   onChange={(e) =>
                     setStaffForm({
@@ -544,7 +544,7 @@ export default function StaffManagementPage() {
                   placeholder="ค้นหาชื่อ, อีเมล หรือเบอร์โทร..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                  className="w-full pl-9 pr-8 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 />
                 {searchQuery && (
                   <button
@@ -598,7 +598,7 @@ export default function StaffManagementPage() {
             </div>
 
             {/* Role Filter Tabs */}
-            <div className="flex items-center gap-1 p-1 bg-cream-100 rounded-2xl overflow-x-auto text-xs [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex items-center gap-1 p-1 bg-cream-100 rounded-2xl overflow-x-auto text-xs scrollbar-none [&::-webkit-scrollbar]:hidden">
               <button
                 type="button"
                 onClick={() => setActiveTab("all")}
@@ -885,7 +885,7 @@ export default function StaffManagementPage() {
               <input
                 type="text"
                 required
-                className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={editingStaff?.name || ""}
                 onChange={(e) =>
                   setEditingStaff({ ...editingStaff, name: e.target.value })
@@ -901,7 +901,7 @@ export default function StaffManagementPage() {
                 <input
                   type="email"
                   required
-                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                   value={editingStaff.email}
                   onChange={(e) =>
                     setEditingStaff({
@@ -917,7 +917,7 @@ export default function StaffManagementPage() {
                 </label>
                 <input
                   type="tel"
-                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                   value={editingStaff.phone}
                   onChange={(e) =>
                     setEditingStaff({
@@ -950,7 +950,7 @@ export default function StaffManagementPage() {
                 <input
                   type="text"
                   placeholder="บ้านเลขที่, ซอย, ถนน"
-                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                  className="w-full px-3.5 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                   value={editingStaff.address}
                   onChange={(e) =>
                     setEditingStaff({
@@ -963,7 +963,7 @@ export default function StaffManagementPage() {
                   <input
                     type="text"
                     placeholder="ตำบล/แขวง"
-                    className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                    className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
                     value={editingStaff.subdistrict}
                     onChange={(e) =>
                       setEditingStaff({
@@ -975,7 +975,7 @@ export default function StaffManagementPage() {
                   <input
                     type="text"
                     placeholder="อำเภอ/เขต"
-                    className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                    className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
                     value={editingStaff.district}
                     onChange={(e) =>
                       setEditingStaff({
@@ -989,7 +989,7 @@ export default function StaffManagementPage() {
                   <input
                     type="text"
                     placeholder="จังหวัด"
-                    className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                    className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
                     value={editingStaff.province}
                     onChange={(e) =>
                       setEditingStaff({
@@ -1002,7 +1002,7 @@ export default function StaffManagementPage() {
                     type="text"
                     placeholder="รหัสไปรษณีย์"
                     maxLength={5}
-                    className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+                    className="w-full px-3 py-1.5 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
                     value={editingStaff.postal_code}
                     onChange={(e) =>
                       setEditingStaff({

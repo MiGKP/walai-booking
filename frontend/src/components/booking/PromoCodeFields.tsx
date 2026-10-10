@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Loader2, Tag, X } from 'lucide-react';
@@ -107,7 +107,6 @@ function PromoCodeFieldsInner({
   const roomTypeKey = roomTypeIds?.join(',') ?? '';
   const contextKey = JSON.stringify([basePrice, nights, scope, roomTypeKey, urlPromo]);
   const contextRef = useRef(contextKey);
-  contextRef.current = contextKey;
   const [promoCode, setPromoCode] = useState(urlPromo);
   const { notice, showNotice } = usePromoNotice();
   const [loading, setLoading] = useState(false);
@@ -116,7 +115,10 @@ function PromoCodeFieldsInner({
   const lineIdsRef = useRef<number[]>([]);
   const userClearedRef = useRef(false);
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  useLayoutEffect(() => {
+    contextRef.current = contextKey;
+    onChangeRef.current = onChange;
+  }, [contextKey, onChange]);
 
   const canStack =
     preview != null &&

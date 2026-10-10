@@ -20,7 +20,7 @@ export default function GlobalConfirmModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-charcoal-900/40 backdrop-blur-[2px] transition-opacity">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-charcoal-900/40 backdrop-blur-[2px] transition-opacity">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl animate-in fade-in zoom-in-95 duration-200 m-4">
         <h3 className={`text-lg font-bold ${danger ? 'text-rose-700' : 'text-charcoal-900'}`}>
           {title}
@@ -41,7 +41,7 @@ export default function GlobalConfirmModal() {
           <button
             onClick={handleConfirm}
             disabled={loading}
-            className={`rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-forest-700 hover:bg-forest-800'
             }`}
           >

@@ -103,7 +103,7 @@ function Stepper({
         }}
         onFocus={(e) => e.currentTarget.select()}
         aria-label={ariaLabel}
-        className="h-7 w-9 rounded-md border border-stone-200 bg-white text-center text-sm font-bold tabular-nums text-forest-900 transition-colors focus:border-forest-400 focus:outline-none"
+        className="h-7 w-9 rounded-md border border-stone-200 bg-white text-center text-sm font-bold tabular-nums text-forest-900 transition-colors focus:border-forest-400 focus:outline-hidden"
       />
       <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`เพิ่ม${ariaLabel}`} className={btn}><Plus size={13} /></button>
     </div>
@@ -145,11 +145,11 @@ function ImageModal({ images, initialIndex, onClose }: { images: string[]; initi
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md transition-opacity duration-300" 
+      className="fixed inset-0 z-100 flex items-center justify-center bg-black/95 backdrop-blur-md transition-opacity duration-300"
       onClick={onClose}
     >
       {/* Header / Top Bar */}
-      <div className="absolute left-0 top-0 z-[101] flex w-full items-center justify-between bg-gradient-to-b from-black/80 to-transparent p-4 sm:p-6 pb-12 pointer-events-none">
+      <div className="absolute left-0 top-0 z-101 flex w-full items-center justify-between bg-linear-to-b from-black/80 to-transparent p-4 sm:p-6 pb-12 pointer-events-none">
         <div className="text-sm font-semibold tracking-widest text-white/80">
           {currentIndex + 1} / {images.length}
         </div>
@@ -165,7 +165,7 @@ function ImageModal({ images, initialIndex, onClose }: { images: string[]; initi
       {/* Previous Button */}
       {images.length > 1 && (
         <button 
-          className="absolute left-3 sm:left-8 top-1/2 z-[101] -translate-y-1/2 rounded-full bg-white/10 p-3.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
+          className="absolute left-3 sm:left-8 top-1/2 z-101 -translate-y-1/2 rounded-full bg-white/10 p-3.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
           onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1)); }}
           aria-label="Previous image"
         >
@@ -188,7 +188,7 @@ function ImageModal({ images, initialIndex, onClose }: { images: string[]; initi
       {/* Next Button */}
       {images.length > 1 && (
         <button 
-          className="absolute right-3 sm:right-8 top-1/2 z-[101] -translate-y-1/2 rounded-full bg-white/10 p-3.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
+          className="absolute right-3 sm:right-8 top-1/2 z-101 -translate-y-1/2 rounded-full bg-white/10 p-3.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
           onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0)); }}
           aria-label="Next image"
         >
@@ -199,7 +199,7 @@ function ImageModal({ images, initialIndex, onClose }: { images: string[]; initi
       {/* Thumbnails / Pagination */}
       {images.length > 1 && (
         <div 
-          className="absolute bottom-8 left-1/2 z-[101] flex -translate-x-1/2 gap-2.5 rounded-full bg-black/60 px-5 py-3 backdrop-blur-md ring-1 ring-white/15"
+          className="absolute bottom-8 left-1/2 z-101 flex -translate-x-1/2 gap-2.5 rounded-full bg-black/60 px-5 py-3 backdrop-blur-md ring-1 ring-white/15"
           onClick={(e) => e.stopPropagation()}
         >
           {images.map((_, idx) => (
@@ -739,7 +739,7 @@ function KayaksPageContent(): React.ReactElement {
                       <div className="space-y-1.5 min-w-0 max-w-full">
                         <div
                           ref={slotScrollRef}
-                          className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                          className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden"
                         >
                           {scheduleSlots.length === 0
                             ? [0, 1, 2].map((i) => <div key={i} className="h-14 w-28 shrink-0 animate-pulse rounded-xl bg-stone-100 snap-start" />)
@@ -761,7 +761,7 @@ function KayaksPageContent(): React.ReactElement {
                     ) : slotsLoading ? (
                       <div
                         ref={slotScrollRef}
-                        className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden"
                       >
                         {[0, 1, 2].map((i) => <div key={i} className="h-14 w-28 shrink-0 animate-pulse rounded-xl bg-stone-100 snap-start" />)}
                       </div>
@@ -771,7 +771,7 @@ function KayaksPageContent(): React.ReactElement {
                       <div className="space-y-1 min-w-0 max-w-full">
                         <div
                           ref={slotScrollRef}
-                          className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                          className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden"
                         >
                           {slots.map((slot) => {
                             const isSelected = slot.key === selectedSlotKey;
@@ -814,7 +814,7 @@ function KayaksPageContent(): React.ReactElement {
                         <select
                           value={typeFilter}
                           onChange={(e) => setTypeFilter(e.target.value)}
-                          className="w-full appearance-none rounded-xl border border-stone-200 bg-white px-3 py-1.5 pr-8 text-xs font-semibold text-charcoal-500 outline-none transition-colors hover:border-forest-300 focus:border-forest-500 focus:ring-2 focus:ring-forest-500/20"
+                          className="w-full appearance-none rounded-xl border border-stone-200 bg-white px-3 py-1.5 pr-8 text-xs font-semibold text-charcoal-500 outline-hidden transition-colors hover:border-forest-300 focus:border-forest-500 focus:ring-2 focus:ring-forest-500/20"
                         >
                           <option value="all">ทุกประเภท</option>
                           {typeOptions.map((type) => (
@@ -875,7 +875,7 @@ function KayaksPageContent(): React.ReactElement {
                             className={`group relative overflow-hidden rounded-2xl border transition-all ${
                               isFull || (!hasRound && !noDateYet) 
                                 ? 'border-stone-100 bg-stone-50/40 opacity-75' 
-                                : 'border-stone-200/80 bg-white hover:border-forest-300 hover:shadow-sm'
+                                : 'border-stone-200/80 bg-white hover:border-forest-300 hover:shadow-xs'
                             }`}
                           >
                             <div className="flex flex-col sm:flex-row sm:items-stretch">
@@ -885,7 +885,7 @@ function KayaksPageContent(): React.ReactElement {
                                   {boat.image ? (
                                     <>
                                       <img src={resolveMediaUrl(boat.image)} alt={boat.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60 pointer-events-none" />
+                                      <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent opacity-60 pointer-events-none" />
                                       
                                       {boat.images && boat.images.length > 0 && (
                                         <button 

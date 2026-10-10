@@ -49,13 +49,7 @@ export default function PoliciesSettingsPage() {
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (ready) {
-      fetchPolicies();
-    }
-  }, [ready]);
-
-  const fetchPolicies = async () => {
+  async function fetchPolicies() {
     try {
       setLoading(true);
       setLoadError(false);
@@ -82,7 +76,13 @@ export default function PoliciesSettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    if (ready) {
+      fetchPolicies();
+    }
+  }, [ready]);
 
   const handleSave = async () => {
     const infantAge = Number(form.infant_max_age_exclusive);
@@ -277,7 +277,7 @@ export default function PoliciesSettingsPage() {
                     onChange={(e) =>
                       setForm({ ...form, checkin_time_from: e.target.value })
                     }
-                    className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-medium font-mono text-charcoal-900 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-medium font-mono text-charcoal-900 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-hidden transition-all"
                   />
                   <span className="text-charcoal-400 font-medium">-</span>
                   <input
@@ -286,7 +286,7 @@ export default function PoliciesSettingsPage() {
                     onChange={(e) =>
                       setForm({ ...form, checkin_time_to: e.target.value })
                     }
-                    className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-medium font-mono text-charcoal-900 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-medium font-mono text-charcoal-900 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-hidden transition-all"
                   />
                 </div>
               </div>
@@ -300,7 +300,7 @@ export default function PoliciesSettingsPage() {
                   onChange={(e) =>
                     setForm({ ...form, checkout_time: e.target.value })
                   }
-                  className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-medium font-mono text-charcoal-900 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-medium font-mono text-charcoal-900 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-hidden transition-all"
                 />
               </div>
             </div>
@@ -347,7 +347,7 @@ export default function PoliciesSettingsPage() {
                       infant_max_age_exclusive: e.target.value,
                     })
                   }
-                  className="w-32 px-3.5 py-2 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-bold font-mono text-forest-950 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-none transition-all"
+                  className="w-32 px-3.5 py-2 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-bold font-mono text-forest-950 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-hidden transition-all"
                 />
                 <p className="mt-1.5 text-xs text-charcoal-400">
                   เด็กที่อายุต่ำกว่าค่านี้เข้าพักฟรีและไม่นับความจุห้อง
@@ -377,7 +377,7 @@ export default function PoliciesSettingsPage() {
                   setForm({ ...form, parking_info: e.target.value })
                 }
                 placeholder="มีลานจอดรถส่วนตัวให้บริการฟรีในบริเวณรีสอร์ต พร้อมระบบรักษาความปลอดภัย 24 ชม."
-                className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-medium text-charcoal-900 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-none transition-all leading-relaxed placeholder:text-charcoal-400"
+                className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs sm:text-sm font-medium text-charcoal-900 focus:bg-white focus:ring-2 focus:ring-forest-800/15 focus:border-forest-700 focus:outline-hidden transition-all leading-relaxed placeholder:text-charcoal-400"
               />
             </div>
           </div>
@@ -448,7 +448,7 @@ export default function PoliciesSettingsPage() {
                       const m = Number(form.boat_checkin_advance_minutes) % 60;
                       setForm({ ...form, boat_checkin_advance_minutes: h * 60 + m });
                     }}
-                    className="w-16 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                    className="w-16 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-hidden focus:ring-2 focus:ring-forest-800/15"
                   />
                   <span className="text-xs sm:text-sm font-semibold text-charcoal-700">
                     ชม.
@@ -468,7 +468,7 @@ export default function PoliciesSettingsPage() {
                       const h = Math.floor(Number(form.boat_checkin_advance_minutes) / 60);
                       setForm({ ...form, boat_checkin_advance_minutes: h * 60 + m });
                     }}
-                    className="w-16 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                    className="w-16 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-hidden focus:ring-2 focus:ring-forest-800/15"
                   />
                   <span className="text-xs sm:text-sm font-semibold text-charcoal-700">
                     นาที

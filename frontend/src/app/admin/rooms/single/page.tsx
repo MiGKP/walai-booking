@@ -74,7 +74,7 @@ function CustomSelect({
           e.preventDefault();
           setIsOpen(!isOpen);
         }}
-        className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-cream-50/80 hover:bg-white border border-cream-300 hover:border-forest-300 rounded-2xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-none focus:ring-2 focus:ring-forest-500/20 shadow-xs cursor-pointer"
+        className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-cream-50/80 hover:bg-white border border-cream-300 hover:border-forest-300 rounded-2xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-hidden focus:ring-2 focus:ring-forest-500/20 shadow-xs cursor-pointer"
       >
         <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
         <ChevronDown
@@ -166,7 +166,7 @@ function SingleRoomsPageContent() {
     setCurrentPage(1);
   }, [search, statusFilter, typeFilter, itemsPerPage]);
 
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     try {
       const [rtRes, srRes] = await Promise.all([
@@ -180,7 +180,7 @@ function SingleRoomsPageContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const handleResetForm = () => {
     setEditingRoomId(null);
@@ -533,7 +533,7 @@ function SingleRoomsPageContent() {
                       setStartNumInput(1);
                     }
                   }}
-                  className="w-full px-3.5 py-2 bg-cream-50/80 focus:bg-white border border-cream-300 focus:border-forest-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-500/20"
+                  className="w-full px-3.5 py-2 bg-cream-50/80 focus:bg-white border border-cream-300 focus:border-forest-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-500/20"
                 />
               </div>
 
@@ -575,7 +575,7 @@ function SingleRoomsPageContent() {
                         setQuantityInput(1);
                       }
                     }}
-                    className="w-full text-center py-2 bg-cream-50/80 border-y border-cream-300 text-xs font-bold text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-500/20"
+                    className="w-full text-center py-2 bg-cream-50/80 border-y border-cream-300 text-xs font-bold text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-500/20"
                   />
 
                   <button
@@ -603,7 +603,7 @@ function SingleRoomsPageContent() {
                   required
                   value={roomNumberInput}
                   onChange={(e) => setRoomNumberInput(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-cream-50/80 focus:bg-white border border-cream-300 focus:border-forest-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-500/20"
+                  className="w-full px-3.5 py-2 bg-cream-50/80 focus:bg-white border border-cream-300 focus:border-forest-300 rounded-2xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-500/20"
                 />
               </div>
 
@@ -754,7 +754,7 @@ function SingleRoomsPageContent() {
                 placeholder="ค้นหาหมายเลขห้อง..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-10 pr-8 py-2 rounded-2xl border border-cream-300 focus:outline-none focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
+                className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-10 pr-8 py-2 rounded-2xl border border-cream-300 focus:outline-hidden focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
               />
               {search && (
                 <button
@@ -782,7 +782,7 @@ function SingleRoomsPageContent() {
 
           {/* Right: Status Filter Tabs & Reset Button */}
           <div className="flex items-center gap-2 flex-wrap shrink-0">
-            <div className="flex items-center gap-1 bg-cream-100 p-1 rounded-2xl overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex items-center gap-1 bg-cream-100 p-1 rounded-2xl overflow-x-auto scrollbar-none [&::-webkit-scrollbar]:hidden">
               {(
                 [
                   ["all", "ทั้งหมด", singleRooms.length],
@@ -799,7 +799,7 @@ function SingleRoomsPageContent() {
                     onClick={() => setStatusFilter(val as any)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
                       active
-                        ? "bg-white text-forest-900 shadow-sm font-bold"
+                        ? "bg-white text-forest-900 shadow-xs font-bold"
                         : "text-charcoal-600 hover:text-charcoal-900 hover:bg-cream-200/60"
                     }`}
                   >

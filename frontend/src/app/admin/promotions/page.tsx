@@ -140,7 +140,7 @@ function CustomSelect({
           e.preventDefault();
           setIsOpen(!isOpen);
         }}
-        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 bg-cream-50/50 hover:bg-cream-100/60 border border-cream-200 rounded-xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
+        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 bg-cream-50/50 hover:bg-cream-100/60 border border-cream-200 rounded-xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
@@ -260,7 +260,7 @@ export default function PromotionsPage() {
     setCurrentPage(1);
   }, [search]);
 
-  const fetchPromotions = async () => {
+  async function fetchPromotions() {
     setLoading(true);
     try {
       const res = await api.get("/promotions");
@@ -270,16 +270,16 @@ export default function PromotionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const fetchRoomTypes = async () => {
+  async function fetchRoomTypes() {
     try {
       const res = await api.get("/rooms");
       setRoomTypes(res.data?.data || res.data || []);
     } catch (err) {
       console.error("โหลดข้อมูลประเภทห้องพักไม่สำเร็จ", err);
     }
-  };
+  }
 
   const roomTypeOptions = [
     { value: "", label: "ทุกประเภทห้องพัก" },
@@ -723,7 +723,7 @@ export default function PromotionsPage() {
             />
             <input
               type="text"
-              className="w-full pl-9 pr-8 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+              className="w-full pl-9 pr-8 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
               placeholder="ค้นหาชื่อหรือโค้ดโปรโมชั่น..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -941,7 +941,7 @@ export default function PromotionsPage() {
                             <button
                               disabled={!canEdit}
                               onClick={() => handleToggle(p)}
-                              className="inline-flex items-center focus:outline-none transition-transform active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="inline-flex items-center focus:outline-hidden transition-transform active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {p.is_active ? (
                                 <span className="inline-flex items-center gap-1.5 text-xs bg-forest-50 text-forest-800 border border-forest-200 font-semibold px-2.5 py-1 rounded-full">
@@ -1169,7 +1169,7 @@ export default function PromotionsPage() {
                 โค้ดโปรโมชั่น / แพ็คเกจ <span className="text-rose-500">*</span>
               </label>
               <input
-                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold uppercase text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold uppercase text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={form.code}
                 onChange={(e) =>
                   setForm((f) => ({
@@ -1186,7 +1186,7 @@ export default function PromotionsPage() {
                 ชื่อแพ็คเกจ / โปรโมชั่น <span className="text-rose-500">*</span>
               </label>
               <input
-                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={form.name}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, name: e.target.value }))
@@ -1202,7 +1202,7 @@ export default function PromotionsPage() {
               คำอธิบาย / รายละเอียดแพ็คเกจ
             </label>
             <textarea
-              className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all resize-none shadow-2xs"
+              className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all resize-none shadow-2xs"
               rows={2}
               value={form.description}
               onChange={(e) =>
@@ -1234,7 +1234,7 @@ export default function PromotionsPage() {
               <input
                 type="number"
                 min="1"
-                className="w-full bg-white border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
+                className="w-full bg-white border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
                 value={form.room_count}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, room_count: e.target.value }))
@@ -1248,7 +1248,7 @@ export default function PromotionsPage() {
               <input
                 type="number"
                 min="0"
-                className="w-full bg-white border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
+                className="w-full bg-white border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
                 value={form.boat_ticket_count}
                 onChange={(e) =>
                   setForm((f) => ({
@@ -1306,7 +1306,7 @@ export default function PromotionsPage() {
                   <input
                     type="number"
                     min="0"
-                    className="w-full bg-white border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
+                    className="w-full bg-white border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
                     value={form.boat_addon_price}
                     onChange={(e) =>
                       setForm((f) => ({
@@ -1350,7 +1350,7 @@ export default function PromotionsPage() {
                 min="0"
                 max={form.discount_type === "percent" ? "100" : undefined}
                 step="0.01"
-                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={form.discount_value}
                 onChange={(e) =>
                   setForm((f) => ({
@@ -1374,7 +1374,7 @@ export default function PromotionsPage() {
               <input
                 type="number"
                 min="1"
-                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={form.min_nights}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, min_nights: e.target.value }))
@@ -1389,7 +1389,7 @@ export default function PromotionsPage() {
               <input
                 type="number"
                 min="0"
-                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={form.min_price}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, min_price: e.target.value }))
@@ -1404,7 +1404,7 @@ export default function PromotionsPage() {
               <input
                 type="number"
                 min="0"
-                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={form.max_discount}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, max_discount: e.target.value }))
@@ -1421,7 +1421,7 @@ export default function PromotionsPage() {
               </label>
               <input
                 type="date"
-                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={form.start_date}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, start_date: e.target.value }))
@@ -1435,7 +1435,7 @@ export default function PromotionsPage() {
               <input
                 type="date"
                 min={form.start_date}
-                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={form.end_date}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, end_date: e.target.value }))
@@ -1449,7 +1449,7 @@ export default function PromotionsPage() {
               <input
                 type="number"
                 min="1"
-                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={form.usage_limit}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, usage_limit: e.target.value }))
@@ -1467,7 +1467,7 @@ export default function PromotionsPage() {
               <input
                 type="number"
                 min="1"
-                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full bg-cream-50/50 border border-cream-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={form.usage_limit_per_member}
                 onChange={(e) =>
                   setForm((f) => ({
@@ -1537,7 +1537,7 @@ export default function PromotionsPage() {
                   setForm((f) => ({ ...f, is_active: e.target.checked }))
                 }
               />
-              <div className="w-9 h-5 bg-cream-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-cream-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-forest-800 relative"></div>
+              <div className="w-9 h-5 bg-cream-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-cream-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-forest-800 relative"></div>
               <span className="text-xs font-semibold text-charcoal-700">
                 {form.is_active ? "เปิดใช้งาน" : "ปิดใช้งาน"}
               </span>

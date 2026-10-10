@@ -107,7 +107,7 @@ export default function AdminCalendarPage() {
     fetchBookings();
   }, [ready]);
 
-  const fetchBookings = async () => {
+  async function fetchBookings() {
     setLoading(true);
     try {
       const [rb, kb] = await Promise.all([
@@ -121,7 +121,7 @@ export default function AdminCalendarPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   // ---------------- Calendar Calculation Logic ----------------
   const year = currentDate.getFullYear();
@@ -318,7 +318,7 @@ export default function AdminCalendarPage() {
                 onClick={() => setFilterType('all')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
                   filterType === 'all'
-                    ? 'bg-forest-800 text-white shadow-sm shadow-forest-800/20'
+                    ? 'bg-forest-800 text-white shadow-xs shadow-forest-800/20'
                     : 'text-charcoal-600 hover:text-forest-900 hover:bg-cream-200/50'
                 }`}
               >
@@ -328,7 +328,7 @@ export default function AdminCalendarPage() {
                 onClick={() => setFilterType('rooms')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 ${
                   filterType === 'rooms'
-                    ? 'bg-forest-800 text-white shadow-sm shadow-forest-800/20'
+                    ? 'bg-forest-800 text-white shadow-xs shadow-forest-800/20'
                     : 'text-charcoal-600 hover:text-forest-900 hover:bg-cream-200/50'
                 }`}
               >
@@ -339,7 +339,7 @@ export default function AdminCalendarPage() {
                 onClick={() => setFilterType('kayaks')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 ${
                   filterType === 'kayaks'
-                    ? 'bg-lagoon-700 text-white shadow-sm shadow-lagoon-700/20'
+                    ? 'bg-lagoon-700 text-white shadow-xs shadow-lagoon-700/20'
                     : 'text-charcoal-600 hover:text-lagoon-900 hover:bg-cream-200/50'
                 }`}
               >

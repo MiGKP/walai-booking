@@ -54,7 +54,7 @@ export default function AmenitiesPage() {
     setCurrentPage(1);
   }, [search, statusFilter]);
 
-  const fetchAmenities = async () => {
+  async function fetchAmenities() {
     setLoading(true);
     try {
       const res = await api.get("/rooms/amenities/all");
@@ -64,7 +64,7 @@ export default function AmenitiesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const handleResetForm = () => {
     setEditingAmenityId(null);
@@ -236,7 +236,7 @@ export default function AmenitiesPage() {
                 placeholder="ค้นหาชื่อสิ่งอำนวยความสะดวก..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 bg-cream-50/70 border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full pl-9 pr-8 py-2 bg-cream-50/70 border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
               />
               {search && (
                 <button
@@ -454,7 +454,7 @@ export default function AmenitiesPage() {
               type="button"
               disabled={submitting}
               onClick={() => handleSubmitForm()}
-              className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-forest-800 hover:bg-forest-900 rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-forest-800 hover:bg-forest-900 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-60"
             >
               {submitting ? (
                 <Loader2 size={15} className="animate-spin" />
@@ -483,7 +483,7 @@ export default function AmenitiesPage() {
               placeholder="เช่น เครื่องปรับอากาศ, เครื่องทำน้ำอุ่น..."
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all"
+              className="w-full px-3.5 py-2.5 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all"
             />
           </div>
 
@@ -505,7 +505,7 @@ export default function AmenitiesPage() {
               role="switch"
               aria-checked={statusInput}
               onClick={() => setStatusInput(!statusInput)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
                 statusInput ? "bg-forest-800" : "bg-cream-300"
               }`}
             >

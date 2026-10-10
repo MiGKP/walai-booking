@@ -96,7 +96,7 @@ export function Modal({ open, title, onClose, children, footer, widthClass = "ma
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-9999 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200" onClick={onClose} />
       <div role="dialog" aria-modal="true" aria-label={title || "หน้าต่างแจ้งเตือน"} className={`relative max-h-[90vh] w-full ${overflowClass} rounded-3xl bg-white shadow-2xl border border-cream-200 animate-in zoom-in-95 fade-in duration-200 ${widthClass}`}>
         {title && (

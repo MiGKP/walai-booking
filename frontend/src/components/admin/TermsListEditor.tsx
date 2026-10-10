@@ -49,7 +49,7 @@ export default function TermsListEditor({
 
   return (
     <div className="space-y-3.5">
-      <div className="space-y-2.5 overflow-y-auto pr-1 max-h-72 [scrollbar-width:thin]">
+      <div className="space-y-2.5 overflow-y-auto pr-1 max-h-72 scrollbar-thin">
         {items.map((item, index) => (
           <div key={index} className="flex items-center gap-2.5">
             <span className="w-6 shrink-0 text-center text-xs font-bold text-forest-800 bg-cream-100 rounded-lg py-1 border border-cream-200">
@@ -62,7 +62,7 @@ export default function TermsListEditor({
               placeholder={placeholder}
               value={item}
               onChange={(e) => handleChange(index, e.target.value)}
-              className="flex-1 rounded-2xl border border-cream-300 bg-cream-50/70 px-3.5 py-2 text-xs sm:text-sm font-medium text-charcoal-900 transition-all focus:border-forest-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/15 disabled:opacity-50 placeholder:text-charcoal-400"
+              className="flex-1 rounded-2xl border border-cream-300 bg-cream-50/70 px-3.5 py-2 text-xs sm:text-sm font-medium text-charcoal-900 transition-all focus:border-forest-700 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/15 disabled:opacity-50 placeholder:text-charcoal-400"
             />
             <button
               type="button"

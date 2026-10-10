@@ -125,7 +125,7 @@ export default function ReviewsPage() {
     fetchAll();
   }, [ready]);
 
-  const fetchAll = async () => {
+  async function fetchAll() {
     setLoading(true);
     try {
       const [pendingRes, doneRes] = await Promise.all([
@@ -139,7 +139,7 @@ export default function ReviewsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const openCreate = (booking: ReviewableBooking) => {
     setCreating(booking);
@@ -209,7 +209,7 @@ export default function ReviewsPage() {
   return (
     <div className="min-h-screen pt-16 bg-gray-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-forest-800 to-lagoon-700 text-white py-12">
+      <div className="bg-linear-to-r from-forest-800 to-lagoon-700 text-white py-12">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-3xl font-bold mb-2">รีวิวของฉัน</h1>
           <p className="text-cream-200">แบ่งปันประสบการณ์การพักผ่อนของคุณ</p>
@@ -218,10 +218,10 @@ export default function ReviewsPage() {
 
       <div className="container mx-auto px-4 py-8 max-w-3xl">
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 bg-white p-1.5 rounded-xl shadow-sm border border-gray-100 w-fit">
+        <div className="flex gap-2 mb-6 bg-white p-1.5 rounded-xl shadow-xs border border-gray-100 w-fit">
           <button
             onClick={() => setTab('pending')}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'pending' ? 'bg-forest-800 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-50'}`}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'pending' ? 'bg-forest-800 text-white shadow-xs' : 'text-stone-600 hover:bg-stone-50'}`}
           >
             รอรีวิว
             {reviewable.length > 0 && (
@@ -230,7 +230,7 @@ export default function ReviewsPage() {
           </button>
           <button
             onClick={() => setTab('done')}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'done' ? 'bg-forest-800 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-50'}`}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'done' ? 'bg-forest-800 text-white shadow-xs' : 'text-stone-600 hover:bg-stone-50'}`}
           >
             รีวิวแล้ว ({myReviews.length})
           </button>
@@ -241,7 +241,7 @@ export default function ReviewsPage() {
             {[1, 2].map(i => (
               <div key={i} className="card animate-pulse">
                 <div className="flex gap-4 p-5">
-                  <div className="w-20 h-20 bg-gray-200 rounded-xl flex-shrink-0" />
+                  <div className="w-20 h-20 bg-gray-200 rounded-xl shrink-0" />
                   <div className="flex-1 space-y-2">
                     <div className="h-4 bg-gray-200 rounded w-1/2" />
                     <div className="h-3 bg-gray-200 rounded w-1/3" />
@@ -263,7 +263,7 @@ export default function ReviewsPage() {
             <div className="space-y-4">
               {reviewable.map((booking) => (
                 <div key={`${booking.room_booking_id}-${booking.room_type_id}`} className="card flex flex-col sm:flex-row gap-4 p-5">
-                  <div className="w-full sm:w-24 h-40 sm:h-24 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
+                  <div className="w-full sm:w-24 h-40 sm:h-24 rounded-xl overflow-hidden bg-gray-200 shrink-0">
                     {booking.room_image ? (
                       <img src={resolveMediaUrl(booking.room_image)} alt={booking.room_name} className="w-full h-full object-cover" />
                     ) : (
@@ -298,7 +298,7 @@ export default function ReviewsPage() {
               {myReviews.map((review) => (
                 <div key={review.review_id} className="card p-5">
                   <div className="flex gap-4">
-                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
+                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-200 shrink-0">
                       {review.room_image ? (
                         <img src={resolveMediaUrl(review.room_image)} alt={review.room_name} className="w-full h-full object-cover" />
                       ) : (
@@ -308,7 +308,7 @@ export default function ReviewsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-bold text-gray-900 text-sm">{review.room_name} {review.type_name ? `(${review.type_name})` : ''}</p>
-                        <div className="flex gap-1 flex-shrink-0">
+                        <div className="flex gap-1 shrink-0">
                           <button onClick={() => openEdit(review)} className="p-1.5 hover:bg-stone-100 rounded-lg transition-colors text-stone-500 hover:text-forest-800">
                             <PenLine size={15} />
                           </button>
@@ -339,7 +339,7 @@ export default function ReviewsPage() {
 
       {/* Create Review Modal */}
       {creating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
               <h3 className="text-lg font-bold text-gray-900">เขียนรีวิว</h3>
@@ -384,7 +384,7 @@ export default function ReviewsPage() {
 
       {/* Edit Review Modal */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
               <h3 className="text-lg font-bold text-gray-900">แก้ไขรีวิว</h3>

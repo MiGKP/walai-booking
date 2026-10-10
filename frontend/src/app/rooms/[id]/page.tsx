@@ -130,12 +130,12 @@ function Stepper({ value, min = 0, max = 99, editable = true, onChange, ariaLabe
     setDraft(String(safe));
     onChange(safe);
   };
-  const btn = "grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-forest-800 transition-colors hover:border-forest-300 hover:bg-forest-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 disabled:border-stone-100 disabled:text-stone-300 disabled:hover:bg-white";
+  const btn = "grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-forest-800 transition-colors hover:border-forest-300 hover:bg-forest-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-forest-300 disabled:border-stone-100 disabled:text-stone-300 disabled:hover:bg-white";
   return (
     <div className="flex items-center gap-2">
       <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} aria-label={`ลด${ariaLabel}`} className={btn}><Minus size={13} /></button>
       {editable ? (
-        <input type="text" inputMode="numeric" value={draft} onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ""))} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} onFocus={(e) => e.currentTarget.select()} aria-label={ariaLabel} className="h-7 w-9 rounded-md border border-transparent bg-transparent text-center text-sm font-bold tabular-nums text-forest-900 transition-colors hover:border-stone-200 focus:border-forest-400 focus:bg-[#FFFFFF] focus:outline-none" />
+        <input type="text" inputMode="numeric" value={draft} onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ""))} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} onFocus={(e) => e.currentTarget.select()} aria-label={ariaLabel} className="h-7 w-9 rounded-md border border-transparent bg-transparent text-center text-sm font-bold tabular-nums text-forest-900 transition-colors hover:border-stone-200 focus:border-forest-400 focus:bg-[#FFFFFF] focus:outline-hidden" />
       ) : (
         <span className="w-9 text-center text-sm font-bold tabular-nums text-forest-900">{value}</span>
       )}
@@ -401,7 +401,7 @@ export default function RoomDetailPage(): React.ReactElement {
         <div className="relative">
           <Link
             href={`/rooms?${searchParams.toString()}`}
-            className="group absolute left-3 top-3 z-10 inline-flex items-center gap-2.5 rounded-full bg-white/90 py-1.5 pl-1.5 pr-4 text-sm font-bold text-forest-800 shadow-md backdrop-blur-sm transition-all duration-200 hover:-translate-x-0.5 hover:bg-white"
+            className="group absolute left-3 top-3 z-10 inline-flex items-center gap-2.5 rounded-full bg-white/90 py-1.5 pl-1.5 pr-4 text-sm font-bold text-forest-800 shadow-md backdrop-blur-xs transition-all duration-200 hover:-translate-x-0.5 hover:bg-white"
           >
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700 transition-colors group-hover:bg-forest-100">
               <ArrowLeft size={14} />
@@ -414,7 +414,7 @@ export default function RoomDetailPage(): React.ReactElement {
           <div className="relative overflow-hidden rounded-xl border border-stone-200/80 bg-stone-50">
             <div
               ref={galleryScrollRef}
-              className="flex h-[220px] snap-x snap-mandatory overflow-x-auto scroll-smooth sm:h-[300px] md:h-[360px] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="flex h-[220px] snap-x snap-mandatory overflow-x-auto scroll-smooth sm:h-[300px] md:h-[360px] [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden"
             >
               {galleryImages.map((img, index) => (
                 <div key={img} className="h-full w-full flex-none snap-center">
@@ -425,7 +425,7 @@ export default function RoomDetailPage(): React.ReactElement {
             <button
               type="button"
               onClick={() => setLightboxOpen(true)}
-              className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-bold text-forest-800 shadow-md backdrop-blur-sm transition-colors hover:bg-white"
+              className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-bold text-forest-800 shadow-md backdrop-blur-xs transition-colors hover:bg-white"
             >
               <Maximize2 size={13} />
               ดูภาพขยาย
@@ -436,7 +436,7 @@ export default function RoomDetailPage(): React.ReactElement {
                   type="button"
                   onClick={() => scrollToImage(activeImage - 1)}
                   disabled={activeImage === 0}
-                  className="absolute left-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-forest-800 shadow-md backdrop-blur-sm transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
+                  className="absolute left-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-forest-800 shadow-md backdrop-blur-xs transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
                 >
                   <ChevronLeft size={18} />
                 </button>
@@ -444,16 +444,16 @@ export default function RoomDetailPage(): React.ReactElement {
                   type="button"
                   onClick={() => scrollToImage(activeImage + 1)}
                   disabled={activeImage === galleryImages.length - 1}
-                  className="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-forest-800 shadow-md backdrop-blur-sm transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
+                  className="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-forest-800 shadow-md backdrop-blur-xs transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-0"
                 >
                   <ChevronRight size={18} />
                 </button>
-                <span className="absolute bottom-3 right-3 rounded-full bg-forest-950/60 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-sm">{activeImage + 1} / {galleryImages.length}</span>
+                <span className="absolute bottom-3 right-3 rounded-full bg-forest-950/60 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-xs">{activeImage + 1} / {galleryImages.length}</span>
               </>
             )}
           </div>
           {galleryImages.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
               {galleryImages.map((img, index) => (
                 <button
                   key={img}
@@ -468,16 +468,16 @@ export default function RoomDetailPage(): React.ReactElement {
           )}
           </div>
         ) : (
-          <div className="flex h-56 flex-col items-center justify-center rounded-xl border border-dashed border-stone-300 bg-white/40 text-center backdrop-blur-sm"><ImageIcon className="mb-3 h-7 w-7 text-stone-300" /><h3 className={SECTION_TITLE}>ยังไม่มีรูปห้องพักนี้</h3></div>
+          <div className="flex h-56 flex-col items-center justify-center rounded-xl border border-dashed border-stone-300 bg-white/40 text-center backdrop-blur-xs"><ImageIcon className="mb-3 h-7 w-7 text-stone-300" /><h3 className={SECTION_TITLE}>ยังไม่มีรูปห้องพักนี้</h3></div>
         )}
       </div>
 
       
       {/* Sticky Navigation Bar */}
-      <div className="hidden border-b border-stone-200 bg-white/90 shadow-sm sm:block">
+      <div className="hidden border-b border-stone-200 bg-white/90 shadow-xs sm:block">
         <div className="mx-auto max-w-7xl px-4">
           <div className="flex h-16 items-center justify-between">
-            <nav className="flex items-center gap-6 overflow-x-auto text-sm font-bold text-stone-600 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <nav className="flex items-center gap-6 overflow-x-auto text-sm font-bold text-stone-600 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
               <a href="#overview" className="whitespace-nowrap py-4 hover:text-forest-700">ข้อมูลห้องพัก</a>
               {room.amenities && room.amenities.length > 0 && <a href="#amenities" className="whitespace-nowrap py-4 hover:text-forest-700">สิ่งอำนวยความสะดวก</a>}
               {room.available_promotions && room.available_promotions.length > 0 && <a href="#promotions" className="whitespace-nowrap py-4 hover:text-forest-700">โปรโมชั่น</a>}
@@ -489,7 +489,7 @@ export default function RoomDetailPage(): React.ReactElement {
                  <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">เริ่มต้น</span>
                  <span className="font-sans text-xl font-extrabold text-forest-900">฿{Number(room.price_per_night).toLocaleString()}</span>
                </span>
-               <a href="#room-picker" className="rounded-full bg-forest-800 px-5 py-2 text-[13px] font-bold text-white shadow-sm transition-colors hover:bg-forest-900 active:scale-95">
+               <a href="#room-picker" className="rounded-full bg-forest-800 px-5 py-2 text-[13px] font-bold text-white shadow-xs transition-colors hover:bg-forest-900 active:scale-95">
                  ดูห้องว่าง
                </a>
             </div>
@@ -585,7 +585,7 @@ export default function RoomDetailPage(): React.ReactElement {
             {/* Room Selection Grid */}
             <section id="room-picker" className={`${CARD} scroll-mt-24 p-5 sm:p-6`}>
               {/* Sticky Dates & Guests Search Bar */}
-              <div className="sticky top-20 z-30 mb-8 w-full shadow-sm rounded-3xl" ref={pickerRef}>
+              <div className="sticky top-20 z-30 mb-8 w-full shadow-xs rounded-3xl" ref={pickerRef}>
                 <div className="flex w-full flex-col divide-y divide-stone-100 rounded-3xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.1)] transition-all duration-500 lg:flex-row lg:divide-x lg:divide-y-0 lg:rounded-full">
                   
                   <div className="relative flex-[1.4]">
@@ -711,7 +711,7 @@ export default function RoomDetailPage(): React.ReactElement {
                                       <select
                                         value={age ?? ""}
                                         onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
-                                        className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-none ${age === null ? "text-amber-600" : "text-forest-800"}`}
+                                        className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-hidden ${age === null ? "text-amber-600" : "text-forest-800"}`}
                                       >
                                         <option value="" disabled>เลือกอายุ</option>
                                         {Array.from({ length: 12 }, (_, a) => a).map((a) => (
@@ -755,7 +755,7 @@ export default function RoomDetailPage(): React.ReactElement {
                 {sortedPhysicalRooms.map((physical) => {
                   const isSelected = selectedRoomIds.includes(physical.room_id);
                   return (
-                    <div key={physical.room_id} className={`group relative flex flex-col justify-between gap-1 rounded-2xl border p-4 text-left transition-all duration-300 ${isSelected ? 'border-forest-900 bg-forest-50/40 shadow-sm' : physical.is_available ? 'border-stone-200 bg-white hover:border-forest-300 hover:shadow-md' : 'border-stone-100 bg-stone-50/50 opacity-60'}`}>
+                    <div key={physical.room_id} className={`group relative flex flex-col justify-between gap-1 rounded-2xl border p-4 text-left transition-all duration-300 ${isSelected ? 'border-forest-900 bg-forest-50/40 shadow-xs' : physical.is_available ? 'border-stone-200 bg-white hover:border-forest-300 hover:shadow-md' : 'border-stone-100 bg-stone-50/50 opacity-60'}`}>
                       <div className="flex items-center justify-between">
                         <span className="text-base font-bold text-forest-900">ห้อง {physical.room_number}</span>
                         {isSelected && <CheckCircle2 size={16} className="text-forest-700" />}
@@ -819,7 +819,7 @@ export default function RoomDetailPage(): React.ReactElement {
                 {/* Horizontal Scroll Container */}
                 <div
                   ref={promoScrollRef}
-                  className="flex items-start gap-3 overflow-x-auto scroll-smooth pb-2 pt-1 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  className="flex items-start gap-3 overflow-x-auto scroll-smooth pb-2 pt-1 snap-x snap-mandatory [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden"
                 >
                   {room.available_promotions.map((promo) => {
                     const discountText = roomPromotionLabel(promo);
@@ -921,7 +921,7 @@ export default function RoomDetailPage(): React.ReactElement {
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-charcoal-600">
                 
                 {/* Check-in / Check-out */}
-                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
+                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-xs">
                   <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Clock size={16} className="text-forest-600" />เวลาเช็คอิน / เช็คเอาต์</p>
                   <ul className="space-y-1.5">
                     <li className="flex justify-between">
@@ -938,7 +938,7 @@ export default function RoomDetailPage(): React.ReactElement {
                 </div>
 
                 {/* Important Details */}
-                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
+                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-xs">
                   <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><AlertCircle size={16} className="text-forest-600" />ข้อมูลสำคัญที่พัก</p>
                   <ul className="list-disc list-outside ml-4 space-y-1.5 text-stone-500">
                     {(resortInfo?.important_info || 'รวมอาหารเช้าสำหรับทุกการจอง\nไม่อนุญาตให้นำสัตว์เลี้ยงเข้าพัก\nระมัดระวังเด็กเล็ก เนื่องจากห้องพักตั้งอยู่บนน้ำ').split('\n').map((line: string, i: number) => (
@@ -948,7 +948,7 @@ export default function RoomDetailPage(): React.ReactElement {
                 </div>
 
                 {/* Kids & Extra Beds */}
-                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
+                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-xs">
                   <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Users size={16} className="text-forest-600" />นโยบายเด็กและเตียงเสริม</p>
                   <ul className="list-disc list-outside ml-4 space-y-1.5 text-stone-500">
                     {(resortInfo?.kids_policy || (infantAge === 0 ? 'เด็กทุกอายุนับรวมในความจุห้อง' : `เด็กอายุต่ำกว่า ${infantAge} ปี: เข้าพักฟรี (ใช้เตียงที่มีอยู่) และไม่นับความจุห้อง`)).split('\n').map((line: string, i: number) => {
@@ -962,7 +962,7 @@ export default function RoomDetailPage(): React.ReactElement {
                 </div>
 
                 {/* Getting there & Parking */}
-                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm">
+                <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-xs">
                   <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Car size={16} className="text-forest-600" />การเดินทางและที่จอดรถ</p>
                   <p className="text-stone-500 leading-relaxed whitespace-pre-line">
                     {resortInfo?.parking_info || 'มีลานจอดรถส่วนตัวให้บริการฟรีในบริเวณสวนวลัยรุกขเวช (ไม่ต้องจองล่วงหน้า) แขกผู้เข้าพักสามารถขับรถมาจอดและเดินไปยังห้องพักได้โดยตรง'}
@@ -982,7 +982,7 @@ export default function RoomDetailPage(): React.ReactElement {
         </div>
       </div>
       {lightboxOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/95 backdrop-blur-sm" onClick={() => setLightboxOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/95 backdrop-blur-xs" onClick={() => setLightboxOpen(false)}>
           <div className="absolute inset-x-4 top-4 flex items-center justify-between">
             <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-cream-100">{activeImage + 1} / {galleryImages.length}</span>
             <button type="button" onClick={() => setLightboxOpen(false)} className="grid h-9 w-9 place-items-center rounded-full bg-white/10 text-cream-100"><X size={18} /></button>

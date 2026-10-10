@@ -122,6 +122,10 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     }
 
     const { id } = req.params; // format: room_123 or kayak_456
+    if (typeof id !== 'string') {
+      res.status(400).json({ success: false, message: 'Invalid id' });
+      return;
+    }
     const [bType, bId] = id.split('_');
 
     const file = req.file;
@@ -295,6 +299,10 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
     const { id } = req.params;
     const authUser = req.user as AuthPayload;
     
+    if (typeof id !== 'string') {
+      res.status(400).json({ success: false, message: 'Invalid id' });
+      return;
+    }
     const [bType, bId] = id.split('_');
 
     const confirmRole = authUser.role;
@@ -403,6 +411,10 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
   try {
     const user = req.user as AuthPayload;
     const { id } = req.params;
+    if (typeof id !== 'string') {
+      res.status(400).json({ success: false, message: 'Invalid id' });
+      return;
+    }
     const [bType, bId] = id.split('_');
     if ((bType !== 'room' && bType !== 'kayak') || parsePositiveInt(bId) === null) {
       res.status(400).json({ success: false, message: 'Invalid id' });

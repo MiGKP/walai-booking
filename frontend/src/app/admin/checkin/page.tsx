@@ -993,7 +993,7 @@ function AdminCheckinContent() {
             placeholder="ค้นหาเลขจอง, ชื่อผู้จอง, เบอร์โทร, หมายเลขห้อง..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-10 pr-9 py-2.5 rounded-xl border border-charcoal-200/60 focus:outline-none focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
+            className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-10 pr-9 py-2.5 rounded-xl border border-charcoal-200/60 focus:outline-hidden focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
           />
           {search && (
             <button
@@ -1014,7 +1014,7 @@ function AdminCheckinContent() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as "room" | "time" | "name")}
-              className="bg-transparent font-semibold text-forest-900 focus:outline-none cursor-pointer"
+              className="bg-transparent font-semibold text-forest-900 focus:outline-hidden cursor-pointer"
             >
               <option value="time">เวลาคาดว่าจะถึง</option>
               <option value="room">หมายเลขห้อง (Room #)</option>
@@ -1027,7 +1027,7 @@ function AdminCheckinContent() {
             <button
               onClick={() => setDensityView("detailed")}
               className={`p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                densityView === "detailed" ? "bg-white text-forest-900 shadow-sm" : "text-charcoal-500 hover:text-charcoal-800"
+                densityView === "detailed" ? "bg-white text-forest-900 shadow-xs" : "text-charcoal-500 hover:text-charcoal-800"
               }`}
               title="มุมมองการ์ดละเอียด"
             >
@@ -1037,7 +1037,7 @@ function AdminCheckinContent() {
             <button
               onClick={() => setDensityView("compact")}
               className={`p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                densityView === "compact" ? "bg-white text-forest-900 shadow-sm" : "text-charcoal-500 hover:text-charcoal-800"
+                densityView === "compact" ? "bg-white text-forest-900 shadow-xs" : "text-charcoal-500 hover:text-charcoal-800"
               }`}
               title="มุมมองแถวกะทัดรัด (สำหรับห้องจำนวนมาก)"
             >
@@ -1053,7 +1053,7 @@ function AdminCheckinContent() {
             onClick={() => setMobileTab("arrivals")}
             className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               mobileTab === "arrivals"
-                ? "bg-forest-800 text-white shadow-sm"
+                ? "bg-forest-800 text-white shadow-xs"
                 : "text-charcoal-600 hover:text-charcoal-900"
             }`}
           >
@@ -1064,7 +1064,7 @@ function AdminCheckinContent() {
             onClick={() => setMobileTab("inhouse")}
             className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               mobileTab === "inhouse"
-                ? "bg-forest-800 text-white shadow-sm"
+                ? "bg-forest-800 text-white shadow-xs"
                 : "text-charcoal-600 hover:text-charcoal-900"
             }`}
           >
@@ -1109,7 +1109,7 @@ function AdminCheckinContent() {
                   onClick={() => setArrivalFilter(key)}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     arrivalFilter === key
-                      ? "bg-white text-forest-900 shadow-sm"
+                      ? "bg-white text-forest-900 shadow-xs"
                       : "text-charcoal-500 hover:text-charcoal-800"
                   }`}
                 >
@@ -1286,7 +1286,7 @@ function AdminCheckinContent() {
                         {actionable ? (
                           <button
                             onClick={() => handleCheckin(line)}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-xs font-bold text-white px-5 py-2.5 rounded-2xl bg-forest-800 hover:bg-forest-900 shadow-sm shadow-forest-800/20 transition-all active:scale-95 group/btn"
+                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-xs font-bold text-white px-5 py-2.5 rounded-2xl bg-forest-800 hover:bg-forest-900 shadow-xs shadow-forest-800/20 transition-all active:scale-95 group/btn"
                           >
                             <LogIn size={15} className="group-hover/btn:translate-x-0.5 transition-transform" />
                             <span>เช็คอิน</span>
@@ -1380,7 +1380,7 @@ function AdminCheckinContent() {
                   onClick={() => setInHouseFilter(key)}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                     inHouseFilter === key
-                      ? "bg-white text-forest-900 shadow-sm"
+                      ? "bg-white text-forest-900 shadow-xs"
                       : "text-charcoal-500 hover:text-charcoal-800"
                   }`}
                 >
@@ -1534,7 +1534,7 @@ function AdminCheckinContent() {
                       <div className="shrink-0 pt-1 sm:pt-0">
                         <button
                           onClick={() => handleCheckout(line)}
-                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-xs font-bold text-white px-5 py-2.5 rounded-2xl bg-forest-800 hover:bg-forest-900 shadow-sm shadow-forest-800/20 transition-all active:scale-95 group/btn"
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-xs font-bold text-white px-5 py-2.5 rounded-2xl bg-forest-800 hover:bg-forest-900 shadow-xs shadow-forest-800/20 transition-all active:scale-95 group/btn"
                         >
                           <LogOut size={15} className="group-hover/btn:translate-x-0.5 transition-transform" />
                           <span>เช็คเอาต์</span>
@@ -1608,7 +1608,7 @@ function AdminCheckinContent() {
                 confirmModal?.onConfirm();
                 setConfirmModal(null);
               }}
-              className={`inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white rounded-xl transition-all shadow-sm active:scale-95 ${
+              className={`inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white rounded-xl transition-all shadow-xs active:scale-95 ${
                 confirmModal?.outsideWindow
                   ? "bg-amber-600 hover:bg-amber-700"
                   : "bg-forest-800 hover:bg-forest-900"
@@ -1682,7 +1682,7 @@ function AdminCheckinContent() {
             <button
               onClick={handleSaveSettings}
               disabled={savingSettings}
-              className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-forest-800 hover:bg-forest-900 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-forest-800 hover:bg-forest-900 rounded-xl transition-all shadow-xs active:scale-95 disabled:opacity-60"
             >
               <Save size={14} />
               <span>{savingSettings ? "กำลังบันทึก..." : "บันทึก"}</span>
@@ -1702,7 +1702,7 @@ function AdminCheckinContent() {
                   type="time"
                   value={settingsDraft.from}
                   onChange={(e) => setSettingsDraft((s) => ({ ...s, from: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border border-charcoal-200 text-sm font-mono font-bold text-forest-950 focus:outline-none focus:ring-2 focus:ring-forest-500/20 bg-white"
+                  className="w-full px-3 py-2 rounded-xl border border-charcoal-200 text-sm font-mono font-bold text-forest-950 focus:outline-hidden focus:ring-2 focus:ring-forest-500/20 bg-white"
                 />
               </div>
               <div>
@@ -1711,7 +1711,7 @@ function AdminCheckinContent() {
                   type="time"
                   value={settingsDraft.to}
                   onChange={(e) => setSettingsDraft((s) => ({ ...s, to: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl border border-charcoal-200 text-sm font-mono font-bold text-forest-950 focus:outline-none focus:ring-2 focus:ring-forest-500/20 bg-white"
+                  className="w-full px-3 py-2 rounded-xl border border-charcoal-200 text-sm font-mono font-bold text-forest-950 focus:outline-hidden focus:ring-2 focus:ring-forest-500/20 bg-white"
                 />
               </div>
             </div>

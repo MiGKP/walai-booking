@@ -140,7 +140,7 @@ const ThaiTimePicker: React.FC<ThaiTimePickerProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs font-bold text-charcoal-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 flex items-center justify-between cursor-pointer transition-all shadow-2xs"
+        className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs font-bold text-charcoal-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 flex items-center justify-between cursor-pointer transition-all shadow-2xs"
       >
         <span>{value || "00:00"} น.</span>
         <Clock size={15} className="text-charcoal-400 shrink-0" />
@@ -832,7 +832,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
                                 }}
                                 onBlur={() => handleQuantityBlur(id, maxFleet)}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-10 text-center text-xs font-bold text-charcoal-800 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                className="w-10 text-center text-xs font-bold text-charcoal-800 bg-transparent focus:outline-hidden [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
 
                               {/* ปุ่มเพิ่ม */}
@@ -875,7 +875,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
               type="number"
               readOnly
               value={totalBoatCount}
-              className="w-full px-3.5 py-2.5 bg-cream-100/70 border border-cream-300 rounded-xl text-xs font-bold text-forest-900 font-mono focus:outline-none cursor-not-allowed shadow-2xs"
+              className="w-full px-3.5 py-2.5 bg-cream-100/70 border border-cream-300 rounded-xl text-xs font-bold text-forest-900 font-mono focus:outline-hidden cursor-not-allowed shadow-2xs"
             />
           </div>
 

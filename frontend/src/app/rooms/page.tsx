@@ -101,13 +101,13 @@ function Stepper({
     onChange(safe);
   };
 
-  const btn = "grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-forest-800 transition-colors hover:border-forest-300 hover:bg-forest-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-300 disabled:border-stone-100 disabled:text-stone-300 disabled:hover:bg-white";
+  const btn = "grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-forest-800 transition-colors hover:border-forest-300 hover:bg-forest-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-forest-300 disabled:border-stone-100 disabled:text-stone-300 disabled:hover:bg-white";
 
   return (
     <div className="flex items-center gap-2">
       <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} aria-label={`ลด${ariaLabel}`} className={btn}><Minus size={13} /></button>
       {editable ? (
-        <input type="text" inputMode="numeric" value={draft} onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ""))} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} onFocus={(e) => e.currentTarget.select()} aria-label={ariaLabel} className="h-7 w-9 rounded-md border border-transparent bg-transparent text-center text-sm font-bold tabular-nums text-forest-900 transition-colors hover:border-stone-200 focus:border-forest-400 focus:bg-[#FFFFFF] focus:outline-none" />
+        <input type="text" inputMode="numeric" value={draft} onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ""))} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} onFocus={(e) => e.currentTarget.select()} aria-label={ariaLabel} className="h-7 w-9 rounded-md border border-transparent bg-transparent text-center text-sm font-bold tabular-nums text-forest-900 transition-colors hover:border-stone-200 focus:border-forest-400 focus:bg-[#FFFFFF] focus:outline-hidden" />
       ) : (
         <span className="w-9 text-center text-sm font-bold tabular-nums text-forest-900">{value}</span>
       )}
@@ -385,7 +385,7 @@ function RoomsPageContent(): React.ReactElement {
                                   <select
                                     value={age ?? ""}
                                     onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
-                                    className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-none ${age === null ? "text-amber-600" : "text-forest-800"}`}
+                                    className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-hidden ${age === null ? "text-amber-600" : "text-forest-800"}`}
                                   >
                                     <option value="" disabled>เลือกอายุ</option>
                                     {Array.from({ length: 12 }, (_, a) => a).map((a) => (
@@ -520,11 +520,11 @@ function RoomsPageContent(): React.ReactElement {
             {loading && rooms.length === 0 ? (
               <div className="grid gap-6">{[0, 1].map((index) => <div key={index} className="h-64 w-full animate-pulse rounded-2xl border border-stone-100 bg-white" />)}</div>
             ) : roomsByType.length === 0 && !loading ? (
-              <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white/40 px-6 py-20 text-center backdrop-blur-sm">
+              <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white/40 px-6 py-20 text-center backdrop-blur-xs">
                 <AlertCircle className="mb-4 h-8 w-8 text-stone-300" />
                 <h3 className="font-display text-lg font-medium text-forest-900">ไม่พบที่พักในช่วงนี้</h3>
                 <p className="mt-1 text-sm text-charcoal-400">ลองเปลี่ยนช่วงวันที่ หรือเลือกประเภทที่พักอื่น</p>
-                <button type="button" onClick={handleClearFilters} className="mt-6 rounded-xl border border-stone-200 bg-white px-6 py-2.5 text-sm font-bold text-forest-800 shadow-sm transition-colors hover:bg-stone-50">ล้างการค้นหา</button>
+                <button type="button" onClick={handleClearFilters} className="mt-6 rounded-xl border border-stone-200 bg-white px-6 py-2.5 text-sm font-bold text-forest-800 shadow-xs transition-colors hover:bg-stone-50">ล้างการค้นหา</button>
               </div>
             ) : (
               <div className={`grid gap-8 transition-opacity duration-300 ${loading ? 'pointer-events-none opacity-50' : 'opacity-100'}`}>
@@ -582,20 +582,20 @@ function RoomsPageContent(): React.ReactElement {
                       <div className="flex w-full shrink-0 flex-col justify-between border-t border-stone-100 bg-stone-50/40 p-5 md:w-64 md:border-l md:border-t-0 lg:w-72 lg:p-6">
                         <div className="mb-4 flex flex-col items-start gap-1.5 md:items-end">
                           {isAvailable && searchedRange && availableCount <= 2 && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-700 shadow-sm whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-bold text-orange-700 shadow-xs whitespace-nowrap">
                               <span className="flex h-1.5 w-1.5 animate-pulse rounded-full bg-orange-500" />
                               เหลือเพียง {availableCount} ห้องสุดท้ายสำหรับวันหยุดนี้
                             </span>
                           )}
                           {room.today_bookings > 0 && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 shadow-sm whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 shadow-xs whitespace-nowrap">
                               <Star size={11} className="fill-amber-400 text-amber-500" />ฮิต! จองไปแล้ว {room.today_bookings} ครั้งวันนี้
                             </span>
                           )}
                         </div>
                         <div className="mb-6 flex flex-col items-start gap-1 md:items-end">
                           <span className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ราคาต่อคืน</span>
-                          {potentialDiscount > 0 ? <div className="flex w-full flex-col items-start md:items-end"><div className="flex items-baseline gap-1.5"><span className="text-[13px] font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{(unitPrice - potentialDiscount).toLocaleString()}</span></div><span className="mt-1 rounded bg-bamboo-50 border border-bamboo-200 px-2 py-0.5 text-[11px] font-bold text-bamboo-700 shadow-sm text-left md:text-right">ประหยัด ฿{potentialDiscount.toLocaleString()} เมื่อใช้โปรโมชั่น · เฉลี่ยต่อคืน</span></div> : <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
+                          {potentialDiscount > 0 ? <div className="flex w-full flex-col items-start md:items-end"><div className="flex items-baseline gap-1.5"><span className="text-[13px] font-medium text-stone-400 line-through">฿{unitPrice.toLocaleString()}</span><span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{(unitPrice - potentialDiscount).toLocaleString()}</span></div><span className="mt-1 rounded bg-bamboo-50 border border-bamboo-200 px-2 py-0.5 text-[11px] font-bold text-bamboo-700 shadow-xs text-left md:text-right">ประหยัด ฿{potentialDiscount.toLocaleString()} เมื่อใช้โปรโมชั่น · เฉลี่ยต่อคืน</span></div> : <span className="font-sans text-[26px] font-extrabold leading-none text-forest-900">฿{unitPrice.toLocaleString()}</span>}
                         </div>
                         <div className="mt-auto w-full">
                           <Link href={`/rooms/${room.id}?${searchParams.toString()}`} className="block w-full rounded-xl bg-bamboo-600 py-3.5 text-center text-[14px] font-bold text-white shadow-md transition-all hover:bg-bamboo-700 hover:shadow-lg active:scale-[0.98]">

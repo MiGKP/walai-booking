@@ -323,7 +323,7 @@ export default function KidsPolicyEditor({
                                 item.maxAge
                               )
                             }
-                            className="min-w-[68px] px-2.5 py-1.5 bg-cream-50/80 border border-cream-200 rounded-xl text-xs font-bold text-forest-900 focus:outline-none focus:ring-2 focus:ring-forest-800/20 cursor-pointer"
+                            className="min-w-[68px] px-2.5 py-1.5 bg-cream-50/80 border border-cream-200 rounded-xl text-xs font-bold text-forest-900 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 cursor-pointer"
                           >
                             {Array.from({ length: 18 }, (_, i) => (
                               <option key={i} value={i}>
@@ -341,7 +341,7 @@ export default function KidsPolicyEditor({
                                 Number(e.target.value)
                               )
                             }
-                            className="min-w-[68px] px-2.5 py-1.5 bg-cream-50/80 border border-cream-200 rounded-xl text-xs font-bold text-forest-900 focus:outline-none focus:ring-2 focus:ring-forest-800/20 cursor-pointer"
+                            className="min-w-[68px] px-2.5 py-1.5 bg-cream-50/80 border border-cream-200 rounded-xl text-xs font-bold text-forest-900 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 cursor-pointer"
                           >
                             {Array.from({ length: 18 }, (_, i) => (
                               <option key={i} value={i}>
@@ -387,7 +387,7 @@ export default function KidsPolicyEditor({
                             onChange={(e) =>
                               handlePlusChange(index, Number(e.target.value))
                             }
-                            className="min-w-[76px] px-2.5 py-1.5 bg-cream-50/80 border border-cream-200 rounded-xl text-xs font-bold text-forest-900 focus:outline-none focus:ring-2 focus:ring-forest-800/20 cursor-pointer"
+                            className="min-w-[76px] px-2.5 py-1.5 bg-cream-50/80 border border-cream-200 rounded-xl text-xs font-bold text-forest-900 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 cursor-pointer"
                           >
                             {Array.from({ length: 18 }, (_, i) => i + 1).map(
                               (age) => (
@@ -436,7 +436,7 @@ export default function KidsPolicyEditor({
                             handleCustomTitleChange(index, e.target.value)
                           }
                           placeholder="เช่น เด็กอายุต่ำกว่า 3 ปี, ทารกแรกเกิด"
-                          className="w-full px-3 py-1.5 bg-cream-50/70 focus:bg-white border border-cream-200 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20"
+                          className="w-full px-3 py-1.5 bg-cream-50/70 focus:bg-white border border-cream-200 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20"
                         />
                       </div>
                     )}
@@ -452,7 +452,7 @@ export default function KidsPolicyEditor({
                       value={item.detail}
                       onChange={(e) => handleDetailChange(index, e.target.value)}
                       placeholder="เช่น เข้าพักฟรี (ใช้เตียงที่มีอยู่)"
-                      className="w-full px-3 py-2 bg-cream-50/70 focus:bg-white border border-cream-200 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                      className="w-full px-3 py-2 bg-cream-50/70 focus:bg-white border border-cream-200 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                     />
 
                     {/* Suggestion Chips */}

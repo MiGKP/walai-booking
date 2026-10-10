@@ -367,7 +367,7 @@ export default function GeneralSettingsPage() {
                     <input
                       type="text"
                       required
-                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                       value={form.name}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, name: e.target.value }))
@@ -384,7 +384,7 @@ export default function GeneralSettingsPage() {
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs font-mono"
+                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs font-mono"
                         value={form.phone}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, phone: e.target.value }))
@@ -398,7 +398,7 @@ export default function GeneralSettingsPage() {
                       </label>
                       <input
                         type="email"
-                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                         value={form.email}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, email: e.target.value }))
@@ -416,7 +416,7 @@ export default function GeneralSettingsPage() {
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                         value={form.line_id}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, line_id: e.target.value }))
@@ -430,7 +430,7 @@ export default function GeneralSettingsPage() {
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                         value={form.facebook}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, facebook: e.target.value }))
@@ -699,7 +699,7 @@ export default function GeneralSettingsPage() {
                     </label>
                     <textarea
                       rows={3}
-                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all resize-none shadow-2xs"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all resize-none shadow-2xs"
                       value={form.address}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, address: e.target.value }))
@@ -742,7 +742,7 @@ export default function GeneralSettingsPage() {
 
                     <input
                       type="text"
-                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-mono text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all truncate shadow-2xs"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-mono text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all truncate shadow-2xs"
                       value={form.coordinates}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, coordinates: e.target.value }))
@@ -795,7 +795,7 @@ export default function GeneralSettingsPage() {
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-mono font-bold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-mono font-bold text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                       value={form.promptpay_id}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, promptpay_id: e.target.value }))
@@ -811,7 +811,7 @@ export default function GeneralSettingsPage() {
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-semibold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-semibold text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                       value={form.bank_account_name}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -830,7 +830,7 @@ export default function GeneralSettingsPage() {
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-mono font-bold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-mono font-bold text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                       value={form.bank_account_no}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -853,7 +853,7 @@ export default function GeneralSettingsPage() {
                         <input
                           type="number"
                           min={0}
-                          className="w-full pl-3.5 pr-10 py-2 bg-cream-50/60 focus:bg-white border border-cream-200 rounded-xl text-xs font-bold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                          className="w-full pl-3.5 pr-10 py-2 bg-cream-50/60 focus:bg-white border border-cream-200 rounded-xl text-xs font-bold text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                           value={form.payment_due_days}
                           onChange={(e) =>
                             setForm((f) => ({
@@ -922,7 +922,7 @@ export default function GeneralSettingsPage() {
                           </span>
                           <input
                             type="text"
-                            className="flex-1 px-3.5 py-2 bg-cream-50/60 focus:bg-white border border-cream-200 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                            className="flex-1 px-3.5 py-2 bg-cream-50/60 focus:bg-white border border-cream-200 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                             placeholder={`ข้อกำหนดที่ ${index + 1} (เช่น ห้ามส่งเสียงดังหลัง 22:00 น.)`}
                             value={term}
                             onChange={(e) =>

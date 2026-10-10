@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Phone, Save, Lock, MessageCircle, Facebook, CalendarDays, Camera, Eye, EyeOff, Star, Ticket } from "lucide-react";
+import { User, Mail, Phone, Save, Lock, MessageCircle, CalendarDays, Camera, Eye, EyeOff, Star, Ticket } from 'lucide-react';
+import { SiFacebook as Facebook } from '@icons-pack/react-simple-icons';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -246,7 +247,7 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-4">
             {/* User Mini Profile */}
             <div className={`${CARD} hidden lg:flex flex-col items-center text-center p-6 pb-7`}>
-              <div className="h-24 w-24 rounded-full bg-stone-100 overflow-hidden mb-3 border-4 border-white shadow-sm">
+              <div className="h-24 w-24 rounded-full bg-stone-100 overflow-hidden mb-3 border-4 border-white shadow-xs">
                 {displayAvatarSrc ? (
                   <img src={displayAvatarSrc} alt="Profile" className="h-full w-full object-cover" onError={() => setAvatarLoadError(true)} />
                 ) : (
@@ -361,7 +362,7 @@ export default function DashboardPage() {
                             <span
                               role="img"
                               aria-label="เปลี่ยนรูปโปรไฟล์"
-                              className="absolute bottom-0 right-0 grid h-8 w-8 place-items-center rounded-full bg-forest-800 text-white ring-2 ring-white shadow-sm"
+                              className="absolute bottom-0 right-0 grid h-8 w-8 place-items-center rounded-full bg-forest-800 text-white ring-2 ring-white shadow-xs"
                             >
                               <Camera size={14} />
                             </span>

@@ -181,11 +181,11 @@ export default function Navbar() {
                         <img
                           src={avatarSrc}
                           alt={`${user.first_name} ${user.last_name}`}
-                          className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm"
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-xs"
                           onError={() => setAvatarLoadError(true)}
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-forest-100 flex items-center justify-center ring-2 ring-white shadow-sm">
+                        <div className="w-10 h-10 rounded-full bg-forest-100 flex items-center justify-center ring-2 ring-white shadow-xs">
                           <User size={18} className="text-forest-700" />
                         </div>
                       )}
@@ -366,11 +366,11 @@ export default function Navbar() {
           role="dialog"
           aria-modal="true"
           aria-label="เมนูหลัก"
-          className="fixed inset-0 z-40 md:hidden bg-forest-950/20 backdrop-blur-sm"
+          className="fixed inset-0 z-40 md:hidden bg-forest-950/20 backdrop-blur-xs"
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="animate-mobile-menu w-full bg-cream-100 px-4 py-4 space-y-1 rounded-b-3xl absolute top-[4.5rem] shadow-xl"
+            className="animate-mobile-menu w-full bg-cream-100 px-4 py-4 space-y-1 rounded-b-3xl absolute top-18 shadow-xl"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => { if (e.key === 'Escape') setIsOpen(false); }}
           >

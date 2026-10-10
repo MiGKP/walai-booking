@@ -119,7 +119,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
     fetchBookings();
   }, [ready]);
 
-  const fetchBookings = async (isManualRefresh = false) => {
+  async function fetchBookings(isManualRefresh = false) {
     if (isManualRefresh) setRefreshing(true);
     else setLoading(true);
     try {
@@ -145,7 +145,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }
 
   const handleCancel = (type: BookingType, id: number) => {
     toastConfirm({

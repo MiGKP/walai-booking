@@ -59,7 +59,7 @@ function CustomSelect({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-cream-100 hover:bg-cream-200 rounded-xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-none focus:ring-2 focus:ring-forest-800/20"
+        className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-cream-100 hover:bg-cream-200 rounded-xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-hidden focus:ring-2 focus:ring-forest-800/20"
       >
         <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
         <ChevronDown
@@ -169,7 +169,7 @@ export default function StatsPage() {
     fetchStats();
   }, [ready, period, date, month, year]);
 
-  const fetchStats = async () => {
+  async function fetchStats() {
     setLoading(true);
     try {
       const params: any = { period };
@@ -182,7 +182,7 @@ export default function StatsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const roomStats = data?.room_summary || {};
   const kayakStats = data?.kayak_summary || {};
@@ -293,7 +293,7 @@ export default function StatsPage() {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="rounded-xl bg-cream-100 px-3.5 py-2 text-xs font-semibold text-charcoal-700 focus:outline-none focus:ring-2 focus:ring-forest-800/20"
+                className="rounded-xl bg-cream-100 px-3.5 py-2 text-xs font-semibold text-charcoal-700 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20"
               />
             </div>
           ) : (
@@ -401,12 +401,12 @@ export default function StatsPage() {
                   <div className="flex items-center gap-4 text-xs font-medium text-charcoal-500">
                     {showRoom && (
                       <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-3 w-3 rounded-sm bg-forest-800" /> ห้องพัก
+                        <span className="inline-block h-3 w-3 rounded-xs bg-forest-800" /> ห้องพัก
                       </span>
                     )}
                     {showBoat && (
                       <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-3 w-3 rounded-sm bg-lagoon-500" /> เรือ
+                        <span className="inline-block h-3 w-3 rounded-xs bg-lagoon-500" /> เรือ
                       </span>
                     )}
                   </div>

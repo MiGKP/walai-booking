@@ -24,7 +24,7 @@ export default function DashboardTabs(): React.ReactElement {
             href={tab.href}
             className={
               active
-                ? 'rounded-lg bg-cream-100 px-4 py-2 text-sm font-medium text-forest-900 shadow-sm'
+                ? 'rounded-lg bg-cream-100 px-4 py-2 text-sm font-medium text-forest-900 shadow-xs'
                 : 'rounded-lg px-4 py-2 text-sm font-medium text-charcoal-500 hover:text-forest-800'
             }
           >

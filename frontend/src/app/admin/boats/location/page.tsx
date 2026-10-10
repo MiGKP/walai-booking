@@ -360,7 +360,7 @@ export default function BoatLocationPage() {
                     <input
                       type="text"
                       required
-                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                       value={form.name}
                       onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                       placeholder="เช่น จุดบริการเรือคายัค & กิจกรรมทางน้ำ"
@@ -374,7 +374,7 @@ export default function BoatLocationPage() {
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs font-mono"
+                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs font-mono"
                         value={form.phone}
                         onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                         placeholder="08x-xxx-xxxx"
@@ -387,7 +387,7 @@ export default function BoatLocationPage() {
                       </label>
                       <input
                         type="email"
-                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                         value={form.email}
                         onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                         placeholder="boat@walai.com"
@@ -402,7 +402,7 @@ export default function BoatLocationPage() {
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                         value={form.line_id}
                         onChange={(e) => setForm((f) => ({ ...f, line_id: e.target.value }))}
                         placeholder="@boat_walai"
@@ -415,7 +415,7 @@ export default function BoatLocationPage() {
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                        className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                         value={form.facebook}
                         onChange={(e) => setForm((f) => ({ ...f, facebook: e.target.value }))}
                         placeholder="facebook.com/walai.boat"
@@ -429,7 +429,7 @@ export default function BoatLocationPage() {
                     </label>
                     <textarea
                       rows={3}
-                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all resize-none shadow-2xs"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all resize-none shadow-2xs"
                       value={form.address}
                       onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
                       placeholder="รายละเอียดจุดสังเกตบริเวณท่าเรือหรือสะพานเทียบ..."
@@ -484,7 +484,7 @@ export default function BoatLocationPage() {
 
                     <input
                       type="text"
-                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-mono text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all truncate shadow-2xs"
+                      className="w-full px-3.5 py-2.5 bg-cream-50/60 focus:bg-white border border-cream-200 focus:border-forest-800 rounded-xl text-xs font-mono text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all truncate shadow-2xs"
                       value={form.coordinates}
                       onChange={(e) => setForm((f) => ({ ...f, coordinates: e.target.value }))}
                       placeholder="16.219313, 103.329219"
@@ -622,7 +622,7 @@ export default function BoatLocationPage() {
                             aria-checked={isOpen}
                             aria-label={`สถานะวัน${DAY_NAMES[h.day_of_week]}`}
                             onClick={() => updateDay(h.day_of_week, "is_open", !isOpen)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-hidden cursor-pointer ${
                               isOpen ? "bg-forest-800" : "bg-cream-300"
                             }`}
                           >
@@ -667,7 +667,7 @@ export default function BoatLocationPage() {
                         aria-label="จองล่วงหน้าขั้นต่ำ (นาที)"
                         value={advanceMinutes}
                         onChange={(e) => setAdvanceMinutes(e.target.value)}
-                        className="w-20 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                        className="w-20 rounded-xl border border-cream-300 bg-white px-2.5 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-hidden focus:ring-2 focus:ring-forest-800/15"
                       />
                       <span className="text-xs sm:text-sm font-semibold text-charcoal-700">
                         นาที
@@ -706,7 +706,7 @@ export default function BoatLocationPage() {
                         </span>
                         <input
                           type="text"
-                          className="flex-1 px-3 py-2 bg-cream-50/60 focus:bg-white border border-cream-200 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                          className="flex-1 px-3 py-2 bg-cream-50/60 focus:bg-white border border-cream-200 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                           placeholder={`ข้อกำหนดที่ ${index + 1} (เช่น สวมเสื้อชูชีพตลอดเวลา)`}
                           value={term}
                           onChange={(e) => handleTermChange(index, e.target.value)}

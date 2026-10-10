@@ -34,7 +34,7 @@ export default function BankAccountsPage() {
     fetchAccounts();
   }, [ready]);
 
-  const fetchAccounts = async () => {
+  async function fetchAccounts() {
     setLoading(true);
     try {
       const res = await api.get('/settings/bank-accounts');
@@ -44,7 +44,7 @@ export default function BankAccountsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const openCreate = () => {
     setEditing(null);

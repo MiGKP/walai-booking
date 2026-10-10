@@ -181,7 +181,7 @@ function CustomDatePicker({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-[86px] sm:w-[94px] bg-cream-50/80 hover:bg-white px-2.5 py-1.5 rounded-xl border border-cream-300 hover:border-forest-300 text-xs font-mono text-charcoal-700 transition-all shadow-xs focus:outline-none focus:ring-2 focus:ring-forest-500/20"
+        className="flex items-center justify-between w-[86px] sm:w-[94px] bg-cream-50/80 hover:bg-white px-2.5 py-1.5 rounded-xl border border-cream-300 hover:border-forest-300 text-xs font-mono text-charcoal-700 transition-all shadow-xs focus:outline-hidden focus:ring-2 focus:ring-forest-500/20"
       >
         <span className="truncate text-left">
           {value
@@ -326,7 +326,7 @@ function CustomSelect({
           e.preventDefault();
           setIsOpen(!isOpen);
         }}
-        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-cream-50/80 hover:bg-white border border-cream-300 hover:border-forest-300 rounded-xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-none focus:ring-2 focus:ring-forest-500/20 shadow-xs"
+        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-cream-50/80 hover:bg-white border border-cream-300 hover:border-forest-300 rounded-xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-hidden focus:ring-2 focus:ring-forest-500/20 shadow-xs"
       >
         <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
         <ChevronDown
@@ -756,7 +756,7 @@ function RoomStaffDashboardContent() {
 
           {/* Revenue Pill / Badge in Top Header */}
           <div className="flex items-center gap-3 bg-forest-50/70 border border-forest-100/90 px-4 py-2.5 rounded-2xl self-start sm:self-auto shrink-0 shadow-xs">
-            <div className="w-9 h-9 rounded-xl bg-forest-800 text-white flex items-center justify-center shadow-sm shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-forest-800 text-white flex items-center justify-center shadow-xs shrink-0">
               <Wallet size={18} className="stroke-[2.2]" />
             </div>
             <div>
@@ -936,7 +936,7 @@ function RoomStaffDashboardContent() {
               placeholder="ค้นหาชื่อ, เบอร์โทร, ห้อง, ID..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-10 pr-8 py-2 rounded-2xl border border-cream-300 focus:outline-none focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
+              className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-10 pr-8 py-2 rounded-2xl border border-cream-300 focus:outline-hidden focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
             />
             {searchInput && (
               <button
@@ -1621,7 +1621,7 @@ function RoomStaffDashboardContent() {
               placeholder="โปรดระบุเหตุผลเพิ่มเติม..."
               value={rejectModal.customReason}
               onChange={(e) => setRejectModal((prev) => ({ ...prev, customReason: e.target.value }))}
-              className="w-full rounded-2xl border border-cream-300 bg-cream-50/70 p-3 text-xs text-charcoal-800 outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-400 mt-2"
+              className="w-full rounded-2xl border border-cream-300 bg-cream-50/70 p-3 text-xs text-charcoal-800 outline-hidden focus:border-rose-400 focus:ring-1 focus:ring-rose-400 mt-2"
             />
           )}
         </div>

@@ -179,9 +179,9 @@ function MonthPanel({
                 onClick={() => onSelectDay(iso)}
                 className={[
                   "relative z-10 mx-auto flex h-9 w-9 sm:h-10 sm:w-10 flex-col items-center justify-center rounded-full text-sm tabular-nums transition-all duration-150",
-                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-bamboo-400 focus-visible:ring-offset-1",
+                  "focus:outline-hidden focus-visible:ring-2 focus-visible:ring-bamboo-400 focus-visible:ring-offset-1",
                   isSelected
-                    ? "bg-forest-800 text-cream-100 font-semibold shadow-sm shadow-forest-800/30"
+                    ? "bg-forest-800 text-cream-100 font-semibold shadow-xs shadow-forest-800/30"
                     : disabled
                       ? "text-charcoal-300 cursor-not-allowed"
                       : "text-charcoal-700 hover:bg-forest-100/70",

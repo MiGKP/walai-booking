@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useId } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { ArrowRight, Anchor, Calendar, CreditCard, Star, MapPin, Phone, Waves, Facebook, Compass, ConciergeBell, ShieldCheck, Languages, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, Anchor, Calendar, CreditCard, Star, MapPin, Phone, Waves, Compass, ConciergeBell, ShieldCheck, Languages, Sparkles, Users } from 'lucide-react';
+import { SiFacebook as Facebook } from '@icons-pack/react-simple-icons';
 import api from '@/lib/api';
 import { resolveMediaUrl } from '@/lib/avatar';
 import { resolveFacebookLink } from '@/lib/social';
@@ -105,7 +106,7 @@ function WaveDivider({
   return (
     <div
       aria-hidden="true"
-      className={`w-full overflow-hidden leading-[0] ${className}`}
+      className={`w-full overflow-hidden leading-0 ${className}`}
     >
       <svg
         viewBox="0 0 1200 64"
@@ -194,7 +195,7 @@ function RippleBackground() {
     <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden mix-blend-multiply">
       {/* Top Left Ripple */}
       <div 
-        className="absolute w-[150vw] h-[150vw] md:w-[100vw] md:h-[100vw] rounded-full left-[-30vw] top-[-30vw] md:left-[-10vw] md:top-[-20vw]"
+        className="absolute w-[150vw] h-[150vw] md:w-screen md:h-[100vw] rounded-full left-[-30vw] top-[-30vw] md:left-[-10vw] md:top-[-20vw]"
         style={{
           background: 'repeating-radial-gradient(circle at center, transparent 0, transparent 45px, rgba(18, 60, 48, 0.03) 45px, rgba(18, 60, 48, 0.03) 46px)'
         }}
@@ -219,7 +220,7 @@ function EditorialRoomCard({ room, index }: { room: LandingRoomType, index: numb
     <Link href={`/rooms/${room.id}`} className="group flex flex-col md:flex-row items-center gap-6 md:gap-16 py-8 md:py-16 border-b border-stone-200/50 last:border-0">
       {/* Image Side */}
       <div className={`w-full md:w-1/2 ${isEven ? 'md:order-1' : 'md:order-2'}`}>
-        <div className="relative aspect-[4/3] w-full rounded-2xl sm:rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_-15px_rgba(18,60,48,0.2)] transition-transform duration-700 group-hover:scale-[1.03]">
+        <div className="relative aspect-4/3 w-full rounded-2xl sm:rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_-15px_rgba(18,60,48,0.2)] transition-transform duration-700 group-hover:scale-[1.03]">
           {room.main_image ? (
             <Image 
               src={resolveMediaUrl(room.main_image)} 
@@ -296,7 +297,7 @@ function RoomCard({ room, large = false, className = "" }: { room: LandingRoomTy
       </div>
 
       {/* Floating Glass Text Box (Overlap) */}
-      <div className="absolute -bottom-2 left-2 right-2 sm:left-4 sm:right-4 md:-bottom-4 md:left-8 md:right-8 bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.05)] rounded-2xl md:rounded-[2rem] p-4 sm:p-6 md:p-8 transition-transform duration-700 group-hover:-translate-y-4">
+      <div className="absolute -bottom-2 left-2 right-2 sm:left-4 sm:right-4 md:-bottom-4 md:left-8 md:right-8 bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.05)] rounded-2xl md:rounded-4xl p-4 sm:p-6 md:p-8 transition-transform duration-700 group-hover:-translate-y-4">
         {room.type_name?.toLowerCase() !== room.room_name?.toLowerCase() && (
           <span className="text-xs font-semibold tracking-wider text-bamboo-600 uppercase mb-1 sm:mb-2 block">{room.type_name}</span>
         )}
@@ -402,7 +403,7 @@ function ReviewGallery({ reviews }: { reviews: LandingReview[] }) {
   }
 
   const ReviewCard = ({ review }: { review: LandingReview }) => (
-    <div className="w-[280px] sm:w-[320px] md:w-[400px] bg-white border border-stone-200/60 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-sm shrink-0 flex flex-col gap-4 text-left">
+    <div className="w-[280px] sm:w-[320px] md:w-[400px] bg-white border border-stone-200/60 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-xs shrink-0 flex flex-col gap-4 text-left">
        <div className="flex gap-0.5" aria-label={`คะแนน ${review.rating} ดาว`}>
           {Array.from({ length: review.rating }).map((_, j) => (
             <Star key={j} size={14} className="fill-bamboo-400 text-bamboo-400" />
@@ -442,8 +443,8 @@ function ReviewGallery({ reviews }: { reviews: LandingReview[] }) {
   return (
     <div className="relative overflow-hidden group/gallery mt-8 py-4">
       {/* Fade edges */}
-      <div className="absolute left-0 top-0 bottom-12 w-16 md:w-48 bg-gradient-to-r from-stone-50 to-transparent z-10 pointer-events-none" />
-      <div className="absolute right-0 top-0 bottom-12 w-16 md:w-48 bg-gradient-to-l from-stone-50 to-transparent z-10 pointer-events-none" />
+      <div className="absolute left-0 top-0 bottom-12 w-16 md:w-48 bg-linear-to-r from-stone-50 to-transparent z-10 pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-12 w-16 md:w-48 bg-linear-to-l from-stone-50 to-transparent z-10 pointer-events-none" />
       
       {/* Scroll Container */}
       <div 
@@ -728,11 +729,11 @@ export default function HomePage() {
               
               <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-bold leading-[1.2] sm:leading-[1.15] tracking-tight mb-4 sm:mb-6">
                 {resortInfo.name && resortInfo.name !== 'สวนวลัยรุกขเวช' ? (
-                  <span className="inline-block animate-reveal-up opacity-0 bg-clip-text text-transparent bg-gradient-to-br from-forest-950 via-forest-800 to-bamboo-800" style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}>
+                  <span className="inline-block animate-reveal-up opacity-0 bg-clip-text text-transparent bg-linear-to-br from-forest-950 via-forest-800 to-bamboo-800" style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}>
                     {resortInfo.name}
                   </span>
                 ) : (
-                  <span className="inline-flex flex-wrap justify-center lg:justify-start overflow-hidden pb-2 sm:pb-4 -mb-2 sm:-mb-4 bg-clip-text text-transparent bg-gradient-to-br from-forest-950 via-forest-800 to-bamboo-800">
+                  <span className="inline-flex flex-wrap justify-center lg:justify-start overflow-hidden pb-2 sm:pb-4 -mb-2 sm:-mb-4 bg-clip-text text-transparent bg-linear-to-br from-forest-950 via-forest-800 to-bamboo-800">
                     {["ส", "ว", "น", "ว", "ลัย", "รุก", "ข", "เวช"].map((syllable, index) => (
                       <span 
                         key={index} 
@@ -772,7 +773,7 @@ export default function HomePage() {
                 
                 <Link
                   href="/kayaks"
-                  className="inline-flex items-center justify-center gap-2.5 font-medium px-6 sm:px-7 py-3 sm:py-3.5 rounded-full bg-white/70 text-forest-900 border-2 border-forest-900/20 hover:border-forest-900/50 hover:bg-forest-50 active:scale-[0.98] transition-all duration-300 w-full sm:w-auto text-sm sm:text-base backdrop-blur-xs shadow-sm"
+                  className="inline-flex items-center justify-center gap-2.5 font-medium px-6 sm:px-7 py-3 sm:py-3.5 rounded-full bg-white/70 text-forest-900 border-2 border-forest-900/20 hover:border-forest-900/50 hover:bg-forest-50 active:scale-[0.98] transition-all duration-300 w-full sm:w-auto text-sm sm:text-base backdrop-blur-xs shadow-xs"
                 >
                   <Anchor size={18} />
                   <span>บริการเรือ</span>
@@ -820,11 +821,11 @@ export default function HomePage() {
       {/* ═══════════════════════════════
           2. GALLERY 
           ═══════════════════════════════ */}
-      <section id="gallery-section" className="pt-20 pb-16 md:pt-32 md:pb-32 overflow-hidden relative bg-[#FDFCF7]">
+      <section id="gallery-section" className="pt-20 pb-16 md:pt-32 md:pb-32 overflow-hidden relative bg-cream-100">
         {/* Decorative Topographic / Ripple Pattern matching the Vibe */}
         <div className="absolute inset-0 pointer-events-none z-0 mix-blend-multiply overflow-hidden">
           <div 
-            className="absolute w-[150vw] h-[150vw] md:w-[100vw] md:h-[100vw] rounded-full left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            className="absolute w-[150vw] h-[150vw] md:w-screen md:h-[100vw] rounded-full left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
             style={{
               background: 'repeating-radial-gradient(circle at center, transparent 0, transparent 60px, rgba(18, 60, 48, 0.03) 60px, rgba(18, 60, 48, 0.03) 61px)'
             }}
@@ -932,7 +933,7 @@ export default function HomePage() {
                 // 1 room: Full width Floating Glass
                 roomTypes.map((room) => (
                   <div key={room.id} className="w-full">
-                    <RoomCard room={room} large className="md:!h-[520px]" />
+                    <RoomCard room={room} large className="md:h-[520px]!" />
                   </div>
                 ))
               ) : (
@@ -1033,7 +1034,7 @@ export default function HomePage() {
           6. LOCATION & MAP SECTION
           ═══════════════════════════════ */}
       <section className="bg-stone-50" ref={locationRef}>
-        <WaveDivider className="text-[#FDFCF7]" />
+        <WaveDivider className="text-cream-100" />
         <div className="container mx-auto px-4 md:px-6 py-16">
           <div className="grid lg:grid-cols-12 gap-10 items-center">
             <div className="lg:col-span-5 space-y-6">
@@ -1062,7 +1063,7 @@ export default function HomePage() {
                       href={facebookLink.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-charcoal-400 text-sm underline decoration-stone-300 underline-offset-4 transition-colors hover:text-forest-800 hover:decoration-bamboo-400 break-words"
+                      className="text-charcoal-400 text-sm underline decoration-stone-300 underline-offset-4 transition-colors hover:text-forest-800 hover:decoration-bamboo-400 wrap-break-word"
                     >
                       {facebookLink.label}
                     </a>
@@ -1081,7 +1082,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="lg:col-span-7 h-64 sm:h-80 md:h-[420px] rounded-2xl overflow-hidden border border-stone-200 relative shadow-sm">
+            <div className="lg:col-span-7 h-64 sm:h-80 md:h-[420px] rounded-2xl overflow-hidden border border-stone-200 relative shadow-xs">
               {location.mapSrc ? <iframe
                 title={`แผนที่ ${resortInfo.name || "สวนวลัยรุกขเวช"}`}
                 aria-labelledby={mapTitleId}

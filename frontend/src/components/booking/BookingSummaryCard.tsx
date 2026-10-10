@@ -94,7 +94,7 @@ export default function BookingSummaryCard() {
 
       <div className="space-y-4 px-6 py-6 overflow-y-auto custom-scrollbar">
         {groups.map(group => (
-          <div key={group.typeId} className="rounded-2xl border border-stone-200/80 bg-white shadow-sm overflow-hidden flex flex-col max-h-[220px]">
+          <div key={group.typeId} className="rounded-2xl border border-stone-200/80 bg-white shadow-xs overflow-hidden flex flex-col max-h-[220px]">
             <div className="flex items-center justify-between bg-stone-50 px-4 py-3 border-b border-stone-100 shrink-0">
               <span className="font-bold text-sm text-forest-900">{group.typeName}</span>
               <button onClick={() => handleRemoveType(group.typeId)} className="text-stone-400 hover:text-red-500 transition-colors">

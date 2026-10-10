@@ -215,7 +215,7 @@ function BoatCheckinContent(): React.ReactElement {
   return (
     <div className="space-y-6 pb-12">
       {/* Top Banner / Title */}
-      <div className="bg-gradient-to-r from-teal-900 via-forest-800 to-forest-900 rounded-3xl p-6 sm:p-8 text-cream-100 shadow-lg relative overflow-hidden">
+      <div className="bg-linear-to-r from-teal-900 via-forest-800 to-forest-900 rounded-3xl p-6 sm:p-8 text-cream-100 shadow-lg relative overflow-hidden">
         <div className="absolute right-0 top-0 bottom-0 opacity-10 flex items-center pr-10 pointer-events-none">
           <Waves size={200} />
         </div>
@@ -234,20 +234,20 @@ function BoatCheckinContent(): React.ReactElement {
               onClick={() => setSelectedDate(todayStr)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 isToday
-                  ? "bg-white text-forest-900 shadow-sm"
+                  ? "bg-white text-forest-900 shadow-xs"
                   : "text-white/90 hover:text-white hover:bg-white/10"
               }`}
             >
               วันนี้
             </button>
-            <div className="relative flex items-center bg-white text-forest-900 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm cursor-pointer hover:bg-cream-50 transition-colors">
+            <div className="relative flex items-center bg-white text-forest-900 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-xs cursor-pointer hover:bg-cream-50 transition-colors">
               <Calendar size={14} className="text-forest-700 mr-2 shrink-0 pointer-events-none" />
               <input
                 id="boat-checkin-date-input"
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="bg-transparent text-xs text-forest-950 font-bold border-0 focus:outline-none focus:ring-0 cursor-pointer [color-scheme:light]"
+                className="bg-transparent text-xs text-forest-950 font-bold border-0 focus:outline-hidden focus:ring-0 cursor-pointer scheme-light"
               />
             </div>
             <button
@@ -265,7 +265,7 @@ function BoatCheckinContent(): React.ReactElement {
 
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-charcoal-400">จองทั้งหมด</p>
             <p className="text-xl font-bold text-charcoal-800 mt-0.5">{summary.total_bookings} คิว</p>
@@ -275,7 +275,7 @@ function BoatCheckinContent(): React.ReactElement {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-charcoal-400">เรือทั้งหมด</p>
             <p className="text-xl font-bold text-teal-800 mt-0.5">{summary.total_boats} ลำ</p>
@@ -285,7 +285,7 @@ function BoatCheckinContent(): React.ReactElement {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-amber-200/80 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-4 rounded-2xl border border-amber-200/80 shadow-xs flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-amber-700">รอมารายงานตัว</p>
             <p className="text-xl font-bold text-amber-900 mt-0.5">{summary.waiting_count} คิว</p>
@@ -295,7 +295,7 @@ function BoatCheckinContent(): React.ReactElement {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-teal-200/80 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-4 rounded-2xl border border-teal-200/80 shadow-xs flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-teal-700">กำลังพายในน้ำ</p>
             <p className="text-xl font-bold text-teal-900 mt-0.5">{summary.on_water_count} คิว</p>
@@ -305,7 +305,7 @@ function BoatCheckinContent(): React.ReactElement {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-emerald-200/80 shadow-sm flex items-center justify-between col-span-2 lg:col-span-1">
+        <div className="bg-white p-4 rounded-2xl border border-emerald-200/80 shadow-xs flex items-center justify-between col-span-2 lg:col-span-1">
           <div>
             <p className="text-xs font-medium text-emerald-700">คืนเรือเรียบร้อย</p>
             <p className="text-xl font-bold text-emerald-900 mt-0.5">{summary.checked_out_count} คิว</p>
@@ -317,7 +317,7 @@ function BoatCheckinContent(): React.ReactElement {
       </div>
 
       {/* Filter Tabs & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-stone-200/80 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-stone-200/80 shadow-xs">
         {/* Tab Buttons */}
         <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
           <button
@@ -325,7 +325,7 @@ function BoatCheckinContent(): React.ReactElement {
             onClick={() => setActiveTab("all")}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
               activeTab === "all"
-                ? "bg-forest-800 text-cream-100 shadow-sm"
+                ? "bg-forest-800 text-cream-100 shadow-xs"
                 : "text-charcoal-600 hover:bg-stone-100"
             }`}
           >
@@ -336,7 +336,7 @@ function BoatCheckinContent(): React.ReactElement {
             onClick={() => setActiveTab("waiting")}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
               activeTab === "waiting"
-                ? "bg-amber-500 text-white shadow-sm"
+                ? "bg-amber-500 text-white shadow-xs"
                 : "text-charcoal-600 hover:bg-amber-50"
             }`}
           >
@@ -347,7 +347,7 @@ function BoatCheckinContent(): React.ReactElement {
             onClick={() => setActiveTab("on_water")}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
               activeTab === "on_water"
-                ? "bg-teal-700 text-white shadow-sm"
+                ? "bg-teal-700 text-white shadow-xs"
                 : "text-charcoal-600 hover:bg-teal-50"
             }`}
           >
@@ -358,7 +358,7 @@ function BoatCheckinContent(): React.ReactElement {
             onClick={() => setActiveTab("checked_out")}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
               activeTab === "checked_out"
-                ? "bg-emerald-700 text-white shadow-sm"
+                ? "bg-emerald-700 text-white shadow-xs"
                 : "text-charcoal-600 hover:bg-emerald-50"
             }`}
           >
@@ -374,19 +374,19 @@ function BoatCheckinContent(): React.ReactElement {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="ค้นหาชื่อ, เบอร์โทร, รหัสจอง..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-none focus:border-forest-600 focus:ring-1 focus:ring-forest-600 transition-all"
+            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-stone-200 bg-stone-50/50 focus:bg-white focus:outline-hidden focus:border-forest-600 focus:ring-1 focus:ring-forest-600 transition-all"
           />
         </div>
       </div>
 
       {/* Main Content Grouped by Round */}
       {loading ? (
-        <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center text-charcoal-400 shadow-sm">
+        <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center text-charcoal-400 shadow-xs">
           <RefreshCw size={28} className="animate-spin mx-auto text-forest-700 mb-3" />
           <p className="text-sm font-semibold text-charcoal-600">กำลังโหลดข้อมูลรอบเรือ...</p>
         </div>
       ) : roundsGroup.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center text-charcoal-500 shadow-sm">
+        <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center text-charcoal-500 shadow-xs">
           <div className="w-14 h-14 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center mx-auto mb-3">
             <Sailboat size={28} />
           </div>
@@ -407,7 +407,7 @@ function BoatCheckinContent(): React.ReactElement {
             return (
               <div
                 key={roundTime}
-                className="bg-white rounded-2xl border border-stone-200/90 shadow-sm overflow-hidden"
+                className="bg-white rounded-2xl border border-stone-200/90 shadow-xs overflow-hidden"
               >
                 {/* Round Header */}
                 <div className="bg-stone-50/80 px-5 py-3.5 border-b border-stone-200/80 flex flex-wrap items-center justify-between gap-3">
@@ -568,7 +568,7 @@ function BoatCheckinContent(): React.ReactElement {
                               }}
                               disabled={!canCheckin || actionLoadingId === b.boat_booking_id}
                               title={canCheckin ? undefined : checkinReason}
-                              className="px-3.5 py-2 rounded-xl bg-forest-800 text-cream-100 hover:bg-forest-900 text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+                              className="px-3.5 py-2 rounded-xl bg-forest-800 text-cream-100 hover:bg-forest-900 text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
                             >
                               <Ship size={14} />
                               <span>{canCheckin ? 'ปล่อยเรือลงน้ำ (Check-in)' : checkinReason}</span>
@@ -588,7 +588,7 @@ function BoatCheckinContent(): React.ReactElement {
                                 });
                               }}
                               disabled={actionLoadingId === b.boat_booking_id}
-                              className="px-3.5 py-2 rounded-xl bg-teal-700 text-white hover:bg-teal-800 text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+                              className="px-3.5 py-2 rounded-xl bg-teal-700 text-white hover:bg-teal-800 text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
                             >
                               <CheckCircle2 size={14} />
                               <span>รับคืนเรือ (Check-out)</span>
@@ -614,7 +614,7 @@ function BoatCheckinContent(): React.ReactElement {
 
       {/* Confirmation Modal */}
       {confirmModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal-900/50 backdrop-blur-sm animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal-900/50 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4">
             <div className="flex items-center gap-3">
               <div
@@ -655,7 +655,7 @@ function BoatCheckinContent(): React.ReactElement {
                   }
                 }}
                 disabled={actionLoadingId !== null}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-sm transition-all ${
+                className={`px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-xs transition-all ${
                   confirmModal.type === "checkin"
                     ? "bg-forest-800 hover:bg-forest-900"
                     : "bg-teal-700 hover:bg-teal-800"
