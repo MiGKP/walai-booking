@@ -99,6 +99,32 @@ test('kayak checkout keeps its coupon field and room-rights entry', () => {
   assert.match(source, /promotionSelection\?\.price === totalPrice/);
 });
 
+test('admin promotion edits retain both-service scope and existing wallet/stack policies', async () => {
+  const source = fs.readFileSync(path.join(root, 'src/app/admin/promotions/page.tsx'), 'utf8');
+  const extract = name => {
+    const start = source.indexOf(`  const ${name} =`);
+    const end = source.indexOf('\n  };', start);
+    assert(start >= 0 && end > start);
+    return ts.transpileModule(`${source.slice(start, end + 5)}\nreturn ${name};`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
+  };
+  let form;
+  const edit = new Function('setEditingId', 'setPromoTab', 'setHasBoatAddon', 'setForm', 'setShowModal', 'formatDateForInput', 'parseAppliesTo', extract('openEdit'))(
+    () => {}, () => {}, () => {}, value => { form = value; }, () => {}, value => value || '', value => value || 'both',
+  );
+  edit({ id: 32, code: 'TESTBOTH', applies_to: 'both', discount_type: 'fixed', discount_value: 10, is_collectible: false, stackable: true });
+  assert.equal(form.applies_to, 'both');
+  assert.equal(form.is_collectible, false);
+  assert.equal(form.stackable, true);
+  let payload;
+  const submit = new Function('setSaving', 'promoTab', 'form', 'hasBoatAddon', 'editingId', 'api', 'notify', 'setShowModal', 'fetchPromotions', 'getApiErrorMessage', 'parseAppliesTo', extract('handleSubmit'))(
+    () => {}, 'room', form, false, 32, { put: async (_url, body) => { payload = body; } }, { success() {}, error(message) { assert.fail(message); } }, () => {}, () => {}, () => 'Unexpected save error', value => value || 'both',
+  );
+  await submit({ preventDefault() {} });
+  assert.equal(payload.applies_to, 'both');
+  assert.equal(payload.is_collectible, false);
+  assert.equal(payload.stackable, true);
+});
+
 test('checkin search finds every room in a booking by plain and hash-prefixed booking number', () => {
   const source = fs.readFileSync(path.join(root, 'src/app/admin/checkin/page.tsx'), 'utf8');
   const handler = source.slice(source.indexOf('  const matchesSearch ='), source.indexOf('  const sortItems ='));

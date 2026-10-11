@@ -334,9 +334,9 @@ export default function PromotionsPage() {
       usage_limit_per_member: p.usage_limit_per_member
         ? String(p.usage_limit_per_member)
         : "",
-      is_collectible: true,
-      stackable: false,
-      applies_to: isKayak ? "kayak" : "room",
+      is_collectible: Boolean(p.is_collectible),
+      stackable: Boolean(p.stackable),
+      applies_to: parseAppliesTo(p.applies_to),
       is_active: p.is_active,
       room_type_id: p.room_type_id ? String(p.room_type_id) : "",
       room_count: p.room_count ? String(p.room_count) : "1",
@@ -362,9 +362,9 @@ export default function PromotionsPage() {
         usage_limit_per_member: form.usage_limit_per_member
           ? Number(form.usage_limit_per_member)
           : null,
-        is_collectible: true,
-        stackable: false,
-        applies_to: isRoom ? "room" : "kayak",
+        is_collectible: form.is_collectible,
+        stackable: form.stackable,
+        applies_to: parseAppliesTo(form.applies_to),
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         room_type_id: isRoom && hasBoatAddon && form.room_type_id ? Number(form.room_type_id) : null,
@@ -1216,6 +1216,35 @@ export default function PromotionsPage() {
               <span>โปรโมชั่นเรือ</span>
             </button>
           </div>
+
+          <fieldset className="grid gap-3 rounded-2xl border border-cream-200 bg-cream-50/50 p-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-bold text-charcoal-700">บริการที่ใช้ส่วนลดได้</label>
+              <CustomSelect
+                value={form.applies_to}
+                options={[
+                  { value: "room", label: "ห้องพักเท่านั้น" },
+                  { value: "kayak", label: "เรือเท่านั้น" },
+                  { value: "both", label: "ห้องพักและเรือ" },
+                ]}
+                onChange={(value) => {
+                  const scope = parseAppliesTo(value);
+                  setForm((previous) => ({ ...previous, applies_to: scope }));
+                  setPromoTab(scope === "kayak" ? "kayak" : "room");
+                }}
+              />
+            </div>
+            <div className="space-y-2 text-xs text-charcoal-700">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={form.is_collectible} onChange={(event) => setForm((previous) => ({ ...previous, is_collectible: event.target.checked }))} />
+                สมาชิกเก็บคูปองในกระเป๋าได้
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={form.stackable} onChange={(event) => setForm((previous) => ({ ...previous, stackable: event.target.checked }))} />
+                ใช้ร่วมกับโค้ดอื่นที่อนุญาตให้ใช้ร่วมกันได้
+              </label>
+            </div>
+          </fieldset>
 
           {/* TAB 1: โปรโมชั่นห้องพัก (Side-by-side 2-column layout) */}
           {promoTab === "room" && (
