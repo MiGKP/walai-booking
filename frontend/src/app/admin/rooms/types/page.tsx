@@ -93,7 +93,7 @@ export default function RoomTypesPage() {
     };
   }, [coverPreview, galleryPreviews, editCoverPreview, editGalleryPreviews]);
 
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     try {
       const [rtRes, amRes] = await Promise.all([
@@ -107,7 +107,7 @@ export default function RoomTypesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const handleToggleStatus = async (id: number, currentStatus: boolean) => {
     try {
@@ -520,7 +520,7 @@ export default function RoomTypesPage() {
               placeholder="ค้นหาชื่อประเภทห้อง หรือคำอธิบาย..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 bg-cream-50/70 border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+              className="w-full pl-9 pr-8 py-2 bg-cream-50/70 border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
             />
             {searchQuery && (
               <button
@@ -818,7 +818,7 @@ export default function RoomTypesPage() {
               type="button"
               disabled={submitting}
               onClick={handleSubmit}
-              className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-forest-800 hover:bg-forest-900 rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-forest-800 hover:bg-forest-900 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-60"
             >
               {submitting ? (
                 <Loader2 size={15} className="animate-spin" />
@@ -842,7 +842,7 @@ export default function RoomTypesPage() {
                   type="text"
                   required
                   placeholder="เช่น วิลล่าริมน้ำ, เต็นท์โดม VIP"
-                  className="w-full px-3.5 py-2.5 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all"
+                  className="w-full px-3.5 py-2.5 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all"
                   value={form.type_name}
                   onChange={(e) =>
                     setForm({ ...form, type_name: e.target.value })
@@ -857,7 +857,7 @@ export default function RoomTypesPage() {
                 </label>
                 <textarea
                   placeholder="บรรยากาศห้องพัก วิว และคำอธิบายเพิ่มเติม..."
-                  className="w-full px-3.5 py-2 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all resize-none"
+                  className="w-full px-3.5 py-2 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all resize-none"
                   rows={2}
                   value={form.description}
                   onChange={(e) =>
@@ -889,7 +889,7 @@ export default function RoomTypesPage() {
                       type="number"
                       required
                       min="1"
-                      className="w-full text-center bg-transparent py-2 text-xs font-medium text-charcoal-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-full text-center bg-transparent py-2 text-xs font-medium text-charcoal-800 focus:outline-hidden [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       value={form.capacity}
                       onChange={(e) =>
                         setForm({
@@ -921,7 +921,7 @@ export default function RoomTypesPage() {
                     required
                     min="0"
                     placeholder="เช่น 2500"
-                    className="w-full px-3.5 py-2 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all"
+                    className="w-full px-3.5 py-2 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all"
                     value={form.price}
                     onChange={(e) =>
                       setForm({ ...form, price: e.target.value })
@@ -1076,7 +1076,7 @@ export default function RoomTypesPage() {
                             setCoverFile(null);
                             setCoverPreview(null);
                           }}
-                          className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                          className="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
                         >
                           <X size={13} /> เปลี่ยนรูปปก
                         </button>
@@ -1194,7 +1194,7 @@ export default function RoomTypesPage() {
                 type="button"
                 disabled={editUploading || submitting}
                 onClick={handleUpdateRoom}
-                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-forest-800 hover:bg-forest-900 rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-forest-800 hover:bg-forest-900 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-60"
               >
                 {editUploading || submitting ? (
                   <Loader2 size={15} className="animate-spin" />
@@ -1218,7 +1218,7 @@ export default function RoomTypesPage() {
                     type="text"
                     required
                     placeholder="เช่น วิลล่าริมน้ำ, เต็นท์โดม VIP"
-                    className="w-full px-3.5 py-2.5 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all"
+                    className="w-full px-3.5 py-2.5 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all"
                     value={editingRoom.type_name || ""}
                     onChange={(e) =>
                       setEditingRoom({
@@ -1236,7 +1236,7 @@ export default function RoomTypesPage() {
                   </label>
                   <textarea
                     placeholder="บรรยากาศห้องพัก วิว และคำอธิบายเพิ่มเติม..."
-                    className="w-full px-3.5 py-2 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all resize-none"
+                    className="w-full px-3.5 py-2 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all resize-none"
                     rows={2}
                     value={editingRoom.description || ""}
                     onChange={(e) =>
@@ -1275,7 +1275,7 @@ export default function RoomTypesPage() {
                         required
                         min="1"
                         placeholder="1"
-                        className="w-full text-center bg-transparent py-2 text-xs font-medium text-charcoal-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-full text-center bg-transparent py-2 text-xs font-medium text-charcoal-800 focus:outline-hidden [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         value={editingRoom.capacity || ""}
                         onChange={(e) =>
                           setEditingRoom({
@@ -1307,7 +1307,7 @@ export default function RoomTypesPage() {
                       required
                       min="0"
                       placeholder="ระบุราคาห้องพัก"
-                      className="w-full px-3.5 py-2 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-none focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all"
+                      className="w-full px-3.5 py-2 bg-cream-50/70 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:bg-white focus:border-forest-800 focus:ring-2 focus:ring-forest-800/10 transition-all"
                       value={editingRoom.price || ""}
                       onChange={(e) =>
                         setEditingRoom({
@@ -1342,7 +1342,7 @@ export default function RoomTypesPage() {
                         status: !editingRoom.status,
                       })
                     }
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
                       editingRoom.status ? "bg-forest-800" : "bg-cream-300"
                     }`}
                   >
@@ -1514,7 +1514,7 @@ export default function RoomTypesPage() {
                           {editCoverPreview ? "รูปปกใหม่" : "รูปปกปัจจุบัน"}
                         </span>
                         <div className="absolute inset-0 bg-charcoal-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <label className="bg-white hover:bg-cream-50 text-forest-900 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer">
+                          <label className="bg-white hover:bg-cream-50 text-forest-900 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer">
                             <UploadCloud size={14} className="text-forest-800" />
                             เปลี่ยนรูปปก
                             <input

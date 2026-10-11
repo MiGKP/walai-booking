@@ -175,7 +175,7 @@ export default function StaffManagementPage() {
     setCurrentPage(1);
   }, [activeTab, statusFilter, searchQuery]);
 
-  const fetchStaff = async () => {
+  async function fetchStaff() {
     setLoading(true);
     try {
       const res = await api.get("/auth/staff");
@@ -185,7 +185,7 @@ export default function StaffManagementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const handleCreateStaff = async (e: React.FormEvent) => {
     e.preventDefault();

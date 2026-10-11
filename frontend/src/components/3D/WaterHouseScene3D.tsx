@@ -57,7 +57,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
         renderer.domElement.className =
-          "w-full h-full outline-none focus:outline-none focus:ring-0 select-none";
+          "w-full h-full outline-hidden focus:outline-hidden focus:ring-0 select-none";
         renderer.domElement.setAttribute("aria-hidden", "true");
         renderer.domElement.tabIndex = -1;
         mount.appendChild(renderer.domElement);
@@ -990,7 +990,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
       aria-label="ภาพจำลองสามมิติของบ้านลอยน้ำ เรือ และเกาะต้นไม้"
       role="img"
     >
-      {/* <div className="absolute inset-0 bg-gradient-to-tr from-lagoon-400/10 via-bamboo-300/10 to-transparent blur-3xl pointer-events-none" /> */}
+      {/* <div className="absolute inset-0 bg-linear-to-tr from-lagoon-400/10 via-bamboo-300/10 to-transparent blur-3xl pointer-events-none" /> */}
     </div>
   );
 }

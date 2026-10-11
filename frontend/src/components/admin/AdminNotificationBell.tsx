@@ -84,7 +84,7 @@ export default function AdminNotificationBell(): React.ReactElement {
         title="แจ้งเตือนงานค้าง"
         className={`relative flex items-center justify-center w-9 h-9 rounded-xl border transition-all duration-200 ${
           isOpen
-            ? "bg-forest-800 text-cream-100 border-forest-800 shadow-sm"
+            ? "bg-forest-800 text-cream-100 border-forest-800 shadow-xs"
             : "bg-white text-charcoal-600 border-stone-200/80 hover:bg-stone-50 hover:text-forest-800 hover:border-stone-300"
         }`}
       >
@@ -93,7 +93,7 @@ export default function AdminNotificationBell(): React.ReactElement {
         {/* Badge & Ping */}
         {hasUrgent && (
           <>
-            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs ring-2 ring-white">
               {counts.total_urgent > 99 ? "99+" : counts.total_urgent}
             </span>
             <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-rose-400 opacity-75 animate-ping pointer-events-none" />

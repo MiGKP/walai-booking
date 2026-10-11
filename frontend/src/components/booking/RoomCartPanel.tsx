@@ -177,7 +177,7 @@ export default function RoomCartPanel({
           className="w-full text-left group transition-all"
         >
           <div className="flex items-center gap-3 rounded-xl border border-stone-100 bg-stone-50/50 p-3 group-hover:border-forest-200 group-hover:bg-forest-50/30">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-forest-700 shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-forest-700 shadow-xs">
               <Calendar size={18} />
             </div>
             <div className="flex-1 min-w-0">
@@ -225,7 +225,7 @@ export default function RoomCartPanel({
               <button
                 type="button"
                 onClick={() => updateGuests(cart.adults - 1, cart.children)}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-stone-200 bg-white text-forest-800 hover:bg-forest-50 disabled:opacity-30 transition-colors shadow-sm"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-stone-200 bg-white text-forest-800 hover:bg-forest-50 disabled:opacity-30 transition-colors shadow-xs"
                 disabled={cart.adults <= 1}
               >
                 <Minus size={12} />
@@ -234,7 +234,7 @@ export default function RoomCartPanel({
               <button
                 type="button"
                 onClick={() => updateGuests(cart.adults + 1, cart.children)}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-stone-200 bg-white text-forest-800 hover:bg-forest-50 transition-colors shadow-sm"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-stone-200 bg-white text-forest-800 hover:bg-forest-50 transition-colors shadow-xs"
               >
                 <Plus size={12} />
               </button>
@@ -247,7 +247,7 @@ export default function RoomCartPanel({
               <button
                 type="button"
                 onClick={() => updateGuests(cart.adults, cart.children - 1)}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-stone-200 bg-white text-forest-800 hover:bg-forest-50 disabled:opacity-30 transition-colors shadow-sm"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-stone-200 bg-white text-forest-800 hover:bg-forest-50 disabled:opacity-30 transition-colors shadow-xs"
                 disabled={cart.children <= 0}
               >
                 <Minus size={12} />
@@ -256,7 +256,7 @@ export default function RoomCartPanel({
               <button
                 type="button"
                 onClick={() => updateGuests(cart.adults, cart.children + 1)}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-stone-200 bg-white text-forest-800 hover:bg-forest-50 transition-colors shadow-sm"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-stone-200 bg-white text-forest-800 hover:bg-forest-50 transition-colors shadow-xs"
               >
                 <Plus size={12} />
               </button>
@@ -282,7 +282,7 @@ export default function RoomCartPanel({
             return (
               <div
                 key={key}
-                className="group relative rounded-xl border border-stone-100 p-3 transition-all hover:border-forest-200 hover:shadow-sm bg-white"
+                className="group relative rounded-xl border border-stone-100 p-3 transition-all hover:border-forest-200 hover:shadow-xs bg-white"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -301,7 +301,7 @@ export default function RoomCartPanel({
                         : cart.items.filter((i) => i.room_type_id !== item.room_type_id);
                       onChange({ ...cart, items: newItems });
                     }}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors shadow-sm shrink-0"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors shadow-xs shrink-0"
                     title="ลบห้องนี้ออก"
                   >
                     <Trash2 size={14} />
@@ -321,7 +321,7 @@ export default function RoomCartPanel({
               โค้ดส่วนลด
             </label>
             {appliedPromo ? (
-              <div className="flex items-center justify-between rounded-xl bg-forest-50 px-3 py-2.5 border border-forest-100 shadow-sm">
+              <div className="flex items-center justify-between rounded-xl bg-forest-50 px-3 py-2.5 border border-forest-100 shadow-xs">
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-forest-100 text-forest-600">
                     <CheckCircle2 size={12} />
@@ -345,7 +345,7 @@ export default function RoomCartPanel({
             ) : (
               <div className="flex gap-2">
                 <input
-                  className="w-full rounded-xl border border-stone-200 bg-stone-50/30 px-3 py-2 text-sm font-medium placeholder:text-stone-300 focus:border-forest-500 focus:outline-none transition-all"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50/30 px-3 py-2 text-sm font-medium placeholder:text-stone-300 focus:border-forest-500 focus:outline-hidden transition-all"
                   placeholder="กรอกโค้ด"
                   value={promoCode}
                   onChange={(e) => setPromoCode(e.target.value.toUpperCase())}

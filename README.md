@@ -56,7 +56,7 @@ walai_booking/
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 20.19+ (20.x), 22.13+ (22.x), or 24+
 - PostgreSQL 14 or newer
 - npm
 

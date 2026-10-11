@@ -42,7 +42,7 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
     }
   }, [isOpen]);
 
-  const fetchCoupons = async () => {
+  async function fetchCoupons() {
     setLoading(true);
     try {
       const [activeRes, mineRes] = await Promise.all([
@@ -63,7 +63,7 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const handleCollect = async (id: number) => {
     setCollectingId(id);
@@ -84,7 +84,7 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
   const availableToCollect = activePromos.filter(p => p.is_collectible && !myPromoIds.has(p.id));
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-stone-900/50 backdrop-blur-sm transition-opacity sm:items-center">
+    <div className="fixed inset-0 z-100 flex items-end justify-center bg-stone-900/50 backdrop-blur-xs transition-opacity sm:items-center">
       <div 
         className="w-full max-w-md overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl flex flex-col max-h-[85vh] animate-reveal-up"
       >

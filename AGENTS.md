@@ -50,15 +50,16 @@ walai_booking/
 
 | Layer | Tech |
 | --- | --- |
-| Frontend | Next.js 16 (App Router), React 19, Tailwind CSS 3, Axios, Lucide, Three.js, Zustand |
-| Backend | Express 4, TypeScript, `pg`, Passport JWT + Google OAuth, express-validator, Multer |
+| Frontend | Next.js 16 (App Router), React 19, Tailwind CSS 4, Axios, Lucide, Three.js, Zustand |
+| Backend | Express 5, TypeScript, `pg`, Passport JWT + Google OAuth, express-validator, Multer |
 | Database | PostgreSQL (local or Neon) |
 | Media | Cloudinary (production uploads). Legacy local `backend/uploads/` may still exist for old paths |
 | Email | Prefer Brevo HTTPS API (`MAIL_PROVIDER=brevo`). SMTP/Gmail remain fallback paths in `mail.service.ts` |
 | Frontend host | Vercel via GitHub Actions (Hobby-friendly collaborator deploy) |
 | Backend host | Typically Render (or any Node host) from `main` |
 
-Node.js **20+**. PostgreSQL **14+**.
+Node.js **20.19+** (20.x), **22.13+** (22.x), or **24+**. PostgreSQL **14+**.
+TypeScript stays on **6.0.3** until the existing compiler API consumers support TypeScript 7. Do not bypass type checks to upgrade it.
 
 ---
 
@@ -264,6 +265,8 @@ Details: `CONTRIBUTING.md`, `docs/TEAM_SETUP.md`.
 - Rotate any secret that was ever pasted into chat or an old commit.
 - Uploads: use Cloudinary helpers in `backend/src/services/cloudinary.service.ts`; do not reintroduce long-term local slip storage as the primary path.
 - Auth middleware and role checks must gate staff/admin routes.
+- Express 5 uses a query getter. Keep `preserveRequestQuery` before routes and the `extended` query parser so existing express-validator sanitizers and array validation remain effective.
+- Prisma 7 reads the datasource URL from `backend/prisma.config.ts`; validating the schema does not require applying a database migration.
 
 ---
 

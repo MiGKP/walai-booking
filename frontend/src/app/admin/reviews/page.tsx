@@ -474,7 +474,7 @@ export default function AdminReviewsPage() {
               placeholder="ค้นหาชื่อผู้รีวิว, อีเมล, ชื่อห้อง, หรือข้อความ..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-9 pr-9 py-2 rounded-xl border border-charcoal-200/60 focus:outline-none focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
+              className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-9 pr-9 py-2 rounded-xl border border-charcoal-200/60 focus:outline-hidden focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
             />
             {searchInput && (
               <button

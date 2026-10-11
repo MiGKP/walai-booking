@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Anchor, Clock3, CreditCard, Minus, Plus, Sailboat, Ticket, Users, X, ChevronLeft, ChevronRight, ChevronDown, ImageIcon } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
+import RoomBoatRightsChoice from '@/components/booking/RoomBoatRightsChoice';
+import PromoCodeFields, { type PromoPreview } from '@/components/booking/PromoCodeFields';
 import { useAuth } from '@/hooks/useAuth';
 import { isBoatSlotBookable } from '@/lib/boat-time-policy';
 import { resolveMediaUrl } from '@/lib/avatar';
@@ -101,7 +103,7 @@ function Stepper({
         }}
         onFocus={(e) => e.currentTarget.select()}
         aria-label={ariaLabel}
-        className="h-7 w-9 rounded-md border border-stone-200 bg-white text-center text-sm font-bold tabular-nums text-forest-900 transition-colors focus:border-forest-400 focus:outline-none"
+        className="h-7 w-9 rounded-md border border-stone-200 bg-white text-center text-sm font-bold tabular-nums text-forest-900 transition-colors focus:border-forest-400 focus:outline-hidden"
       />
       <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`เพิ่ม${ariaLabel}`} className={btn}><Plus size={13} /></button>
     </div>
@@ -142,28 +144,28 @@ function ImageModal({ images, initialIndex, onClose }: { images: string[]; initi
   if (images.length === 0) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md transition-opacity duration-300" 
+    <div
+      className="fixed inset-0 z-100 flex items-center justify-center bg-black/95 backdrop-blur-md transition-opacity duration-300"
       onClick={onClose}
     >
       {/* Header / Top Bar */}
-      <div className="absolute left-0 top-0 z-[101] flex w-full items-center justify-between bg-gradient-to-b from-black/80 to-transparent p-4 sm:p-6 pb-12 pointer-events-none">
+      <div className="absolute left-0 top-0 z-101 flex w-full items-center justify-between bg-linear-to-b from-black/80 to-transparent p-4 sm:p-6 pb-12 pointer-events-none">
         <div className="text-sm font-semibold tracking-widest text-white/80">
           {currentIndex + 1} / {images.length}
         </div>
-        <button 
-          className="pointer-events-auto rounded-full bg-white/10 p-2.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95" 
-          onClick={onClose} 
+        <button
+          className="pointer-events-auto rounded-full bg-white/10 p-2.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
+          onClick={onClose}
           aria-label="Close gallery"
         >
           <X size={24} />
         </button>
       </div>
-      
+
       {/* Previous Button */}
       {images.length > 1 && (
-        <button 
-          className="absolute left-3 sm:left-8 top-1/2 z-[101] -translate-y-1/2 rounded-full bg-white/10 p-3.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
+        <button
+          className="absolute left-3 sm:left-8 top-1/2 z-101 -translate-y-1/2 rounded-full bg-white/10 p-3.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
           onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1)); }}
           aria-label="Previous image"
         >
@@ -172,21 +174,21 @@ function ImageModal({ images, initialIndex, onClose }: { images: string[]; initi
       )}
 
       {/* Main Image Container */}
-      <div 
+      <div
         className="relative flex max-h-[85vh] max-w-[90vw] items-center justify-center lg:max-w-5xl"
         onClick={(e) => e.stopPropagation()} // Click on the image itself won't close
       >
-        <img 
-          src={resolveMediaUrl(images[currentIndex])} 
-          alt={`Gallery image ${currentIndex + 1}`} 
-          className="max-h-[85vh] w-auto rounded-xl object-contain shadow-2xl ring-1 ring-white/10 select-none animate-in fade-in duration-300" 
+        <img
+          src={resolveMediaUrl(images[currentIndex])}
+          alt={`Gallery image ${currentIndex + 1}`}
+          className="max-h-[85vh] w-auto rounded-xl object-contain shadow-2xl ring-1 ring-white/10 select-none animate-in fade-in duration-300"
         />
       </div>
 
       {/* Next Button */}
       {images.length > 1 && (
-        <button 
-          className="absolute right-3 sm:right-8 top-1/2 z-[101] -translate-y-1/2 rounded-full bg-white/10 p-3.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
+        <button
+          className="absolute right-3 sm:right-8 top-1/2 z-101 -translate-y-1/2 rounded-full bg-white/10 p-3.5 text-white backdrop-blur-md transition-all hover:bg-white/25 hover:scale-110 active:scale-95"
           onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0)); }}
           aria-label="Next image"
         >
@@ -196,8 +198,8 @@ function ImageModal({ images, initialIndex, onClose }: { images: string[]; initi
 
       {/* Thumbnails / Pagination */}
       {images.length > 1 && (
-        <div 
-          className="absolute bottom-8 left-1/2 z-[101] flex -translate-x-1/2 gap-2.5 rounded-full bg-black/60 px-5 py-3 backdrop-blur-md ring-1 ring-white/15"
+        <div
+          className="absolute bottom-8 left-1/2 z-101 flex -translate-x-1/2 gap-2.5 rounded-full bg-black/60 px-5 py-3 backdrop-blur-md ring-1 ring-white/15"
           onClick={(e) => e.stopPropagation()}
         >
           {images.map((_, idx) => (
@@ -312,14 +314,14 @@ function KayaksPageContent(): React.ReactElement {
     const timer = window.setInterval(() => setClockNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
-  
+
   // ดึงข้อมูลวันที่เข้าพักจาก query parameters (กรณีมาจากหน้า Payment Success)
   const roomBookingId = searchParams.get('room_booking_id');
   let promoCheckIn = searchParams.get('check_in');
   if (promoCheckIn === 'undefined' || promoCheckIn === 'null') promoCheckIn = null;
   let promoCheckOut = searchParams.get('check_out');
   if (promoCheckOut === 'undefined' || promoCheckOut === 'null') promoCheckOut = null;
-  
+
   // หากมีวันเข้าพัก ให้บังคับเลือกได้แค่วันที่เช็คอิน ถึง วันก่อนเช็คเอาต์
   const isValidISO = (iso: string | null) => /^\d{4}-\d{2}-\d{2}$/.test(iso || "");
   const minAllowedISO = promoCheckIn && isValidISO(promoCheckIn) && promoCheckIn >= today ? promoCheckIn : today;
@@ -536,7 +538,7 @@ function KayaksPageContent(): React.ReactElement {
       .map((boat) => {
         const boatCount = Number(boatCountByType[boat.id] || 0);
         if (boatCount < 1) return null;
-        
+
         return {
           boat_type_id: boat.id,
           name: boat.name,
@@ -551,6 +553,11 @@ function KayaksPageContent(): React.ReactElement {
   }, [boats, boatCountByType]);
 
   const totalPrice = cartTotal(cartLines);
+  const [promotionSelection, setPromotionSelection] = useState<{ price: number; ids: number[]; preview: PromoPreview | null } | null>(null);
+  // A validation response for an old cart must never discount the current cart.
+  const currentPromotion = promotionSelection?.price === totalPrice ? promotionSelection : null;
+  const promotionIds = currentPromotion?.ids ?? [];
+  const promotionPreview = currentPromotion?.preview ?? null;
   const totalPassengers = cartPassengerTotal(cartLines);
   const totalBoats = cartBoatTotal(cartLines);
 
@@ -578,7 +585,7 @@ function KayaksPageContent(): React.ReactElement {
   const handleBoatCountChange = (boatId: number, raw: number): void => {
     if (!Number.isFinite(raw)) return;
     const nextCount = Math.max(0, raw);
-    
+
     setBoatCountByType((prev) => {
       const next = { ...prev };
       if (nextCount === 0) {
@@ -628,6 +635,7 @@ function KayaksPageContent(): React.ReactElement {
         start_time: normalizeSlotTime(selectedSlot.start_time),
         end_time: normalizeSlotTime(selectedSlot.end_time),
         room_booking_id: roomBookingId || undefined,
+        promotion_ids: promotionIds,
         items: cartLines.map((line) => ({
           boat_type_id: line.boat_type_id,
           num_passengers: line.num_passengers,
@@ -645,17 +653,25 @@ function KayaksPageContent(): React.ReactElement {
     }
   };
 
+  const [useRoomRights, setUseRoomRights] = useState(false);
+
   return (
     <div className="min-h-screen bg-cream-100 pb-24 pt-4 overflow-x-hidden">
       {galleryBoat && (
-        <ImageModal 
-          images={galleryBoat.images?.length ? galleryBoat.images : (galleryBoat.image ? [galleryBoat.image] : [])} 
-          initialIndex={0} 
-          onClose={() => setGalleryBoat(null)} 
+        <ImageModal
+          images={galleryBoat.images?.length ? galleryBoat.images : (galleryBoat.image ? [galleryBoat.image] : [])}
+          initialIndex={0}
+          onClose={() => setGalleryBoat(null)}
         />
       )}
       <div className="container mx-auto px-4 pt-16 sm:pt-20 max-w-full">
-        <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:items-start min-w-0 max-w-full">
+
+
+
+
+
+        <RoomBoatRightsChoice memberId={user?.role === 'customer' ? user.id : undefined} enabled={useRoomRights} onChange={setUseRoomRights} />
+        {!useRoomRights && <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start min-w-0 max-w-full">
           <div className="space-y-6 min-w-0 max-w-full">
             {/* วันที่ + จำนวนผู้โดยสารต่อประเภทเรือ อยู่ในกรอบเดียวกัน วางคู่กัน — ปฏิทินไม่ต้องกว้างเพราะจองทีละวัน */}
             <section className={`${CARD} min-w-0 max-w-full overflow-hidden`}>
@@ -680,7 +696,7 @@ function KayaksPageContent(): React.ReactElement {
                       visibleMonths={1}
                     />
                   </div>
-                  
+
                   <div className="rounded-xl bg-forest-50/50 p-4 text-sm text-forest-900/80 border border-forest-100">
                     <ul className="list-disc pl-5 space-y-1">
                       <li>ต้องจองล่วงหน้าอย่างน้อย {boatHours[0] ? ((boatHours[0].advance_booking_minutes ?? 60) % 60 === 0 ? `${(boatHours[0].advance_booking_minutes ?? 60) / 60} ชั่วโมง` : `${boatHours[0].advance_booking_minutes ?? 60} นาที`) : '1 ชั่วโมง'}</li>
@@ -723,7 +739,7 @@ function KayaksPageContent(): React.ReactElement {
                       <div className="space-y-1.5 min-w-0 max-w-full">
                         <div
                           ref={slotScrollRef}
-                          className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                          className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden"
                         >
                           {scheduleSlots.length === 0
                             ? [0, 1, 2].map((i) => <div key={i} className="h-14 w-28 shrink-0 animate-pulse rounded-xl bg-stone-100 snap-start" />)
@@ -745,7 +761,7 @@ function KayaksPageContent(): React.ReactElement {
                     ) : slotsLoading ? (
                       <div
                         ref={slotScrollRef}
-                        className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden"
                       >
                         {[0, 1, 2].map((i) => <div key={i} className="h-14 w-28 shrink-0 animate-pulse rounded-xl bg-stone-100 snap-start" />)}
                       </div>
@@ -755,7 +771,7 @@ function KayaksPageContent(): React.ReactElement {
                       <div className="space-y-1 min-w-0 max-w-full">
                         <div
                           ref={slotScrollRef}
-                          className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                          className="flex w-full max-w-full gap-2 overflow-x-auto scroll-smooth pb-1.5 pt-0.5 snap-x snap-mandatory [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden"
                         >
                           {slots.map((slot) => {
                             const isSelected = slot.key === selectedSlotKey;
@@ -798,7 +814,7 @@ function KayaksPageContent(): React.ReactElement {
                         <select
                           value={typeFilter}
                           onChange={(e) => setTypeFilter(e.target.value)}
-                          className="w-full appearance-none rounded-xl border border-stone-200 bg-white px-3 py-1.5 pr-8 text-xs font-semibold text-charcoal-500 outline-none transition-colors hover:border-forest-300 focus:border-forest-500 focus:ring-2 focus:ring-forest-500/20"
+                          className="w-full appearance-none rounded-xl border border-stone-200 bg-white px-3 py-1.5 pr-8 text-xs font-semibold text-charcoal-500 outline-hidden transition-colors hover:border-forest-300 focus:border-forest-500 focus:ring-2 focus:ring-forest-500/20"
                         >
                           <option value="all">ทุกประเภท</option>
                           {typeOptions.map((type) => (
@@ -857,9 +873,9 @@ function KayaksPageContent(): React.ReactElement {
                           <div
                             key={boat.id}
                             className={`group relative overflow-hidden rounded-2xl border transition-all ${
-                              isFull || (!hasRound && !noDateYet) 
-                                ? 'border-stone-100 bg-stone-50/40 opacity-75' 
-                                : 'border-stone-200/80 bg-white hover:border-forest-300 hover:shadow-sm'
+                              isFull || (!hasRound && !noDateYet)
+                                ? 'border-stone-100 bg-stone-50/40 opacity-75'
+                                : 'border-stone-200/80 bg-white hover:border-forest-300 hover:shadow-xs'
                             }`}
                           >
                             <div className="flex flex-col sm:flex-row sm:items-stretch">
@@ -869,10 +885,10 @@ function KayaksPageContent(): React.ReactElement {
                                   {boat.image ? (
                                     <>
                                       <img src={resolveMediaUrl(boat.image)} alt={boat.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60 pointer-events-none" />
-                                      
+                                      <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent opacity-60 pointer-events-none" />
+
                                       {boat.images && boat.images.length > 0 && (
-                                        <button 
+                                        <button
                                           type="button"
                                           onClick={() => setGalleryBoat(boat)}
                                           className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg bg-black/50 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur-md transition hover:bg-black/70 hover:scale-105 active:scale-95"
@@ -890,7 +906,7 @@ function KayaksPageContent(): React.ReactElement {
                                   )}
                                 </div>
                               </div>
-                              
+
                               {/* Content Section */}
                               <div className="flex flex-1 flex-col p-4 sm:p-5">
                                 <div className="mb-1 flex items-start justify-between gap-2">
@@ -900,14 +916,14 @@ function KayaksPageContent(): React.ReactElement {
                                     </span>
                                     <h3 className="text-base font-bold text-forest-900">{boat.name}</h3>
                                   </div>
-                                  
+
                                   {/* Mobile Stepper / Price (if we wanted to move it, but keeping it simple) */}
                                 </div>
-                                
+
                                 {boat.description && (
                                   <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-charcoal-400">{boat.description}</p>
                                 )}
-                                
+
                                 <div className="mt-4 flex flex-wrap items-end justify-between gap-4 border-t border-stone-100 pt-4 sm:mt-auto">
                                   <div className="space-y-1.5">
                                     <div className="flex items-center gap-1.5 text-xs font-medium text-charcoal-500">
@@ -928,7 +944,7 @@ function KayaksPageContent(): React.ReactElement {
                                       )}
                                     </div>
                                   </div>
-                                  
+
                                   <div className="flex flex-col items-end gap-1.5">
                                     <p className="text-[10px] font-bold uppercase tracking-widest text-charcoal-300">ระบุจำนวน</p>
                                     <Stepper
@@ -1023,10 +1039,26 @@ function KayaksPageContent(): React.ReactElement {
                 </div>
               )}
 
+              <div className="mt-5 border-t border-stone-100 pt-5">
+                <PromoCodeFields
+                  basePrice={totalPrice}
+                  nights={null}
+                  scope="kayak"
+                  onChange={(ids, preview) => setPromotionSelection({ price: totalPrice, ids, preview })}
+                />
+              </div>
+              <div className="mt-4 flex justify-between text-sm text-charcoal-500">
+                <span>ราคาเต็ม</span><span>฿{totalPrice.toLocaleString()}</span>
+              </div>
+              {promotionPreview && (
+                <div className="mt-2 flex justify-between text-sm text-forest-800">
+                  <span>ส่วนลด</span><span>-฿{promotionPreview.discount_amount.toLocaleString()}</span>
+                </div>
+              )}
               <div className="mt-5 flex items-center justify-between rounded-xl bg-forest-900 px-4 py-3.5">
-                <span className="text-sm font-bold text-cream-100">ราคารวม</span>
+                <span className="text-sm font-bold text-cream-100">ราคาที่ต้องชำระ</span>
                 <span className="font-sans text-2xl font-extrabold leading-none text-cream-100">
-                  ฿{totalPrice.toLocaleString()}
+                  ฿{(promotionPreview?.final_price ?? totalPrice).toLocaleString()}
                 </span>
               </div>
 
@@ -1037,9 +1069,9 @@ function KayaksPageContent(): React.ReactElement {
                 const isSlotClosed = selectedSlot && !selectedSlot.available;
                 const isSlotFull = selectedSlot && selectedSlot.available && selectedSlot.remaining === 0;
                 const slotNotFit = selectedSlot && !slotFitsCart(selectedSlot, cartLines);
-                
+
                 const isDisabled = bookingLoading || isDateInvalid || hasNoSlot || isSlotClosed || isSlotFull || hasNoCart || slotNotFit;
-                
+
                 let btnText = 'ยืนยันการจองเรือ';
                 if (bookingLoading) btnText = 'กำลังจอง...';
                 else if (isDateInvalid) btnText = 'กรุณาเลือกวันที่';
@@ -1054,8 +1086,8 @@ function KayaksPageContent(): React.ReactElement {
                     type="submit"
                     disabled={!!isDisabled}
                     className={`btn-primary mt-5 w-full disabled:cursor-not-allowed ${
-                      (slotNotFit || isSlotClosed || isSlotFull) 
-                        ? 'disabled:bg-rose-100 disabled:text-rose-600 disabled:opacity-100' 
+                      (slotNotFit || isSlotClosed || isSlotFull)
+                        ? 'disabled:bg-rose-100 disabled:text-rose-600 disabled:opacity-100'
                         : 'disabled:opacity-50'
                     }`}
                   >
@@ -1068,7 +1100,7 @@ function KayaksPageContent(): React.ReactElement {
               </p>
             </form>
           </aside>
-        </div>
+        </div>}
       </div>
     </div>
   );

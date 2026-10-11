@@ -78,7 +78,7 @@ export default function MyReviewsSection(): React.ReactElement {
     fetchAll();
   }, []);
 
-  const fetchAll = async () => {
+  async function fetchAll() {
     setLoading(true);
     try {
       const [pendingRes, doneRes] = await Promise.all([
@@ -92,7 +92,7 @@ export default function MyReviewsSection(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const openCreate = (booking: ReviewableBooking) => {
     setCreating(booking);
@@ -164,7 +164,7 @@ export default function MyReviewsSection(): React.ReactElement {
       <div className="mb-4 flex w-fit gap-1 rounded-xl bg-stone-100 p-1">
         <button
           onClick={() => setTab('pending')}
-          className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${tab === 'pending' ? 'bg-white text-forest-900 shadow-sm' : 'text-charcoal-500 hover:text-forest-800'}`}
+          className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${tab === 'pending' ? 'bg-white text-forest-900 shadow-xs' : 'text-charcoal-500 hover:text-forest-800'}`}
         >
           รอรีวิว
           {reviewable.length > 0 && (
@@ -173,7 +173,7 @@ export default function MyReviewsSection(): React.ReactElement {
         </button>
         <button
           onClick={() => setTab('done')}
-          className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${tab === 'done' ? 'bg-white text-forest-900 shadow-sm' : 'text-charcoal-500 hover:text-forest-800'}`}
+          className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${tab === 'done' ? 'bg-white text-forest-900 shadow-xs' : 'text-charcoal-500 hover:text-forest-800'}`}
         >
           รีวิวแล้ว ({myReviews.length})
         </button>
@@ -267,7 +267,7 @@ export default function MyReviewsSection(): React.ReactElement {
 
       {/* Create Review Modal */}
       {creating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-sm" onClick={() => setCreating(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-xs" onClick={() => setCreating(null)}>
           <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-stone-100 bg-stone-50 px-6 py-4">
               <h3 className="font-sans text-base font-bold text-forest-900">เขียนรีวิว</h3>
@@ -310,7 +310,7 @@ export default function MyReviewsSection(): React.ReactElement {
 
       {/* Edit Review Modal */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-sm" onClick={() => setEditing(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-xs" onClick={() => setEditing(null)}>
           <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-stone-100 bg-stone-50 px-6 py-4">
               <h3 className="font-sans text-base font-bold text-forest-900">แก้ไขรีวิว</h3>

@@ -234,7 +234,7 @@ export default function LoginPage(): React.ReactElement | null {
                     type="button"
                     aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
                     onClick={() => setShowPassword((visible) => !visible)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-md p-1 text-stone-400 transition-colors hover:text-forest-800 focus:outline-none focus:ring-2 focus:ring-lagoon-400"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-md p-1 text-stone-400 transition-colors hover:text-forest-800 focus:outline-hidden focus:ring-2 focus:ring-lagoon-400"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -242,7 +242,7 @@ export default function LoginPage(): React.ReactElement | null {
                 <div className="mt-2 flex justify-end">
                   <Link
                     href="/auth/forgot-password"
-                    className="text-sm font-semibold text-lagoon-700 transition-colors hover:text-forest-800 focus:outline-none focus:underline"
+                    className="text-sm font-semibold text-lagoon-700 transition-colors hover:text-forest-800 focus:outline-hidden focus:underline"
                   >
                     ลืมรหัสผ่าน?
                   </Link>
@@ -262,7 +262,7 @@ export default function LoginPage(): React.ReactElement | null {
               <button
                 type="submit"
                 disabled={loading}
-                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-forest-800 px-6 py-3.5 font-semibold text-cream-100 transition duration-200 hover:bg-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-forest-800 px-6 py-3.5 font-semibold text-cream-100 transition duration-200 hover:bg-forest-700 focus:outline-hidden focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
                   <>
@@ -295,7 +295,7 @@ export default function LoginPage(): React.ReactElement | null {
             <button
               type="button"
               onClick={handleGoogleLogin}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 font-semibold text-charcoal transition hover:border-stone-300 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-lagoon-400 focus:ring-offset-2 active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 font-semibold text-charcoal transition hover:border-stone-300 hover:bg-stone-100 focus:outline-hidden focus:ring-2 focus:ring-lagoon-400 focus:ring-offset-2 active:scale-[0.98]"
             >
               <svg
                 width="20"
@@ -327,7 +327,7 @@ export default function LoginPage(): React.ReactElement | null {
               ยังไม่มีบัญชี?{" "}
               <Link
                 href="/auth/register"
-                className="font-semibold text-forest-800 transition-colors hover:text-lagoon-700 focus:outline-none focus:underline"
+                className="font-semibold text-forest-800 transition-colors hover:text-lagoon-700 focus:outline-hidden focus:underline"
               >
                 สมัครสมาชิก
               </Link>

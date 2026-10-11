@@ -72,7 +72,7 @@ export function PromoVoucher({
       >
         {/* ──── FRONT ──── */}
         <div
-          className="overflow-hidden rounded-2xl border border-forest-100/60 bg-gradient-to-br from-white to-forest-50/30 shadow-sm hover:shadow-md hover:border-forest-200 transition-all"
+          className="overflow-hidden rounded-2xl border border-forest-100/60 bg-linear-to-br from-white to-forest-50/30 shadow-xs hover:shadow-md hover:border-forest-200 transition-all"
           style={{ gridArea: '1/1', backfaceVisibility: 'hidden', minHeight: '160px' }}
         >
           <div className="flex h-full">
@@ -84,13 +84,13 @@ export function PromoVoucher({
             >
               <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-white/70">ส่วนลด</p>
               <p
-                className="mt-0.5 font-display font-bold leading-none text-white drop-shadow-sm"
+                className="mt-0.5 font-display font-bold leading-none text-white drop-shadow-xs"
                 style={{ fontSize: discountText.length > 5 ? '1.3rem' : '1.8rem' }}
               >
                 {discountText}
               </p>
               {boatTicketCount && boatTicketCount > 0 ? (
-                <div className="mt-2 flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-0.5 backdrop-blur-sm shadow-sm">
+                <div className="mt-2 flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-0.5 backdrop-blur-xs shadow-xs">
                   <Sailboat size={9} className="text-white/90" />
                   <span className="text-[9px] font-medium text-white">ฟรี ×{boatTicketCount}</span>
                 </div>

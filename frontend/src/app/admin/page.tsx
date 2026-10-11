@@ -81,7 +81,7 @@ export default function AdminPage() {
     fetchAll();
   }, [ready]);
 
-  const fetchAll = async () => {
+  async function fetchAll() {
     setLoading(true);
     try {
       const [rb, kb, st, mb, rm, rv, pr] = await Promise.all([
@@ -112,7 +112,7 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const todayStr = useMemo(() => toISODate(new Date()), [currentTime]);
 
@@ -325,7 +325,7 @@ export default function AdminPage() {
                   onClick={() => setTimeframe(tab.id)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
                     timeframe === tab.id
-                      ? "bg-forest-800 text-white shadow-sm shadow-forest-800/20"
+                      ? "bg-forest-800 text-white shadow-xs shadow-forest-800/20"
                       : "text-charcoal-600 hover:text-forest-900 hover:bg-cream-200/50"
                   }`}
                 >

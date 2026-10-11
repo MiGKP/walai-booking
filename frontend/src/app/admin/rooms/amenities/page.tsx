@@ -56,7 +56,7 @@ export default function AmenitiesPage() {
     setCurrentPage(1);
   }, [search, statusFilter]);
 
-  const fetchAmenities = async () => {
+  async function fetchAmenities() {
     setLoading(true);
     try {
       const res = await api.get("/rooms/amenities/all");
@@ -66,7 +66,7 @@ export default function AmenitiesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const handleResetForm = () => {
     setEditingAmenityId(null);
@@ -342,7 +342,7 @@ export default function AmenitiesPage() {
                 placeholder="ค้นหาชื่อสิ่งอำนวยความสะดวก..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 bg-cream-50/70 border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full pl-9 pr-8 py-2 bg-cream-50/70 border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
               />
               {search && (
                 <button

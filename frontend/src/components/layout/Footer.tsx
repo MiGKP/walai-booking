@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MapPin, Phone, Mail, Facebook } from 'lucide-react';
+import { MapPin, Phone, Mail} from 'lucide-react';
+import { SiFacebook as Facebook } from '@icons-pack/react-simple-icons';
 import api from '@/lib/api';
 import { resolveFacebookLink } from '@/lib/social';
 import Image from 'next/image';
@@ -143,7 +144,7 @@ export default function Footer() {
                   <Mail size={16} className="text-bamboo-400 shrink-0" />
                   <a
                     href={`mailto:${info.email}`}
-                    className="min-w-0 break-words text-cream-400 hover:text-bamboo-400 transition-colors duration-200"
+                    className="min-w-0 wrap-break-word text-cream-400 hover:text-bamboo-400 transition-colors duration-200"
                   >
                     {info.email}
                   </a>
