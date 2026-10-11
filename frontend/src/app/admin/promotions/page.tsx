@@ -173,14 +173,14 @@ function RoomTypeMultiSelect({
 
   const toggleRoomType = (id: number) => {
     if (selectedIds.length === 0) {
-      // เดิมคือเลือกทุกห้อง คลิกห้องนี้ = สลับมาเลือกเฉพาะห้องที่คลิก
-      onChange([id]);
+      const next = roomTypes.filter((room) => room.id !== id).map((room) => room.id);
+      if (next.length > 0) onChange(next);
     } else if (selectedIds.includes(id)) {
       const next = selectedIds.filter((item) => item !== id);
-      onChange(next);
+      if (next.length > 0) onChange(next);
     } else {
       const next = [...selectedIds, id];
-      onChange(next.length === roomTypes.length ? [] : next);
+      onChange(next);
     }
   };
 
@@ -289,6 +289,7 @@ function RoomTypeMultiSelect({
                     <input
                       type="checkbox"
                       checked={isChecked}
+                      disabled={roomTypes.length === 1 || (selectedIds.length === 1 && isChecked)}
                       onChange={() => toggleRoomType(rt.id)}
                       className="rounded border-cream-300 text-forest-800 focus:ring-forest-800/20 cursor-pointer"
                     />
@@ -312,6 +313,7 @@ function RoomTypeMultiSelect({
           </div>
 
           {/* Footer Bar */}
+          <p className="text-[11px] text-charcoal-500">เลือกอย่างน้อยหนึ่งประเภท หรือเลือกใช้ได้กับทุกประเภทห้องพัก</p>
           <div className="flex items-center justify-between pt-1.5 border-t border-cream-100 text-[11px]">
             <span className="text-charcoal-500 font-medium">
               {selectedIds.length === 0 || selectedIds.length === roomTypes.length
@@ -601,12 +603,12 @@ export default function PromotionsPage() {
           ? Number(form.usage_limit_per_member)
           : null,
         is_collectible: form.is_collectible,
-        stackable: false,
-        applies_to: isRoom ? "room" : "kayak",
+        stackable: form.stackable,
+        applies_to: parseAppliesTo(form.applies_to),
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         room_type_ids: selectedRoomTypeIds,
-        room_type_id: isRoom && hasBoatAddon && form.room_type_id ? Number(form.room_type_id) : (selectedRoomTypeIds.length === 1 ? selectedRoomTypeIds[0] : null),
+        room_type_id: selectedRoomTypeIds.length === 1 ? selectedRoomTypeIds[0] : null,
         room_count: isRoom && hasBoatAddon && form.room_count ? Number(form.room_count) : 1,
         boat_ticket_count: isRoom && hasBoatAddon && form.boat_ticket_count ? Number(form.boat_ticket_count) : 0,
         boat_addon_mode: isRoom && hasBoatAddon ? form.boat_addon_mode : "free",
@@ -1467,6 +1469,32 @@ export default function PromotionsPage() {
           </div>
 
 
+          <fieldset className="grid gap-3 rounded-2xl border border-cream-200 bg-cream-50/50 p-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-bold text-charcoal-700">บริการที่ใช้ส่วนลดได้</label>
+              <CustomSelect
+                value={form.applies_to}
+                options={[
+                  { value: "room", label: "ห้องพักเท่านั้น" },
+                  { value: "kayak", label: "เรือเท่านั้น" },
+                  { value: "both", label: "ห้องพักและเรือ" },
+                ]}
+                onChange={(value) => {
+                  const scope = parseAppliesTo(value);
+                  setForm((previous) => ({ ...previous, applies_to: scope }));
+                  setPromoTab(scope === "kayak" ? "kayak" : "room");
+                }}
+              />
+            </div>
+            <div className="space-y-2 text-xs text-charcoal-700">
+
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={form.stackable} onChange={(event) => setForm((previous) => ({ ...previous, stackable: event.target.checked }))} />
+                ใช้ร่วมกับโค้ดอื่นที่อนุญาตให้ใช้ร่วมกันได้
+              </label>
+            </div>
+          </fieldset>
+
           {/* TAB 1: โปรโมชั่นห้องพัก (Side-by-side 2-column layout) */}
           {promoTab === "room" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-start animate-in fade-in duration-150">
@@ -1786,24 +1814,9 @@ export default function PromotionsPage() {
 
                       {hasBoatAddon && (
                         <div className="mt-2.5 pt-2.5 border-t border-forest-300 grid grid-cols-1 sm:grid-cols-3 gap-2.5 animate-in fade-in duration-150">
-                          <div>
-                            <label className="block text-[11px] font-bold text-forest-950 mb-1">
-                              เฉพาะห้องพัก
-                            </label>
-                            <CustomSelect
-                              buttonClassName="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 bg-white border border-forest-300 hover:border-forest-600 rounded-xl text-xs font-bold text-charcoal-800 transition-all focus:outline-none focus:ring-2 focus:ring-forest-500/20 shadow-xs"
-                              options={[
-                                { value: "", label: "ทุกประเภทห้อง" },
-                                ...roomTypes.map((rt) => ({
-                                  value: String(rt.id),
-                                  label: rt.name || `ห้องพัก ${rt.id}`,
-                                })),
-                              ]}
-                              value={form.room_type_id}
-                              onChange={(val) =>
-                                setForm((f) => ({ ...f, room_type_id: val }))
-                              }
-                            />
+                          <div className="text-xs text-forest-950">
+                            <span className="block font-bold mb-1">ประเภทห้องที่รับสิทธิ์เรือ</span>
+                            ใช้ประเภทห้องเดียวกับเงื่อนไขส่วนลดที่เลือกด้านบน
                           </div>
 
                           <div>

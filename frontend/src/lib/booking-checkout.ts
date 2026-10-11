@@ -65,7 +65,7 @@ export function roomPromotionReasons(promo: CheckoutPromotion, basePrice: number
   const allowedTypes = (promo.room_type_ids && promo.room_type_ids.length > 0)
     ? promo.room_type_ids
     : (promo.room_type_id != null ? [promo.room_type_id] : null);
-  if (allowedTypes != null && typeId != null && !allowedTypes.includes(typeId)) reasons.push('ใช้ได้กับห้องประเภทอื่น');
+  if (allowedTypes != null && (typeId == null || !allowedTypes.includes(typeId))) reasons.push('ใช้ได้กับห้องประเภทอื่น');
   if (promo.room_count != null && roomCount != null && roomCount < promo.room_count) reasons.push(`ต้องจองอย่างน้อย ${promo.room_count} ห้อง`);
   if (promo.usage_limit_per_member != null && (promo.member_usage_count ?? 0) >= promo.usage_limit_per_member) reasons.push('ใช้ครบจำนวนครั้งต่อสมาชิกแล้ว');
   else if (promo.is_collectible && !canUseWalletPromotion(promo.wallet_status, promo.wallet_remaining)) reasons.push('ต้องเก็บคูปองที่หน้าโปรโมชั่นก่อน');

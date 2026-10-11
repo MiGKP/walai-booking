@@ -465,10 +465,17 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const parsedRoomTypeIds = Array.isArray(req.body.room_type_ids)
-      ? req.body.room_type_ids.map(Number).filter((n: number) => Number.isInteger(n) && n > 0)
+    const parsedRoomTypeIds: number[] = Object.prototype.hasOwnProperty.call(req.body, 'room_type_ids')
+      ? [...new Set<number>(Array.isArray(req.body.room_type_ids) ? req.body.room_type_ids.map(Number) : [])]
       : (room_type_id ? [Number(room_type_id)] : []);
-    const resolvedRoomTypeId = parsedRoomTypeIds.length === 1 ? parsedRoomTypeIds[0] : (room_type_id || null);
+    const resolvedRoomTypeId = parsedRoomTypeIds.length === 1 ? parsedRoomTypeIds[0] : null;
+    if (parsedRoomTypeIds.length > 0) {
+      const types = await pool.query('SELECT id FROM room_types WHERE id = ANY($1::int[])', [parsedRoomTypeIds]);
+      if (types.rows.length !== parsedRoomTypeIds.length) {
+        res.status(400).json({ success: false, message: 'ไม่พบประเภทห้องที่เลือก กรุณาตรวจสอบประเภทห้องอีกครั้ง' });
+        return;
+      }
+    }
 
     const result = await pool.query(
       `INSERT INTO promotions (code, name, description, discount_type, discount_value,
@@ -584,12 +591,21 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
 
     const updatedRoomTypeIds = has('room_type_ids')
       ? (Array.isArray(body.room_type_ids)
-          ? (body.room_type_ids as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n > 0)
+          ? [...new Set((body.room_type_ids as unknown[]).map(Number))]
           : [])
-      : (Array.isArray(current.room_type_ids) ? (current.room_type_ids as number[]) : []);
-    const updatedRoomTypeId = has('room_type_ids')
-      ? (updatedRoomTypeIds.length === 1 ? updatedRoomTypeIds[0] : null)
-      : numOrCurrent('room_type_id');
+      : has('room_type_id')
+        ? (numOrCurrent('room_type_id') != null ? [numOrCurrent('room_type_id')!] : [])
+        : (Array.isArray(current.room_type_ids) && current.room_type_ids.length > 0
+            ? (current.room_type_ids as number[])
+            : current.room_type_id != null ? [Number(current.room_type_id)] : []);
+    const updatedRoomTypeId = updatedRoomTypeIds.length === 1 ? updatedRoomTypeIds[0] : null;
+    if (updatedRoomTypeIds.length > 0 && (has('room_type_ids') || has('room_type_id'))) {
+      const types = await pool.query('SELECT id FROM room_types WHERE id = ANY($1::int[])', [updatedRoomTypeIds]);
+      if (types.rows.length !== updatedRoomTypeIds.length) {
+        res.status(400).json({ success: false, message: 'ไม่พบประเภทห้องที่เลือก กรุณาตรวจสอบประเภทห้องอีกครั้ง' });
+        return;
+      }
+    }
 
     const result = await pool.query(
       `UPDATE promotions SET

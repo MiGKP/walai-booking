@@ -166,7 +166,7 @@ export const getAllRooms = async (
            WHERE p.is_active = true
              AND (p.start_date IS NULL OR p.start_date <= (now() AT TIME ZONE 'Asia/Bangkok')::date)
              AND (p.end_date IS NULL OR p.end_date >= (now() AT TIME ZONE 'Asia/Bangkok')::date)
-             AND ((cardinality(COALESCE(p.room_type_ids, '{}')) = 0 AND p.room_type_id IS NULL) OR rt.id = ANY(p.room_type_ids) OR p.room_type_id = rt.id)
+             AND (CASE WHEN cardinality(COALESCE(p.room_type_ids, '{}')) > 0 THEN rt.id = ANY(p.room_type_ids) ELSE p.room_type_id IS NULL OR p.room_type_id = rt.id END)
                  AND (p.usage_limit IS NULL OR p.usage_count < p.usage_limit)
                  AND COALESCE(p.applies_to, 'both') IN ('room', 'both')
          ) as available_promotions,
@@ -273,7 +273,7 @@ export const getRoomById = async (
                WHERE p.is_active = true
                  AND (p.start_date IS NULL OR p.start_date <= (now() AT TIME ZONE 'Asia/Bangkok')::date)
                  AND (p.end_date IS NULL OR p.end_date >= (now() AT TIME ZONE 'Asia/Bangkok')::date)
-                 AND ((cardinality(COALESCE(p.room_type_ids, '{}')) = 0 AND p.room_type_id IS NULL) OR rt.id = ANY(p.room_type_ids) OR p.room_type_id = rt.id)
+                 AND (CASE WHEN cardinality(COALESCE(p.room_type_ids, '{}')) > 0 THEN rt.id = ANY(p.room_type_ids) ELSE p.room_type_id IS NULL OR p.room_type_id = rt.id END)
                  AND (p.usage_limit IS NULL OR p.usage_count < p.usage_limit)
                  AND COALESCE(p.applies_to, 'both') IN ('room', 'both')
              ) as available_promotions
