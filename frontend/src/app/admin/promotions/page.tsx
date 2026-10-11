@@ -47,6 +47,8 @@ interface RoomType {
   name?: string;
   type_name?: string;
   room_name?: string;
+  price?: number | string;
+  room_count?: number;
 }
 
 interface Promotion {
@@ -70,6 +72,7 @@ interface Promotion {
   is_active: boolean;
   created_at: string;
   room_type_id?: number;
+  room_type_ids?: number[];
   room_type_name?: string;
   room_count?: number;
   boat_ticket_count?: number;
@@ -95,6 +98,8 @@ const defaultForm = {
   applies_to: "both" as PromoAppliesTo,
   is_active: true,
   room_type_id: "",
+  room_type_ids: [] as number[],
+  room_scope_mode: "all" as "all" | "specific",
   room_count: "1",
   boat_ticket_count: "0",
   boat_addon_mode: "free" as "free" | "paid",
@@ -102,6 +107,231 @@ const defaultForm = {
 };
 
 // Component Custom Dropdown
+// Component MultiSelect Dropdown with Checklist สำหรับประเภทห้องพัก
+function RoomTypeMultiSelect({
+  roomTypes,
+  selectedIds,
+  onChange,
+}: {
+  roomTypes: RoomType[];
+  selectedIds: number[];
+  onChange: (ids: number[]) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [openUpward, setOpenUpward] = useState(true);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const updateDirection = () => {
+    if (dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      // หากพื้นที่ด้านล่างน้อยกว่า 300px ให้เปิดขึ้นด้านบน เพื่อไม่ให้ล้นโมดอล
+      setOpenUpward(spaceBelow < 300);
+    }
+  };
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const isAll = selectedIds.length === 0 || selectedIds.length === roomTypes.length;
+
+  const filteredRoomTypes = roomTypes.filter((rt) => {
+    if (!searchTerm.trim()) return true;
+    const name = rt.type_name || rt.room_name || rt.name || "ห้องพัก " + rt.id;
+    return name.toLowerCase().includes(searchTerm.toLowerCase().trim());
+  });
+
+  const getDisplayText = () => {
+    if (selectedIds.length === 0) {
+      return "ทุกประเภทห้องพัก (ใช้ได้ทั้งหมด)";
+    }
+    if (selectedIds.length === roomTypes.length) {
+      return "ทุกประเภทห้องพัก (" + roomTypes.length + " ประเภท)";
+    }
+    const names = selectedIds
+      .map((id) => {
+        const found = roomTypes.find((r) => r.id === id);
+        return found?.type_name || found?.room_name || found?.name || "ห้อง " + id;
+      })
+      .filter(Boolean);
+    if (names.length <= 2) {
+      return names.join(", ");
+    }
+    return names.slice(0, 2).join(", ") + " (+" + (names.length - 2) + " ประเภท)";
+  };
+
+  const toggleRoomType = (id: number) => {
+    if (selectedIds.length === 0) {
+      // เดิมคือเลือกทุกห้อง คลิกห้องนี้ = สลับมาเลือกเฉพาะห้องที่คลิก
+      onChange([id]);
+    } else if (selectedIds.includes(id)) {
+      const next = selectedIds.filter((item) => item !== id);
+      onChange(next);
+    } else {
+      const next = [...selectedIds, id];
+      onChange(next.length === roomTypes.length ? [] : next);
+    }
+  };
+
+  return (
+    <div className="relative w-full" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          updateDirection();
+          setIsOpen(!isOpen);
+        }}
+        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-white border border-cream-200 hover:border-forest-400 rounded-xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs cursor-pointer text-left"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <Bed size={13} className="text-forest-700 shrink-0" />
+          <span className="truncate">{getDisplayText()}</span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span
+            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
+              isAll
+                ? "bg-forest-50 text-forest-800 border-forest-200"
+                : "bg-emerald-50 text-emerald-800 border-emerald-300"
+            }`}
+          >
+            {isAll ? "ทุกประเภท" : selectedIds.length + " ประเภท"}
+          </span>
+          <ChevronDown
+            size={14}
+            className={`text-charcoal-400 transition-transform duration-200 ${
+              isOpen ? (openUpward ? "rotate-0 text-forest-800" : "rotate-180 text-forest-800") : (openUpward ? "rotate-180" : "")
+            }`}
+          />
+        </div>
+      </button>
+
+      {isOpen && (
+        <div
+          className={`absolute left-0 w-full bg-white border border-cream-300 rounded-2xl shadow-xl z-50 overflow-hidden p-2.5 animate-in fade-in zoom-in-95 duration-150 space-y-2 ${
+            openUpward ? "bottom-full mb-1.5" : "top-full mt-1.5"
+          }`}
+        >
+          {/* Header Bar with Master Checkbox & Quick Actions */}
+          <div className="flex items-center justify-between pb-2 border-b border-cream-100">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-charcoal-800">
+              <input
+                type="checkbox"
+                checked={selectedIds.length === 0}
+                onChange={() => onChange([])}
+                className="rounded border-cream-300 text-forest-800 focus:ring-forest-800/20 cursor-pointer"
+              />
+              <span>ใช้ได้กับทุกประเภทห้องพัก</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onChange([])}
+                className="text-[10px] font-bold text-forest-700 hover:text-forest-900 hover:underline cursor-pointer"
+              >
+                เลือกทั้งหมด
+              </button>
+              <span className="text-cream-300">|</span>
+              <button
+                type="button"
+                onClick={() => onChange([])}
+                className="text-[10px] font-bold text-charcoal-500 hover:text-charcoal-800 hover:underline cursor-pointer"
+              >
+                รีเซ็ต
+              </button>
+            </div>
+          </div>
+
+          {/* Search Box (เมื่อมีประเภทห้องตั้งแต่ 4 ประเภทขึ้นไป) */}
+          {roomTypes.length >= 4 && (
+            <div className="relative">
+              <Search
+                size={12}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-400"
+              />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="ค้นหาประเภทห้อง..."
+                className="w-full pl-7 pr-2.5 py-1 text-xs bg-cream-50/50 border border-cream-200 rounded-lg text-charcoal-800 focus:outline-none focus:ring-1 focus:ring-forest-800/30"
+              />
+            </div>
+          )}
+
+          {/* Checklist of Room Types */}
+          <div className="max-h-48 overflow-y-auto space-y-1 pr-0.5">
+            {filteredRoomTypes.map((rt) => {
+              const isChecked = selectedIds.length === 0 || selectedIds.includes(rt.id);
+              const roomLabel = rt.type_name || rt.room_name || rt.name || ("ห้องพัก " + rt.id);
+              return (
+                <label
+                  key={rt.id}
+                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl border text-xs cursor-pointer transition-all ${
+                    isChecked
+                      ? "bg-forest-50/80 border-forest-300 text-forest-950 font-semibold shadow-2xs"
+                      : "bg-white border-cream-200 text-charcoal-700 hover:bg-cream-50/50 hover:border-forest-200"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleRoomType(rt.id)}
+                      className="rounded border-cream-300 text-forest-800 focus:ring-forest-800/20 cursor-pointer"
+                    />
+                    <span className="truncate">{roomLabel}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {rt.room_count != null && (
+                      <span className="text-[10px] bg-cream-100 text-charcoal-600 font-medium px-1.5 py-0.5 rounded-md">
+                        {rt.room_count} ห้อง
+                      </span>
+                    )}
+                    {rt.price != null && (
+                      <span className="text-[10px] text-forest-800 font-bold">
+                        ฿{Number(rt.price).toLocaleString()}/คืน
+                      </span>
+                    )}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+
+          {/* Footer Bar */}
+          <div className="flex items-center justify-between pt-1.5 border-t border-cream-100 text-[11px]">
+            <span className="text-charcoal-500 font-medium">
+              {selectedIds.length === 0 || selectedIds.length === roomTypes.length
+                ? "ครอบคลุมทุกประเภทห้อง (" + roomTypes.length + " ประเภท)"
+                : "เลือกเฉพาะ " + selectedIds.length + " จาก " + roomTypes.length + " ประเภท"}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="px-3 py-1 bg-forest-800 hover:bg-forest-900 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer shadow-2xs"
+            >
+              ตกลง
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CustomSelect({
   options,
   value,
@@ -307,6 +537,8 @@ export default function PromotionsPage() {
     setForm({
       ...defaultForm,
       applies_to: "room",
+      room_type_ids: [],
+      room_scope_mode: "all",
     });
     setPromoTab("room");
     setHasBoatAddon(false);
@@ -319,6 +551,9 @@ export default function PromotionsPage() {
     const hasAddon = Number(p.boat_ticket_count || 0) > 0;
     setPromoTab(isKayak ? "kayak" : "room");
     setHasBoatAddon(hasAddon);
+    const promoRoomTypeIds: number[] = Array.isArray(p.room_type_ids) && p.room_type_ids.length > 0
+      ? p.room_type_ids
+      : (p.room_type_id ? [p.room_type_id] : []);
     setForm({
       code: p.code || "",
       name: p.name || "",
@@ -339,6 +574,8 @@ export default function PromotionsPage() {
       applies_to: parseAppliesTo(p.applies_to),
       is_active: p.is_active,
       room_type_id: p.room_type_id ? String(p.room_type_id) : "",
+      room_type_ids: promoRoomTypeIds,
+      room_scope_mode: promoRoomTypeIds.length > 0 ? "specific" : "all",
       room_count: p.room_count ? String(p.room_count) : "1",
       boat_ticket_count: p.boat_ticket_count ? String(p.boat_ticket_count) : "1",
       boat_addon_mode: p.boat_addon_mode === "paid" ? "paid" : "free",
@@ -352,6 +589,7 @@ export default function PromotionsPage() {
     setSaving(true);
     try {
       const isRoom = promoTab === "room";
+      const selectedRoomTypeIds = isRoom ? form.room_type_ids : [];
       const payload = {
         ...form,
         discount_value: Number(form.discount_value),
@@ -367,7 +605,8 @@ export default function PromotionsPage() {
         applies_to: isRoom ? "room" : "kayak",
         start_date: form.start_date || null,
         end_date: form.end_date || null,
-        room_type_id: isRoom && hasBoatAddon && form.room_type_id ? Number(form.room_type_id) : null,
+        room_type_ids: selectedRoomTypeIds,
+        room_type_id: isRoom && hasBoatAddon && form.room_type_id ? Number(form.room_type_id) : (selectedRoomTypeIds.length === 1 ? selectedRoomTypeIds[0] : null),
         room_count: isRoom && hasBoatAddon && form.room_count ? Number(form.room_count) : 1,
         boat_ticket_count: isRoom && hasBoatAddon && form.boat_ticket_count ? Number(form.boat_ticket_count) : 0,
         boat_addon_mode: isRoom && hasBoatAddon ? form.boat_addon_mode : "free",
@@ -814,11 +1053,21 @@ export default function PromotionsPage() {
                 </tr>
               ) : (
                 paginatedPromotions.map((p) => {
-                  const targetRoom = roomTypes.find(
-                    (r) => r.id === p.room_type_id,
-                  );
-                  const roomName =
-                    p.room_type_name || targetRoom?.name || "ทุกประเภทห้อง";
+                  const selectedRoomNames = Array.isArray(p.room_type_ids) && p.room_type_ids.length > 0
+                    ? p.room_type_ids
+                        .map((id) => {
+                          const found = roomTypes.find((r) => r.id === id);
+                          return found?.type_name || found?.room_name || found?.name || `ห้อง ${id}`;
+                        })
+                        .filter(Boolean)
+                    : [];
+                  const roomName = selectedRoomNames.length > 0
+                    ? (selectedRoomNames.length <= 2
+                        ? selectedRoomNames.join(", ")
+                        : `${selectedRoomNames.slice(0, 2).join(", ")} (+${selectedRoomNames.length - 2})`)
+                    : (p.room_type_id
+                        ? (p.room_type_name || roomTypes.find((r) => r.id === p.room_type_id)?.name || `ห้อง ${p.room_type_id}`)
+                        : "ทุกประเภทห้อง");
 
                   return (
                     <tr
@@ -1341,6 +1590,18 @@ export default function PromotionsPage() {
                       value={form.min_price}
                       onChange={(e) => setForm((f) => ({ ...f, min_price: e.target.value }))}
                       placeholder="ไม่จำกัด (เว้นว่างได้)"
+                    />
+                  </div>
+
+                  {/* ประเภทห้องพักที่ใช้ได้ - Checklist Dropdown */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-charcoal-700 mb-0.5">
+                      ประเภทห้องพักที่ใช้ได้
+                    </label>
+                    <RoomTypeMultiSelect
+                      roomTypes={roomTypes}
+                      selectedIds={form.room_type_ids}
+                      onChange={(ids) => setForm((f) => ({ ...f, room_type_ids: ids }))}
                     />
                   </div>
                 </div>
