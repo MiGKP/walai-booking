@@ -129,7 +129,7 @@ export default function LeafletMap({
     <div className="relative w-full h-full z-0">
       {/* ส่วนค้นหาและปุ่มลัดสถานที่สำคัญ (แสดงเฉพาะเมื่อ showControls = true) */}
       {showControls && (
-        <div className="absolute top-2.5 left-2.5 right-2.5 z-[500] flex flex-col gap-1.5 max-w-lg mx-auto">
+        <div className="absolute top-2.5 left-2.5 right-2.5 z-500 flex flex-col gap-1.5 max-w-lg mx-auto">
           {/* ช่องค้นหา + ปุ่ม GPS */}
           <div className="flex gap-1.5">
             <div
@@ -137,7 +137,7 @@ export default function LeafletMap({
             >
               <input
                 type="text"
-                className="w-full text-xs py-1 focus:outline-none text-charcoal-800 placeholder:text-charcoal-400"
+                className="w-full text-xs py-1 focus:outline-hidden text-charcoal-800 placeholder:text-charcoal-400"
                 placeholder="พิมพ์ค้นหา อําเภอ, จังหวัด (เช่น บรบือ, มหาสารคาม)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}

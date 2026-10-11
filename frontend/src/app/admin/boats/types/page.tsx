@@ -103,7 +103,7 @@ export default function BoatTypesPage() {
     };
   }, [coverPreview, galleryPreviews, editCoverPreview, editGalleryPreviews]);
 
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     try {
       const res = await api.get("/kayaks/admin/types");
@@ -113,7 +113,7 @@ export default function BoatTypesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   // Helper Validation
   const validateFile = (file: File) => {
@@ -482,7 +482,7 @@ export default function BoatTypesPage() {
               placeholder="ค้นหาชื่อประเภทเรือ หรือคำอธิบาย..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 bg-cream-50/70 border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+              className="w-full pl-9 pr-8 py-2 bg-cream-50/70 border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
             />
             {searchQuery && (
               <button
@@ -752,7 +752,7 @@ export default function BoatTypesPage() {
                 type="text"
                 required
                 placeholder="เช่น เรือคายัค 2 ที่นั่ง, เรือปั่น VIP"
-                className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 focus:bg-white transition-all shadow-2xs"
+                className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 focus:bg-white transition-all shadow-2xs"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
@@ -764,7 +764,7 @@ export default function BoatTypesPage() {
               </label>
               <textarea
                 placeholder="รายละเอียดอุปกรณ์ ความปลอดภัย และคำแนะนำเพิ่มเติม..."
-                className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 focus:bg-white transition-all shadow-2xs resize-none"
+                className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 focus:bg-white transition-all shadow-2xs resize-none"
                 rows={2}
                 value={form.description}
                 onChange={(e) =>
@@ -796,7 +796,7 @@ export default function BoatTypesPage() {
                     type="number"
                     required
                     min="1"
-                    className="w-full text-center bg-transparent text-xs font-bold text-charcoal-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full text-center bg-transparent text-xs font-bold text-charcoal-800 focus:outline-hidden [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     value={form.capacity === 0 ? "" : form.capacity}
                     onChange={(e) =>
                       setForm({
@@ -832,7 +832,7 @@ export default function BoatTypesPage() {
                   type="number"
                   required
                   min="0"
-                  className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs font-bold text-forest-900 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 focus:bg-white transition-all shadow-2xs"
+                  className="w-full px-3.5 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-xs font-bold text-forest-900 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 focus:bg-white transition-all shadow-2xs"
                   value={
                     form.price_per_hour === 0 ? "" : form.price_per_hour
                   }
@@ -868,7 +868,7 @@ export default function BoatTypesPage() {
                     type="number"
                     required
                     min="1"
-                    className="w-full text-center bg-transparent text-xs font-bold text-charcoal-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full text-center bg-transparent text-xs font-bold text-charcoal-800 focus:outline-hidden [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     value={form.quantity === 0 ? "" : form.quantity}
                     onChange={(e) =>
                       setForm({
@@ -1072,7 +1072,7 @@ export default function BoatTypesPage() {
                 type="text"
                 required
                 placeholder="เช่น เรือ 2 ที่นั่ง"
-                className="w-full px-3 py-2 bg-white border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                className="w-full px-3 py-2 bg-white border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                 value={editingBoat?.name || ""}
                 onChange={(e) =>
                   setEditingBoat({ ...editingBoat, name: e.target.value })
@@ -1086,7 +1086,7 @@ export default function BoatTypesPage() {
               </label>
               <textarea
                 placeholder="เพิ่มรายละเอียดเรือเพื่อแจ้งให้ผู้ใช้ทราบ..."
-                className="w-full px-3 py-2 bg-white border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs resize-none"
+                className="w-full px-3 py-2 bg-white border border-cream-300 rounded-xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs resize-none"
                 rows={2}
                 value={editingBoat?.description || ""}
                 onChange={(e) =>
@@ -1124,7 +1124,7 @@ export default function BoatTypesPage() {
                     type="number"
                     required
                     min="1"
-                    className="w-full text-center bg-transparent text-xs font-bold text-charcoal-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full text-center bg-transparent text-xs font-bold text-charcoal-800 focus:outline-hidden [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     value={
                       editingBoat?.capacity === 0 ? "" : editingBoat?.capacity || ""
                     }
@@ -1162,7 +1162,7 @@ export default function BoatTypesPage() {
                   type="number"
                   required
                   min="0"
-                  className="w-full px-2.5 py-1.5 bg-white border border-cream-300 rounded-xl text-xs font-bold text-forest-900 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+                  className="w-full px-2.5 py-1.5 bg-white border border-cream-300 rounded-xl text-xs font-bold text-forest-900 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
                   value={
                     editingBoat?.price_per_hour === 0
                       ? ""
@@ -1203,7 +1203,7 @@ export default function BoatTypesPage() {
                     type="number"
                     required
                     min="1"
-                    className="w-full text-center bg-transparent text-xs font-bold text-charcoal-800 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full text-center bg-transparent text-xs font-bold text-charcoal-800 focus:outline-hidden [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     value={
                       editingBoat?.quantity === 0 ? "" : editingBoat?.quantity || ""
                     }

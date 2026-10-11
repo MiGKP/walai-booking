@@ -136,13 +136,13 @@ export default function LoginPage(): React.ReactElement | null {
 
           <Link
             href="/"
-            className="absolute left-5 top-5 z-20 inline-flex items-center gap-2 rounded-full border border-white/50 bg-cream-100/85 px-4 py-2 text-sm font-semibold text-forest-800 shadow-sm backdrop-blur-md transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-bamboo-400 sm:left-7 sm:top-7"
+            className="absolute left-5 top-5 z-20 inline-flex items-center gap-2 rounded-full border border-white/50 bg-cream-100/85 px-4 py-2 text-sm font-semibold text-forest-800 shadow-xs backdrop-blur-md transition hover:bg-white focus:outline-hidden focus:ring-2 focus:ring-bamboo-400 sm:left-7 sm:top-7"
           >
             <ArrowLeft size={16} aria-hidden="true" />
             กลับหน้าหลัก
           </Link>
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-forest-900/80 via-forest-900/26 to-transparent px-6 pb-6 pt-20 text-cream-100 sm:px-9 sm:pb-8 lg:px-12 lg:pb-12 lg:pt-32">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-linear-to-t from-forest-900/80 via-forest-900/26 to-transparent px-6 pb-6 pt-20 text-cream-100 sm:px-9 sm:pb-8 lg:px-12 lg:pb-12 lg:pt-32">
             <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-bamboo-200">
               <span className="h-px w-8 bg-bamboo-300" />
               Walai floating stay
@@ -244,7 +244,7 @@ export default function LoginPage(): React.ReactElement | null {
                     type="button"
                     aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
                     onClick={() => setShowPassword((visible) => !visible)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-md p-1 text-stone-400 transition-colors hover:text-forest-800 focus:outline-none focus:ring-2 focus:ring-lagoon-400"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-md p-1 text-stone-400 transition-colors hover:text-forest-800 focus:outline-hidden focus:ring-2 focus:ring-lagoon-400"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -252,7 +252,7 @@ export default function LoginPage(): React.ReactElement | null {
                 <div className="mt-2 flex justify-end">
                   <Link
                     href="/auth/forgot-password"
-                    className="text-sm font-semibold text-lagoon-700 transition-colors hover:text-forest-800 focus:outline-none focus:underline"
+                    className="text-sm font-semibold text-lagoon-700 transition-colors hover:text-forest-800 focus:outline-hidden focus:underline"
                   >
                     ลืมรหัสผ่าน?
                   </Link>
@@ -272,7 +272,7 @@ export default function LoginPage(): React.ReactElement | null {
               <button
                 type="submit"
                 disabled={loading}
-                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-forest-800 px-6 py-3.5 font-semibold text-cream-100 transition duration-200 hover:bg-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-forest-800 px-6 py-3.5 font-semibold text-cream-100 transition duration-200 hover:bg-forest-700 focus:outline-hidden focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
                   <>
@@ -305,7 +305,7 @@ export default function LoginPage(): React.ReactElement | null {
             <button
               type="button"
               onClick={handleGoogleLogin}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 font-semibold text-charcoal transition hover:border-stone-300 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-lagoon-400 focus:ring-offset-2 active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 font-semibold text-charcoal transition hover:border-stone-300 hover:bg-stone-100 focus:outline-hidden focus:ring-2 focus:ring-lagoon-400 focus:ring-offset-2 active:scale-[0.98]"
             >
               <svg
                 width="20"
@@ -337,7 +337,7 @@ export default function LoginPage(): React.ReactElement | null {
               ยังไม่มีบัญชี?{" "}
               <Link
                 href="/auth/register"
-                className="font-semibold text-forest-800 transition-colors hover:text-lagoon-700 focus:outline-none focus:underline"
+                className="font-semibold text-forest-800 transition-colors hover:text-lagoon-700 focus:outline-hidden focus:underline"
               >
                 สมัครสมาชิก
               </Link>

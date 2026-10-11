@@ -1,8 +1,12 @@
-@import 'leaflet/dist/leaflet.css';
+@import 'tailwindcss';
+@import 'leaflet/dist/leaflet.css' layer(components);
+@config '../../tailwind.config.ts';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Preserve the existing v3 defaults during the v4 migration. */
+@theme {
+  --default-ring-width: 3px;
+  --default-ring-color: var(--color-blue-500);
+}
 
 :root {
   /* — Isan Organic Oasis Palette — */
@@ -25,6 +29,18 @@
 }
 
 @layer base {
+  *, ::before, ::after, ::backdrop, ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+  input::placeholder, textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+  button:not(:disabled), [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+  dialog {
+    margin: auto;
+  }
   body {
     @apply font-sans text-charcoal bg-cream-100;
     -webkit-font-smoothing: antialiased;
@@ -115,7 +131,7 @@
 
   /* — Input — */
   .input-field {
-    @apply w-full px-4 py-3 rounded-xl border bg-cream-100 focus:outline-none focus:ring-2 focus:ring-lagoon-500 focus:border-transparent;
+    @apply w-full px-4 py-3 rounded-xl border bg-cream-100 focus:outline-hidden focus:ring-2 focus:ring-lagoon-500 focus:border-transparent;
     border-color: var(--color-stone-200);
     transition:
       border-color 150ms var(--ease-out-quart),

@@ -128,7 +128,7 @@ export const getAllRooms = async (
 
     // ในไฟล์ Backend Controller (getAllRooms)
     let query = `
-  SELECT rt.id, rt.room_name, rt.type_name, rt.description, 
+  SELECT rt.id, rt.room_name, rt.type_name, rt.description,
          rt.price as price_per_night, rt.capacity, rt.room_image as main_image, rt.status,
          (SELECT json_agg(image_path) FROM room_images ri WHERE ri.room_type_id = rt.id) as images,
          (SELECT COUNT(*) FROM rooms r WHERE r.room_type_id = rt.id) as room_count,
@@ -233,8 +233,8 @@ export const getRoomById = async (
     if (check_in && check_out) {
       roomsSubquery = `
         SELECT json_agg(json_build_object(
-          'room_id', r.room_id, 
-          'room_number', r.room_number, 
+          'room_id', r.room_id,
+          'room_number', r.room_number,
           'status', r.status,
           'is_available', (
             r.status != 'maintenance' AND r.room_id NOT IN (
@@ -245,13 +245,13 @@ export const getRoomById = async (
               AND (rb.check_in < $4 AND rb.check_out > $3)
             )
           )
-        )) 
+        ))
         FROM rooms r WHERE r.room_type_id = rt.id
       `;
       params.push(check_in, check_out);
     } else {
       roomsSubquery = `
-        SELECT json_agg(json_build_object('room_id', r.room_id, 'room_number', r.room_number, 'status', r.status, 'is_available', true)) 
+        SELECT json_agg(json_build_object('room_id', r.room_id, 'room_number', r.room_number, 'status', r.status, 'is_available', true))
         FROM rooms r WHERE r.room_type_id = rt.id
       `;
     }
@@ -445,7 +445,7 @@ export const checkRoomAvailability = async (
 
     // Find a room of this type that is NOT booked during this period
     const availableRoom = await pool.query(
-      `SELECT r.room_id, r.room_number 
+      `SELECT r.room_id, r.room_number
        FROM rooms r
        WHERE r.room_type_id = $1 AND r.status != 'maintenance'
        AND r.room_id NOT IN (
@@ -852,9 +852,9 @@ export const updateAmenity = async (
 
     // UPDATE ทั้ง name และ status (แปลงค่า status เป็น boolean ก่อนอัปเดต)
     const result = await pool.query(
-      `UPDATE room_amenities 
-       SET name = $1, status = COALESCE($2, status) 
-       WHERE id = $3 
+      `UPDATE room_amenities
+       SET name = $1, status = COALESCE($2, status)
+       WHERE id = $3
        RETURNING *`,
       [String(name).trim(), status === undefined ? null : status === true || status === 'true', Number(id)],
     );
@@ -927,15 +927,15 @@ export const getAllSingleRooms = async (
 ): Promise<void> => {
   try {
     const result = await pool.query(`
-      SELECT 
-        r.room_id, 
-        r.room_number, 
-        r.status, 
+      SELECT
+        r.room_id,
+        r.room_number,
+        r.status,
         r.room_type_id, -- 👈 เพิ่มตรงนี้เพื่อส่ง room_type_id กลับไป Frontend
-        rt.room_name, 
-        rt.type_name 
-      FROM rooms r 
-      JOIN room_types rt ON r.room_type_id = rt.id 
+        rt.room_name,
+        rt.type_name
+      FROM rooms r
+      JOIN room_types rt ON r.room_type_id = rt.id
       ORDER BY r.room_number ASC
     `);
     res.json({ success: true, data: result.rows });
@@ -965,9 +965,9 @@ export const toggleRoomTypeStatus = async (
 
     // UPDATE ข้อมูลตาราง room_types (ประเภทห้องพัก)
     const query = `
-      UPDATE room_types 
+      UPDATE room_types
       SET status = $1
-      WHERE id = $2 
+      WHERE id = $2
       RETURNING *;
     `;
     const result = await pool.query(query, [status, Number(id)]);
@@ -1121,7 +1121,7 @@ export const createBatchSingleRooms = async (
       } else {
         // หาจากห้องเดิมในประเภทนี้
         const existingRoomsRes = await client.query(
-          `SELECT room_number FROM rooms WHERE room_type_id = $1 ORDER BY id DESC LIMIT 20`,
+          `SELECT room_number FROM rooms WHERE room_type_id = $1 ORDER BY room_id DESC LIMIT 20`,
           [parsedRoomTypeId],
         );
         let detected: string | null = null;
@@ -1237,10 +1237,10 @@ export const getNextRoomNumber = async (
     } else {
       // กรณี B: ตรวจจับอัตโนมัติจากห้องพักเดิมที่มีอยู่จริงของประเภทนี้ (Smart Auto-Detect)
       const existingRoomsRes = await pool.query(
-        `SELECT room_number 
-         FROM rooms 
-         WHERE room_type_id = $1 
-         ORDER BY id DESC 
+        `SELECT room_number
+         FROM rooms
+         WHERE room_type_id = $1
+         ORDER BY room_id DESC
          LIMIT 20`,
         [room_type_id],
       );
@@ -1274,10 +1274,10 @@ export const getNextRoomNumber = async (
     let nextNumber = 1;
     if (prefix) {
       const result = await pool.query(
-        `SELECT room_number 
-         FROM rooms 
-         WHERE room_number ~* ('^' || $1 || '[0-9]+$') 
-         ORDER BY CAST(SUBSTRING(room_number FROM LENGTH($1) + 1) AS INTEGER) DESC 
+        `SELECT room_number
+         FROM rooms
+         WHERE room_number ~* ('^' || $1 || '[0-9]+$')
+         ORDER BY CAST(SUBSTRING(room_number FROM LENGTH($1) + 1) AS INTEGER) DESC
          LIMIT 1`,
         [prefix],
       );
@@ -1292,10 +1292,10 @@ export const getNextRoomNumber = async (
     } else {
       // กรณีไม่มี Prefix (ห้องเป็นตัวเลขล้วน เช่น 101, 102)
       const result = await pool.query(
-        `SELECT room_number 
-         FROM rooms 
-         WHERE room_number ~ '^[0-9]+$' 
-         ORDER BY CAST(room_number AS INTEGER) DESC 
+        `SELECT room_number
+         FROM rooms
+         WHERE room_number ~ '^[0-9]+$'
+         ORDER BY CAST(room_number AS INTEGER) DESC
          LIMIT 1`,
       );
 

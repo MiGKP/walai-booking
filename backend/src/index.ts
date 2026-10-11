@@ -30,8 +30,12 @@ import './config/passport';
 import { startReviewReminderJob } from './services/review-reminder.service';
 import { startPromotionExpiryReminderJob } from './services/promotion-expiry-reminder.service';
 import { startAutoCancelJob } from './services/auto-cancel.service';
+import { preserveRequestQuery } from './middleware/request-query.middleware';
 
 const app = express();
+// Preserve Express 4 query parsing and sanitizer behavior for the existing API.
+app.set('query parser', 'extended');
+app.use(preserveRequestQuery);
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
 

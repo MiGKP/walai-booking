@@ -81,7 +81,7 @@ export default function PromotionsPage(): React.ReactElement {
     setAppliesFilter('all');
   };
 
-  const FilterPanel = (): React.ReactElement => (
+  const renderFilterPanel = (): React.ReactElement => (
     <div className="space-y-4">
       {/* ใช้ได้กับ */}
       <div>
@@ -101,7 +101,7 @@ export default function PromotionsPage(): React.ReactElement {
               onClick={() => setAppliesFilter(id)}
               className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-left transition-all ${
                 appliesFilter === id
-                  ? 'bg-forest-800 text-cream-100 font-semibold shadow-sm'
+                  ? 'bg-forest-800 text-cream-100 font-semibold shadow-xs'
                   : 'text-charcoal-500 hover:bg-forest-50 hover:text-forest-800'
               }`}
             >
@@ -134,7 +134,7 @@ export default function PromotionsPage(): React.ReactElement {
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
-            className="flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-charcoal shadow-sm"
+            className="flex items-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-charcoal shadow-xs"
           >
             <SlidersHorizontal size={15} />
             ตัวกรอง
@@ -163,7 +163,7 @@ export default function PromotionsPage(): React.ReactElement {
                   <X size={18} className="text-charcoal-400" />
                 </button>
               </div>
-              <FilterPanel />
+              {renderFilterPanel()}
             </div>
           </div>
         )}
@@ -183,7 +183,7 @@ export default function PromotionsPage(): React.ReactElement {
                   </span>
                 )}
               </div>
-              <FilterPanel />
+              {renderFilterPanel()}
             </div>
           </aside>
 

@@ -47,7 +47,7 @@ export default function TimeSelect({
         disabled={disabled}
         value={hour}
         onChange={(e) => emit(Number(e.target.value), minute)}
-        className="rounded-xl border border-cream-300 bg-cream-50/70 hover:bg-cream-100/70 px-2.5 py-1.5 text-center text-xs sm:text-sm font-semibold font-mono text-forest-950 transition-all focus:border-forest-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/15 disabled:opacity-50 cursor-pointer"
+        className="rounded-xl border border-cream-300 bg-cream-50/70 hover:bg-cream-100/70 px-2.5 py-1.5 text-center text-xs sm:text-sm font-semibold font-mono text-forest-950 transition-all focus:border-forest-700 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/15 disabled:opacity-50 cursor-pointer"
       >
         {HOURS.map((h) => (
           <option key={h} value={h}>
@@ -61,7 +61,7 @@ export default function TimeSelect({
         disabled={disabled}
         value={minute}
         onChange={(e) => emit(hour, Number(e.target.value))}
-        className="rounded-xl border border-cream-300 bg-cream-50/70 hover:bg-cream-100/70 px-2.5 py-1.5 text-center text-xs sm:text-sm font-semibold font-mono text-forest-950 transition-all focus:border-forest-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-forest-800/15 disabled:opacity-50 cursor-pointer"
+        className="rounded-xl border border-cream-300 bg-cream-50/70 hover:bg-cream-100/70 px-2.5 py-1.5 text-center text-xs sm:text-sm font-semibold font-mono text-forest-950 transition-all focus:border-forest-700 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-forest-800/15 disabled:opacity-50 cursor-pointer"
       >
         {minuteOptions.map((m) => (
           <option key={m} value={m}>

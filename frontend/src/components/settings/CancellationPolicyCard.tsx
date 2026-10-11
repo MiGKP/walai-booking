@@ -238,7 +238,7 @@ export default function CancellationPolicyCard({
                       min={0}
                       max={MAX_DAYS}
                       step={1}
-                      className="w-28 rounded-xl border border-cream-300 bg-white px-3 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                      className="w-28 rounded-xl border border-cream-300 bg-white px-3 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-hidden focus:ring-2 focus:ring-forest-800/15"
                       value={form.room_full_refund_days}
                       onChange={(e) => setForm({ ...form, room_full_refund_days: e.target.value })}
                     />
@@ -258,7 +258,7 @@ export default function CancellationPolicyCard({
                       min={0}
                       max={MAX_PERCENT}
                       step={1}
-                      className="w-28 rounded-xl border border-cream-300 bg-white px-3 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                      className="w-28 rounded-xl border border-cream-300 bg-white px-3 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-hidden focus:ring-2 focus:ring-forest-800/15"
                       value={form.room_late_refund_percent}
                       onChange={(e) => setForm({ ...form, room_late_refund_percent: e.target.value })}
                     />
@@ -289,7 +289,7 @@ export default function CancellationPolicyCard({
                       min={0}
                       max={MAX_HOURS}
                       step={1}
-                      className="w-28 rounded-xl border border-cream-300 bg-white px-3 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                      className="w-28 rounded-xl border border-cream-300 bg-white px-3 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-hidden focus:ring-2 focus:ring-forest-800/15"
                       value={form.full_refund_hours}
                       onChange={(e) => setForm({ ...form, full_refund_hours: e.target.value })}
                     />
@@ -309,7 +309,7 @@ export default function CancellationPolicyCard({
                       min={0}
                       max={MAX_PERCENT}
                       step={1}
-                      className="w-28 rounded-xl border border-cream-300 bg-white px-3 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-800/15"
+                      className="w-28 rounded-xl border border-cream-300 bg-white px-3 py-1.5 text-center text-xs sm:text-sm font-bold font-mono text-forest-950 focus:border-forest-700 focus:outline-hidden focus:ring-2 focus:ring-forest-800/15"
                       value={form.late_refund_percent}
                       onChange={(e) => setForm({ ...form, late_refund_percent: e.target.value })}
                     />

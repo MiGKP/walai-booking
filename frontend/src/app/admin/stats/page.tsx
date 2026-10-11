@@ -97,7 +97,7 @@ export default function StatsPage() {
     fetchStats();
   }, [ready, period, date, month, year]);
 
-  const fetchStats = async () => {
+  async function fetchStats() {
     setLoading(true);
     try {
       const params: any = { period };
@@ -110,7 +110,7 @@ export default function StatsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const roomStats = data?.room_summary || {};
   const kayakStats = data?.kayak_summary || {};
@@ -333,12 +333,12 @@ export default function StatsPage() {
                   <div className="flex items-center gap-4 text-xs font-medium text-charcoal-500">
                     {showRoom && (
                       <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-3 w-3 rounded-sm bg-forest-800" /> ห้องพัก
+                        <span className="inline-block h-3 w-3 rounded-xs bg-forest-800" /> ห้องพัก
                       </span>
                     )}
                     {showBoat && (
                       <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-3 w-3 rounded-sm bg-lagoon-500" /> เรือ
+                        <span className="inline-block h-3 w-3 rounded-xs bg-lagoon-500" /> เรือ
                       </span>
                     )}
                   </div>

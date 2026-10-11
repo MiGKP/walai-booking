@@ -71,7 +71,7 @@ export default function ForgotPasswordPage(): React.ReactElement | null {
 
           {submitted ? (
             <div className="animate-fade-in rounded-2xl border border-lagoon-200 bg-lagoon-50 p-6 text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-cream-100 text-lagoon-700 shadow-sm">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-cream-100 text-lagoon-700 shadow-xs">
                 <Mail size={22} aria-hidden="true" />
               </div>
               <h2 className="text-xl font-semibold text-charcoal">
@@ -89,7 +89,7 @@ export default function ForgotPasswordPage(): React.ReactElement | null {
                     `/auth/reset-password?email=${encodeURIComponent(normalizedEmail)}`
                   )
                 }
-                className="group mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-forest-800 px-6 py-3.5 font-semibold text-cream-100 transition duration-200 hover:bg-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 active:scale-[0.98]"
+                className="group mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-forest-800 px-6 py-3.5 font-semibold text-cream-100 transition duration-200 hover:bg-forest-700 focus:outline-hidden focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 active:scale-[0.98]"
               >
                 ไปหน้ากรอก OTP
                 <ArrowRight
@@ -101,7 +101,7 @@ export default function ForgotPasswordPage(): React.ReactElement | null {
               <button
                 type="button"
                 onClick={() => setSubmitted(false)}
-                className="mt-4 text-sm font-semibold text-forest-800 transition-colors hover:text-lagoon-700 focus:outline-none focus:underline"
+                className="mt-4 text-sm font-semibold text-forest-800 transition-colors hover:text-lagoon-700 focus:outline-hidden focus:underline"
               >
                 ส่งใหม่อีกครั้ง
               </button>
@@ -142,7 +142,7 @@ export default function ForgotPasswordPage(): React.ReactElement | null {
               <button
                 type="submit"
                 disabled={loading}
-                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-forest-800 px-6 py-3.5 font-semibold text-cream-100 transition duration-200 hover:bg-forest-700 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                className="group flex w-full items-center justify-center gap-2 rounded-xl bg-forest-800 px-6 py-3.5 font-semibold text-cream-100 transition duration-200 hover:bg-forest-700 focus:outline-hidden focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
                   <>
@@ -170,7 +170,7 @@ export default function ForgotPasswordPage(): React.ReactElement | null {
           <p className="mt-7 text-center text-sm text-stone-500">
             <Link
               href="/auth/login"
-              className="inline-flex items-center gap-1.5 font-semibold text-forest-800 transition-colors hover:text-lagoon-700 focus:outline-none focus:underline"
+              className="inline-flex items-center gap-1.5 font-semibold text-forest-800 transition-colors hover:text-lagoon-700 focus:outline-hidden focus:underline"
             >
               <ArrowLeft size={14} aria-hidden="true" />
               กลับไปเข้าสู่ระบบ

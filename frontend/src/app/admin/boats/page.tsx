@@ -520,7 +520,7 @@ function BoatStaffDashboardContent() {
 
           {/* Revenue Pill / Badge in Top Header */}
           <div className="flex items-center gap-3 bg-forest-50/70 border border-forest-100/90 px-4 py-2.5 rounded-2xl self-start sm:self-auto shrink-0 shadow-xs">
-            <div className="w-9 h-9 rounded-xl bg-forest-800 text-white flex items-center justify-center shadow-sm shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-forest-800 text-white flex items-center justify-center shadow-xs shrink-0">
               <Wallet size={18} className="stroke-[2.2]" />
             </div>
             <div>
@@ -700,7 +700,7 @@ function BoatStaffDashboardContent() {
               placeholder="ค้นหาชื่อ, เบอร์โทร, ประเภทเรือ, ID..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-10 pr-8 py-2 rounded-2xl border border-cream-300 focus:outline-none focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
+              className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-10 pr-8 py-2 rounded-2xl border border-cream-300 focus:outline-hidden focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
             />
             {searchInput && (
               <button
@@ -1349,7 +1349,7 @@ function BoatStaffDashboardContent() {
               placeholder="โปรดระบุเหตุผลเพิ่มเติม..."
               value={rejectModal.customReason}
               onChange={(e) => setRejectModal((prev) => ({ ...prev, customReason: e.target.value }))}
-              className="w-full rounded-xl border border-cream-200 bg-cream-50/80 p-3 text-xs text-charcoal-800 outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-400"
+              className="w-full rounded-xl border border-cream-200 bg-cream-50/80 p-3 text-xs text-charcoal-800 outline-hidden focus:border-rose-400 focus:ring-1 focus:ring-rose-400"
             />
           )}
         </div>

@@ -273,7 +273,7 @@ export default function PromotionsPage() {
     setCurrentPage(1);
   }, [search]);
 
-  const fetchPromotions = async () => {
+  async function fetchPromotions() {
     setLoading(true);
     try {
       const res = await api.get("/promotions");
@@ -283,16 +283,16 @@ export default function PromotionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const fetchRoomTypes = async () => {
+  async function fetchRoomTypes() {
     try {
       const res = await api.get("/rooms");
       setRoomTypes(res.data?.data || res.data || []);
     } catch (err) {
       console.error("โหลดข้อมูลประเภทห้องพักไม่สำเร็จ", err);
     }
-  };
+  }
 
   const roomTypeOptions = [
     { value: "", label: "ทุกประเภทห้องพัก" },
@@ -742,7 +742,7 @@ export default function PromotionsPage() {
             />
             <input
               type="text"
-              className="w-full pl-9 pr-8 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
+              className="w-full pl-9 pr-8 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
               placeholder="ค้นหาชื่อหรือโค้ดโปรโมชั่น..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -960,7 +960,7 @@ export default function PromotionsPage() {
                             <button
                               disabled={!canEdit}
                               onClick={() => handleToggle(p)}
-                              className="inline-flex items-center focus:outline-none transition-transform active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="inline-flex items-center focus:outline-hidden transition-transform active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {p.is_active ? (
                                 <span className="inline-flex items-center gap-1.5 text-xs bg-forest-50 text-forest-800 border border-forest-200 font-semibold px-2.5 py-1 rounded-full">

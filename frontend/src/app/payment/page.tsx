@@ -107,14 +107,8 @@ function PaymentContent() {
   const [step, setStep] = useState<1 | 2>(1);
   const [specialRequest, setSpecialRequest] = useState('');
 
-  useEffect(() => {
-    if (!ready) return;
-    if (!booking_type || !booking_id) { router.push('/'); return; }
-    createPayment();
-  }, [ready, booking_type, booking_id]);
-
   // เรียก backend เพื่อสร้างหรือดึงข้อมูล payment ของ booking ปัจจุบัน รวมถึง QR Code และข้อมูลบัญชีรับเงิน
-  const createPayment = async () => {
+  async function createPayment() {
     try {
       const res = await api.post('/payments', { booking_type, booking_id: Number(booking_id) });
       setPayment(res.data.data);
@@ -137,7 +131,13 @@ function PaymentContent() {
     } catch {
       // ไม่ critical ต่อการชำระเงิน แค่แสดงรายละเอียดเพิ่มไม่ได้ ไม่ต้อง toast รบกวนผู้ใช้
     }
-  };
+  }
+
+  useEffect(() => {
+    if (!ready) return;
+    if (!booking_type || !booking_id) { router.push('/'); return; }
+    createPayment();
+  }, [ready, booking_type, booking_id]);
 
   // รับไฟล์สลิปจาก input แล้วสร้าง preview ให้ผู้ใช้เห็นก่อนกดยืนยันอัปโหลด
   const handleSlipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -350,7 +350,7 @@ function PaymentContent() {
             {isAdmin && (
               <Link
                 href="/admin"
-                className="group inline-flex items-center gap-2 rounded-full bg-forest-900 py-1.5 px-4 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:bg-forest-800"
+                className="group inline-flex items-center gap-2 rounded-full bg-forest-900 py-1.5 px-4 text-sm font-bold text-white shadow-xs transition-all duration-200 hover:bg-forest-800"
               >
                 แผงควบคุมแอดมิน
               </Link>
@@ -570,7 +570,7 @@ function PaymentContent() {
                     {payment.qr_code_url && (
                       <div className="text-center">
                         <SectionHeading icon={<QrCode size={16} />} title="สแกน QR Code ชำระเงิน" />
-                        <div className="mt-4 inline-block rounded-2xl border border-stone-200/80 bg-white p-4 shadow-sm">
+                        <div className="mt-4 inline-block rounded-2xl border border-stone-200/80 bg-white p-4 shadow-xs">
                           <img src={payment.qr_code_url} alt="QR Code" className="w-52 h-52 mx-auto" />
                         </div>
                         <p className="mt-3 text-xs text-charcoal-400">สแกนด้วยแอปธนาคารหรือ PromptPay</p>
@@ -666,7 +666,7 @@ function PaymentContent() {
                     <div className="mt-4 rounded-xl border-2 border-dashed border-stone-200 p-6 text-center transition-colors hover:border-forest-300">
                       {slipPreview ? (
                         <div className="space-y-3">
-                          <img src={slipPreview} alt="Slip" className="max-h-60 mx-auto rounded-xl object-contain shadow-sm" />
+                          <img src={slipPreview} alt="Slip" className="max-h-60 mx-auto rounded-xl object-contain shadow-xs" />
                           <button onClick={() => { setSlip(null); setSlipPreview(''); }} className="text-xs font-semibold text-red-500 hover:text-red-600">
                             เปลี่ยนรูปสลิป
                           </button>
@@ -716,7 +716,7 @@ function PaymentContent() {
       </div>
 
       {showCancelConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 backdrop-blur-sm p-4" onClick={() => setShowCancelConfirm(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 backdrop-blur-xs p-4" onClick={() => setShowCancelConfirm(false)}>
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-500">
               <XCircle size={22} />

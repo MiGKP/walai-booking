@@ -70,7 +70,7 @@ function CustomSelect({
           e.preventDefault();
           setIsOpen(!isOpen);
         }}
-        className={`w-full flex items-center justify-between gap-2 border border-stone-200 rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs ${
+        className={`w-full flex items-center justify-between gap-2 border border-stone-200 rounded-xl transition-all focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs ${
           isSmall
             ? "px-3 py-2 bg-white text-xs font-bold text-forest-800"
             : "px-4 py-3 bg-stone-50 hover:bg-stone-100/70 text-sm font-medium text-forest-900"
@@ -218,7 +218,7 @@ function BookingDetailsContent() {
   if (cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-stone-50 px-4 pt-24 pb-12 flex items-center justify-center">
-         <div className="text-center bg-white p-12 rounded-3xl shadow-sm border border-stone-100 max-w-md">
+         <div className="text-center bg-white p-12 rounded-3xl shadow-xs border border-stone-100 max-w-md">
            <AlertCircle className="w-12 h-12 text-stone-300 mx-auto mb-4" />
            <h2 className="text-xl font-bold text-stone-900 mb-2">ไม่พบรายการห้องพัก</h2>
            <p className="text-stone-500 mb-6 text-sm">กรุณากลับไปเลือกห้องพักที่คุณต้องการจองใหม่อีกครั้ง</p>
@@ -343,7 +343,7 @@ function BookingDetailsContent() {
             <h1 className="text-3xl font-extrabold text-forest-900 tracking-tight">รายละเอียดการจอง</h1>
             
             {/* Contact Info */}
-            <section className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/80 shadow-sm">
+            <section className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/80 shadow-xs">
               <h2 className="text-lg font-bold text-forest-900 mb-6 flex items-center gap-2">
                 <User className="text-forest-600" size={20} /> ข้อมูลผู้เข้าพักหลัก
               </h2>
@@ -368,7 +368,7 @@ function BookingDetailsContent() {
             </section>
             
             {/* Arrival Time */}
-            <section className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/80 shadow-sm">
+            <section className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/80 shadow-xs">
               <h2 className="text-lg font-bold text-forest-900 mb-2 flex items-center gap-2">
                 <Clock className="text-forest-600" size={20} /> เวลาที่ท่านจะเดินทางมาถึง
               </h2>
@@ -385,7 +385,7 @@ function BookingDetailsContent() {
             </section>
             
             {/* Additional Requests */}
-            <section className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/80 shadow-sm">
+            <section className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/80 shadow-xs">
               <h2 className="text-lg font-bold text-forest-900 mb-2 flex items-center gap-2">
                 <AlertCircle className="text-forest-600" size={20} /> ตัวเลือกอื่นๆ สำหรับเพิ่มเติมในการจอง
               </h2>

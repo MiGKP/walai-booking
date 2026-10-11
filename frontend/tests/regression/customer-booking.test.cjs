@@ -81,12 +81,22 @@ test('coupon booking links prefill the shared promotion field using promo_code',
 
 test('kayak booking submits only the current validated promotion selection', async () => {
   const source = fs.readFileSync(path.join(root, 'src/app/kayaks/page.tsx'), 'utf8');
-  const handler = source.slice(source.indexOf('  const handleBooking ='), source.indexOf('  const [useRoomRights'));
+  const start = source.indexOf('  const handleBooking =');
+  const end = source.indexOf('\n  };', start);
+  assert(end > start, 'Booking handler must be present');
+  const handler = source.slice(start, end + '\n  };'.length);
   const js = ts.transpileModule(`${handler}\nreturn handleBooking;`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
   let payload;
   const handle = new Function('selectedDate', 'selectedSlot', 'today', 'pastCutoffToday', 'boatHours', 'isBoatSlotBookable', 'cartLines', 'slotFitsCart', 'setBookingLoading', 'api', 'toast', 'router', 'roomBookingId', 'normalizeSlotTime', 'promotionIds', js)('2099-01-02', { start_time: '15:00', end_time: '15:30' }, '2099-01-01', false, [], () => true, [{ boat_type_id: 1, num_passengers: 1, boat_count: 1, free_tickets_used: 0 }], () => true, () => {}, { post: async (_path, body) => { payload = body; return { data: { data: { boat_booking_id: 1 } } }; } }, { success() {}, error() {} }, { push() {} }, null, value => value, [32]);
   await handle({ preventDefault() {} });
   assert.deepEqual(payload.promotion_ids, [32]);
+});
+
+test('kayak checkout keeps its coupon field and room-rights entry', () => {
+  const source = fs.readFileSync(path.join(root, 'src/app/kayaks/page.tsx'), 'utf8');
+  assert.match(source, /<PromoCodeFields[\s\S]*?scope="kayak"/);
+  assert.match(source, /<RoomBoatRightsChoice/);
+  assert.match(source, /promotionSelection\?\.price === totalPrice/);
 });
 
 test('checkin search finds every room in a booking by plain and hash-prefixed booking number', () => {

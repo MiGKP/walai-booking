@@ -862,19 +862,14 @@ export const deleteAccount = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // 4. ลบรูปโปรไฟล์ออกจาก Cloudinary หากมี (fire-and-forget เพื่อไม่บล็อกถ้าลบไม่สำเร็จ)
-    if (member.image_profile) {
-      const publicId = extractCloudinaryPublicId(member.image_profile);
-      if (publicId) {
-        deleteCloudinaryImage(publicId).catch((err) =>
-          console.error('Failed to delete avatar from Cloudinary on account deletion:', err)
-        );
-      }
-    }
-
-    // 5. เคลียร์คูปองในกระเป๋าที่ยังไม่ได้ใช้
+    // Keep wallet rows referenced by historical redemptions, including reusable saved coupons.
     await client.query(
-      `DELETE FROM member_promotions WHERE member_id = $1 AND status = 'saved'`,
+      `DELETE FROM member_promotions mp
+       WHERE mp.member_id = $1 AND mp.status = 'saved'
+         AND NOT EXISTS (
+           SELECT 1 FROM booking_promotions bp
+           WHERE bp.member_promotion_id = mp.member_promotion_id
+         )`,
       [authUser.id]
     );
 
@@ -901,6 +896,16 @@ export const deleteAccount = async (req: Request, res: Response): Promise<void> 
     );
 
     await client.query('COMMIT');
+
+    // External media cannot be rolled back, so remove it only after the account transaction succeeds.
+    if (member.image_profile) {
+      const publicId = extractCloudinaryPublicId(member.image_profile);
+      if (publicId) {
+        deleteCloudinaryImage(publicId).catch((err) =>
+          console.error('Failed to delete avatar from Cloudinary on account deletion:', err)
+        );
+      }
+    }
 
     res.json({
       success: true,

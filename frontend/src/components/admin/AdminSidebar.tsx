@@ -297,7 +297,7 @@ export default function AdminSidebar() {
           title={collapsed ? "ภาพรวม (Dashboard)" : undefined}
           className={`flex items-center ${collapsed ? "justify-center px-0 py-2.5 relative" : "justify-between px-3 py-2"} rounded-xl text-xs font-semibold transition-all ${
             pathname === dashboardHref
-              ? "bg-forest-800 text-cream-100 shadow-sm"
+              ? "bg-forest-800 text-cream-100 shadow-xs"
               : "text-charcoal-600 hover:bg-stone-200/50"
           }`}
         >
@@ -332,7 +332,7 @@ export default function AdminSidebar() {
           title={collapsed ? "ปฏิทินการจอง" : undefined}
           className={`flex items-center ${collapsed ? "justify-center px-0 py-2.5" : "gap-2.5 px-3 py-2"} rounded-xl text-xs font-semibold transition-all ${
             pathname === calendarHref
-              ? "bg-forest-800 text-cream-100 shadow-sm"
+              ? "bg-forest-800 text-cream-100 shadow-xs"
               : "text-charcoal-600 hover:bg-stone-200/50"
           }`}
         >
@@ -456,7 +456,7 @@ export default function AdminSidebar() {
           {!collapsed && <span>ดูหน้าเว็บจริง</span>}
         </a>
 
-        <div className={`bg-white/80 border border-stone-200/80 rounded-xl shadow-sm ${collapsed ? "p-1.5 w-full flex flex-col items-center" : "p-2.5 w-full"}`}>
+        <div className={`bg-white/80 border border-stone-200/80 rounded-xl shadow-xs ${collapsed ? "p-1.5 w-full flex flex-col items-center" : "p-2.5 w-full"}`}>
           <div className={`flex items-center ${collapsed ? "justify-center" : "gap-2"} mb-2`}>
             <div className="w-7 h-7 rounded-full bg-forest-800 text-cream-100 flex items-center justify-center font-bold text-xs shrink-0" title={collapsed ? user?.first_name || "ผู้ใช้ระบบ" : undefined}>
               {user?.first_name?.[0]?.toUpperCase()}
