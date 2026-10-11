@@ -85,6 +85,9 @@ const nextConfig = {
     return [
       // /dashboard/bookings ถูกรวมเข้าไปในหน้า /dashboard แล้ว เก็บ redirect ไว้กันลิงก์เก่า/บุ๊กมาร์กพัง
       { source: '/dashboard/bookings', destination: '/dashboard', permanent: true },
+      // /dashboard/promotions และ /dashboard/coupons ถูกรวมเข้าไปในแท็บโปรโมชั่นของฉันใน /dashboard แล้ว
+      { source: '/dashboard/promotions', destination: '/dashboard?tab=coupons', permanent: true },
+      { source: '/dashboard/coupons', destination: '/dashboard?tab=coupons', permanent: true },
     ];
   },
   async headers() {

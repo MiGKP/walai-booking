@@ -50,7 +50,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
         [booking_id, user.role, user.id]
       );
       if (result.rows.length === 0) {
-        res.status(404).json({ success: false, message: 'Room booking not found' });
+        res.status(404).json({ success: false, message: 'ไม่พบรายการจองห้องพัก' });
         return;
       }
       booking = result.rows[0];
@@ -61,12 +61,12 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
         [booking_id, user.role, user.id]
       );
       if (result.rows.length === 0) {
-        res.status(404).json({ success: false, message: 'Boat booking not found' });
+        res.status(404).json({ success: false, message: 'ไม่พบรายการจองเรือ' });
         return;
       }
       booking = result.rows[0];
     } else {
-      res.status(400).json({ success: false, message: 'Invalid booking type' });
+      res.status(400).json({ success: false, message: 'ประเภทการจองไม่ถูกต้อง' });
       return;
     }
 
@@ -103,7 +103,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       res.status(mapped.status).json({ success: false, message: mapped.message });
       return;
     }
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -135,11 +135,11 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     }
 
     if (bType !== 'room' && bType !== 'kayak') {
-      res.status(400).json({ success: false, message: 'Invalid payment ID format' });
+      res.status(400).json({ success: false, message: 'รูปแบบรหัสการชำระเงินไม่ถูกต้อง' });
       return;
     }
     if (parsePositiveInt(bId) === null) {
-      res.status(400).json({ success: false, message: 'Invalid id' });
+      res.status(400).json({ success: false, message: 'รหัสรายการไม่ถูกต้อง' });
       return;
     }
 
@@ -161,7 +161,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       );
 
     if (existing.rowCount === 0) {
-      res.status(404).json({ success: false, message: 'Booking not found or unauthorized' });
+      res.status(404).json({ success: false, message: 'ไม่พบรายการจองหรือไม่มีสิทธิ์เข้าถึง' });
       return;
     }
 
@@ -173,7 +173,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     if (booking.status !== 'pending') {
       res.status(400).json({
         success: false,
-        message: `Cannot upload slip for a booking with status: ${booking.status}`,
+        message: `ไม่สามารถอัปโหลดสลิปได้ เพราะรายการจองอยู่ในสถานะ: ${booking.status}`,
       });
       return;
     }
@@ -289,7 +289,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       res.status(mapped.status).json({ success: false, message: mapped.message });
       return;
     }
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -307,15 +307,15 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
 
     const confirmRole = authUser.role;
     if ((bType === 'room' && confirmRole === 'boat_staff') || (bType === 'kayak' && confirmRole === 'room_staff')) {
-      res.status(403).json({ success: false, message: 'Forbidden: staff cannot confirm this booking type' });
+      res.status(403).json({ success: false, message: 'เจ้าหน้าที่ไม่มีสิทธิ์ยืนยันการจองประเภทนี้' });
       return;
     }
     if (bType !== 'room' && bType !== 'kayak') {
-      res.status(400).json({ success: false, message: 'Invalid payment ID format' });
+      res.status(400).json({ success: false, message: 'รูปแบบรหัสการชำระเงินไม่ถูกต้อง' });
       return;
     }
     if (parsePositiveInt(bId) === null) {
-      res.status(400).json({ success: false, message: 'Invalid id' });
+      res.status(400).json({ success: false, message: 'รหัสรายการไม่ถูกต้อง' });
       return;
     }
 
@@ -331,7 +331,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
       );
       if (bookingCheck.rows.length === 0) {
         await safeRollback(client);
-        res.status(404).json({ success: false, message: 'Booking not found' });
+        res.status(404).json({ success: false, message: 'ไม่พบรายการจอง' });
         return;
       }
       const zeroChargeRoom = bType === 'room' && Number(bookingCheck.rows[0].total_price) === 0;
@@ -402,7 +402,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
       res.status(mapped.status).json({ success: false, message: mapped.message });
       return;
     }
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -417,7 +417,7 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
     }
     const [bType, bId] = id.split('_');
     if ((bType !== 'room' && bType !== 'kayak') || parsePositiveInt(bId) === null) {
-      res.status(400).json({ success: false, message: 'Invalid id' });
+      res.status(400).json({ success: false, message: 'รหัสรายการไม่ถูกต้อง' });
       return;
     }
 
@@ -442,7 +442,7 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
     }
 
     if (!payment) {
-      res.status(404).json({ success: false, message: 'Payment not found' });
+      res.status(404).json({ success: false, message: 'ไม่พบข้อมูลการชำระเงิน' });
       return;
     }
 
@@ -465,7 +465,7 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
       res.status(mapped.status).json({ success: false, message: mapped.message });
       return;
     }
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -489,7 +489,7 @@ export const getUserPayments = async (req: Request, res: Response): Promise<void
       res.status(mapped.status).json({ success: false, message: mapped.message });
       return;
     }
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
@@ -532,7 +532,7 @@ export const getAllPayments = async (req: Request, res: Response): Promise<void>
       res.status(mapped.status).json({ success: false, message: mapped.message });
       return;
     }
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 

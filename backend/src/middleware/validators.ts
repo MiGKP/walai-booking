@@ -4,131 +4,142 @@ import { body, param, query } from 'express-validator';
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 export const registerValidator = [
-  body('first_name').trim().notEmpty().withMessage('First name is required'),
-  body('last_name').trim().notEmpty().withMessage('Last name is required'),
-  body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
+  body('first_name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
+  body('last_name').trim().notEmpty().withMessage('กรุณากรอกนามสกุล'),
+  body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
   body('password')
     .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters'),
+    .withMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
-    .withMessage('Invalid phone number'),
+    .withMessage('เบอร์โทรศัพท์ไม่ถูกต้อง'),
   body('line_id').optional({ nullable: true, checkFalsy: true }).trim(),
   body('facebook').optional({ nullable: true, checkFalsy: true }).trim(),
 ];
 
 export const loginValidator = [
-  body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
-  body('password').notEmpty().withMessage('Password is required'),
+  body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
+  body('password').notEmpty().withMessage('กรุณากรอกรหัสผ่าน'),
 ];
 
 export const forgotPasswordValidator = [
-  body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
+  body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
 ];
 
 export const resetPasswordValidator = [
-  body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
+  body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
   body('otp')
     .trim()
     .isLength({ min: 6, max: 6 })
     .isNumeric()
-    .withMessage('OTP must be a 6-digit number'),
+    .withMessage('รหัส OTP ต้องเป็นตัวเลข 6 หลัก'),
   body('new_password')
     .isLength({ min: 8 })
-    .withMessage('New password must be at least 8 characters'),
+    .withMessage('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร'),
 ];
 
 export const updateProfileValidator = [
-  body('first_name').trim().notEmpty().withMessage('First name is required'),
+  body('first_name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
   body('last_name').optional({ nullable: true }).trim(),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
-    .withMessage('Invalid phone number'),
+    .withMessage('เบอร์โทรศัพท์ไม่ถูกต้อง'),
   body('line_id').optional({ nullable: true, checkFalsy: true }).trim(),
   body('facebook').optional({ nullable: true, checkFalsy: true }).trim(),
 ];
 
 export const changePasswordValidator = [
-  body('current_password').notEmpty().withMessage('Current password is required'),
+  body('current_password').notEmpty().withMessage('กรุณากรอกรหัสผ่านปัจจุบัน'),
   body('new_password')
     .isLength({ min: 8 })
-    .withMessage('New password must be at least 8 characters'),
+    .withMessage('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร'),
 ];
 
 export const setPasswordValidator = [
   body('new_password')
     .isLength({ min: 8 })
-    .withMessage('New password must be at least 8 characters'),
+    .withMessage('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร'),
 ];
 
 export const createStaffValidator = [
-  body('name').trim().notEmpty().withMessage('Name is required'),
-  body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
+  body('name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
+  body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
   body('password')
-    .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters'),
+    .custom((val, { req }) => {
+      const pwd = (val && String(val).trim()) || (req.body.phone && String(req.body.phone).trim());
+      if (!pwd || pwd.length < 8) {
+        throw new Error('รหัสผ่านหรือเบอร์โทรศัพท์ต้องมีความยาวอย่างน้อย 8 ตัวอักษร');
+      }
+      return true;
+    }),
   body('role')
     .isIn(['admin', 'room_staff', 'boat_staff'])
     .withMessage('Role must be admin, room_staff, or boat_staff'),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
-    .withMessage('Invalid phone number'),
+    .withMessage('เบอร์โทรศัพท์ไม่ถูกต้อง'),
 ];
 
 export const initAdminValidator = [
-  body('email').trim().isEmail().withMessage('Valid email is required').customSanitizer(normalizeAuthEmail),
+  body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
   body('password')
     .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters'),
+    .withMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
-    .withMessage('Invalid phone number'),
+    .withMessage('เบอร์โทรศัพท์ไม่ถูกต้อง'),
 ];
 
 // ─── Room Booking ─────────────────────────────────────────────────────────────
+
+const MAX_ROOM_NIGHTS = 30;
 
 export const createRoomBookingValidator = [
   body('guest_name').optional({ nullable: true, checkFalsy: true }).trim().isLength({ min: 1, max: 200 }),
   body('guest_phone').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 30 }).isMobilePhone('any'),
   body('guest_email').optional({ nullable: true, checkFalsy: true }).trim().isEmail().isLength({ max: 254 }),
-  body('check_in_date').isISO8601().withMessage('Valid check_in_date (ISO 8601) is required'),
+  body('check_in_date').isISO8601().withMessage('กรุณาเลือกวันเช็คอินให้ถูกต้อง'),
   body('check_out_date')
     .isISO8601()
-    .withMessage('Valid check_out_date (ISO 8601) is required')
+    .withMessage('กรุณาเลือกวันเช็คเอาต์ให้ถูกต้อง')
     .custom((val, { req }) => {
       if (new Date(val) <= new Date(req.body.check_in_date)) {
-        throw new Error('check_out_date must be after check_in_date');
+        throw new Error('วันเช็คเอาต์ต้องอยู่หลังวันเช็คอิน');
+      }
+      const nights = Math.round((new Date(val).getTime() - new Date(req.body.check_in_date).getTime()) / 86400000);
+      if (nights > MAX_ROOM_NIGHTS) {
+        throw new Error(`จองได้สูงสุด ${MAX_ROOM_NIGHTS} คืนต่อครั้ง`);
       }
       return true;
     }),
-  body('items').optional().isArray({ min: 1 }).withMessage('items must be a non-empty array'),
-  body('items.*.room_type_id').optional().isInt({ min: 1 }).withMessage('Valid room_type_id is required'),
-  body('items.*.quantity').optional().isInt({ min: 1, max: 20 }).withMessage('quantity must be 1-20'),
-  body('items.*.promotion_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Invalid promotion_id'),
+  body('items').optional().isArray({ min: 1 }).withMessage('กรุณาเลือกห้องอย่างน้อย 1 รายการ'),
+  body('items.*.room_type_id').optional().isInt({ min: 1 }).withMessage('ประเภทห้องไม่ถูกต้อง'),
+  body('items.*.quantity').optional().isInt({ min: 1, max: 20 }).withMessage('จำนวนห้องต้องอยู่ระหว่าง 1-20'),
+  body('items.*.promotion_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('โปรโมชั่นไม่ถูกต้อง'),
   body('items.*.room_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Invalid room_id'),
-  body('room_type_id').optional().isInt({ min: 1 }).withMessage('Valid room_type_id is required'),
-  body('guests').optional().isInt({ min: 1, max: 50 }).withMessage('Guests must be between 1 and 50'),
-  body('adults').optional().isInt({ min: 1, max: 50 }).withMessage('adults must be between 1 and 50'),
-  body('children').optional().isInt({ min: 0, max: 50 }).withMessage('children must be between 0 and 50'),
+  body('room_type_id').optional().isInt({ min: 1 }).withMessage('ประเภทห้องไม่ถูกต้อง'),
+  body('guests').optional().isInt({ min: 1, max: 50 }).withMessage('จำนวนผู้เข้าพักต้องอยู่ระหว่าง 1-50 คน'),
+  body('adults').optional().isInt({ min: 1, max: 50 }).withMessage('จำนวนผู้ใหญ่ต้องอยู่ระหว่าง 1-50 คน'),
+  body('children').optional().isInt({ min: 0, max: 50 }).withMessage('จำนวนเด็กต้องอยู่ระหว่าง 0-50 คน'),
   body('child_ages').optional().isArray().withMessage('child_ages must be an array'),
-  body('child_ages.*').optional().isInt({ min: 0, max: 11 }).withMessage('Each child age must be 0-11'),
-  body('special_requests').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 500 }).withMessage('Special requests cannot exceed 500 characters'),
-  body('arrival_time').optional({ nullable: true, checkFalsy: true }).matches(/^([01]\d|2[0-3]):[0-5]\d$/).withMessage('arrival_time must be HH:MM (24h)'),
-  body('promotion_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Invalid promotion_id'),
+  body('child_ages.*').optional().isInt({ min: 0, max: 11 }).withMessage('อายุเด็กแต่ละคนต้องอยู่ระหว่าง 0-11 ปี'),
+  body('special_requests').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 500 }).withMessage('คำขอพิเศษต้องไม่เกิน 500 ตัวอักษร'),
+  body('arrival_time').optional({ nullable: true, checkFalsy: true }).matches(/^([01]\d|2[0-3]):[0-5]\d$/).withMessage('เวลาถึงต้องอยู่ในรูปแบบ HH:MM (24 ชั่วโมง)'),
+  body('promotion_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('โปรโมชั่นไม่ถูกต้อง'),
   body('promotion_ids').optional().isArray(),
   body('promotion_ids.*').optional().isInt({ min: 1 }),
   body().custom((_, { req }) => {
     const hasItems = Array.isArray(req.body.items) && req.body.items.length > 0;
     const hasType = req.body.room_type_id != null;
     if (!hasItems && !hasType) {
-      throw new Error('items or room_type_id is required');
+      throw new Error('กรุณาเลือกประเภทห้อง');
     }
     if (req.body.guests == null && req.body.adults == null) {
-      throw new Error('adults or guests is required');
+      throw new Error('กรุณาระบุจำนวนผู้เข้าพัก');
     }
     return true;
   }),
@@ -142,37 +153,41 @@ export const resortInfoValidator = [
     .withMessage('จองล่วงหน้าขั้นต่ำต้องเป็นจำนวนเต็ม 0-10080 นาที'),
   body('boat_checkin_advance_minutes').optional().isInt({ min: 0, max: 1440 })
     .withMessage('เวลาเช็คอินล่วงหน้าต้องเป็นจำนวนเต็ม 0-1440 นาที'),
+  body('room_max_advance_days').optional().isInt({ min: 1, max: 730 })
+    .withMessage('จองห้องพักล่วงหน้าต้องเป็นจำนวนเต็ม 1-730 วัน'),
+  body('boat_max_advance_days').optional().isInt({ min: 1, max: 365 })
+    .withMessage('จองเรือล่วงหน้าต้องเป็นจำนวนเต็ม 1-365 วัน'),
 ];
 
 export const updateRoomBookingStatusValidator = [
-  param('id').isInt({ min: 1 }).withMessage('Valid booking ID is required'),
+  param('id').isInt({ min: 1 }).withMessage('รหัสรายการจองไม่ถูกต้อง'),
   body('status')
     .isIn(['approved', 'rejected', 'pending', 'cancelled'])
-    .withMessage('Status must be approved, rejected, pending, or cancelled'),
+    .withMessage('สถานะต้องเป็น approved, rejected, pending หรือ cancelled'),
 ];
 
 // ─── Kayak Booking ────────────────────────────────────────────────────────────
 
 export const createKayakBookingValidator = [
-  body('booking_date').isISO8601().withMessage('Valid booking_date (ISO 8601) is required'),
-  body('items').optional().isArray({ min: 1 }).withMessage('items must be a non-empty array'),
-  body('items.*.boat_type_id').optional().isInt({ min: 1 }).withMessage('Valid boat_type_id is required'),
+  body('booking_date').isISO8601().withMessage('กรุณาเลือกวันที่จองให้ถูกต้อง'),
+  body('items').optional().isArray({ min: 1 }).withMessage('กรุณาเลือกห้องอย่างน้อย 1 รายการ'),
+  body('items.*.boat_type_id').optional().isInt({ min: 1 }).withMessage('ประเภทเรือไม่ถูกต้อง'),
   body('items.*.num_passengers')
     .optional()
     .isInt({ min: 1, max: 50 })
-    .withMessage('num_passengers must be between 1 and 50'),
-  body('kayak_id').optional().isInt({ min: 1 }).withMessage('Valid kayak_id is required'),
-  body('boat_round_id').optional().isInt({ min: 1 }).withMessage('Valid boat_round_id is required'),
-  body('num_passengers').optional().isInt({ min: 1, max: 50 }).withMessage('num_passengers must be between 1 and 50'),
+    .withMessage('จำนวนผู้โดยสารต้องอยู่ระหว่าง 1-50 คน'),
+  body('kayak_id').optional().isInt({ min: 1 }).withMessage('ประเภทพายไม่ถูกต้อง'),
+  body('boat_round_id').optional().isInt({ min: 1 }).withMessage('รอบเรือไม่ถูกต้อง'),
+  body('num_passengers').optional().isInt({ min: 1, max: 50 }).withMessage('จำนวนผู้โดยสารต้องอยู่ระหว่าง 1-50 คน'),
   body('start_time')
     .optional()
     .matches(/^\d{2}:\d{2}(:\d{2})?$/)
-    .withMessage('start_time must be in HH:MM or HH:MM:SS format'),
+    .withMessage('เวลาเริ่มต้องอยู่ในรูปแบบ HH:MM'),
   body('end_time')
     .optional()
     .matches(/^\d{2}:\d{2}(:\d{2})?$/)
-    .withMessage('end_time must be in HH:MM or HH:MM:SS format'),
-  body('promotion_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Invalid promotion_id'),
+    .withMessage('เวลาสิ้นสุดต้องอยู่ในรูปแบบ HH:MM'),
+  body('promotion_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('โปรโมชั่นไม่ถูกต้อง'),
   body('promotion_ids').optional().isArray(),
   body('promotion_ids.*').optional().isInt({ min: 1 }),
   body().custom((_, { req }) => {
@@ -193,10 +208,10 @@ export const createKayakBookingValidator = [
 ];
 
 export const updateKayakBookingStatusValidator = [
-  param('id').isInt({ min: 1 }).withMessage('Valid booking ID is required'),
+  param('id').isInt({ min: 1 }).withMessage('รหัสรายการจองไม่ถูกต้อง'),
   body('status')
     .isIn(['approved', 'rejected', 'pending', 'checked_out'])
-    .withMessage('Status must be approved, rejected, pending, or checked_out'),
+    .withMessage('สถานะต้องเป็น approved, rejected, pending หรือ checked_out'),
 ];
 
 export const kayakCheckinSessionsValidator = [
@@ -205,35 +220,35 @@ export const kayakCheckinSessionsValidator = [
 ];
 
 export const checkinKayakBookingValidator = [
-  param('id').isInt({ min: 1 }).withMessage('Valid booking ID is required'),
+  param('id').isInt({ min: 1 }).withMessage('รหัสรายการจองไม่ถูกต้อง'),
 ];
 
 export const createKayakValidator = [
-  body('name').trim().notEmpty().withMessage('Name is required'),
-  body('capacity').isInt({ min: 1, max: 10 }).withMessage('Capacity must be between 1 and 10'),
-  body('price_per_hour').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
-  body('quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
+  body('name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
+  body('capacity').isInt({ min: 1, max: 10 }).withMessage('จำนวนที่นั่งต้องอยู่ระหว่าง 1-10'),
+  body('price_per_hour').isFloat({ min: 0 }).withMessage('ราคาต้องเป็นตัวเลขที่ไม่ติดลบ'),
+  body('quantity').optional().isInt({ min: 1 }).withMessage('จำนวนต้องไม่น้อยกว่า 1'),
   body('description').optional({ nullable: true, checkFalsy: true }).trim(),
 ];
 
 export const updateKayakValidator = [
-  body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
-  body('capacity').optional().isInt({ min: 1, max: 10 }).withMessage('Capacity must be between 1 and 10'),
-  body('seat_count').optional().isInt({ min: 1, max: 10 }).withMessage('Capacity must be between 1 and 10'),
-  body('price_per_hour').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
-  body('price').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
-  body('quantity').optional().isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
+  body('name').optional().trim().notEmpty().withMessage('ชื่อต้องไม่ว่าง'),
+  body('capacity').optional().isInt({ min: 1, max: 10 }).withMessage('จำนวนที่นั่งต้องอยู่ระหว่าง 1-10'),
+  body('seat_count').optional().isInt({ min: 1, max: 10 }).withMessage('จำนวนที่นั่งต้องอยู่ระหว่าง 1-10'),
+  body('price_per_hour').optional().isFloat({ min: 0 }).withMessage('ราคาต้องเป็นตัวเลขที่ไม่ติดลบ'),
+  body('price').optional().isFloat({ min: 0 }).withMessage('ราคาต้องเป็นตัวเลขที่ไม่ติดลบ'),
+  body('quantity').optional().isInt({ min: 1 }).withMessage('จำนวนต้องไม่น้อยกว่า 1'),
 ];
 
 export const createBoatRoundValidator = [
-  body('start_time').matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage('start_time must be in HH:MM format'),
-  body('end_time').matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage('end_time must be in HH:MM format'),
-  body('boats').optional().isArray({ min: 1 }).withMessage('boats must be a non-empty array'),
-  body('boats.*.boat_type_id').optional().isInt({ min: 1 }).withMessage('Valid boat_type_id is required'),
-  body('boats.*.quantity').optional().isInt({ min: 1 }).withMessage('quantity must be at least 1'),
-  body('boat_type_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Valid boat_type_id is required'),
-  body('total_slots').optional({ nullable: true }).isInt({ min: 1 }).withMessage('total_slots must be a positive integer'),
-  body('max_booking').optional({ nullable: true }).isInt({ min: 1 }).withMessage('max_booking must be a positive integer'),
+  body('start_time').matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage('เวลาเริ่มต้องอยู่ในรูปแบบ HH:MM'),
+  body('end_time').matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage('เวลาสิ้นสุดต้องอยู่ในรูปแบบ HH:MM'),
+  body('boats').optional().isArray({ min: 1 }).withMessage('กรุณาเลือกเรืออย่างน้อย 1 ลำ'),
+  body('boats.*.boat_type_id').optional().isInt({ min: 1 }).withMessage('ประเภทเรือไม่ถูกต้อง'),
+  body('boats.*.quantity').optional().isInt({ min: 1 }).withMessage('จำนวนต้องไม่น้อยกว่า 1'),
+  body('boat_type_id').optional({ nullable: true }).isInt({ min: 1 }).withMessage('ประเภทเรือไม่ถูกต้อง'),
+  body('total_slots').optional({ nullable: true }).isInt({ min: 1 }).withMessage('จำนวนที่นั่งรวมต้องเป็นจำนวนเต็มบวก'),
+  body('max_booking').optional({ nullable: true }).isInt({ min: 1 }).withMessage('จำนวนจองสูงสุดต้องเป็นจำนวนเต็มบวก'),
   body().custom((_, { req }) => {
     const hasBoats = Array.isArray(req.body.boats) && req.body.boats.length > 0;
     const hasLegacy = req.body.boat_type_id != null;
@@ -249,69 +264,69 @@ export const createBoatRoundValidator = [
 export const createPaymentValidator = [
   body('booking_type')
     .isIn(['room', 'kayak'])
-    .withMessage('booking_type must be room or kayak'),
-  body('booking_id').isInt({ min: 1 }).withMessage('Valid booking_id is required'),
+    .withMessage('ประเภทการจองต้องเป็น room หรือ kayak'),
+  body('booking_id').isInt({ min: 1 }).withMessage('รหัสรายการจองไม่ถูกต้อง'),
 ];
 
 // ─── Promotion ────────────────────────────────────────────────────────────────
 
 export const createPromotionValidator = [
-  body('code').trim().notEmpty().withMessage('Promotion code is required')
+  body('code').trim().notEmpty().withMessage('กรุณากรอกโค้ดโปรโมชั่น')
     .isLength({ min: 2, max: 50 }).withMessage('Code must be 2–50 characters'),
-  body('name').trim().notEmpty().withMessage('Promotion name is required'),
+  body('name').trim().notEmpty().withMessage('กรุณากรอกชื่อโปรโมชั่น'),
   body('description').optional({ nullable: true, checkFalsy: true }).trim(),
   body('discount_type')
     .isIn(['percent', 'fixed'])
-    .withMessage('discount_type must be percent or fixed'),
+    .withMessage('ประเภทส่วนลดต้องเป็น percent หรือ fixed'),
   body('discount_value')
     .isFloat({ min: 0 })
-    .withMessage('discount_value must be a positive number'),
-  body('min_nights').optional({ nullable: true }).isInt({ min: 1 }).withMessage('min_nights must be a positive integer'),
-  body('min_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('min_price must be a positive number'),
-  body('max_discount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('max_discount must be a positive number'),
-  body('start_date').optional({ nullable: true }).isISO8601().withMessage('start_date must be a valid date'),
-  body('end_date').optional({ nullable: true }).isISO8601().withMessage('end_date must be a valid date'),
-  body('usage_limit').optional({ nullable: true }).isInt({ min: 1 }).withMessage('usage_limit must be a positive integer'),
-  body('usage_limit_per_member').optional({ nullable: true }).isInt({ min: 1 }).withMessage('usage_limit_per_member must be a positive integer'),
-  body('is_collectible').optional().isBoolean().withMessage('is_collectible must be a boolean'),
-  body('stackable').optional().isBoolean().withMessage('stackable must be a boolean'),
-  body('applies_to').optional().isIn(['room', 'kayak', 'both']).withMessage('applies_to must be room, kayak, or both'),
-  body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
-  body('boat_ticket_count').optional({ nullable: true }).isInt({ min: 0 }).withMessage('boat_ticket_count must be 0 or more'),
-  body('boat_addon_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('boat_addon_price must be 0 or more'),
+    .withMessage('มูลค่าส่วนลดต้องเป็นตัวเลขที่มากกว่า 0'),
+  body('min_nights').optional({ nullable: true }).isInt({ min: 1 }).withMessage('จำนวนคืนขั้นต่ำต้องเป็นจำนวนเต็มบวก'),
+  body('min_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ราคาขั้นต่ำต้องเป็นตัวเลขที่ไม่ติดลบ'),
+  body('max_discount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ส่วนลดสูงสุดต้องเป็นตัวเลขที่ไม่ติดลบ'),
+  body('start_date').optional({ nullable: true }).isISO8601().withMessage('วันเริ่มต้องเป็นวันที่ที่ถูกต้อง'),
+  body('end_date').optional({ nullable: true }).isISO8601().withMessage('วันสิ้นสุดต้องเป็นวันที่ที่ถูกต้อง'),
+  body('usage_limit').optional({ nullable: true }).isInt({ min: 1 }).withMessage('จำนวนสิทธิ์รวมต้องเป็นจำนวนเต็มบวก'),
+  body('usage_limit_per_member').optional({ nullable: true }).isInt({ min: 1 }).withMessage('จำนวนสิทธิ์ต่อสมาชิกต้องเป็นจำนวนเต็มบวก'),
+  body('is_collectible').optional().isBoolean().withMessage('ค่าการเก็บคูปองไม่ถูกต้อง'),
+  body('stackable').optional().isBoolean().withMessage('ค่าการใช้ร่วมกันไม่ถูกต้อง'),
+  body('applies_to').optional().isIn(['room', 'kayak', 'both']).withMessage('ประเภทที่ใช้ได้ต้องเป็น room, kayak หรือ both'),
+  body('is_active').optional().isBoolean().withMessage('ค่าสถานะเปิดใช้งานไม่ถูกต้อง'),
+  body('boat_ticket_count').optional({ nullable: true }).isInt({ min: 0 }).withMessage('จำนวนตั๋วเรือต้องไม่น้อยกว่า 0'),
+  body('boat_addon_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ราคาเรือเสริมต้องไม่น้อยกว่า 0'),
 ];
 
 export const updatePromotionValidator = [
   body('code').optional().trim().isLength({ min: 2, max: 50 }).withMessage('Code must be 2–50 characters'),
-  body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
+  body('name').optional().trim().notEmpty().withMessage('ชื่อต้องไม่ว่าง'),
   body('description').optional({ nullable: true, checkFalsy: true }).trim(),
-  body('discount_type').optional().isIn(['percent', 'fixed']).withMessage('discount_type must be percent or fixed'),
-  body('discount_value').optional().isFloat({ min: 0 }).withMessage('discount_value must be a positive number'),
-  body('min_nights').optional({ nullable: true }).isInt({ min: 1 }).withMessage('min_nights must be a positive integer'),
-  body('min_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('min_price must be a positive number'),
-  body('max_discount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('max_discount must be a positive number'),
-  body('start_date').optional({ nullable: true }).isISO8601().withMessage('start_date must be a valid date'),
-  body('end_date').optional({ nullable: true }).isISO8601().withMessage('end_date must be a valid date'),
-  body('usage_limit').optional({ nullable: true }).isInt({ min: 1 }).withMessage('usage_limit must be a positive integer'),
-  body('usage_limit_per_member').optional({ nullable: true }).isInt({ min: 1 }).withMessage('usage_limit_per_member must be a positive integer'),
-  body('is_collectible').optional().isBoolean().withMessage('is_collectible must be a boolean'),
-  body('stackable').optional().isBoolean().withMessage('stackable must be a boolean'),
-  body('applies_to').optional().isIn(['room', 'kayak', 'both']).withMessage('applies_to must be room, kayak, or both'),
-  body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
-  body('boat_ticket_count').optional({ nullable: true }).isInt({ min: 0 }).withMessage('boat_ticket_count must be 0 or more'),
-  body('boat_addon_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('boat_addon_price must be 0 or more'),
+  body('discount_type').optional().isIn(['percent', 'fixed']).withMessage('ประเภทส่วนลดต้องเป็น percent หรือ fixed'),
+  body('discount_value').optional().isFloat({ min: 0 }).withMessage('มูลค่าส่วนลดต้องเป็นตัวเลขที่มากกว่า 0'),
+  body('min_nights').optional({ nullable: true }).isInt({ min: 1 }).withMessage('จำนวนคืนขั้นต่ำต้องเป็นจำนวนเต็มบวก'),
+  body('min_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ราคาขั้นต่ำต้องเป็นตัวเลขที่ไม่ติดลบ'),
+  body('max_discount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ส่วนลดสูงสุดต้องเป็นตัวเลขที่ไม่ติดลบ'),
+  body('start_date').optional({ nullable: true }).isISO8601().withMessage('วันเริ่มต้องเป็นวันที่ที่ถูกต้อง'),
+  body('end_date').optional({ nullable: true }).isISO8601().withMessage('วันสิ้นสุดต้องเป็นวันที่ที่ถูกต้อง'),
+  body('usage_limit').optional({ nullable: true }).isInt({ min: 1 }).withMessage('จำนวนสิทธิ์รวมต้องเป็นจำนวนเต็มบวก'),
+  body('usage_limit_per_member').optional({ nullable: true }).isInt({ min: 1 }).withMessage('จำนวนสิทธิ์ต่อสมาชิกต้องเป็นจำนวนเต็มบวก'),
+  body('is_collectible').optional().isBoolean().withMessage('ค่าการเก็บคูปองไม่ถูกต้อง'),
+  body('stackable').optional().isBoolean().withMessage('ค่าการใช้ร่วมกันไม่ถูกต้อง'),
+  body('applies_to').optional().isIn(['room', 'kayak', 'both']).withMessage('ประเภทที่ใช้ได้ต้องเป็น room, kayak หรือ both'),
+  body('is_active').optional().isBoolean().withMessage('ค่าสถานะเปิดใช้งานไม่ถูกต้อง'),
+  body('boat_ticket_count').optional({ nullable: true }).isInt({ min: 0 }).withMessage('จำนวนตั๋วเรือต้องไม่น้อยกว่า 0'),
+  body('boat_addon_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ราคาเรือเสริมต้องไม่น้อยกว่า 0'),
 ];
 
 export const promotionIdParamValidator = [
-  param('id').isInt({ min: 1 }).withMessage('Valid promotion id is required'),
+  param('id').isInt({ min: 1 }).withMessage('รหัสโปรโมชั่นไม่ถูกต้อง'),
 ];
 
 export const validatePromoCodeValidator = [
   body('code').optional({ checkFalsy: true }).trim(),
   body('promotion_ids').optional().isArray(),
   body('promotion_ids.*').optional().isInt({ min: 1 }),
-  body('price').optional().isFloat({ min: 0 }).withMessage('price must be a positive number'),
-  body('nights').optional().isInt({ min: 1 }).withMessage('nights must be a positive integer'),
+  body('price').optional().isFloat({ min: 0 }).withMessage('ราคาต้องเป็นตัวเลขที่ไม่ติดลบ'),
+  body('nights').optional().isInt({ min: 1 }).withMessage('จำนวนคืนต้องเป็นจำนวนเต็มบวก'),
   body('room_type_id').optional({ nullable: true }).isInt({ min: 1 }),
   body('room_type_ids').optional().isArray({ min: 1 }),
   body('room_type_ids.*').optional().isInt({ min: 1 }),
@@ -321,7 +336,7 @@ export const validatePromoCodeValidator = [
     const hasCode = typeof code === 'string' && code.trim().length > 0;
     const hasIds = Array.isArray(req.body.promotion_ids) && req.body.promotion_ids.length > 0;
     if (!hasCode && !hasIds) {
-      throw new Error('Promotion code is required');
+      throw new Error('กรุณากรอกโค้ดโปรโมชั่น');
     }
     return true;
   }),

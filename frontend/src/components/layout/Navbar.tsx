@@ -38,6 +38,14 @@ export default function Navbar() {
     [user?.avatar],
   );
 
+  const profileHref = useMemo(() => {
+    if (!user) return "/dashboard";
+    if (user.role === "admin") return "/admin/profile";
+    if (user.role === "room_staff") return "/staff/rooms/profile";
+    if (user.role === "boat_staff") return "/staff/boats/profile";
+    return "/dashboard";
+  }, [user]);
+
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
@@ -201,7 +209,7 @@ export default function Navbar() {
 
                     <div className="p-1.5">
                       <Link
-                        href="/dashboard"
+                        href={profileHref}
                         className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-charcoal-600 hover:text-forest-800 hover:bg-forest-50 transition-colors"
                         onClick={() => setDropdownOpen(false)}
                       >
@@ -400,7 +408,7 @@ export default function Navbar() {
               <>
                 <div className="my-2 border-t border-stone-200" />
                 <Link
-                  href="/dashboard"
+                  href={profileHref}
                   className="block py-3 px-4 rounded-xl text-charcoal hover:bg-forest-50 font-medium transition-colors"
                   onClick={() => setIsOpen(false)}
                 >

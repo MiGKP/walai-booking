@@ -20,6 +20,7 @@ import {
   initAdmin,
   getAllMembers,
   toggleMemberStatus,
+  deleteAccount,
 } from '../controllers/auth.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
@@ -111,5 +112,6 @@ router.put('/profile', authenticate, updateProfileValidator, validate, updatePro
 router.post('/profile/avatar', authenticate, uploadAvatar.single('avatar'), uploadProfileAvatar);
 router.put('/change-password', authenticate, changePasswordValidator, validate, changePassword);
 router.put('/set-password', authenticate, setPasswordValidator, validate, setPassword);
+router.delete('/account', authenticate, deleteAccount);
 
 export default router;

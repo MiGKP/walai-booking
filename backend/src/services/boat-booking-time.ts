@@ -35,7 +35,16 @@ export async function validateBoatBookingTime(
       return 'รอบเวลาที่เลือกอยู่นอกเวลาทำการ';
     }
   }
-  const settings = await client.query('SELECT boat_advance_booking_minutes FROM resort_info WHERE id = 5');
+  const settings = await client.query('SELECT boat_advance_booking_minutes, boat_max_advance_days FROM resort_info WHERE id = 5');
+  const rawMaxDays = settings.rows[0]?.boat_max_advance_days;
+  const maxDays = rawMaxDays == null ? NaN : Number(rawMaxDays);
+  if (Number.isInteger(maxDays) && maxDays >= 1) {
+    const limit = new Date(`${bangkokToday(now)}T00:00:00Z`);
+    limit.setUTCDate(limit.getUTCDate() + maxDays);
+    if (date > limit.toISOString().slice(0, 10)) {
+      return `จองเรือล่วงหน้าได้ไม่เกิน ${maxDays} วัน`;
+    }
+  }
   const rawAdvance = settings.rows[0]?.boat_advance_booking_minutes;
   const advance = rawAdvance == null ? 60 : Number(rawAdvance);
   if (!Number.isInteger(advance) || advance < 0 || advance > 10080) {

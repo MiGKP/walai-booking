@@ -360,7 +360,7 @@ export const getAllKayaks = async (
     res.json({ success: true, data: mapped });
   } catch (error) {
     console.error("Get kayaks error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -372,7 +372,7 @@ export const getKayakById = async (
   try {
     const id = parsePositiveInt(req.params.id);
     if (id === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
     const result = await pool.query(
@@ -387,13 +387,13 @@ export const getKayakById = async (
     );
 
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Boat type not found" });
+      res.status(404).json({ success: false, message: "ไม่พบประเภทเรือ" });
       return;
     }
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error("Get kayak error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -476,7 +476,7 @@ export const checkKayakAvailability = async (
     });
   } catch (error) {
     console.error("Check kayak availability error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -668,7 +668,7 @@ export const getKayakCalendar = async (
     console.error("Get kayak calendar error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง",
       code: "SERVER_ERROR",
     });
   }
@@ -780,7 +780,7 @@ export const getKayakDayRounds = async (
     console.error("Get kayak day rounds error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง",
       code: "SERVER_ERROR",
     });
   }
@@ -809,7 +809,7 @@ export const getKayakSchedule = async (
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error("Get kayak schedule error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -907,7 +907,7 @@ export const createKayakBooking = async (
       );
       if (roundLookup.rows.length === 0) {
         await safeRollback(client);
-        res.status(404).json({ success: false, message: "Boat round not found" });
+        res.status(404).json({ success: false, message: "ไม่พบรอบเรือ" });
         return;
       }
       startTime = normalizeTimePart(roundLookup.rows[0].start_time);
@@ -1302,7 +1302,7 @@ export const createKayakBooking = async (
       return;
     }
     console.error("Create kayak booking error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   } finally {
     client.release();
   }
@@ -1318,7 +1318,7 @@ export const getBoatAddonInfo = async (
     const user = req.user as AuthPayload;
     const bookingRoomId = parsePositiveInt(req.params.bookingRoomId);
     if (bookingRoomId === null) {
-      res.status(400).json({ success: false, message: "Invalid booking_room id" });
+      res.status(400).json({ success: false, message: "รหัสห้องในรายการจองไม่ถูกต้อง" });
       return;
     }
 
@@ -1330,7 +1330,7 @@ export const getBoatAddonInfo = async (
       [bookingRoomId],
     );
     if (roomRes.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Booking room not found" });
+      res.status(404).json({ success: false, message: "ไม่พบห้องในรายการจอง" });
       return;
     }
     const room = roomRes.rows[0];
@@ -1380,7 +1380,7 @@ export const getBoatAddonInfo = async (
     });
   } catch (error) {
     console.error("Get boat addon info error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -1404,7 +1404,7 @@ export const createBoatAddon = async (
     const numPassengers = Math.max(1, Number(body.num_passengers) || 1);
 
     if (bookingRoomId === null) {
-      res.status(400).json({ success: false, message: "Invalid booking_room id" });
+      res.status(400).json({ success: false, message: "รหัสห้องในรายการจองไม่ถูกต้อง" });
       return;
     }
     if (!Number.isInteger(boatTypeId) || !Number.isInteger(boatRoundId) || !bookingDate) {
@@ -1427,7 +1427,7 @@ export const createBoatAddon = async (
     );
     if (roomHeader.rows.length === 0) {
       await safeRollback(client);
-      res.status(404).json({ success: false, message: "Booking room not found" });
+      res.status(404).json({ success: false, message: "ไม่พบห้องในรายการจอง" });
       return;
     }
 
@@ -1441,7 +1441,7 @@ export const createBoatAddon = async (
     );
     if (roomRes.rows.length === 0) {
       await safeRollback(client);
-      res.status(404).json({ success: false, message: "Booking room not found" });
+      res.status(404).json({ success: false, message: "ไม่พบห้องในรายการจอง" });
       return;
     }
     const room = roomRes.rows[0];
@@ -1699,7 +1699,7 @@ export const createBoatAddon = async (
       return;
     }
     console.error("Create boat addon error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   } finally {
     client.release();
   }
@@ -1745,7 +1745,7 @@ export const printBoatAddon = async (
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error("Print boat addon error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -1787,7 +1787,7 @@ export const handOutBoatAddon = async (
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error("Hand out boat addon error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -1800,7 +1800,7 @@ export const getKayakBookingById = async (
     const user = req.user as AuthPayload;
     const id = parsePositiveInt(req.params.id);
     if (id === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
 
@@ -1812,14 +1812,14 @@ export const getKayakBookingById = async (
     );
 
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Booking not found" });
+      res.status(404).json({ success: false, message: "ไม่พบรายการจอง" });
       return;
     }
 
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error("Get kayak booking error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -1855,7 +1855,7 @@ export const getUserKayakBookings = async (
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error("Get user kayak bookings error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -1869,7 +1869,7 @@ export const cancelKayakBooking = async (
     const user = req.user as AuthPayload;
     const id = parsePositiveInt(req.params.id);
     if (id === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
 
@@ -1880,7 +1880,7 @@ export const cancelKayakBooking = async (
     );
     if (booking.rows.length === 0) {
       await safeRollback(client);
-      res.status(404).json({ success: false, message: "Booking not found" });
+      res.status(404).json({ success: false, message: "ไม่พบรายการจอง" });
       return;
     }
     if (booking.rows[0].is_addon) {
@@ -1924,7 +1924,7 @@ export const cancelKayakBooking = async (
       return;
     }
     console.error("Cancel kayak booking error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   } finally {
     client.release();
   }
@@ -1993,6 +1993,8 @@ export const getAllKayakBookings = async (
               ) as kayak_name,
               CONCAT_WS(' ', m.first_name, m.last_name) as user_name, m.email as user_email, m.phone as user_phone,
               CONCAT_WS(' ', s.first_name, s.last_name) as approved_by_name,
+              (SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ', s_in.first_name, s_in.last_name)), ''), s_in.role) FROM staff s_in WHERE s_in.staff_id = bb.checkin_by_staff_id) AS checkin_by_name,
+              (SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ', s_out.first_name, s_out.last_name)), ''), s_out.role) FROM staff s_out WHERE s_out.staff_id = bb.checkout_by_staff_id) AS checkout_by_name,
               ${BOATS_JSON_SQL} AS boats
        ${from} ${where}
        ORDER BY bb.created_at DESC, bb.boat_booking_id DESC
@@ -2004,7 +2006,7 @@ export const getAllKayakBookings = async (
     console.error("Get all kayak bookings error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง",
     });
   }
 };
@@ -2047,7 +2049,7 @@ export const getAllKayaksAdmin = async (
     });
   } catch (error) {
     console.error("getAllKayaksAdmin error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -2089,7 +2091,7 @@ export const getKayakScheduleAdmin = async (
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error("Get kayak schedule admin error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -2176,7 +2178,7 @@ export const createKayak = async (
       return;
     }
     console.error("Create kayak error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   } finally {
     client.release();
   }
@@ -2276,7 +2278,7 @@ export const createBoatRound = async (
     console.error("Create boat round error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง",
     });
   } finally {
     client.release();
@@ -2295,7 +2297,7 @@ export const updateKayakBookingStatus = async (
     const user = req.user as AuthPayload;
 
     if (id === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
     const allowed = ["approved", "rejected", "pending", "checked_out"];
@@ -2313,7 +2315,7 @@ export const updateKayakBookingStatus = async (
     );
     if (current.rows.length === 0) {
       await safeRollback(client);
-      res.status(404).json({ success: false, message: "Booking not found" });
+      res.status(404).json({ success: false, message: "ไม่พบรายการจอง" });
       return;
     }
     const previousStatus = String(current.rows[0].status);
@@ -2369,6 +2371,9 @@ export const updateKayakBookingStatus = async (
     if (status === "approved" || status === "rejected") {
       query += `, approved_by_staff_id = $2`;
       params.push(user.id);
+    } else if (status === "checked_out") {
+      query += `, checkout_at = COALESCE(checkout_at, NOW()), checkout_by_staff_id = COALESCE(checkout_by_staff_id, $2)`;
+      params.push(user.id);
     }
 
     if (status === "rejected") {
@@ -2386,7 +2391,7 @@ export const updateKayakBookingStatus = async (
     const result = await client.query(query, params);
     if (result.rows.length === 0) {
       await safeRollback(client);
-      res.status(404).json({ success: false, message: "Booking not found" });
+      res.status(404).json({ success: false, message: "ไม่พบรายการจอง" });
       return;
     }
 
@@ -2448,7 +2453,7 @@ export const updateKayakBookingStatus = async (
       return;
     }
     console.error("Update kayak booking status error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   } finally {
     client.release();
   }
@@ -2463,7 +2468,7 @@ export const checkoutKayakBooking = async (
   try {
     const id = parsePositiveInt(req.params.id);
     if (id === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
 
@@ -2474,7 +2479,7 @@ export const checkoutKayakBooking = async (
     );
     if (booking.rows.length === 0) {
       await safeRollback(client);
-      res.status(404).json({ success: false, message: "Booking not found" });
+      res.status(404).json({ success: false, message: "ไม่พบรายการจอง" });
       return;
     }
     if (booking.rows[0].status !== "approved") {
@@ -2486,9 +2491,12 @@ export const checkoutKayakBooking = async (
       return;
     }
 
+    const user = req.user as AuthPayload | undefined;
+    const staffId = ["admin", "boat_staff", "room_staff"].includes(user?.role || "") ? user?.id : null;
+
     await client.query(
-      `UPDATE boat_bookings SET status = 'checked_out', checkout_at = COALESCE(checkout_at, NOW()), updated_at = NOW() WHERE boat_booking_id = $1`,
-      [id],
+      `UPDATE boat_bookings SET status = 'checked_out', checkout_at = COALESCE(checkout_at, NOW()), checkout_by_staff_id = COALESCE(checkout_by_staff_id, $2), updated_at = NOW() WHERE boat_booking_id = $1`,
+      [id, staffId],
     );
     await client.query(
       `UPDATE booking_boat SET status = 'checked_out', updated_at = NOW() WHERE boat_booking_id = $1`,
@@ -2504,7 +2512,7 @@ export const checkoutKayakBooking = async (
       return;
     }
     console.error("Checkout kayak booking error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   } finally {
     client.release();
   }
@@ -2519,7 +2527,7 @@ export const checkinKayakBooking = async (
   try {
     const id = parsePositiveInt(req.params.id);
     if (id === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
     const user = req.user as AuthPayload;
@@ -2534,7 +2542,7 @@ export const checkinKayakBooking = async (
     );
     if (booking.rows.length === 0) {
       await safeRollback(client);
-      res.status(404).json({ success: false, message: "Booking not found" });
+      res.status(404).json({ success: false, message: "ไม่พบรายการจอง" });
       return;
     }
     if (booking.rows[0].status !== "approved") {
@@ -2571,7 +2579,7 @@ export const checkinKayakBooking = async (
   } catch (error) {
     await safeRollback(client);
     console.error("Checkin kayak booking error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   } finally {
     client.release();
   }
@@ -2613,7 +2621,11 @@ export const getKayakCheckinSessions = async (
              bb.total_price,
              bb.status,
              bb.checkin_at,
+             bb.checkin_by_staff_id,
+             (SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ', s_in.first_name, s_in.last_name)), ''), s_in.role) FROM staff s_in WHERE s_in.staff_id = bb.checkin_by_staff_id) AS checkin_by_name,
              bb.checkout_at,
+             bb.checkout_by_staff_id,
+             (SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ', s_out.first_name, s_out.last_name)), ''), s_out.role) FROM staff s_out WHERE s_out.staff_id = bb.checkout_by_staff_id) AS checkout_by_name,
              bb.is_addon,
              bb.room_booking_id,
              bb.booking_room_id,
@@ -2674,7 +2686,7 @@ export const getKayakCheckinSessions = async (
     });
   } catch (error) {
     console.error("Get kayak checkin sessions error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -2687,7 +2699,7 @@ export const deleteKayak = async (
   try {
     const id = parsePositiveInt(req.params.id);
     if (id === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
 
@@ -2700,7 +2712,7 @@ export const deleteKayak = async (
     );
     if (locked.rows.length === 0) {
       await safeRollback(client);
-      res.status(404).json({ success: false, message: "Boat type not found" });
+      res.status(404).json({ success: false, message: "ไม่พบประเภทเรือ" });
       return;
     }
 
@@ -2751,7 +2763,7 @@ export const deleteKayak = async (
       return;
     }
     console.error("Delete kayak error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   } finally {
     client.release();
   }
@@ -2765,7 +2777,7 @@ export const getBoatImages = async (
   try {
     const id = parsePositiveInt(req.params.id);
     if (id === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
     const result = await pool.query(
@@ -2775,7 +2787,7 @@ export const getBoatImages = async (
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error("Get boat images error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -2787,14 +2799,14 @@ export const addBoatImage = async (
   try {
     const id = parsePositiveInt(req.params.id);
     if (id === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
     const { image_path } = req.body;
     if (!image_path) {
       res
         .status(400)
-        .json({ success: false, message: "image_path is required" });
+        .json({ success: false, message: "กรุณาระบุรูปภาพ" });
       return;
     }
     const check = await pool.query(
@@ -2802,7 +2814,7 @@ export const addBoatImage = async (
       [id],
     );
     if (check.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Boat type not found" });
+      res.status(404).json({ success: false, message: "ไม่พบประเภทเรือ" });
       return;
     }
     const result = await pool.query(
@@ -2817,7 +2829,7 @@ export const addBoatImage = async (
       return;
     }
     console.error("Add boat image error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -2830,7 +2842,7 @@ export const deleteBoatImage = async (
     const id = parsePositiveInt(req.params.id);
     const imageId = parsePositiveInt(req.params.imageId);
     if (id === null || imageId === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
     // ลบได้เฉพาะรูปที่เป็นของเรือ (boat_type_id) ตาม URL เท่านั้น
@@ -2839,7 +2851,7 @@ export const deleteBoatImage = async (
       [imageId, id],
     );
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Image not found" });
+      res.status(404).json({ success: false, message: "ไม่พบรูปภาพ" });
       return;
     }
     await deleteCloudinaryImage(result.rows[0].image_path).catch(
@@ -2855,7 +2867,7 @@ export const deleteBoatImage = async (
       return;
     }
     console.error("Delete boat image error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   }
 };
 
@@ -2868,7 +2880,7 @@ export const updateKayak = async (
   try {
     const id = parsePositiveInt(req.params.id);
     if (id === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
     const body = req.body;
@@ -3031,7 +3043,7 @@ export const updateKayak = async (
       return;
     }
     console.error("Update kayak error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   } finally {
     client.release();
   }
@@ -3046,7 +3058,7 @@ export const updateBoatRound = async (
   try {
     const id = parsePositiveInt(req.params.id);
     if (id === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
     const body = req.body as Record<string, unknown>;
@@ -3082,7 +3094,7 @@ export const updateBoatRound = async (
     );
     if (lockedRound.rows.length === 0) {
       await safeRollback(client);
-      res.status(404).json({ success: false, message: "Boat round not found" });
+      res.status(404).json({ success: false, message: "ไม่พบรอบเรือ" });
       return;
     }
 
@@ -3137,7 +3149,7 @@ export const updateBoatRound = async (
       );
       if (current.rows.length === 0) {
         await safeRollback(client);
-        res.status(404).json({ success: false, message: "Boat round not found" });
+        res.status(404).json({ success: false, message: "ไม่พบรอบเรือ" });
         return;
       }
       const startSql = body.start_time !== undefined ? toTimeSql(body.start_time) : String(current.rows[0].start_time);
@@ -3182,7 +3194,7 @@ export const updateBoatRound = async (
       const updated = await client.query(query, values);
       if (updated.rows.length === 0) {
         await safeRollback(client);
-        res.status(404).json({ success: false, message: "Boat round not found" });
+        res.status(404).json({ success: false, message: "ไม่พบรอบเรือ" });
         return;
       }
     }
@@ -3222,7 +3234,7 @@ export const updateBoatRound = async (
       return;
     }
     console.error("Update boat round error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   } finally {
     client.release();
   }
@@ -3237,7 +3249,7 @@ export const deleteBoatRound = async (
   try {
     const id = parsePositiveInt(req.params.id);
     if (id === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
 
@@ -3250,7 +3262,7 @@ export const deleteBoatRound = async (
     );
     if (locked.rows.length === 0) {
       await safeRollback(client);
-      res.status(404).json({ success: false, message: "Boat round not found" });
+      res.status(404).json({ success: false, message: "ไม่พบรอบเรือ" });
       return;
     }
 
@@ -3286,7 +3298,7 @@ export const deleteBoatRound = async (
       return;
     }
     console.error("Delete boat round error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   } finally {
     client.release();
   }
@@ -3419,7 +3431,7 @@ export const cancelBoatAddon = async (
     const user = req.user as AuthPayload;
     const boatBookingId = parsePositiveInt(req.params.boatBookingId);
     if (boatBookingId === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
     const body = req.body as Record<string, unknown>;
@@ -3450,7 +3462,7 @@ export const cancelBoatAddon = async (
       return;
     }
     console.error("Cancel boat addon error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง" });
   } finally {
     client.release();
   }

@@ -126,7 +126,7 @@ export const deleteBankAccount = async (req: Request, res: Response): Promise<vo
 
 // คอลัมน์ของ resort_info ที่ endpoint สาธารณะส่งออกได้ (ไม่ใช้ SELECT * เพื่อไม่ให้ข้อมูลอื่นรั่ว)
 const RESORT_PUBLIC_COLUMNS =
-  'id, name, address, coordinates, phone, email, facebook, line_id, operating_days, operating_hours, additional_terms, payment_due_days, bank_account_no, bank_account_name, promptpay_id, facilities, checkin_time_from, checkin_time_to, checkout_time, important_info, kids_policy, parking_info, infant_max_age_exclusive, boat_advance_booking_minutes, boat_checkin_advance_minutes';
+  'id, name, address, coordinates, phone, email, facebook, line_id, operating_days, operating_hours, additional_terms, payment_due_days, bank_account_no, bank_account_name, promptpay_id, facilities, checkin_time_from, checkin_time_to, checkout_time, important_info, kids_policy, parking_info, infant_max_age_exclusive, boat_advance_booking_minutes, boat_checkin_advance_minutes, room_max_advance_days, boat_max_advance_days';
 
 // ─── Resort Info (รวม contact + site info ใน table resort_info) ────────────────
 
@@ -229,7 +229,22 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       'promptpay_id', 'bank_account_no', 'bank_account_name',
       'checkin_time_from', 'checkin_time_to', 'checkout_time', 'important_info', 'kids_policy', 'parking_info',
       'boat_advance_booking_minutes', 'boat_checkin_advance_minutes', 'infant_max_age_exclusive',
+      'room_max_advance_days', 'boat_max_advance_days',
     ];
+
+    const maxAdvanceRules: { col: string; id: number; max: number; label: string }[] = [
+      { col: 'room_max_advance_days', id: 4, max: 730, label: 'จองห้องพักล่วงหน้าได้สูงสุด' },
+      { col: 'boat_max_advance_days', id: 5, max: 365, label: 'จองเรือล่วงหน้าได้สูงสุด' },
+    ];
+    for (const rule of maxAdvanceRules) {
+      const raw = req.body[rule.col];
+      if (raw === undefined) continue;
+      const days = typeof raw === 'number' || (typeof raw === 'string' && /^\d+$/.test(raw)) ? Number(raw) : NaN;
+      if (targetId !== rule.id || !Number.isInteger(days) || days < 1 || days > rule.max) {
+        res.status(400).json({ success: false, message: `${rule.label}ต้องเป็นจำนวนเต็มระหว่าง 1 ถึง ${rule.max} วัน` });
+        return;
+      }
+    }
 
     if (req.body.boat_advance_booking_minutes !== undefined) {
       const rawMinutes = req.body.boat_advance_booking_minutes;
@@ -257,7 +272,7 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       if (!isAdmin && ADMIN_ONLY_RESORT_FIELDS.includes(col)) continue;
       // ค่าว่างเป็น NULL ตามเดิม แต่ค่าตัวเลข 0 และ false ต้องคงไว้
       const raw = req.body[col];
-      updates.push({ col, val: ['infant_max_age_exclusive', 'boat_advance_booking_minutes', 'boat_checkin_advance_minutes'].includes(col) ? Number(raw) : raw === '' ? null : (raw ?? null) });
+      updates.push({ col, val: ['infant_max_age_exclusive', 'boat_advance_booking_minutes', 'boat_checkin_advance_minutes', 'room_max_advance_days', 'boat_max_advance_days'].includes(col) ? Number(raw) : raw === '' ? null : (raw ?? null) });
     }
 
     if (updates.length === 0) {

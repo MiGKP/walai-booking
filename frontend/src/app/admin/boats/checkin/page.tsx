@@ -24,6 +24,7 @@ import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { toISODate, formatThaiDateLong } from "@/lib/date";
+import { CustomDatePicker } from "@/components/admin/ui";
 
 interface BoatLine {
   booking_boat_id: number;
@@ -45,6 +46,10 @@ interface BoatCheckinBooking {
   checkin_closes_at: string | null;
   checkin_unavailable_reason: string | null;
   checkout_at: string | null;
+  checkin_by_staff_id?: number | null;
+  checkin_by_name?: string | null;
+  checkout_by_staff_id?: number | null;
+  checkout_by_name?: string | null;
   is_addon: boolean;
   room_booking_id: number | null;
   booking_room_id: number | null;
@@ -240,16 +245,17 @@ function BoatCheckinContent(): React.ReactElement {
             >
               วันนี้
             </button>
-            <div className="relative flex items-center bg-white text-forest-900 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-xs cursor-pointer hover:bg-cream-50 transition-colors">
-              <Calendar size={14} className="text-forest-700 mr-2 shrink-0 pointer-events-none" />
-              <input
-                id="boat-checkin-date-input"
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="bg-transparent text-xs text-forest-950 font-bold border-0 focus:outline-hidden focus:ring-0 cursor-pointer scheme-light"
-              />
-            </div>
+            <CustomDatePicker
+              value={selectedDate}
+              onChange={(val) => {
+                if (val) setSelectedDate(val);
+              }}
+              placeholder="เลือกวันที่"
+              allowClear={false}
+              showCalendarIcon
+              align="right"
+              buttonClassName="flex items-center justify-between gap-2 bg-white text-forest-900 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm hover:bg-cream-50 transition-colors focus:outline-none focus:ring-2 focus:ring-forest-500/20"
+            />
             <button
               type="button"
               onClick={fetchCheckinSessions}
@@ -527,25 +533,39 @@ function BoatCheckinContent(): React.ReactElement {
                             </div>
 
                             {/* Timestamp Details */}
-                            <div className="text-[11px] text-charcoal-400 flex flex-wrap items-center gap-3 pt-0.5">
+                            <div className="text-[11px] text-charcoal-500 flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
                               {b.checkin_at && (
-                                <span className="text-teal-700 font-medium">
-                                  ลงน้ำเวลา:{" "}
-                                  {new Date(b.checkin_at).toLocaleTimeString("th-TH", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}{" "}
-                                  น.
+                                <span className="text-teal-700 font-medium inline-flex items-center gap-1">
+                                  <span>ลงน้ำเวลา:</span>
+                                  <span className="font-semibold text-teal-800">
+                                    {new Date(b.checkin_at).toLocaleTimeString("th-TH", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}{" "}
+                                    น.
+                                  </span>
+                                  {b.checkin_by_name && (
+                                    <span className="text-charcoal-500 font-normal">
+                                      (โดย: <span className="font-medium text-charcoal-700">{b.checkin_by_name}</span>)
+                                    </span>
+                                  )}
                                 </span>
                               )}
                               {b.checkout_at && (
-                                <span>
-                                  คืนเรือเวลา:{" "}
-                                  {new Date(b.checkout_at).toLocaleTimeString("th-TH", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}{" "}
-                                  น.
+                                <span className="text-charcoal-600 font-medium inline-flex items-center gap-1">
+                                  <span>คืนเรือเวลา:</span>
+                                  <span className="font-semibold text-charcoal-800">
+                                    {new Date(b.checkout_at).toLocaleTimeString("th-TH", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}{" "}
+                                    น.
+                                  </span>
+                                  {b.checkout_by_name && (
+                                    <span className="text-charcoal-500 font-normal">
+                                      (โดย: <span className="font-medium text-charcoal-700">{b.checkout_by_name}</span>)
+                                    </span>
+                                  )}
                                 </span>
                               )}
                             </div>

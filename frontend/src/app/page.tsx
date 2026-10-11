@@ -798,8 +798,8 @@ export default function HomePage() {
               {/* Floating Accents */}
               <div className="absolute left-0 sm:left-2 top-[6%] md:top-[8%] w-[44%] sm:w-[36%] h-[44%] sm:h-[40%] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-forest-900/20 z-20 border-4 md:border-[6px] border-cream-100 hidden sm:block -rotate-3 group hover:rotate-0 transition-all duration-500 hover:scale-105 cursor-pointer origin-bottom-right">
                 <img 
-                  src="/images/balcony.jpg"
-                  alt="Resort Balcony"
+                  src="/images/room-interior.jpg"
+                  alt="ภายในห้องพักลอยน้ำ สวนวลัยรุกขเวช"
                   className="w-full h-full object-cover"
                 />
               </div>

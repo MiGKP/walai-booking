@@ -53,7 +53,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
           OR (SPLIT_PART(LOWER(email), '@', 2) IN ('gmail.com', 'googlemail.com')
               AND REGEXP_REPLACE(SPLIT_PART(SPLIT_PART(LOWER(email), '@', 1), '+', 1), '[.]', '', 'g') || '@gmail.com' = $2)`, [email, legacyAuthEmail(email)]);
     if (existing.rows.length > 0) {
-      res.status(400).json({ success: false, message: 'Email already registered' });
+      res.status(400).json({ success: false, message: 'อีเมลนี้ถูกใช้สมัครแล้ว' });
       return;
     }
 
@@ -222,7 +222,7 @@ export const initAdmin = async (req: Request, res: Response): Promise<void> => {
 
     const existing = await pool.query('SELECT staff_id FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2))', [email, legacyAuthEmail(email)]);
     if (existing.rows.length > 0) {
-      res.status(400).json({ success: false, message: 'Email already registered' });
+      res.status(400).json({ success: false, message: 'อีเมลนี้ถูกใช้สมัครแล้ว' });
       return;
     }
 
@@ -259,11 +259,17 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
 
     const existing = await pool.query('SELECT staff_id FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2))', [email, legacyAuthEmail(email)]);
     if (existing.rows.length > 0) {
-      res.status(400).json({ success: false, message: 'Email already registered' });
+      res.status(400).json({ success: false, message: 'อีเมลนี้ถูกใช้สมัครแล้ว' });
       return;
     }
 
-    const password_hash = await bcrypt.hash(password, 12);
+    const rawPassword = (password && String(password).trim()) || (phone && String(phone).trim());
+    if (!rawPassword || rawPassword.length < 8) {
+      res.status(400).json({ success: false, message: 'รหัสผ่านหรือเบอร์โทรศัพท์ต้องมีความยาวอย่างน้อย 8 ตัวอักษร' });
+      return;
+    }
+
+    const password_hash = await bcrypt.hash(rawPassword, 12);
     const result = await pool.query(
       `INSERT INTO staff (first_name, last_name, email, password, phone, role, status, address, subdistrict, district, province, postal_code)
        VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9, $10, $11) RETURNING staff_id, first_name, last_name, email, phone, role, created_at`,
@@ -770,6 +776,147 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
   } catch (error) {
     console.error('Change password error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * ขอลบบัญชีผู้ใช้ของลูกค้า (Soft Delete + Anonymize ข้อมูลส่วนบุคคลตาม PDPA)
+ * - ต้องไม่มีการจองที่ค้างอยู่ (pending, paid, approved ที่ยังไม่ได้ check_out หรือไม่ได้ cancelled/rejected)
+ * - ถ้ามีรหัสผ่าน ให้ตรวจยืนยัน password เพื่อความปลอดภัย
+ * - เปลี่ยนข้อมูลส่วนบุคคลเป็นนิรนาม (Anonymized) และปลด email/google_id
+ * - ปิดสถานะบัญชี is_active = false, deleted_at = NOW()
+ */
+export const deleteAccount = async (req: Request, res: Response): Promise<void> => {
+  const client = await pool.connect();
+  try {
+    const authUser = req.user as AuthPayload;
+    if (authUser.role !== 'customer') {
+      res.status(403).json({ success: false, message: 'เฉพาะบัญชีลูกค้าเท่านั้นที่สามารถดำเนินการนี้ได้' });
+      return;
+    }
+
+    const { password } = req.body;
+
+    await client.query('BEGIN');
+
+    // 1. ตรวจสอบข้อมูลผู้ใช้
+    const userRes = await client.query(
+      'SELECT member_id, password, auth_provider, image_profile, email FROM members WHERE member_id = $1 FOR UPDATE',
+      [authUser.id]
+    );
+
+    if (userRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, message: 'ไม่พบบัญชีผู้ใช้' });
+      return;
+    }
+
+    const member = userRes.rows[0];
+
+    // ถ้าบัญชีมีรหัสผ่าน ต้องตรวจความถูกต้องของรหัสผ่าน
+    if (member.password) {
+      if (!password || typeof password !== 'string') {
+        await client.query('ROLLBACK');
+        res.status(400).json({ success: false, message: 'กรุณากรอกรหัสผ่านเพื่อยืนยันการลบบัญชี' });
+        return;
+      }
+      const isValid = await bcrypt.compare(password, member.password);
+      if (!isValid) {
+        await client.query('ROLLBACK');
+        res.status(400).json({ success: false, message: 'รหัสผ่านไม่ถูกต้อง' });
+        return;
+      }
+    }
+
+    // 2. ตรวจสอบว่ามีการจองห้องพักที่ยังไม่เสร็จสิ้นหรือไม่
+    const activeRoomBookings = await client.query(
+      `SELECT room_booking_id FROM room_bookings
+       WHERE member_id = $1 AND status IN ('pending', 'paid', 'approved')
+       LIMIT 1`,
+      [authUser.id]
+    );
+
+    if (activeRoomBookings.rows.length > 0) {
+      await client.query('ROLLBACK');
+      res.status(400).json({
+        success: false,
+        message: 'ไม่สามารถลบบัญชีได้เนื่องจากคุณมีรายการจองห้องพักที่รอดำเนินการหรือยังไม่ได้เช็คเอาท์',
+      });
+      return;
+    }
+
+    // 3. ตรวจสอบว่ามีการจองเรือคายัคที่ยังไม่เสร็จสิ้นหรือไม่
+    const activeBoatBookings = await client.query(
+      `SELECT boat_booking_id FROM boat_bookings
+       WHERE member_id = $1 AND status IN ('pending', 'paid', 'approved')
+       LIMIT 1`,
+      [authUser.id]
+    );
+
+    if (activeBoatBookings.rows.length > 0) {
+      await client.query('ROLLBACK');
+      res.status(400).json({
+        success: false,
+        message: 'ไม่สามารถลบบัญชีได้เนื่องจากคุณมีรายการจองกิจกรรมเรือที่รอดำเนินการหรือยังไม่ได้เสร็จสิ้น',
+      });
+      return;
+    }
+
+    // Keep wallet rows referenced by historical redemptions, including reusable saved coupons.
+    await client.query(
+      `DELETE FROM member_promotions mp
+       WHERE mp.member_id = $1 AND mp.status = 'saved'
+         AND NOT EXISTS (
+           SELECT 1 FROM booking_promotions bp
+           WHERE bp.member_promotion_id = mp.member_promotion_id
+         )`,
+      [authUser.id]
+    );
+
+    // 6. ทำให้นิรนาม (Anonymize) และปิดบัญชี
+    const anonymousEmail = `deleted_${authUser.id}_${Date.now()}@privacy.local`;
+    await client.query(
+      `UPDATE members
+       SET first_name = 'ผู้ใช้งาน',
+           last_name = 'ที่ถูกลบ',
+           email = $1,
+           phone = NULL,
+           line_id = NULL,
+           facebook = NULL,
+           image_profile = NULL,
+           avatar_url = NULL,
+           google_id = NULL,
+           password = NULL,
+           password_changed_at = NOW(),
+           is_active = false,
+           deleted_at = NOW(),
+           updated_at = NOW()
+       WHERE member_id = $2`,
+      [anonymousEmail, authUser.id]
+    );
+
+    await client.query('COMMIT');
+
+    // External media cannot be rolled back, so remove it only after the account transaction succeeds.
+    if (member.image_profile) {
+      const publicId = extractCloudinaryPublicId(member.image_profile);
+      if (publicId) {
+        deleteCloudinaryImage(publicId).catch((err) =>
+          console.error('Failed to delete avatar from Cloudinary on account deletion:', err)
+        );
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'บัญชีของคุณถูกลบและทำให้นิรนามเรียบร้อยแล้ว ขอบคุณที่เคยใช้บริการ',
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Delete account error:', error);
+    res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการลบบัญชี' });
+  } finally {
+    client.release();
   }
 };
 
