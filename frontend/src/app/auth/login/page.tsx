@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import {
   AlertCircle,
-  ArrowLeft,
   ArrowRight,
   Eye,
   EyeOff,

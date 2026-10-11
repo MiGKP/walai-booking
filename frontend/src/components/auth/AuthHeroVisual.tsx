@@ -209,16 +209,13 @@ export default function AuthHeroVisual({
         {/* Slide Progress Indicator Bar */}
         <div className="mt-4 flex items-center gap-1.5" aria-hidden="true">
           {HERO_SCENES.map((_, idx) => (
-            <button
+            <span
               key={idx}
-              type="button"
-              onClick={() => setActiveIdx(idx)}
               className={`h-1 rounded-full transition-all duration-300 ${
                 idx === activeIdx
                   ? "w-8 bg-bamboo-400"
-                  : "w-2 bg-white/30 hover:bg-white/60"
+                  : "w-2 bg-white/30"
               }`}
-              aria-label={`ไปยังภาพที่ ${idx + 1}`}
             />
           ))}
         </div>

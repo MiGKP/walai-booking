@@ -1,12 +1,10 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   ArrowRight,
   Eye,
   EyeOff,
@@ -104,7 +102,7 @@ export default function RegisterPage(): React.ReactElement | null {
     <div className="min-h-screen bg-stone-100 p-3 sm:p-5 lg:p-6">
       {/*
         บนจอ lg ตรึงความสูงกริดไว้เท่าหน้าจอ แล้วให้เฉพาะคอลัมน์ฟอร์มเลื่อนเอง
-        ฉาก 3D จึงอยู่นิ่งเต็มพาเนลแม้ฟอร์มสมัครจะยาวกว่าหน้าจอ
+        ภาพบรรยากาศจึงอยู่นิ่งเต็มพาเนลแม้ฟอร์มสมัครจะยาวกว่าหน้าจอ
       */}
       <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-[1500px] overflow-hidden rounded-[28px] border border-stone-200 bg-cream-100 shadow-[0_28px_90px_rgba(18,60,48,0.14)] sm:min-h-[calc(100vh-2.5rem)] lg:h-[calc(100vh-3rem)] lg:min-h-0 lg:grid-cols-[1.12fr_0.88fr] lg:rounded-[36px]">
         <AuthHeroVisual mode="register" />
