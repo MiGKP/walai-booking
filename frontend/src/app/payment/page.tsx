@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { CreditCard, Upload, CheckCircle, ArrowLeft, XCircle, Receipt, Landmark, QrCode, Info, MessageSquare } from 'lucide-react';
+import { CreditCard, Upload, CheckCircle, ArrowLeft, XCircle, Receipt, Landmark, QrCode, Info, MessageSquare, AlertCircle } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { validateSlipFile } from '@/lib/payment-slip';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -99,6 +99,8 @@ function PaymentContent() {
   const [slipPreview, setSlipPreview] = useState('');
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
+  const [justUploaded, setJustUploaded] = useState(false);
+  const [countdown, setCountdown] = useState(2);
   // สถานะจริงของการจอง (ไม่ใช่ payment_status ที่ค้างเป็น 'paid' ตลอดหลังส่งสลิป) ใช้แยกว่าเจ้าหน้าที่อนุมัติ/ปฏิเสธไปแล้วหรือยังรอตรวจสอบ
   const [bookingStatus, setBookingStatus] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState<string | null>(null);
@@ -106,6 +108,22 @@ function PaymentContent() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [specialRequest, setSpecialRequest] = useState('');
+
+  // เด้งไปที่แท็บ "การจองของฉัน" อัตโนมัติหลังส่งสลิปสำเร็จ
+  useEffect(() => {
+    if (!justUploaded) return;
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          router.push('/dashboard?tab=bookings');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [justUploaded, router]);
 
   // เรียก backend เพื่อสร้างหรือดึงข้อมูล payment ของ booking ปัจจุบัน รวมถึง QR Code และข้อมูลบัญชีรับเงิน
   async function createPayment() {
@@ -170,6 +188,7 @@ function PaymentContent() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setBookingStatus('paid');
+      localStorage.setItem('walai_dashboard_tab', 'bookings');
       if (payment.booking_type === 'room') {
         // Mixed grants may retain paid rights after all free rights were reserved.
         // Do not keep the pre-payment reservation allowance while reloading it.
@@ -184,6 +203,8 @@ function PaymentContent() {
         }
       }
       setDone(true);
+      setJustUploaded(true);
+      toast.success('ส่งหลักฐานการชำระเงินเรียบร้อยแล้ว');
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'อัปโหลดสลิปไม่สำเร็จ'));
     } finally {
@@ -199,7 +220,8 @@ function PaymentContent() {
       const cancelUrl = booking_type === 'room' ? `/bookings/${booking_id}/cancel` : `/kayaks/bookings/${booking_id}/cancel`;
       await api.put(cancelUrl);
       toast.success('ยกเลิกการจองแล้ว');
-      router.push('/dashboard');
+      localStorage.setItem('walai_dashboard_tab', 'bookings');
+      router.push('/dashboard?tab=bookings');
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'ไม่สามารถยกเลิกการจองได้'));
     } finally {
@@ -223,7 +245,7 @@ function PaymentContent() {
           <XCircle size={48} className="mx-auto mb-4 text-charcoal-400" />
           <h1 className="text-xl font-semibold text-forest-900">การจองถูกยกเลิกแล้ว</h1>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-500">รายการ #{payment?.booking_id ?? booking_id} ถูกยกเลิกแล้ว ไม่สามารถชำระเงินหรือส่งสลิปสำหรับรายการนี้ได้</p>
-          <Link href="/dashboard" className="btn-primary mt-6 block text-center">ดูการจองของฉัน</Link>
+          <Link href="/dashboard?tab=bookings" className="btn-primary mt-6 block text-center">ดูการจองของฉัน</Link>
         </div>
       </div>
     );
@@ -309,9 +331,16 @@ function PaymentContent() {
           </>
         )}
 
+        {justUploaded && (
+          <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-forest-50 py-2.5 px-3 text-xs font-semibold text-forest-800">
+            <span className="h-2 w-2 rounded-full bg-forest-600 animate-pulse" />
+            กำลังนำคุณไปยังแท็บ &ldquo;การจองของฉัน&rdquo; ใน {countdown} วินาที...
+          </div>
+        )}
+
         <div className="mt-7 flex flex-col gap-3">
           {payment?.booking_type === 'room' && <RoomBoatTicketSummary summary={bookingDetail?.boat_ticket_summary} bookingId={payment.booking_id} bookingStatus={bookingStatus ?? payment.booking_status ?? 'pending'} hasTickets={payment.has_boat_tickets} />}
-          <Link href="/dashboard" className="btn-primary text-center">ดูการจองของฉัน</Link>
+          <Link href="/dashboard?tab=bookings" className="btn-primary text-center">ดูการจองของฉัน</Link>
           <Link href={payment?.booking_type === 'kayak' ? '/kayaks' : '/rooms'} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 py-3 text-sm font-bold text-forest-800 transition-colors hover:bg-stone-50">
             <ArrowLeft size={16} /> ย้อนกลับไปหน้าค้นหา{payment?.booking_type === 'kayak' ? 'เรือ' : 'ห้องพัก'}
           </Link>
@@ -340,7 +369,7 @@ function PaymentContent() {
 
             {!isAdmin && (
               <Link
-                href="/dashboard"
+                href="/dashboard?tab=bookings"
                 className="group inline-flex items-center gap-2 rounded-full bg-white py-1.5 px-4 text-sm font-bold text-charcoal-600 shadow-[0_1px_2px_rgba(18,60,48,0.04),0_6px_16px_-6px_rgba(18,60,48,0.2)] ring-1 ring-stone-200/70 transition-all duration-200 hover:ring-forest-300"
               >
                 การจองของฉัน
@@ -361,7 +390,6 @@ function PaymentContent() {
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-forest-50 text-forest-700"><CreditCard size={18} /></span>
             <div>
               <h1 className="font-sans text-2xl font-semibold leading-tight text-forest-900 sm:text-3xl">ชำระเงิน</h1>
-              <p className="text-xs text-charcoal-400">ทำตามขั้นตอนด้านล่างเพื่อยืนยันการจองของคุณ</p>
             </div>
           </div>
         </div>
@@ -407,8 +435,6 @@ function PaymentContent() {
                         {bookingDetail.boats.map((b) => b.type_name).join(', ')}
                         {' · '}
                         {bookingDetail.boats.reduce((sum: number, b) => sum + Number(b.boat_count), 0)} ลำ
-                        {' · '}
-                        {bookingDetail.num_passengers} คน
                       </span>
                     </div>
                   )}
@@ -445,8 +471,21 @@ function PaymentContent() {
                     </div>
 
                     {bookingDetail.special_request && (
-                      <div className="mt-4 rounded-xl bg-bamboo-50/40 p-3 text-xs text-charcoal-500">
-                        <span className="font-bold text-bamboo-600">คำขอพิเศษ:</span> {bookingDetail.special_request}
+                      <div className={`mt-4 rounded-xl p-3 text-xs ${
+                        bookingDetail.special_request.includes('ชำระหน้าเคาน์เตอร์') || bookingDetail.special_request.includes('เตียงเสริม')
+                          ? 'bg-amber-50/80 border border-amber-200/80 text-amber-950 space-y-1'
+                          : 'bg-bamboo-50/40 text-charcoal-500'
+                      }`}>
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <AlertCircle size={14} className={bookingDetail.special_request.includes('ชำระหน้าเคาน์เตอร์') ? 'text-amber-700' : 'text-bamboo-600'} />
+                          <span>คำขอพิเศษ / บริการเสริม:</span>
+                        </div>
+                        <p className="pl-5 text-charcoal-700">{bookingDetail.special_request}</p>
+                        {bookingDetail.special_request.includes('ชำระหน้าเคาน์เตอร์') && (
+                          <p className="pl-5 text-[11px] text-amber-800 font-medium">
+                            * รายการเตียงเสริม/เด็กตามที่ระบุไว้ จะชำระเพิ่มเติมที่เคาน์เตอร์รีสอร์ตเมื่อเช็คอิน
+                          </p>
+                        )}
                       </div>
                     )}
                   </>
@@ -464,10 +503,6 @@ function PaymentContent() {
                           </span>
                         </p>
                       </div>
-                      <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-charcoal-400">ผู้โดยสาร</p>
-                        <p className="mt-0.5 font-semibold text-forest-900">{bookingDetail.num_passengers} คน</p>
-                      </div>
                     </div>
 
                     <div className="mt-4 space-y-2 border-t border-stone-100 pt-4">
@@ -476,7 +511,7 @@ function PaymentContent() {
                           <div className="min-w-0">
                             <p className="truncate text-sm font-bold text-forest-900">{boat.type_name}</p>
                             <p className="text-xs text-charcoal-400">
-                              ผู้โดยสาร {boat.num_passengers} คน · {boat.boat_count} ลำ
+                              {boat.boat_count} ลำ
                             </p>
                           </div>
                           <span className="shrink-0 text-sm font-bold text-forest-900">฿{Number(boat.subtotal).toLocaleString()}</span>
@@ -554,7 +589,12 @@ function PaymentContent() {
                   )}
                   
                   <div className="flex justify-between border-t border-stone-100 pt-3 mt-1">
-                    <span className="text-sm font-bold text-forest-900">ยอดชำระสุทธิ</span>
+                    <div>
+                      <span className="text-sm font-bold text-forest-900 block">ยอดโอนชำระออนไลน์</span>
+                      {bookingDetail?.special_request?.includes('ชำระหน้าเคาน์เตอร์') && (
+                        <span className="text-[11px] text-amber-700 block font-medium">* เฉพาะค่าห้องพัก</span>
+                      )}
+                    </div>
                     <span className="font-sans text-xl font-extrabold text-bamboo-600">฿{Number(payment.amount).toLocaleString()}</span>
                   </div>
                 </div>
