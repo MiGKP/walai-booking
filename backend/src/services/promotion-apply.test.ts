@@ -246,6 +246,62 @@ describe('applyPromotionList', () => {
     assert.equal(result.totalPrice, 150);
   });
 
+  it('allows matching room type when room_type_ids is specified', (): void => {
+    const result = applyPromotionList(
+      [promo({ id: 1, applies_to: 'room', room_type_ids: [7, 11], discount_type: 'fixed', discount_value: 50 })],
+      {
+        memberId: 1,
+        nights: 1,
+        basePrice: 500,
+        now,
+        scope: 'room',
+        roomTypeIds: [7],
+        memberUsedCountByPromoId: {},
+        walletsByPromoId: {},
+      }
+    );
+    assert.equal(result.totalPrice, 450);
+  });
+
+  it('rejects unmatching room type when room_type_ids is specified', (): void => {
+    assert.throws(
+      () =>
+        applyPromotionList(
+          [promo({ id: 1, applies_to: 'room', room_type_ids: [7, 11], discount_type: 'fixed', discount_value: 50 })],
+          {
+            memberId: 1,
+            nights: 1,
+            basePrice: 500,
+            now,
+            scope: 'room',
+            roomTypeIds: [12],
+            memberUsedCountByPromoId: {},
+            walletsByPromoId: {},
+          }
+        ),
+      (err: unknown) =>
+        err instanceof PromoApplyError &&
+        err.message === 'โปรโมชั่นนี้ใช้กับประเภทห้องที่กำหนดเท่านั้น'
+    );
+  });
+
+  it('allows any room type when room_type_ids is empty', (): void => {
+    const result = applyPromotionList(
+      [promo({ id: 1, applies_to: 'room', room_type_ids: [], discount_type: 'fixed', discount_value: 50 })],
+      {
+        memberId: 1,
+        nights: 1,
+        basePrice: 500,
+        now,
+        scope: 'room',
+        roomTypeIds: [12],
+        memberUsedCountByPromoId: {},
+        walletsByPromoId: {},
+      }
+    );
+    assert.equal(result.totalPrice, 450);
+  });
+
   it('rejects when per-member cap is already reached', (): void => {
     assert.throws(
       () =>

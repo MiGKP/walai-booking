@@ -23,6 +23,8 @@ export interface CatalogPromo {
   is_collectible: boolean;
   stackable: boolean;
   applies_to?: PromoAppliesTo | string | null;
+  room_type_id?: number | null;
+  room_type_ids?: number[] | null;
   wallet_status: WalletStatus | null;
   wallet_remaining?: number | null;
 }

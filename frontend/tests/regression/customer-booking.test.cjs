@@ -125,6 +125,31 @@ test('admin promotion edits retain both-service scope and existing wallet/stack 
   assert.equal(payload.stackable, true);
 });
 
+test('room promotion eligibility requires a known allowed type and rejects excluded types', () => {
+  const { eligibleRoomPromotion } = load('src/lib/booking-checkout.ts');
+  const promo = { id: 1, discount_type: 'fixed', discount_value: 10, room_type_ids: [1, 2], room_type_id: 3 };
+  assert.equal(eligibleRoomPromotion(promo, 3000, 1, 1, 1), true);
+  assert.equal(eligibleRoomPromotion(promo, 3000, 1, 2, 1), true);
+  assert.equal(eligibleRoomPromotion(promo, 3000, 1, 3, 1), false);
+  assert.equal(eligibleRoomPromotion(promo, 3000, 1, undefined, 1), false);
+});
+
+test('unchecking a room type in all-types mode excludes that type and preserves explicit choices', () => {
+  const source = fs.readFileSync(path.join(root, 'src/app/admin/promotions/page.tsx'), 'utf8');
+  const start = source.indexOf('  const toggleRoomType =');
+  const end = source.indexOf('\n  };', start);
+  const js = ts.transpileModule(`${source.slice(start, end + 5)}\nreturn toggleRoomType;`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
+  const roomTypes = [{ id: 1 }, { id: 2 }, { id: 3 }];
+  const toggle = (selected, id) => {
+    let result = selected;
+    new Function('selectedIds', 'roomTypes', 'onChange', js)(selected, roomTypes, ids => { result = ids; })(id);
+    return result;
+  };
+  assert.deepEqual(toggle([], 1), [2, 3]);
+  assert.deepEqual(toggle([1, 2], 3), [1, 2, 3]);
+  assert.deepEqual(toggle([1], 1), [1], 'removing the last explicit choice must not silently allow every type');
+});
+
 test('checkin search finds every room in a booking by plain and hash-prefixed booking number', () => {
   const source = fs.readFileSync(path.join(root, 'src/app/admin/checkin/page.tsx'), 'utf8');
   const handler = source.slice(source.indexOf('  const matchesSearch ='), source.indexOf('  const sortItems ='));

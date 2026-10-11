@@ -32,7 +32,7 @@ export const getActivePromotions = async (req: Request, res: Response): Promise<
               p.min_nights, p.min_price, p.max_discount, p.start_date, p.end_date,
               p.usage_limit, p.usage_count, p.is_active,
               p.usage_limit_per_member, p.is_collectible, p.stackable, p.applies_to, p.boat_ticket_count, p.boat_addon_mode, p.boat_addon_price,
-              p.room_type_id, p.room_count,
+              p.room_type_id, p.room_count, COALESCE(p.room_type_ids, '{}') AS room_type_ids,
               (SELECT COUNT(*)::int FROM booking_promotions bp
                WHERE bp.promotion_id=p.id AND bp.member_id=$1) AS member_usage_count,
               mp.status AS wallet_status
@@ -59,7 +59,7 @@ export const getAllPromotions = async (req: Request, res: Response): Promise<voi
       `SELECT id, code, name, description, discount_type, discount_value,
               min_nights, min_price, max_discount, start_date, end_date,
               usage_limit, usage_count, is_active, created_at,
-              room_type_id, room_count, boat_ticket_count, boat_addon_mode, boat_addon_price,
+              room_type_id, room_count, COALESCE(room_type_ids, '{}') AS room_type_ids, boat_ticket_count, boat_addon_mode, boat_addon_price,
               usage_limit_per_member, is_collectible, stackable, applies_to
        FROM promotions
        ORDER BY created_at DESC`
@@ -465,13 +465,25 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
       return;
     }
 
+    const parsedRoomTypeIds: number[] = Object.prototype.hasOwnProperty.call(req.body, 'room_type_ids')
+      ? [...new Set<number>(Array.isArray(req.body.room_type_ids) ? req.body.room_type_ids.map(Number) : [])]
+      : (room_type_id ? [Number(room_type_id)] : []);
+    const resolvedRoomTypeId = parsedRoomTypeIds.length === 1 ? parsedRoomTypeIds[0] : null;
+    if (parsedRoomTypeIds.length > 0) {
+      const types = await pool.query('SELECT id FROM room_types WHERE id = ANY($1::int[])', [parsedRoomTypeIds]);
+      if (types.rows.length !== parsedRoomTypeIds.length) {
+        res.status(400).json({ success: false, message: 'ไม่พบประเภทห้องที่เลือก กรุณาตรวจสอบประเภทห้องอีกครั้ง' });
+        return;
+      }
+    }
+
     const result = await pool.query(
       `INSERT INTO promotions (code, name, description, discount_type, discount_value,
                                min_nights, min_price, max_discount, start_date, end_date,
                                usage_limit, is_active, room_type_id, room_count, boat_ticket_count,
                                usage_limit_per_member, is_collectible, stackable, applies_to,
-                               boat_addon_mode, boat_addon_price)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+                               boat_addon_mode, boat_addon_price, room_type_ids)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
        RETURNING *`,
       [
         code.toUpperCase().trim(), name, description || null,
@@ -479,13 +491,14 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
         min_nights || null, min_price || null, max_discount || null,
         start_date || null, end_date || null,
         usage_limit || null, is_active !== false,
-        room_type_id || null, room_count || 1, boat_ticket_count || 0,
+        resolvedRoomTypeId, room_count || 1, boat_ticket_count || 0,
         usage_limit_per_member || null,
         is_collectible === true || is_collectible === 'true',
         stackable === true,
         parseAppliesTo(applies_to),
         boat_addon_mode === 'paid' ? 'paid' : 'free',
         boat_addon_price || null,
+        parsedRoomTypeIds,
       ]
     );
 
@@ -576,6 +589,24 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
     const appliesTo = parseAppliesTo(has('applies_to') ? body.applies_to : current.applies_to);
     const boatAddonMode = (has('boat_addon_mode') ? body.boat_addon_mode : current.boat_addon_mode) === 'paid' ? 'paid' : 'free';
 
+    const updatedRoomTypeIds = has('room_type_ids')
+      ? (Array.isArray(body.room_type_ids)
+          ? [...new Set((body.room_type_ids as unknown[]).map(Number))]
+          : [])
+      : has('room_type_id')
+        ? (numOrCurrent('room_type_id') != null ? [numOrCurrent('room_type_id')!] : [])
+        : (Array.isArray(current.room_type_ids) && current.room_type_ids.length > 0
+            ? (current.room_type_ids as number[])
+            : current.room_type_id != null ? [Number(current.room_type_id)] : []);
+    const updatedRoomTypeId = updatedRoomTypeIds.length === 1 ? updatedRoomTypeIds[0] : null;
+    if (updatedRoomTypeIds.length > 0 && (has('room_type_ids') || has('room_type_id'))) {
+      const types = await pool.query('SELECT id FROM room_types WHERE id = ANY($1::int[])', [updatedRoomTypeIds]);
+      if (types.rows.length !== updatedRoomTypeIds.length) {
+        res.status(400).json({ success: false, message: 'ไม่พบประเภทห้องที่เลือก กรุณาตรวจสอบประเภทห้องอีกครั้ง' });
+        return;
+      }
+    }
+
     const result = await pool.query(
       `UPDATE promotions SET
          code = $1, name = $2, description = $3, discount_type = $4, discount_value = $5,
@@ -583,8 +614,9 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
          usage_limit = $11, is_active = $12, room_type_id = $13, room_count = $14,
          boat_ticket_count = $15, usage_limit_per_member = $16, is_collectible = $17,
          stackable = $18, applies_to = $19, boat_addon_mode = $20, boat_addon_price = $21,
+         room_type_ids = $22,
          updated_at = NOW()
-       WHERE id = $22
+       WHERE id = $23
        RETURNING *`,
       [
         code,
@@ -599,7 +631,7 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
         has('end_date') ? (body.end_date || null) : current.end_date,
         numOrCurrent('usage_limit'),
         has('is_active') ? (body.is_active === true || body.is_active === 'true') : current.is_active,
-        numOrCurrent('room_type_id'),
+        updatedRoomTypeId,
         numOrCurrent('room_count', 1),
         numOrCurrent('boat_ticket_count', 0),
         numOrCurrent('usage_limit_per_member'),
@@ -608,6 +640,7 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
         appliesTo,
         boatAddonMode,
         numOrCurrent('boat_addon_price'),
+        updatedRoomTypeIds,
         id,
       ]
     );

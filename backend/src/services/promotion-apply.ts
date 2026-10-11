@@ -28,6 +28,7 @@ export interface CatalogPromo {
   stackable: boolean;
   applies_to: PromoAppliesTo;
   room_type_id?: number | null;
+  room_type_ids?: number[];
 }
 
 export interface WalletState {
@@ -207,9 +208,14 @@ export function applyPromotionList(
     if (!promoAllowsScope(row.applies_to, ctx.scope)) {
       throw new PromoApplyError(promoScopeError(row.applies_to));
     }
-    if (ctx.scope === 'room' && row.room_type_id != null &&
-        (!ctx.roomTypeIds?.length || ctx.roomTypeIds.some((id) => id !== Number(row.room_type_id)))) {
-      throw new PromoApplyError('โปรโมชั่นนี้ใช้กับประเภทห้องที่กำหนดเท่านั้น');
+    const allowedRoomTypeIds = (row.room_type_ids && row.room_type_ids.length > 0)
+      ? row.room_type_ids
+      : (row.room_type_id != null ? [Number(row.room_type_id)] : []);
+
+    if (ctx.scope === 'room' && allowedRoomTypeIds.length > 0) {
+      if (!ctx.roomTypeIds?.length || ctx.roomTypeIds.some((id) => !allowedRoomTypeIds.includes(Number(id)))) {
+        throw new PromoApplyError('โปรโมชั่นนี้ใช้กับประเภทห้องที่กำหนดเท่านั้น');
+      }
     }
     const wallet = ctx.walletsByPromoId[row.id];
     if (row.is_collectible) {
