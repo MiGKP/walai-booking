@@ -1467,34 +1467,6 @@ export default function PromotionsPage() {
               <span>โปรโมชั่นเรือ</span>
             </button>
           </div>
-
-
-          <fieldset className="grid gap-3 rounded-2xl border border-cream-200 bg-cream-50/50 p-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-bold text-charcoal-700">บริการที่ใช้ส่วนลดได้</label>
-              <CustomSelect
-                value={form.applies_to}
-                options={[
-                  { value: "room", label: "ห้องพักเท่านั้น" },
-                  { value: "kayak", label: "เรือเท่านั้น" },
-                  { value: "both", label: "ห้องพักและเรือ" },
-                ]}
-                onChange={(value) => {
-                  const scope = parseAppliesTo(value);
-                  setForm((previous) => ({ ...previous, applies_to: scope }));
-                  setPromoTab(scope === "kayak" ? "kayak" : "room");
-                }}
-              />
-            </div>
-            <div className="space-y-2 text-xs text-charcoal-700">
-
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={form.stackable} onChange={(event) => setForm((previous) => ({ ...previous, stackable: event.target.checked }))} />
-                ใช้ร่วมกับโค้ดอื่นที่อนุญาตให้ใช้ร่วมกันได้
-              </label>
-            </div>
-          </fieldset>
-
           {/* TAB 1: โปรโมชั่นห้องพัก (Side-by-side 2-column layout) */}
           {promoTab === "room" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-start animate-in fade-in duration-150">
