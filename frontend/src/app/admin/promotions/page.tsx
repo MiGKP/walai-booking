@@ -363,8 +363,8 @@ export default function PromotionsPage() {
           ? Number(form.usage_limit_per_member)
           : null,
         is_collectible: form.is_collectible,
-        stackable: form.stackable,
-        applies_to: parseAppliesTo(form.applies_to),
+        stackable: false,
+        applies_to: isRoom ? "room" : "kayak",
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         room_type_id: isRoom && hasBoatAddon && form.room_type_id ? Number(form.room_type_id) : null,
@@ -1217,34 +1217,6 @@ export default function PromotionsPage() {
             </button>
           </div>
 
-          <fieldset className="grid gap-3 rounded-2xl border border-cream-200 bg-cream-50/50 p-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-bold text-charcoal-700">บริการที่ใช้ส่วนลดได้</label>
-              <CustomSelect
-                value={form.applies_to}
-                options={[
-                  { value: "room", label: "ห้องพักเท่านั้น" },
-                  { value: "kayak", label: "เรือเท่านั้น" },
-                  { value: "both", label: "ห้องพักและเรือ" },
-                ]}
-                onChange={(value) => {
-                  const scope = parseAppliesTo(value);
-                  setForm((previous) => ({ ...previous, applies_to: scope }));
-                  setPromoTab(scope === "kayak" ? "kayak" : "room");
-                }}
-              />
-            </div>
-            <div className="space-y-2 text-xs text-charcoal-700">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={form.is_collectible} onChange={(event) => setForm((previous) => ({ ...previous, is_collectible: event.target.checked }))} />
-                สมาชิกเก็บคูปองในกระเป๋าได้
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={form.stackable} onChange={(event) => setForm((previous) => ({ ...previous, stackable: event.target.checked }))} />
-                ใช้ร่วมกับโค้ดอื่นที่อนุญาตให้ใช้ร่วมกันได้
-              </label>
-            </div>
-          </fieldset>
 
           {/* TAB 1: โปรโมชั่นห้องพัก (Side-by-side 2-column layout) */}
           {promoTab === "room" && (
@@ -1478,6 +1450,20 @@ export default function PromotionsPage() {
                         <div className="w-8 h-4.5 bg-cream-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-cream-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-forest-800 relative"></div>
                       </label>
                     </div>
+                  </div>
+
+                  <div className="sm:col-span-2 pt-1 border-t border-cream-200/70">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-charcoal-700 select-none">
+                      <input
+                        type="checkbox"
+                        checked={form.is_collectible}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, is_collectible: e.target.checked }))
+                        }
+                        className="rounded border-cream-300 text-forest-800 focus:ring-forest-800/20"
+                      />
+                      <span>สมาชิกเก็บคูปองในกระเป๋าได้</span>
+                    </label>
                   </div>
 
                   {/* Add-on เสริมเรือ (ทางเลือก) - การ์ดคอนทราสต์ชัดเจน มองเห็นช่องกรอกชัดเจน ไม่กลืนกับพื้นหลัง */}
@@ -1859,6 +1845,20 @@ export default function PromotionsPage() {
                         <div className="w-8 h-4.5 bg-cream-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-cream-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-forest-800 relative"></div>
                       </label>
                     </div>
+                  </div>
+
+                  <div className="sm:col-span-2 pt-1 border-t border-cream-200/70">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-charcoal-700 select-none">
+                      <input
+                        type="checkbox"
+                        checked={form.is_collectible}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, is_collectible: e.target.checked }))
+                        }
+                        className="rounded border-cream-300 text-forest-800 focus:ring-forest-800/20"
+                      />
+                      <span>สมาชิกเก็บคูปองในกระเป๋าได้</span>
+                    </label>
                   </div>
                 </div>
               </div>

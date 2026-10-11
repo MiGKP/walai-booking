@@ -46,9 +46,12 @@ function buildContentSecurityPolicy() {
     apiOrigin,
   ];
 
+  const scriptSrc = ["'self'", "'unsafe-inline'"];
+
   if (!isProd) {
     connectSrc.push('http://localhost:5000');
     imgSrc.push('http://localhost:5000');
+    scriptSrc.push("'unsafe-eval'");
   }
 
   return [
@@ -57,7 +60,7 @@ function buildContentSecurityPolicy() {
     `img-src ${imgSrc.join(' ')}`,
     "font-src 'self' https://fonts.gstatic.com data:",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "script-src 'self' 'unsafe-inline'",
+    `script-src ${scriptSrc.join(' ')}`,
     "frame-src 'self' https://www.google.com https://maps.google.com",
     "object-src 'none'",
     "base-uri 'self'",
