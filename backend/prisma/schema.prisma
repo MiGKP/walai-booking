@@ -154,6 +154,7 @@ model promotions {
   created_at        DateTime?       @default(now()) @db.Timestamptz(6)
   updated_at        DateTime?       @default(now()) @db.Timestamptz(6)
   room_type_id      Int?
+  room_type_ids     Int[]           @default([])
   room_count        Int?            @default(1)
   boat_ticket_count Int?            @default(1)
   room_types        room_types?     @relation(fields: [room_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)

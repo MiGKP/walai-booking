@@ -292,6 +292,8 @@ export const createPromotionValidator = [
   body('stackable').optional().isBoolean().withMessage('ค่าการใช้ร่วมกันไม่ถูกต้อง'),
   body('applies_to').optional().isIn(['room', 'kayak', 'both']).withMessage('ประเภทที่ใช้ได้ต้องเป็น room, kayak หรือ both'),
   body('is_active').optional().isBoolean().withMessage('ค่าสถานะเปิดใช้งานไม่ถูกต้อง'),
+  body('room_type_ids').optional({ nullable: true }).isArray().withMessage('room_type_ids ต้องเป็น array'),
+  body('room_type_ids.*').optional().isInt({ min: 1 }).withMessage('รหัสประเภทห้องต้องเป็นจำนวนเต็มบวก'),
   body('boat_ticket_count').optional({ nullable: true }).isInt({ min: 0 }).withMessage('จำนวนตั๋วเรือต้องไม่น้อยกว่า 0'),
   body('boat_addon_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ราคาเรือเสริมต้องไม่น้อยกว่า 0'),
 ];
@@ -313,6 +315,8 @@ export const updatePromotionValidator = [
   body('stackable').optional().isBoolean().withMessage('ค่าการใช้ร่วมกันไม่ถูกต้อง'),
   body('applies_to').optional().isIn(['room', 'kayak', 'both']).withMessage('ประเภทที่ใช้ได้ต้องเป็น room, kayak หรือ both'),
   body('is_active').optional().isBoolean().withMessage('ค่าสถานะเปิดใช้งานไม่ถูกต้อง'),
+  body('room_type_ids').optional({ nullable: true }).isArray().withMessage('room_type_ids ต้องเป็น array'),
+  body('room_type_ids.*').optional().isInt({ min: 1 }).withMessage('รหัสประเภทห้องต้องเป็นจำนวนเต็มบวก'),
   body('boat_ticket_count').optional({ nullable: true }).isInt({ min: 0 }).withMessage('จำนวนตั๋วเรือต้องไม่น้อยกว่า 0'),
   body('boat_addon_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ราคาเรือเสริมต้องไม่น้อยกว่า 0'),
 ];
