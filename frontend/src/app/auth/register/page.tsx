@@ -1,12 +1,10 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft,
   ArrowRight,
   Eye,
   EyeOff,
@@ -28,14 +26,8 @@ interface RegisterResponse {
   };
 }
 
-const RegisterScene3D = dynamic(() => import('@/components/auth/Scene3D'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-[#d9ece7] text-sm text-forest-800/70">
-      กำลังเตรียมบรรยากาศ...
-    </div>
-  ),
-});
+import Image from 'next/image';
+import AuthHeroVisual from '@/components/auth/AuthHeroVisual';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -110,49 +102,38 @@ export default function RegisterPage(): React.ReactElement | null {
     <div className="min-h-screen bg-stone-100 p-3 sm:p-5 lg:p-6">
       {/*
         บนจอ lg ตรึงความสูงกริดไว้เท่าหน้าจอ แล้วให้เฉพาะคอลัมน์ฟอร์มเลื่อนเอง
-        ฉาก 3D จึงอยู่นิ่งเต็มพาเนลแม้ฟอร์มสมัครจะยาวกว่าหน้าจอ
+        ภาพบรรยากาศจึงอยู่นิ่งเต็มพาเนลแม้ฟอร์มสมัครจะยาวกว่าหน้าจอ
       */}
       <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-[1500px] overflow-hidden rounded-[28px] border border-stone-200 bg-cream-100 shadow-[0_28px_90px_rgba(18,60,48,0.14)] sm:min-h-[calc(100vh-2.5rem)] lg:h-[calc(100vh-3rem)] lg:min-h-0 lg:grid-cols-[1.12fr_0.88fr] lg:rounded-[36px]">
-        <section className="relative min-h-[250px] overflow-hidden bg-[#d9ece7] sm:min-h-[300px] lg:min-h-0">
-          <RegisterScene3D />
-
-          <Link
-            href="/"
-            className="absolute left-5 top-5 z-20 inline-flex items-center gap-2 rounded-full border border-white/50 bg-cream-100/85 px-4 py-2 text-sm font-semibold text-forest-800 shadow-xs backdrop-blur-md transition hover:bg-white focus:outline-hidden focus:ring-2 focus:ring-bamboo-400 sm:left-7 sm:top-7"
-          >
-            <ArrowLeft size={16} aria-hidden="true" />
-            กลับหน้าหลัก
-          </Link>
-
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-linear-to-t from-forest-900/80 via-forest-900/26 to-transparent px-6 pb-6 pt-20 text-cream-100 sm:px-9 sm:pb-8 lg:px-12 lg:pb-12 lg:pt-32">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-bamboo-200">
-              <span className="h-px w-8 bg-bamboo-300" />
-              Walai floating stay
-            </div>
-            <h1 className="max-w-xl text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
-              เริ่มต้นทริปแรก
-              <br />
-              ริมสายน้ำ
-            </h1>
-            <p className="mt-3 max-w-md text-sm leading-6 text-cream-100/80 sm:text-base">
-              สมัครสมาชิกเพื่อจองที่พักลอยน้ำและเรือ
-              พร้อมติดตามสถานะการจองได้ทุกที่
-            </p>
-          </div>
-        </section>
+        <AuthHeroVisual mode="register" />
 
         <section className="lg:overflow-y-auto">
           <div className="flex min-h-full items-center justify-center px-6 py-10 sm:px-10 lg:px-14 lg:py-12">
             <div className="w-full max-w-[480px] animate-fade-in">
-            <div className="mb-8">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-lagoon-700">
-                Create account
-              </p>
+              <div className="mb-8">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-forest-200/60 bg-white shadow-sm ring-2 ring-forest-800/10">
+                    <Image
+                      src="/images/logocolor.jpg"
+                      alt="สวนวลัยรุกขเวช"
+                      fill
+                      className="object-contain p-1"
+                    />
+                  </div>
+                  <div>
+                    <span className="block text-xs font-semibold uppercase tracking-[0.2em] text-bamboo-600">
+                      Walai Booking
+                    </span>
+                    <span className="block text-xs font-medium text-stone-500">
+                      สวนวลัยรุกขเวช มหาสารคาม
+                    </span>
+                  </div>
+                </div>
                 <h2 className="text-3xl font-semibold text-charcoal sm:text-4xl">
                   สมัครสมาชิก
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-stone-500">
-                  กรอกข้อมูลเพื่อเริ่มจองกับวลัยรุกขเวช
+                  กรอกข้อมูลเพื่อเริ่มต้นการจองที่พักลอยน้ำและเรือของคุณ
                 </p>
               </div>
 
