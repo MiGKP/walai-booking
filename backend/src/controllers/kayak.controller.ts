@@ -1158,29 +1158,12 @@ export const createKayakBooking = async (
       headerPromotionId: null,
     };
     if (promoIds.length > 0) {
-      try {
-        const catalog = await loadPromosForApply(client, promoIds);
-        const ctxExtra = await loadApplyContext(client, bookingMemberId, promoIds);
-        applyResult = applyPromotionList(catalog, {
-          memberId: bookingMemberId,
-          nights: null,
-          basePrice: totalPrice,
-          now: new Date(),
-          scope: 'kayak',
-          ...ctxExtra,
-        });
-        totalPrice = applyResult.totalPrice;
-      } catch (err) {
-        await safeRollback(client);
-        res.status(400).json({
-          success: false,
-          message:
-            err instanceof PromoApplyError || err instanceof Error
-              ? err.message
-              : "โปรโมชั่นไม่ถูกต้อง",
-        });
-        return;
-      }
+      await safeRollback(client);
+      res.status(400).json({
+        success: false,
+        message: "กิจกรรมพายเรือไม่สามารถใช้โค้ดโปรโมชั่นได้",
+      });
+      return;
     }
 
     const headerRes = await client.query(

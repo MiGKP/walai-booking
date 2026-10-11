@@ -110,7 +110,7 @@ export default function RoomBoatRightsChoice({ memberId, enabled, onChange }: {
             {!canReserveRoomRights({ ...selected, status: detail.status, boat_ticket_summary: detail.boat_ticket_summary }) && <div className="rounded-xl bg-cream-100 p-4 text-sm text-forest-900">
               <p className="font-semibold">การจองนี้ยังเลือกวันและรอบเรือไม่ได้</p>
               <p className="mt-1">ดูเงื่อนไขสิทธิ์ด้านบน หรือเลือกการจองห้องพักรายการอื่น</p>
-              <Link href="/dashboard" className="mt-3 inline-block font-semibold underline">ดูการจองของฉัน</Link>
+              <Link href="/dashboard?tab=bookings" className="mt-3 inline-block font-semibold underline">ดูการจองของฉัน</Link>
             </div>}
             {canReserveRoomRights({ ...selected, status: detail.status, boat_ticket_summary: detail.boat_ticket_summary }) && detail.rooms.filter(room => !['checked_out', 'cancelled', 'rejected'].includes(room.status ?? '')).map(room => <section key={room.booking_room_id} className="rounded-xl border border-stone-200 p-4">
               <h3 className="mb-3 text-sm font-semibold text-forest-900">การจองห้อง #{selectedId} · {room.room_name} · ห้อง {room.room_number}</h3>
