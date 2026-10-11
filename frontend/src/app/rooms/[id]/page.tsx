@@ -36,6 +36,7 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import BookingCalendar, { DateRange, DayStatus } from '@/components/booking/BookingCalendar';
 import BookingSummaryCard from '@/components/booking/BookingSummaryCard';
+import ChildAgeSelect from '@/components/booking/ChildAgeSelect';
 import RaftLayoutMap from '@/components/booking/RaftLayoutMap';
 import { fetchRoomCalendar, toRoomDayStatus } from '@/lib/booking-calendar';
 import {
@@ -52,7 +53,7 @@ import { roomPromotionLabel, type CheckoutPromotion } from '@/lib/booking-checko
 import { RoomCartItem } from '@/lib/room-cart';
 import { useRoomCart, setRoomCart } from '@/lib/room-cart-store';
 import { useCartSync } from '@/hooks/useCartSync';
-import { useInfantAgePolicy } from '@/hooks/useInfantAgePolicy';
+import { useGuestAgePolicy } from '@/hooks/useInfantAgePolicy';
 
 type RoomAmenity = string | { id: number; name: string };
 
@@ -206,22 +207,28 @@ export default function RoomDetailPage(): React.ReactElement {
   const nights = nightsBetween(range.start, range.end);
   const { user } = useAuth();
   const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
+  const policy = useGuestAgePolicy();
+  const infantAge = policy.infantAge;
+  const [childAgeError, setChildAgeError] = useState(false);
 
   const childAges: Array<number | null> = useMemo(() => {
     const children = parseInt(searchParams.get('children') || '0', 10);
     const raw = (searchParams.get('child_ages') || '').split(',').map((s) => {
       const n = parseInt(s, 10);
-      return Number.isInteger(n) && n >= 0 && n <= 11 ? n : null;
+      return Number.isInteger(n) && n >= 0 && n <= policy.childMaxAge ? n : null;
     });
     const normalized = raw.length && (searchParams.get('child_ages') ?? '') !== '' ? raw : [];
     if (normalized.length === children) return normalized;
     if (normalized.length > children) return normalized.slice(0, children);
     return [...normalized, ...Array(children - normalized.length).fill(null)];
-  }, [searchParams]);
+  }, [searchParams, policy.childMaxAge]);
 
   const handleChildAgeChange = (index: number, age: number) => {
     const nextChildAges = [...childAges];
     nextChildAges[index] = age;
+    if (nextChildAges.every((a) => a !== null)) {
+      setChildAgeError(false);
+    }
     const serialized = nextChildAges.map((a) => (a === null ? '' : String(a))).join(',');
     const params = new URLSearchParams(searchParams.toString());
     params.set('child_ages', serialized);
@@ -255,10 +262,24 @@ export default function RoomDetailPage(): React.ReactElement {
   };
 
   const handleGuestsChange = (next: { adults: number; children: number; }): void => {
+    if (next.children === 0) {
+      setChildAgeError(false);
+    }
     const params = new URLSearchParams(searchParams.toString());
     params.set("adults", String(next.adults));
     params.set("children", String(next.children));
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
+  const handleConfirmGuests = () => {
+    const children = parseInt(searchParams.get('children') || '0', 10);
+    if (children > 0 && childAges.some((age) => age === null)) {
+      setChildAgeError(true);
+      toast.error("กรุณาระบุอายุของเด็กให้ครบทุกท่าน เพื่อค้นหาห้องพักที่เหมาะสม");
+      return;
+    }
+    setChildAgeError(false);
+    setOpenPanel(null);
   };
   // รีเซ็ตสถานะ "ดูเพิ่มเติม" ของโปรโมชั่นเวลาสลับไปดูห้องอื่น
   useEffect(() => {
@@ -279,7 +300,6 @@ export default function RoomDetailPage(): React.ReactElement {
     children: parseInt(searchParams.get('children') || '0', 10),
     childAges: childAges.filter((age): age is number => age !== null),
   });
-  const infantAge = useInfantAgePolicy();
 
   useEffect(() => {
     if (!id) return;
@@ -737,7 +757,7 @@ export default function RoomDetailPage(): React.ReactElement {
                         onClick={() => setOpenPanel(null)}
                       >
                         <div
-                          className="w-full sm:max-w-[400px] bg-white rounded-t-3xl sm:rounded-2xl p-5 sm:p-4 shadow-2xl max-h-[85vh] overflow-y-auto lg:absolute lg:right-0 lg:top-full lg:mt-2 lg:w-[320px] lg:rounded-2xl lg:p-2 lg:border lg:border-stone-200 lg:shadow-xl"
+                          className="w-full sm:max-w-[400px] bg-white rounded-t-3xl sm:rounded-2xl p-5 sm:p-4 shadow-2xl max-h-[85vh] overflow-y-auto lg:overflow-visible lg:max-h-none lg:absolute lg:right-0 lg:top-full lg:mt-2 lg:w-[340px] lg:rounded-2xl lg:p-3 lg:border lg:border-stone-200 lg:shadow-xl"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="flex items-center justify-between pb-3 mb-3 border-b border-stone-100 lg:hidden">
@@ -747,46 +767,67 @@ export default function RoomDetailPage(): React.ReactElement {
                             </button>
                           </div>
 
-                          <GuestRow label="ผู้ใหญ่" hint="อายุ 12 ปีขึ้นไป" value={parseInt(searchParams.get('adults') || '1', 10)} min={1} onChange={(v) => handleGuestsChange({ adults: v, children: parseInt(searchParams.get('children') || '0', 10) })} />
-                          <GuestRow label="เด็ก" hint="อายุ 0–11 ปี" value={parseInt(searchParams.get('children') || '0', 10)} min={0} onChange={(v) => handleGuestsChange({ adults: parseInt(searchParams.get('adults') || '1', 10), children: v })} />
+                          <GuestRow label="ผู้ใหญ่" hint={policy.adultHint} value={parseInt(searchParams.get('adults') || '1', 10)} min={1} onChange={(v) => handleGuestsChange({ adults: v, children: parseInt(searchParams.get('children') || '0', 10) })} />
+                          <GuestRow label="เด็ก" hint={policy.childHint} value={parseInt(searchParams.get('children') || '0', 10)} min={0} onChange={(v) => handleGuestsChange({ adults: parseInt(searchParams.get('adults') || '1', 10), children: v })} />
                           {parseInt(searchParams.get('children') || '0', 10) > 0 && (
-                            <div className="mx-2 my-2 rounded-xl border border-forest-100 bg-forest-50/50 p-3 space-y-2">
-                              <div className="flex items-center gap-1.5">
-                                <Baby size={13} className="text-forest-700 shrink-0" />
-                                <p className="text-xs font-bold uppercase tracking-wide text-forest-800">อายุของเด็กแต่ละคน ณ วันเข้าพัก</p>
+                            <div
+                              className={`mx-2 my-2 rounded-xl border p-3 space-y-2 transition-all ${
+                                childAgeError && childAges.some((a) => a === null)
+                                  ? "border-rose-300 bg-rose-50/40"
+                                  : "border-forest-100 bg-forest-50/50"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <Baby
+                                    size={13}
+                                    className={
+                                      childAgeError && childAges.some((a) => a === null)
+                                        ? "text-rose-700 shrink-0"
+                                        : "text-forest-700 shrink-0"
+                                    }
+                                  />
+                                  <p
+                                    className={`text-xs font-bold uppercase tracking-wide ${
+                                      childAgeError && childAges.some((a) => a === null)
+                                        ? "text-rose-800"
+                                        : "text-forest-800"
+                                    }`}
+                                  >
+                                    อายุของเด็กแต่ละคน ณ วันเข้าพัก
+                                  </p>
+                                </div>
+                                <span className="text-[11px] font-semibold text-rose-600">
+                                  * จำเป็น
+                                </span>
                               </div>
+
+                              {childAgeError && childAges.some((a) => a === null) && (
+                                <div className="flex items-center gap-1.5 text-xs text-rose-600 bg-white/90 border border-rose-200 rounded-lg px-2.5 py-1.5 font-medium animate-in fade-in duration-150">
+                                  <AlertCircle size={13} className="shrink-0 text-rose-500" />
+                                  <span>กรุณาระบุอายุของเด็กให้ครบทุกท่าน</span>
+                                </div>
+                              )}
+
                               <div className="space-y-1.5">
                                 {childAges.map((age, index) => (
-                                  <div key={index} className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 ${age === null ? "border-amber-300" : "border-stone-200"}`}>
-                                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-forest-800/10 text-xs font-extrabold text-forest-800">{index + 1}</span>
-                                    <div className="relative flex-1">
-                                      <select
-                                        value={age ?? ""}
-                                        onChange={(e) => handleChildAgeChange(index, parseInt(e.target.value, 10))}
-                                        className={`w-full appearance-none bg-transparent py-0.5 pr-5 text-xs font-bold focus:outline-hidden ${age === null ? "text-amber-600" : "text-forest-800"}`}
-                                      >
-                                        <option value="" disabled>เลือกอายุ</option>
-                                        {Array.from({ length: 12 }, (_, a) => a).map((a) => (
-                                          <option key={a} value={a}>{a} ปี</option>
-                                        ))}
-                                      </select>
-                                      <ChevronDown size={11} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-stone-400" />
-                                    </div>
-                                  </div>
+                                  <ChildAgeSelect
+                                    key={index}
+                                    index={index}
+                                    value={age}
+                                    maxAge={policy.childMaxAge}
+                                    hasError={childAgeError && age === null}
+                                    onChange={(val) => handleChildAgeChange(index, val)}
+                                  />
                                 ))}
                               </div>
                             </div>
                           )}
-                          <div className="px-3 py-2 bg-stone-50 rounded-xl mt-1 mb-2">
-                            <p className="text-xs text-charcoal-400 leading-relaxed">
-                              <span className="font-bold text-forest-700">นโยบายเด็ก:</span> {infantAge === 0 ? 'เด็กทุกอายุนับรวมในความจุห้อง' : `เด็กอายุต่ำกว่า ${infantAge} ปี เข้าพักฟรีและไม่นับความจุห้อง`}
-                            </p>
-                          </div>
                           <div className="border-t border-stone-100 p-2 mt-2">
                             <button
                               type="button"
-                              onClick={() => setOpenPanel(null)}
-                              className="w-full rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800"
+                              onClick={handleConfirmGuests}
+                              className="w-full rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800 active:scale-[0.99] cursor-pointer"
                             >
                               ตกลง
                             </button>

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Plus, Trash2, Users, Sparkles, Check } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Plus, Trash2, Users, Sparkles, Check, ChevronDown } from "lucide-react";
 
 interface KidsPolicyEditorProps {
   value: string;
@@ -21,24 +21,67 @@ interface ParsedItem {
   customTitle: string;
   title: string;
   detail: string;
+  price: number | null;
 }
 
-const COMMON_SUGGESTIONS = [
-  "เข้าพักฟรี (ใช้เตียงที่มีอยู่)",
-  "คิดราคาเด็ก / เตียงเสริม",
-  "คิดราคาผู้ใหญ่",
-  "มีค่าบริการเตียงเสริม",
-  "มีเปลเด็กให้บริการฟรี",
+interface QuickPreset {
+  label: string;
+  value: string;
+  price: number | null;
+  type: "free" | "charge" | "adult";
+}
+
+const QUICK_PRESETS: QuickPreset[] = [
+  {
+    label: "เข้าพักฟรี",
+    value: "เข้าพักฟรี (ใช้เตียงที่มีอยู่)",
+    price: null,
+    type: "free",
+  },
+  {
+    label: "เตียงเสริม 300.-",
+    value: "มีค่าบริการเตียงเสริม 300 บาท/คืน (ชำระหน้าเคาน์เตอร์)",
+    price: 300,
+    type: "charge",
+  },
+  {
+    label: "เตียงเสริม 500.-",
+    value: "มีค่าบริการเตียงเสริม 500 บาท/คืน (ชำระหน้าเคาน์เตอร์)",
+    price: 500,
+    type: "charge",
+  },
+  {
+    label: "คิดราคาผู้ใหญ่",
+    value: "คิดราคาผู้ใหญ่",
+    price: null,
+    type: "adult",
+  },
+  {
+    label: "มีเปลเด็กฟรี",
+    value: "มีเปลเด็กให้บริการฟรี",
+    price: null,
+    type: "free",
+  },
 ];
 
 const RANGE_PRESETS = [
   { min: 0, max: 3, label: "0-3 ปี" },
   { min: 0, max: 5, label: "0-5 ปี" },
   { min: 6, max: 11, label: "6-11 ปี" },
+  { min: 6, max: 17, label: "6-17 ปี" },
   { min: 7, max: 12, label: "7-12 ปี" },
 ];
 
 const PLUS_PRESETS = [12, 13, 16, 18];
+
+function extractPriceFromDetail(detail: string): number | null {
+  const priceMatch = detail.match(/(?:฿|\b)(\d{2,5})\s*(?:บาท|.-|บ\.|\/คืน)?/);
+  if (priceMatch) {
+    const p = parseInt(priceMatch[1], 10);
+    if (!isNaN(p) && p >= 50 && p <= 10000) return p;
+  }
+  return null;
+}
 
 function parseLine(line: string, index: number): ParsedItem {
   const parts = line.split(":");
@@ -49,6 +92,8 @@ function parseLine(line: string, index: number): ParsedItem {
   if (parts.length === 1 && !detail) {
     title = line.trim();
   }
+
+  const price = extractPriceFromDetail(detail);
 
   // Detect mode
   // 1. Range match: e.g. "เด็ก 0-5 ปี" or "0-5 ปี"
@@ -65,6 +110,7 @@ function parseLine(line: string, index: number): ParsedItem {
       customTitle: "",
       title: `เด็ก ${min}-${max} ปี`,
       detail,
+      price,
     };
   }
 
@@ -81,6 +127,7 @@ function parseLine(line: string, index: number): ParsedItem {
       customTitle: "",
       title: `${plus} ปีขึ้นไป`,
       detail,
+      price,
     };
   }
 
@@ -94,6 +141,7 @@ function parseLine(line: string, index: number): ParsedItem {
     customTitle: title,
     title,
     detail,
+    price,
   };
 }
 
@@ -105,6 +153,84 @@ function computeTitle(item: ParsedItem): string {
     return `${item.plusAge} ปีขึ้นไป`;
   }
   return item.customTitle.trim();
+}
+
+interface AgeDropdownSelectProps {
+  value: number;
+  options: number[];
+  onChange: (val: number) => void;
+  suffix?: string;
+  className?: string;
+}
+
+function AgeDropdownSelect({
+  value,
+  options,
+  onChange,
+  suffix = "ปี",
+  className = "",
+}: AgeDropdownSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className={`relative ${className}`} ref={ref}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full min-w-[76px] flex items-center justify-between px-3 py-1.5 bg-cream-50/60 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          isOpen
+            ? "border-forest-800 ring-2 ring-forest-800/20 bg-white"
+            : "border-cream-200 hover:border-cream-300"
+        }`}
+      >
+        <span className="text-charcoal-800 truncate">
+          {value} {suffix}
+        </span>
+        <ChevronDown
+          size={14}
+          className={`text-charcoal-400 transition-transform duration-200 shrink-0 ml-1.5 ${
+            isOpen ? "rotate-180 text-forest-800" : ""
+          }`}
+        />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full mt-1.5 w-full min-w-[84px] bg-white border border-cream-200 rounded-xl shadow-lg z-50 py-1 max-h-48 overflow-y-auto animate-in fade-in duration-150">
+          {options.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => {
+                onChange(opt);
+                setIsOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors cursor-pointer ${
+                value === opt
+                  ? "bg-forest-50 text-forest-800 font-bold"
+                  : "text-charcoal-700 hover:bg-cream-50"
+              }`}
+            >
+              <span>{opt} {suffix}</span>
+              {value === opt && (
+                <Check size={12} className="text-forest-800" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function KidsPolicyEditor({
@@ -150,6 +276,7 @@ export default function KidsPolicyEditor({
       customTitle: "",
       title: "เด็ก 0-5 ปี",
       detail: "เข้าพักฟรี (ใช้เตียงที่มีอยู่)",
+      price: null,
     };
     serializeAndNotify([...items, newItem]);
   };
@@ -193,7 +320,45 @@ export default function KidsPolicyEditor({
 
   const handleDetailChange = (index: number, detail: string) => {
     const updated = [...items];
-    updated[index] = { ...updated[index], detail };
+    const isFreeOrAdult = detail.includes("ฟรี") || detail.includes("ราคาผู้ใหญ่");
+    const price = isFreeOrAdult ? null : extractPriceFromDetail(detail);
+    updated[index] = { ...updated[index], detail, price };
+    serializeAndNotify(updated);
+  };
+
+  const handleApplyPreset = (index: number, preset: QuickPreset) => {
+    const updated = [...items];
+    updated[index] = {
+      ...updated[index],
+      detail: preset.value,
+      price: preset.price,
+    };
+    serializeAndNotify(updated);
+  };
+
+  const handlePriceChange = (index: number, rawPrice: string) => {
+    const updated = [...items];
+    const item = { ...updated[index] };
+    const cleanNum = rawPrice.replace(/[^0-9]/g, "");
+    if (!cleanNum) {
+      item.price = null;
+      // If detail had price pattern, clean it up
+      item.detail = item.detail.replace(/\s*\d+\s*บาท\/คืน/, "").trim();
+      if (!item.detail) {
+        item.detail = "คิดราคาเด็ก / เตียงเสริม (ชำระหน้าเคาน์เตอร์)";
+      }
+    } else {
+      const num = parseInt(cleanNum, 10);
+      item.price = num;
+      if (item.detail.includes("บาท/คืน")) {
+        item.detail = item.detail.replace(/\d+\s*บาท\/คืน/, `${num} บาท/คืน`);
+      } else if (item.detail.includes("เตียงเสริม") || item.detail.includes("คิดราคา")) {
+        item.detail = `มีค่าบริการเตียงเสริม ${num} บาท/คืน (ชำระหน้าเคาน์เตอร์)`;
+      } else {
+        item.detail = `มีค่าบริการเตียงเสริม ${num} บาท/คืน (ชำระหน้าเคาน์เตอร์)`;
+      }
+    }
+    updated[index] = item;
     serializeAndNotify(updated);
   };
 
@@ -314,41 +479,21 @@ export default function KidsPolicyEditor({
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-charcoal-600 font-medium">เด็ก</span>
-                          <select
+                          <AgeDropdownSelect
                             value={item.minAge}
-                            onChange={(e) =>
-                              handleRangeChange(
-                                index,
-                                Number(e.target.value),
-                                item.maxAge
-                              )
+                            options={Array.from({ length: 18 }, (_, i) => i)}
+                            onChange={(val) =>
+                              handleRangeChange(index, val, item.maxAge)
                             }
-                            className="min-w-[68px] px-2.5 py-1.5 bg-cream-50/80 border border-cream-200 rounded-xl text-xs font-bold text-forest-900 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 cursor-pointer"
-                          >
-                            {Array.from({ length: 18 }, (_, i) => (
-                              <option key={i} value={i}>
-                                {i} ปี
-                              </option>
-                            ))}
-                          </select>
+                          />
                           <span className="text-xs text-charcoal-500 font-medium">ถึง</span>
-                          <select
+                          <AgeDropdownSelect
                             value={item.maxAge}
-                            onChange={(e) =>
-                              handleRangeChange(
-                                index,
-                                item.minAge,
-                                Number(e.target.value)
-                              )
+                            options={Array.from({ length: 18 }, (_, i) => i)}
+                            onChange={(val) =>
+                              handleRangeChange(index, item.minAge, val)
                             }
-                            className="min-w-[68px] px-2.5 py-1.5 bg-cream-50/80 border border-cream-200 rounded-xl text-xs font-bold text-forest-900 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 cursor-pointer"
-                          >
-                            {Array.from({ length: 18 }, (_, i) => (
-                              <option key={i} value={i}>
-                                {i} ปี
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
 
                         {/* Quick Presets */}
@@ -382,21 +527,11 @@ export default function KidsPolicyEditor({
                     {item.mode === "plus" && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <select
+                          <AgeDropdownSelect
                             value={item.plusAge}
-                            onChange={(e) =>
-                              handlePlusChange(index, Number(e.target.value))
-                            }
-                            className="min-w-[76px] px-2.5 py-1.5 bg-cream-50/80 border border-cream-200 rounded-xl text-xs font-bold text-forest-900 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 cursor-pointer"
-                          >
-                            {Array.from({ length: 18 }, (_, i) => i + 1).map(
-                              (age) => (
-                                <option key={age} value={age}>
-                                  {age} ปี
-                                </option>
-                              )
-                            )}
-                          </select>
+                            options={Array.from({ length: 18 }, (_, i) => i + 1)}
+                            onChange={(val) => handlePlusChange(index, val)}
+                          />
                           <span className="text-xs text-charcoal-700 font-semibold">
                             ขึ้นไป
                           </span>
@@ -444,9 +579,56 @@ export default function KidsPolicyEditor({
 
                   {/* Right Column: Detail & Suggestion chips (7 cols) */}
                   <div className="lg:col-span-7 space-y-2">
-                    <span className="text-[11px] font-semibold text-charcoal-700 block">
-                      รายละเอียดเงื่อนไข / ค่าบริการ
-                    </span>
+                    {(() => {
+                      const isFree = item.detail.includes("ฟรี");
+                      const isAdult =
+                        item.detail.includes("ราคาผู้ใหญ่") ||
+                        (item.mode === "plus" && item.plusAge >= 18);
+                      const isChargeable = !isFree && !isAdult;
+
+                      return (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-charcoal-700 block">
+                              รายละเอียดเงื่อนไข / ค่าบริการ
+                            </span>
+                            {isChargeable && item.price !== null && item.price > 0 && (
+                              <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                ชำระหน้าเคาน์เตอร์: ฿{item.price.toLocaleString()} / คืน
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Dedicated Price Input Field - Only show when chargeable */}
+                          {isChargeable && (
+                            <div className="flex flex-wrap items-center gap-2 p-2 bg-cream-50/70 border border-cream-200/90 rounded-xl animate-in fade-in duration-150">
+                              <span className="text-xs font-semibold text-charcoal-700 whitespace-nowrap">
+                                ระบุราคาเตียงเสริม/ค่าบริการ:
+                              </span>
+                              <div className="relative w-28">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-charcoal-400 text-xs font-bold pointer-events-none">
+                                  ฿
+                                </span>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={item.price ?? ""}
+                                  onChange={(e) =>
+                                    handlePriceChange(index, e.target.value)
+                                  }
+                                  placeholder="เช่น 500"
+                                  className="w-full pl-6 pr-2 py-1 bg-white border border-cream-300 rounded-lg text-xs font-bold text-forest-900 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800"
+                                />
+                              </div>
+                              <span className="text-xs text-charcoal-600 font-medium">
+                                บาท / คืน
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+
                     <input
                       type="text"
                       value={item.detail}
@@ -457,25 +639,39 @@ export default function KidsPolicyEditor({
 
                     {/* Suggestion Chips */}
                     <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                      <span className="text-[10px] text-charcoal-400 flex items-center gap-1">
+                      <span className="text-[10px] font-semibold text-charcoal-400 flex items-center gap-1 mr-0.5">
                         <Sparkles size={11} className="text-forest-600" />
                         <span>ตัวเลือกด่วน:</span>
                       </span>
-                      {COMMON_SUGGESTIONS.map((sug) => {
-                        const isCurrent = item.detail === sug;
+                      {QUICK_PRESETS.map((preset) => {
+                        const isCurrent =
+                          item.detail === preset.value ||
+                          (preset.price !== null && item.price === preset.price);
+
+                        let badgeColor =
+                          "bg-white/80 hover:bg-forest-50/60 hover:text-forest-800 border-cream-200/80 text-charcoal-600";
+                        if (isCurrent) {
+                          if (preset.type === "free") {
+                            badgeColor =
+                              "bg-emerald-50/90 border-emerald-300 text-emerald-900 font-bold shadow-2xs";
+                          } else if (preset.type === "charge") {
+                            badgeColor =
+                              "bg-amber-50/90 border-amber-300 text-amber-900 font-bold shadow-2xs";
+                          } else {
+                            badgeColor =
+                              "bg-forest-50/90 border-forest-300 text-forest-900 font-bold shadow-2xs";
+                          }
+                        }
+
                         return (
                           <button
-                            key={sug}
+                            key={preset.label}
                             type="button"
-                            onClick={() => handleDetailChange(index, sug)}
-                            className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
-                              isCurrent
-                                ? "bg-forest-100/70 border-forest-300 text-forest-900 font-bold"
-                                : "bg-cream-100/60 hover:bg-forest-50 hover:text-forest-800 border-cream-200/80 text-charcoal-600"
-                            }`}
+                            onClick={() => handleApplyPreset(index, preset)}
+                            className={`text-[11px] px-2.5 py-0.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${badgeColor}`}
                           >
-                            {isCurrent && <Check size={10} />}
-                            <span>{sug}</span>
+                            {isCurrent && <Check size={11} className="stroke-[2.5]" />}
+                            <span>{preset.label}</span>
                           </button>
                         );
                       })}

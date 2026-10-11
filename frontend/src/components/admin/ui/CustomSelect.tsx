@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Check } from "lucide-react";
 
 export interface CustomSelectOption {
   value: string | number;
@@ -50,8 +50,11 @@ export function CustomSelect({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const defaultBtnClass =
-    "w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-cream-50/80 hover:bg-white border border-cream-300 hover:border-forest-300 rounded-xl text-xs font-semibold text-charcoal-700 transition-all focus:outline-none focus:ring-2 focus:ring-forest-500/20 shadow-xs";
+  const defaultBtnClass = `w-full flex items-center justify-between gap-2 px-3 py-2 bg-cream-50/60 border rounded-xl text-xs font-bold transition-all cursor-pointer ${
+    isOpen
+      ? "border-forest-800 ring-2 ring-forest-800/20 bg-white"
+      : "border-cream-200 hover:border-cream-300"
+  }`;
 
   return (
     <div className={`relative ${width} ${className}`} ref={dropdownRef}>
@@ -80,7 +83,7 @@ export function CustomSelect({
         <div
           className={`absolute ${
             align === "right" ? "right-0" : "left-0"
-          } top-full mt-1.5 w-full min-w-max bg-white border border-cream-200/90 rounded-2xl shadow-xl z-50 overflow-hidden py-1 max-h-56 overflow-y-auto animate-in fade-in duration-150 ${menuClassName}`}
+          } top-full mt-1.5 w-full min-w-max bg-white border border-cream-200 rounded-xl shadow-lg z-50 overflow-hidden py-1 max-h-48 overflow-y-auto animate-in fade-in duration-150 ${menuClassName}`}
         >
           {options.map((opt) => {
             const isSelected = String(opt.value) === String(value);
@@ -93,14 +96,14 @@ export function CustomSelect({
                   onChange(opt.value);
                   setIsOpen(false);
                 }}
-                className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors flex items-center justify-between gap-3 ${
+                className={`w-full text-left px-3 py-2 text-xs transition-colors cursor-pointer flex items-center justify-between gap-3 ${
                   isSelected
-                    ? "bg-forest-50 text-forest-900 font-bold"
-                    : "text-charcoal-600 hover:bg-cream-100 hover:text-charcoal-900"
+                    ? "bg-forest-50 text-forest-800 font-bold"
+                    : "text-charcoal-700 hover:bg-cream-50"
                 }`}
               >
                 <span>{opt.label}</span>
-                {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-forest-800 shrink-0" />}
+                {isSelected && <Check size={12} className="text-forest-800 shrink-0" />}
               </button>
             );
           })}
