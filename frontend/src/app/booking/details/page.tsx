@@ -171,6 +171,12 @@ function BookingDetailsContent() {
 
   const cartItems = cart?.items.filter(item => item.room_id !== null) ?? [];
 
+  // Capacity validation
+  const totalGuests = adults + chargeableKidsCount;
+  const totalCapacity = cartItems.reduce((sum, item) => sum + (item.capacity || 2), 0);
+  const isCapacityInsufficient = cartItems.length > 0 && totalGuests > totalCapacity;
+  const missingCapacity = Math.max(0, totalGuests - totalCapacity);
+
   useEffect(() => {
     if (user) {
       setFirstName(user.first_name || '');
@@ -262,6 +268,10 @@ function BookingDetailsContent() {
     }
     if (childAges.length !== childrenCount || childAges.some(age => !Number.isInteger(age) || age < 0 || age > policy.childMaxAge)) {
       toast.error(`กรุณาระบุอายุเด็กให้ครบ (${policy.childHint.replace('อายุ ', '')}) ${policy.adultHint}ให้เลือกเป็นผู้ใหญ่`);
+      return;
+    }
+    if (isCapacityInsufficient) {
+      toast.error(`จำนวนผู้เข้าพัก (${totalGuests} ท่าน) เกินความจุของห้องพักที่เลือก (${totalCapacity} ท่าน) กรุณากลับไปเลือกห้องพักเพิ่ม`);
       return;
     }
     for (const group of groups) {
@@ -648,14 +658,19 @@ function BookingDetailsContent() {
                       * ไม่รวมค่าบริการเตียงเสริม/เด็ก ชำระที่เคาน์เตอร์วันเช็คอิน
                     </p>
                   )}
+                  {isCapacityInsufficient && (
+                    <div className="bg-amber-100 text-amber-950 p-3 rounded-xl text-xs font-semibold mt-2">
+                      ⚠️ ความจุห้องไม่พอสำหรับ {totalGuests} ท่าน (ห้องที่เลือกรองรับได้ {totalCapacity} ท่าน) กรุณากลับไปเลือกห้องพักเพิ่มอีก {Math.ceil(missingCapacity / 2)} ห้อง
+                    </div>
+                  )}
                 </div>
                 
                 <button 
                   onClick={handleSubmit} 
-                  disabled={isSubmitting}
-                  className="w-full bg-white text-forest-900 rounded-xl py-4 font-bold text-sm hover:bg-forest-50 transition-colors shadow-lg active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2"
+                  disabled={isSubmitting || isCapacityInsufficient}
+                  className="w-full bg-white text-forest-900 rounded-xl py-4 font-bold text-sm hover:bg-forest-50 transition-colors shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {isSubmitting ? 'กำลังดำเนินการ...' : 'ดำเนินการชำระเงิน'} <ChevronRight size={16} />
+                  {isCapacityInsufficient ? `กรุณาเลือกห้องเพิ่ม (ขาดอีก ${missingCapacity} ท่าน)` : isSubmitting ? 'กำลังดำเนินการ...' : 'ดำเนินการชำระเงิน'} <ChevronRight size={16} />
                 </button>
               </div>
               

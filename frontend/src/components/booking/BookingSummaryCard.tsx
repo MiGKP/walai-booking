@@ -2,9 +2,10 @@
 
 import React, { useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Minus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Minus, Trash2 } from 'lucide-react';
 import { useRoomCart } from '@/lib/room-cart-store';
 import { useCartSync } from '@/hooks/useCartSync';
+import { useGuestAgePolicy } from '@/hooks/useInfantAgePolicy';
 import { RoomCartItem } from '@/lib/room-cart';
 import { formatThaiDate } from '@/lib/date';
 import { resolveCheckoutDetails } from '@/lib/booking-checkout';
@@ -14,6 +15,7 @@ export default function BookingSummaryCard() {
   const searchParams = useSearchParams();
   const cart = useRoomCart();
   const cardRef = useRef<HTMLDivElement>(null);
+  const policy = useGuestAgePolicy();
 
   const { checkIn, checkOut, adults, children, childAges } = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
 
@@ -28,6 +30,13 @@ export default function BookingSummaryCard() {
   // Filter out any generic items just in case (roomId === null), though the UI should only add specific rooms now.
   const cartItems = (cart?.items ?? []).filter(item => item.room_id !== null);
   const hasDateMismatch = !!(cart && cart.items.length > 0 && checkIn && checkOut && (cart.check_in !== checkIn || cart.check_out !== checkOut));
+
+  // Capacity validation
+  const countableChildren = childAges.filter((age) => age !== null && age >= policy.infantAge).length;
+  const totalGuests = adults + countableChildren;
+  const totalCapacity = cartItems.reduce((sum, item) => sum + (item.capacity || 2), 0);
+  const isCapacityInsufficient = cartItems.length > 0 && totalGuests > totalCapacity;
+  const missingCapacity = Math.max(0, totalGuests - totalCapacity);
 
   const groupedItems = cartItems.reduce((acc, item) => {
     if (!acc[item.room_type_id]) {
@@ -123,12 +132,23 @@ export default function BookingSummaryCard() {
             คุณเลือกวันในช่องค้นหา ({formatThaiDate(checkIn)} - {formatThaiDate(checkOut)}) ไม่ตรงกับรายการในตะกร้า ({formatThaiDate(cart.check_in)} - {formatThaiDate(cart.check_out)})
           </div>
         )}
+
+        {isCapacityInsufficient && !hasDateMismatch && (
+          <div className="mb-3 rounded-xl bg-amber-50 p-3 text-[11px] text-amber-900 border border-amber-200 font-medium leading-relaxed">
+            <div className="flex items-center gap-1.5 font-bold text-amber-950 mb-1">
+              <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+              <span>ห้องพักไม่เพียงพอสำหรับ {totalGuests} ท่าน</span>
+            </div>
+            ห้องที่เลือก ({cartItems.length} ห้อง) รองรับได้สูงสุด {totalCapacity} ท่าน กรุณาเลือกห้องพักเพิ่มอีกอย่างน้อย {Math.ceil(missingCapacity / 2)} ห้อง เพื่อดำเนินการจอง
+          </div>
+        )}
+
         <button 
           onClick={handleConfirmBooking} 
-          disabled={hasDateMismatch}
-          className="relative w-full overflow-hidden rounded-xl bg-forest-900 py-4 text-sm font-bold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800 hover:shadow-xl hover:shadow-forest-900/30 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"
+          disabled={hasDateMismatch || isCapacityInsufficient}
+          className="relative w-full overflow-hidden rounded-xl bg-forest-900 py-4 text-sm font-bold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800 hover:shadow-xl hover:shadow-forest-900/30 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none cursor-pointer disabled:cursor-not-allowed"
         >
-          จองรายการนี้
+          {isCapacityInsufficient ? `กรุณาเลือกห้องเพิ่ม (ขาดอีก ${missingCapacity} ท่าน)` : 'จองรายการนี้'}
         </button>
       </div>
     </div>
@@ -140,18 +160,27 @@ export default function BookingSummaryCard() {
           <span className="font-bold">วันที่จองไม่ตรงกัน!</span> เปลี่ยนให้ตรงกับตะกร้า ({formatThaiDate(cart.check_in)}) ก่อน
         </div>
       )}
+      {isCapacityInsufficient && !hasDateMismatch && (
+        <div className="bg-amber-50 px-5 py-2 text-[10px] text-amber-900 border-b border-amber-200 font-medium flex items-center justify-between">
+          <span className="flex items-center gap-1">
+            <AlertTriangle size={12} className="text-amber-600 shrink-0" />
+            <span>จุได้ {totalCapacity}/{totalGuests} ท่าน (ไม่พอ)</span>
+          </span>
+          <span className="font-bold text-amber-950">เลือกเพิ่มอีก {Math.ceil(missingCapacity / 2)} ห้อง</span>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">ห้องพักที่เลือก</p>
-          <p className="truncate text-lg font-extrabold tracking-tight text-forest-900">{cartItems.length} ห้อง</p>
+          <p className="truncate text-lg font-extrabold tracking-tight text-forest-900">{cartItems.length} ห้อง ({totalCapacity} ท่าน)</p>
         </div>
         <button
           type="button"
           onClick={handleConfirmBooking}
-          disabled={hasDateMismatch}
+          disabled={hasDateMismatch || isCapacityInsufficient}
           className="shrink-0 rounded-xl bg-forest-900 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
         >
-          จองรายการนี้
+          {isCapacityInsufficient ? `เลือกห้องเพิ่ม` : 'จองรายการนี้'}
         </button>
       </div>
     </div>

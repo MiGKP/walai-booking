@@ -237,6 +237,9 @@ export default function RoomDetailPage(): React.ReactElement {
 
 
   const cart = useRoomCart();
+  const adultsCount = parseInt(searchParams.get('adults') || '1', 10);
+  const countableChildren = childAges.filter((age) => age !== null && age >= infantAge).length;
+  const totalGuests = adultsCount + countableChildren;
   const [openPanel, setOpenPanel] = useState<"guests" | "calendar" | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
@@ -848,6 +851,22 @@ export default function RoomDetailPage(): React.ReactElement {
                   </span>
                 }
               />
+
+              {/* Capacity guidance note (Agoda style) */}
+              {room && totalGuests > Number(room.capacity) && (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-200/90 bg-amber-50/80 p-3 text-xs text-amber-900">
+                  <div className="flex items-center gap-2">
+                    <Users size={16} className="text-amber-700 shrink-0" />
+                    <span>
+                      ผู้เข้าพัก <strong>{totalGuests} ท่าน</strong> (ห้องนี้รองรับ <strong>{room.capacity} ท่าน/ห้อง</strong>) — ต้องเลือกอย่างน้อย <strong>{Math.ceil(totalGuests / Number(room.capacity))} ห้อง</strong>
+                    </span>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-amber-200/80 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
+                    เลือกแล้ว {selectedRoomIds.length}/{Math.ceil(totalGuests / Number(room.capacity))} ห้อง
+                  </span>
+                </div>
+              )}
+
               <div className="mt-4">
                 <RaftLayoutMap
                   rooms={allResortRaftRooms}
