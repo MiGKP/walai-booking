@@ -20,7 +20,8 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import api, { getNetworkErrorMessage } from "@/lib/api";
 import { consumePostLoginRedirect, isSafeInternalPath } from "@/lib/auth-redirect";
 import toast from "react-hot-toast";
-import LoginScene3D from "@/components/auth/Scene3D";
+import Image from "next/image";
+import AuthHeroVisual from "@/components/auth/AuthHeroVisual";
 
 interface LoginResponse {
   data: {
@@ -131,45 +132,34 @@ export default function LoginPage(): React.ReactElement | null {
         <GoogleAuthErrorToast />
       </Suspense>
       <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-[1500px] overflow-hidden rounded-[28px] border border-stone-200 bg-cream-100 shadow-[0_28px_90px_rgba(18,60,48,0.14)] sm:min-h-[calc(100vh-2.5rem)] lg:min-h-[calc(100vh-3rem)] lg:grid-cols-[1.12fr_0.88fr] lg:rounded-[36px]">
-        <section className="relative min-h-[250px] overflow-hidden bg-[#d9ece7] sm:min-h-[300px] lg:min-h-0">
-          <LoginScene3D />
-
-          <Link
-            href="/"
-            className="absolute left-5 top-5 z-20 inline-flex items-center gap-2 rounded-full border border-white/50 bg-cream-100/85 px-4 py-2 text-sm font-semibold text-forest-800 shadow-sm backdrop-blur-md transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-bamboo-400 sm:left-7 sm:top-7"
-          >
-            <ArrowLeft size={16} aria-hidden="true" />
-            กลับหน้าหลัก
-          </Link>
-
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-forest-900/80 via-forest-900/26 to-transparent px-6 pb-6 pt-20 text-cream-100 sm:px-9 sm:pb-8 lg:px-12 lg:pb-12 lg:pt-32">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-bamboo-200">
-              <span className="h-px w-8 bg-bamboo-300" />
-              Walai floating stay
-            </div>
-            <h1 className="max-w-xl text-3xl font-semibold leading-tight sm:text-4xl lg:text-5xl">
-              กลับมาพักใจ
-              <br />
-              กลางสายน้ำ
-            </h1>
-            <p className="mt-3 max-w-md text-sm leading-6 text-cream-100/80 sm:text-base">
-              จัดการการจองที่พักลอยน้ำและเรือของคุณ
-              ในบรรยากาศธรรมชาติของวลัยรุกขเวช
-            </p>
-          </div>
-        </section>
+        <AuthHeroVisual mode="login" />
 
         <section className="flex items-center justify-center px-6 py-10 sm:px-10 lg:px-14 lg:py-12">
           <div className="w-full max-w-[440px] animate-fade-in">
             <div className="mb-8">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-lagoon-700">
-                Login
-              </p>
+              <div className="mb-5 flex items-center gap-3">
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-forest-200/60 bg-white shadow-sm ring-2 ring-forest-800/10">
+                  <Image
+                    src="/images/logocolor.jpg"
+                    alt="สวนวลัยรุกขเวช"
+                    fill
+                    className="object-contain p-1"
+                  />
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold uppercase tracking-[0.2em] text-bamboo-600">
+                    Walai Booking
+                  </span>
+                  <span className="block text-xs font-medium text-stone-500">
+                    สวนวลัยรุกขเวช มหาสารคาม
+                  </span>
+                </div>
+              </div>
               <h2 className="text-3xl font-semibold text-charcoal sm:text-4xl">
                 ยินดีต้อนรับกลับ
               </h2>
               <p className="mt-2 text-sm leading-6 text-stone-500">
-                เข้าสู่ระบบเพื่อดูและจัดการการจองของคุณ
+                เข้าสู่ระบบเพื่อดูและจัดการการจองที่พักและเรือของคุณ
               </p>
             </div>
 

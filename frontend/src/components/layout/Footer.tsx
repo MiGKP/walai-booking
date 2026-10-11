@@ -67,7 +67,7 @@ export default function Footer() {
             <Link href="/" className="flex items-center gap-2.5 mb-4 group">
               <div className="w-8 h-8 rounded-full bg-cream-100 p-0.5 flex items-center justify-center overflow-hidden">
                 <Image
-                  src="/images/logo_walai.png"
+                  src="/images/logocolor.jpg"
                   alt={`โลโก้ ${info.name || "วลัย"}`}
                   width={28}
                   height={28}
