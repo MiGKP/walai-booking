@@ -202,6 +202,12 @@ export function applyPromotionList(
     if (row.usage_limit != null && row.usage_count >= row.usage_limit) {
       throw new PromoApplyError('โปรโมชั่นนี้ถูกใช้ครบจำนวนแล้ว');
     }
+    if (!row.is_active) {
+      throw new PromoApplyError('โปรโมชั่นนี้ปิดใช้งานแล้ว');
+    }
+    if (row.start_date != null && dateColumnDayKey(row.start_date) > bangkokDayKey(ctx.now)) {
+      throw new PromoApplyError('โปรโมชั่นยังไม่เริ่มใช้งาน');
+    }
     if (!isPromoInWindow(row, ctx.now)) {
       throw new PromoApplyError('โปรโมชั่นหมดอายุแล้ว');
     }

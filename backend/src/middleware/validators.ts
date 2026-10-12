@@ -285,7 +285,7 @@ export const createPromotionValidator = [
     .withMessage('ประเภทส่วนลดต้องเป็น percent หรือ fixed'),
   body('discount_value')
     .isFloat({ min: 0 })
-    .withMessage('มูลค่าส่วนลดต้องเป็นตัวเลขที่มากกว่า 0'),
+    .withMessage('มูลค่าส่วนลดต้องเป็นตัวเลขที่ไม่ติดลบ'),
   body('min_nights').optional({ nullable: true }).isInt({ min: 1 }).withMessage('จำนวนคืนขั้นต่ำต้องเป็นจำนวนเต็มบวก'),
   body('min_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ราคาขั้นต่ำต้องเป็นตัวเลขที่ไม่ติดลบ'),
   body('max_discount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ส่วนลดสูงสุดต้องเป็นตัวเลขที่ไม่ติดลบ'),
@@ -309,7 +309,7 @@ export const updatePromotionValidator = [
   body('name').optional().trim().notEmpty().withMessage('ชื่อต้องไม่ว่าง'),
   body('description').optional({ nullable: true, checkFalsy: true }).trim(),
   body('discount_type').optional().isIn(['percent', 'fixed']).withMessage('ประเภทส่วนลดต้องเป็น percent หรือ fixed'),
-  body('discount_value').optional().isFloat({ min: 0 }).withMessage('มูลค่าส่วนลดต้องเป็นตัวเลขที่มากกว่า 0'),
+  body('discount_value').optional().isFloat({ min: 0 }).withMessage('มูลค่าส่วนลดต้องเป็นตัวเลขที่ไม่ติดลบ'),
   body('min_nights').optional({ nullable: true }).isInt({ min: 1 }).withMessage('จำนวนคืนขั้นต่ำต้องเป็นจำนวนเต็มบวก'),
   body('min_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ราคาขั้นต่ำต้องเป็นตัวเลขที่ไม่ติดลบ'),
   body('max_discount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ส่วนลดสูงสุดต้องเป็นตัวเลขที่ไม่ติดลบ'),
