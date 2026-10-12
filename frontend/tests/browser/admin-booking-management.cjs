@@ -72,6 +72,12 @@ const baseURL = process.env.TEST_FRONTEND_URL || 'http://localhost:3010';
     assert(notificationRequests >= 2, 'Successful approval must immediately refresh badges');
     for (const service of ['rooms', 'boats']) {
       await page.goto(`${baseURL}/admin/${service}?page=3`, { waitUntil: 'domcontentloaded' });
+      if (service === 'rooms') {
+        await page.getByText('ตัวกรองเพิ่มเติม', { exact: true }).click();
+        assert.equal(await page.locator('thead th').count(), 8);
+        await firstRow.getByText('TEST1', { exact: true }).waitFor();
+        await firstRow.getByText('TEST2', { exact: true }).waitFor();
+      }
       await page.getByLabel('สถานะการจอง', { exact: true }).selectOption('cancelled');
       await page.waitForURL('**filter=cancelled**');
       await page.waitForFunction(() => new URL(location.href).searchParams.get('page') === '1');
@@ -105,6 +111,7 @@ const baseURL = process.env.TEST_FRONTEND_URL || 'http://localhost:3010';
     for (const [staffRole, route] of [['room_staff', '/staff/rooms/dashboard'], ['boat_staff', '/staff/boats/dashboard']]) {
       role = staffRole;
       await page.goto(`${baseURL}${route}`, { waitUntil: 'domcontentloaded' });
+      if (staffRole === 'room_staff') await page.getByText('ตัวกรองเพิ่มเติม', { exact: true }).click();
       await page.getByLabel('สถานะการจอง', { exact: true }).waitFor();
       await page.waitForFunction(() => document.querySelector('aside')?.getBoundingClientRect().width === 80);
       await page.screenshot({ path: `${process.env.TEST_ARTIFACT_DIR || require('node:os').tmpdir()}/admin-${staffRole}-mobile.png`, fullPage: true });
