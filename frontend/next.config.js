@@ -91,6 +91,8 @@ const nextConfig = {
       // /dashboard/promotions และ /dashboard/coupons ถูกรวมเข้าไปในแท็บโปรโมชั่นของฉันใน /dashboard แล้ว
       { source: '/dashboard/promotions', destination: '/dashboard?tab=coupons', permanent: true },
       { source: '/dashboard/coupons', destination: '/dashboard?tab=coupons', permanent: true },
+      // /reviews ย้ายมารวมในแท็บรีวิวของฉันใน /dashboard
+      { source: '/reviews', destination: '/dashboard?tab=reviews', permanent: true },
     ];
   },
   async headers() {
