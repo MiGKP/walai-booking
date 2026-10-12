@@ -54,7 +54,7 @@ export function PromoVoucher({
   const [flipped, setFlipped] = useState(false);
 
   const scope = parseAppliesTo(appliesTo);
-  const scopeLabel = scope === 'both' ? 'ห้องพัก + เรือ' : appliesToLabel(scope);
+  const scopeLabel = scope === 'kayak' ? 'โค้ดส่วนลดเรือยกเลิกแล้ว' : 'ห้องพัก';
   const discountText = formatPromoDiscount(discountType, discountValue);
   const windowText = formatPromoWindow(startDate, endDate);
 
@@ -220,7 +220,7 @@ interface PromoBookingLinksProps {
 export function PromoBookingLinks({ code, appliesTo, roomLabel, kayakLabel }: PromoBookingLinksProps): React.ReactElement {
   const scope = parseAppliesTo(appliesTo);
   const showRoom = scope === 'room' || scope === 'both';
-  const showKayak = scope === 'kayak'; // strict: only if explicitly kayak
+  const showKayak = false; // Kayak discounts are retired; room boat benefits remain available.
   return (
     <>
       {showRoom ? (
@@ -263,6 +263,7 @@ export function PromoCollectAction({
   onCollect,
   onLogin,
 }: CollectButtonProps): React.ReactElement {
+  if (parseAppliesTo(appliesTo) === 'kayak') return <span className="text-xs text-stone-500">โค้ดส่วนลดเรือยกเลิกแล้ว</span>;
   if (!isCollectible) {
     return (
       <PromoBookingLinks code={code} appliesTo={appliesTo} roomLabel="จองห้องพัก" kayakLabel="จองเรือ" />

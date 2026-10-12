@@ -20,6 +20,7 @@ function load(relative, states = [], overrides = {}) {
     '@/lib/api': { get: async () => ({ data: { data: [] } }), getApiErrorMessage: () => 'Mock error' },
     '@/hooks/useAuthGuard': { useAuthGuard: () => ({ ready: true, user: { role: 'customer' } }) },
     '@/hooks/useAuth': { useAuth: () => ({ user: null }) },
+    '@/hooks/useInfantAgePolicy': { useGuestAgePolicy: () => ({ infantAge: 6, childMaxAge: 11, childChargeMinAge: null, childChargeMaxAge: null, childChargePricePerNight: null, kidsPolicyRaw: null }) },
     '@/hooks/useConfirmStore': { useConfirmStore: { getState: () => ({}) } },
     '@/lib/toastConfirm': { toastConfirm() {} },
     ...overrides,
@@ -247,7 +248,7 @@ test('successful slip handler immediately closes the priced addon reservation wi
   const handler = source.slice(start, source.indexOf('\n  // ยกเลิกการจอง', start));
   const js = ts.transpileModule(`${handler}\nreturn handleUploadSlip;`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
   let status;
-  const click = new Function('slip', 'payment', 'setUploading', 'specialRequest', 'api', 'setDone', 'setBookingStatus', 'toast', 'getApiErrorMessage', js)(new Blob(['slip']), { id: 1 }, () => {}, '', { post: async () => ({ data: {} }) }, () => {}, value => { status = value; }, { error: message => assert.fail(message) }, () => 'error');
+  const click = new Function('slip', 'payment', 'setUploading', 'specialRequest', 'api', 'setDone', 'setBookingStatus', 'toast', 'getApiErrorMessage', 'setJustUploaded', js)(new Blob(['slip']), { id: 1 }, () => {}, '', { post: async () => ({ data: {} }) }, () => {}, value => { status = value; }, { success() {}, error: message => assert.fail(message) }, () => 'error', () => {});
   await click();
   assert.equal(status, 'paid');
 });
@@ -319,10 +320,10 @@ test('slip refresh replaces pending bookable counts and refresh failure still co
     let detail = { boat_ticket_summary: { ...summary, bookable_tickets: 2 } };
     let done = false, status;
     const requests = [];
-    const click = new Function('slip', 'payment', 'setUploading', 'specialRequest', 'api', 'setDone', 'setBookingStatus', 'setBookingDetail', 'toast', 'getApiErrorMessage', 'console', js)(new Blob(['slip']), { id: 1, booking_type: 'room', booking_id: 9 }, () => {}, '', {
+    const click = new Function('slip', 'payment', 'setUploading', 'specialRequest', 'api', 'setDone', 'setBookingStatus', 'setBookingDetail', 'toast', 'getApiErrorMessage', 'console', 'setJustUploaded', js)(new Blob(['slip']), { id: 1, booking_type: 'room', booking_id: 9 }, () => {}, '', {
       post: async url => { requests.push(url); },
       get: async url => { requests.push(url); if (failRefresh) throw new Error('refresh unavailable'); return { data: { data: { boat_ticket_summary: { ...summary, bookable_tickets: 0 } } } }; },
-    }, value => { done = value; }, value => { status = value; }, value => { detail = typeof value === 'function' ? value(detail) : value; }, { error: message => assert.fail(message) }, () => 'error', { error() {} });
+    }, value => { done = value; }, value => { status = value; }, value => { detail = typeof value === 'function' ? value(detail) : value; }, { success() {}, error: message => assert.fail(message) }, () => 'error', { error() {} }, () => {});
     await click();
     assert.equal(status, 'paid');
     assert.equal(done, true);

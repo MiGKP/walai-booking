@@ -79,10 +79,7 @@ export function formatPromoWindow(start: string | null, end: string | null): str
   return `ถึง ${endStr}`;
 }
 
-export function bookingPromoHref(scope: BookingPromoScope, code: string): string {
-  if (scope === 'kayak') {
-    return `/kayaks?promo_code=${encodeURIComponent(code)}`;
-  }
+export function bookingPromoHref(_scope: BookingPromoScope, code: string): string {
   return `/rooms?promo_code=${encodeURIComponent(code)}`;
 }
 

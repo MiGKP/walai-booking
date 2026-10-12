@@ -59,7 +59,7 @@ function RoomAddonContent(): React.ReactElement {
   return (
     <div className="min-h-screen bg-cream-100 px-4 pb-16 pt-24">
       <div className="mx-auto max-w-3xl space-y-5">
-        <Link href="/dashboard" className="text-sm font-semibold text-forest-800">กลับไปการจองของฉัน</Link>
+        <Link href="/dashboard?tab=bookings" className="text-sm font-semibold text-forest-800">กลับไปการจองของฉัน</Link>
         <h1 className="font-display text-2xl text-forest-900">สิทธิ์เรือและรอบที่จองจากห้องพัก #{bookingId || '—'}</h1>
         {!ready || loading ? <p className="text-sm text-charcoal-500">กำลังโหลดสิทธิ์...</p> : error ? <p className="text-sm text-red-600">{error}</p> : booking ? (
           <>

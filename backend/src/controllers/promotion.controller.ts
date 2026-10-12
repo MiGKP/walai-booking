@@ -75,6 +75,10 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
   let ids: number[] = [];
   try {
     const body = req.body as Record<string, unknown>;
+    if (body.scope === 'kayak') {
+      res.status(400).json({ success: false, message: 'กิจกรรมพายเรือไม่สามารถใช้โค้ดโปรโมชั่นได้' });
+      return;
+    }
     ids = parsePromotionIds(body);
     const now = new Date();
 

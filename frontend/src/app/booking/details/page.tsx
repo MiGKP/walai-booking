@@ -13,6 +13,7 @@ import { formatThaiDate, nightsBetween } from '@/lib/date';
 import { chooseRoomPromotions, eligibleRoomPromotion, resolveCheckoutDetails, roomPromotionDiscount, roomPromotionReasons, roomPromotionLabel } from '@/lib/booking-checkout';
 import type { CheckoutPromotion } from '@/lib/booking-checkout';
 import type { RoomCartItem } from '@/lib/room-cart';
+import { useGuestAgePolicy } from '@/hooks/useInfantAgePolicy';
 
 type Promotion = CheckoutPromotion;
 
@@ -160,12 +161,24 @@ function BookingDetailsContent() {
   const { notice: promoNotice, showNotice: showPromoNotice } = usePromoNotice();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const policy = useGuestAgePolicy();
 
   const { checkIn, checkOut, adults, children: childrenCount, childAges } = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
   const childAgesStr = childAges.join(',');
   const nights = nightsBetween(checkIn, checkOut);
+  const capacityKidsCount = childAges.filter(a => Number.isInteger(a) && a >= policy.infantAge).length;
+  const chargeableKidsCount = policy.childChargeMinAge === null ? 0 : childAges.filter(a =>
+    Number.isInteger(a) && a >= policy.childChargeMinAge! && a <= policy.childChargeMaxAge!
+  ).length;
+  const hasOnsiteCharges = extraBed || chargeableKidsCount > 0;
 
   const cartItems = cart?.items.filter(item => item.room_id !== null) ?? [];
+
+  // Capacity validation
+  const totalGuests = adults + capacityKidsCount;
+  const totalCapacity = cartItems.reduce((sum, item) => sum + Number(item.capacity || 0), 0);
+  const isCapacityInsufficient = cartItems.length > 0 && totalGuests > totalCapacity;
+  const missingCapacity = Math.max(0, totalGuests - totalCapacity);
 
   useEffect(() => {
     if (user) {
@@ -256,8 +269,12 @@ function BookingDetailsContent() {
       toast.error('กรุณาเลือกวันที่เข้าพักและออกให้ตรงกับรายการในตะกร้า');
       return;
     }
-    if (childAges.length !== childrenCount || childAges.some(age => !Number.isInteger(age) || age < 0 || age > 11)) {
-      toast.error('กรุณาระบุอายุเด็กให้ครบ (0–11 ปี) อายุ 12 ปีขึ้นไปให้เลือกเป็นผู้ใหญ่');
+    if (childAges.length !== childrenCount || childAges.some(age => !Number.isInteger(age) || age < 0 || age > policy.childMaxAge)) {
+      toast.error(`กรุณาระบุอายุเด็กให้ครบ (${policy.childHint.replace('อายุ ', '')}) ${policy.adultHint}ให้เลือกเป็นผู้ใหญ่`);
+      return;
+    }
+    if (isCapacityInsufficient) {
+      toast.error(`จำนวนผู้เข้าพัก (${totalGuests} ท่าน) เกินความจุของห้องพักที่เลือก (${totalCapacity} ท่าน) กรุณากลับไปเลือกห้องพักเพิ่ม`);
       return;
     }
     for (const group of groups) {
@@ -277,7 +294,15 @@ function BookingDetailsContent() {
     
     // Construct special request string
     const requests = [];
-    if (extraBed) requests.push("ขอเตียงเสริม");
+    if (extraBed) {
+      requests.push("ขอเตียงเสริม (ชำระหน้าเคาน์เตอร์)");
+    }
+    if (chargeableKidsCount > 0) {
+      const chargeText = policy.childChargePricePerNight
+        ? `เด็ก ${policy.infantAge}-${policy.childMaxAge} ปี ${chargeableKidsCount} ท่าน (เตียงเสริม ฿${policy.childChargePricePerNight}/คืน ชำระหน้าเคาน์เตอร์)`
+        : `เด็ก ${policy.infantAge}-${policy.childMaxAge} ปี ${chargeableKidsCount} ท่าน (${policy.childChargePolicyDetail} ชำระหน้าเคาน์เตอร์)`;
+      requests.push(chargeText);
+    }
     if (lowerFloor) requests.push("ขอห้องพักชั้นล่าง");
     if (withKids) requests.push("เดินทางพร้อมเด็กเล็ก / ผู้สูงอายุ");
     if (otherRequest.trim()) requests.push(otherRequest.trim());
@@ -392,9 +417,15 @@ function BookingDetailsContent() {
               <p className="text-sm text-stone-500 mb-5">โปรดทราบว่าคำขอพิเศษขึ้นอยู่กับความพร้อมให้บริการ และอาจมีค่าใช้จ่ายเพิ่มเติม</p>
               
               <div className="space-y-3 mb-6">
-                <label className="flex items-center gap-3 p-3 border border-stone-200 rounded-xl cursor-pointer hover:bg-stone-50 transition-colors">
-                  <input type="checkbox" checked={extraBed} onChange={e => setExtraBed(e.target.checked)} className="w-5 h-5 text-forest-700 rounded border-stone-300 focus:ring-forest-500" />
-                  <span className="text-sm font-medium text-stone-800">ขอเตียงเสริม (อาจมีค่าใช้จ่ายเพิ่มเติม แจ้งชำระที่หน้าเคาน์เตอร์)</span>
+                <label className={`flex items-start gap-3 p-3.5 border rounded-2xl cursor-pointer transition-all ${extraBed ? 'border-forest-700 bg-forest-50/40 shadow-xs' : 'border-stone-200 hover:bg-stone-50'}`}>
+                  <input type="checkbox" checked={extraBed} onChange={e => setExtraBed(e.target.checked)} className="mt-0.5 w-5 h-5 text-forest-700 rounded border-stone-300 focus:ring-forest-500 cursor-pointer" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-bold text-stone-900">ขอเตียงเสริม</span>
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">ชำระหน้าเคาน์เตอร์</span>
+                    </div>
+                    <p className="text-xs text-stone-500 mt-0.5">เหมาะสำหรับผู้เข้าพักเพิ่มเติมหรือผู้ที่ต้องการเตียงแยก (ชำระค่าบริการเพิ่มเติมตอนเช็คอิน)</p>
+                  </div>
                 </label>
                 <label className="flex items-center gap-3 p-3 border border-stone-200 rounded-xl cursor-pointer hover:bg-stone-50 transition-colors">
                   <input type="checkbox" checked={lowerFloor} onChange={e => setLowerFloor(e.target.checked)} className="w-5 h-5 text-forest-700 rounded border-stone-300 focus:ring-forest-500" />
@@ -550,6 +581,59 @@ function BookingDetailsContent() {
                     </div>
                   )})}
                 </div>
+
+                {policy.kidsPolicyRaw && <p className="mt-4 whitespace-pre-line text-xs text-charcoal-600">{policy.kidsPolicyRaw}</p>}
+                {/* On-Site Extra Charges Notice Box (ชำระหน้าเคาน์เตอร์) */}
+                {hasOnsiteCharges && (
+                  <div className="mt-5 rounded-2xl border border-amber-200/90 bg-amber-50/70 p-4 text-xs text-amber-950 space-y-2.5">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-900 text-sm">
+                      <AlertCircle size={16} className="text-amber-750 shrink-0" />
+                      <span>ชำระเพิ่มเติม ณ วันเข้าพัก (หน้าเคาน์เตอร์)</span>
+                    </div>
+                    <p className="text-amber-800 leading-relaxed text-[11px]">
+                      ยอดโอนเงินออนไลน์ด้านล่างเป็นเฉพาะค่าห้องพัก สำหรับค่าบริการด้านล่างนี้จะชำระที่เคาน์เตอร์รีสอร์ตเมื่อเช็คอิน
+                    </p>
+                    <div className="space-y-2 pt-2 border-t border-amber-200/70 font-medium">
+                      {chargeableKidsCount > 0 && (
+                        <div className="flex justify-between items-start gap-2">
+                          <div>
+                            <span className="font-bold text-amber-950">
+                              เด็กอายุ {policy.infantAge}–{policy.childMaxAge} ปี ({chargeableKidsCount} ท่าน)
+                            </span>
+                            <p className="text-[11px] text-amber-800">
+                              {policy.childChargePolicyDetail}
+                            </p>
+                          </div>
+                          {policy.childChargePricePerNight ? (
+                            <div className="text-right whitespace-nowrap">
+                              <span className="font-bold text-amber-950">
+                                ฿{(policy.childChargePricePerNight * chargeableKidsCount * nights).toLocaleString()}
+                              </span>
+                              <span className="text-[10px] block font-normal text-amber-700">
+                                ({nights} คืน)
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-md whitespace-nowrap">
+                              ชำระวันเช็คอิน
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {extraBed && (
+                        <div className="flex justify-between items-start gap-2">
+                          <div>
+                            <span className="font-bold text-amber-950">ขอเตียงเสริม</span>
+                            <p className="text-[11px] text-amber-800">ชำระค่าบริการเพิ่มเติมตอนเช็คอิน</p>
+                          </div>
+                          <span className="text-[11px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-md whitespace-nowrap">
+                            ชำระวันเช็คอิน
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Footer Total */}
@@ -566,17 +650,30 @@ function BookingDetailsContent() {
                     </div>
                   )}
                   <div className="border-t border-forest-700/50 my-2 pt-2 flex justify-between items-end">
-                    <span className="font-bold">ยอดชำระสุทธิ</span>
+                    <div>
+                      <span className="font-bold block">ยอดโอนชำระออนไลน์</span>
+                      <span className="text-[11px] text-forest-300 font-normal">เฉพาะค่าห้องพัก</span>
+                    </div>
                     <span className="text-2xl font-extrabold tracking-tight">฿{netTotal.toLocaleString()}</span>
                   </div>
+                  {hasOnsiteCharges && (
+                    <p className="text-[11px] text-amber-300/90 pt-1 font-medium">
+                      * ไม่รวมค่าบริการเตียงเสริม/เด็ก ชำระที่เคาน์เตอร์วันเช็คอิน
+                    </p>
+                  )}
+                  {isCapacityInsufficient && (
+                    <div className="bg-amber-100 text-amber-950 p-3 rounded-xl text-xs font-semibold mt-2">
+                      ⚠️ ความจุห้องไม่พอสำหรับ {totalGuests} ท่าน (ห้องที่เลือกรองรับได้ {totalCapacity} ท่าน) กรุณากลับไปเลือกห้องพักเพิ่มให้รองรับอีก {missingCapacity} ท่าน
+                    </div>
+                  )}
                 </div>
                 
                 <button 
                   onClick={handleSubmit} 
-                  disabled={isSubmitting}
-                  className="w-full bg-white text-forest-900 rounded-xl py-4 font-bold text-sm hover:bg-forest-50 transition-colors shadow-lg active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2"
+                  disabled={isSubmitting || isCapacityInsufficient}
+                  className="w-full bg-white text-forest-900 rounded-xl py-4 font-bold text-sm hover:bg-forest-50 transition-colors shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {isSubmitting ? 'กำลังดำเนินการ...' : 'ดำเนินการชำระเงิน'} <ChevronRight size={16} />
+                  {isCapacityInsufficient ? `กรุณาเลือกห้องเพิ่ม (ขาดอีก ${missingCapacity} ท่าน)` : isSubmitting ? 'กำลังดำเนินการ...' : 'ดำเนินการชำระเงิน'} <ChevronRight size={16} />
                 </button>
               </div>
               

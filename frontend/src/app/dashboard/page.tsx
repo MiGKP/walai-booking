@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, Suspense } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { User, Mail, Phone, Save, Lock, MessageCircle, CalendarDays, Camera, Eye, EyeOff, Star, Ticket, Trash2, AlertTriangle } from "lucide-react";
+import { User, Mail, Phone, Save, Lock, MessageCircle, CalendarDays, Camera, Eye, EyeOff, Star, Ticket, Trash2, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { SiFacebook as Facebook } from '@icons-pack/react-simple-icons';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from "@/hooks/useAuth";
@@ -70,8 +70,16 @@ function PasswordField({
   );
 }
 
-const DASHBOARD_TABS = ["bookings", "profile", "security", "reviews", "coupons"] as const;
-type DashboardTab = (typeof DASHBOARD_TABS)[number];
+const DASHBOARD_TABS_CONFIG = [
+  { id: "bookings", label: "การจองของฉัน", shortLabel: "การจอง", icon: CalendarDays },
+  { id: "profile", label: "ข้อมูลส่วนตัว", shortLabel: "ข้อมูลส่วนตัว", icon: User },
+  { id: "security", label: "รหัสผ่านและความปลอดภัย", shortLabel: "ความปลอดภัย", icon: Lock },
+  { id: "reviews", label: "รีวิวของฉัน", shortLabel: "รีวิว", icon: Star },
+  { id: "coupons", label: "โปรโมชั่นของฉัน", shortLabel: "โปรโมชั่น", icon: Ticket },
+] as const;
+
+type DashboardTab = (typeof DASHBOARD_TABS_CONFIG)[number]["id"];
+const DASHBOARD_TAB_IDS = DASHBOARD_TABS_CONFIG.map((t) => t.id) as readonly DashboardTab[];
 
 // หน้าโปรไฟล์ของผู้ใช้ ใช้สำหรับแก้ไขข้อมูลส่วนตัว และจัดการรหัสผ่านตามประเภทการสมัครของ member
 function DashboardContent() {
@@ -99,6 +107,11 @@ function DashboardContent() {
   const [changingPw, setChangingPw] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("bookings");
 
+  // State สำหรับการเลื่อนแถบแท็บบนมือถือ
+  const navRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
   // State สำหรับ Modal ขอลบบัญชี
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -109,13 +122,18 @@ function DashboardContent() {
     if (tabParam === "coupons" || tabParam === "promotions") {
       setActiveTab("coupons");
       localStorage.setItem("walai_dashboard_tab", "coupons");
-    } else if (tabParam && (DASHBOARD_TABS as readonly string[]).includes(tabParam)) {
+    } else if (tabParam === "bookings") {
+      setActiveTab("bookings");
+      localStorage.setItem("walai_dashboard_tab", "bookings");
+    } else if (tabParam && (DASHBOARD_TAB_IDS as readonly string[]).includes(tabParam)) {
       setActiveTab(tabParam as DashboardTab);
       localStorage.setItem("walai_dashboard_tab", tabParam);
     } else {
       const saved = localStorage.getItem("walai_dashboard_tab");
-      if (saved && (DASHBOARD_TABS as readonly string[]).includes(saved)) {
+      if (saved && (DASHBOARD_TAB_IDS as readonly string[]).includes(saved)) {
         setActiveTab(saved as DashboardTab);
+      } else {
+        setActiveTab("bookings");
       }
     }
   }, [tabParam]);
@@ -123,6 +141,44 @@ function DashboardContent() {
   const changeTab = (tab: DashboardTab) => {
     setActiveTab(tab);
     localStorage.setItem("walai_dashboard_tab", tab);
+    router.replace(`/dashboard?tab=${tab}`, { scroll: false });
+  };
+
+  const checkScroll = useCallback(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 6);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 6);
+  }, []);
+
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    checkScroll();
+    el.addEventListener("scroll", checkScroll, { passive: true });
+    window.addEventListener("resize", checkScroll);
+    return () => {
+      el.removeEventListener("scroll", checkScroll);
+      window.removeEventListener("resize", checkScroll);
+    };
+  }, [checkScroll, ready, user]);
+
+  // เมื่อเปลี่ยน activeTab ให้เลื่อนปุ่มแท็บนั้นมาตรงกลางเสมอ (โดยเฉพาะบนจอมือถือ)
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const activeBtn = el.querySelector<HTMLButtonElement>(`[data-tab="${activeTab}"]`);
+    if (activeBtn) {
+      activeBtn.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }
+  }, [activeTab]);
+
+  const scrollNav = (direction: "left" | "right") => {
+    const el = navRef.current;
+    if (!el) return;
+    const offset = direction === "left" ? -180 : 180;
+    el.scrollBy({ left: offset, behavior: "smooth" });
   };
 
   const displayAvatarSrc = useMemo(
@@ -315,44 +371,89 @@ function DashboardContent() {
             </div>
 
             {/* Navigation Menu */}
-            <div className={`${CARD} p-2 lg:p-3`}>
-              <nav className="flex lg:flex-col gap-1 overflow-x-auto no-scrollbar">
-                <button
-                  onClick={() => changeTab("bookings")}
-                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "bookings" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
+            <div className={`${CARD} p-2.5 lg:p-3 relative overflow-hidden`}>
+              {/* Mobile scroll hints & arrows */}
+              <div className="relative">
+                {/* Left arrow / gradient fade */}
+                {canScrollLeft && (
+                  <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center pr-3 bg-gradient-to-r from-white via-white/95 to-transparent lg:hidden pointer-events-none">
+                    <button
+                      type="button"
+                      onClick={() => scrollNav("left")}
+                      aria-label="เลื่อนแท็บไปทางซ้าย"
+                      className="pointer-events-auto grid h-7 w-7 place-items-center rounded-full bg-white shadow-md border border-stone-200 text-forest-800 hover:bg-stone-50 transition-transform active:scale-95"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Right arrow / gradient fade */}
+                {canScrollRight && (
+                  <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center pl-3 bg-gradient-to-l from-white via-white/95 to-transparent lg:hidden pointer-events-none">
+                    <button
+                      type="button"
+                      onClick={() => scrollNav("right")}
+                      aria-label="เลื่อนแท็บไปทางขวา"
+                      className="pointer-events-auto grid h-7 w-7 place-items-center rounded-full bg-white shadow-md border border-stone-200 text-forest-800 hover:bg-stone-50 transition-transform active:scale-95"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
+
+                <nav
+                  ref={navRef}
+                  className="flex lg:flex-col gap-1.5 overflow-x-auto scroll-smooth py-0.5 no-scrollbar px-0.5"
                 >
-                  <CalendarDays size={18} className={activeTab === "bookings" ? "text-forest-700" : "text-charcoal-400"} />
-                  การจองของฉัน
-                </button>
-                <button
-                  onClick={() => changeTab("profile")}
-                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "profile" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
-                >
-                  <User size={18} className={activeTab === "profile" ? "text-forest-700" : "text-charcoal-400"} />
-                  ข้อมูลส่วนตัว
-                </button>
-                <button
-                  onClick={() => changeTab("security")}
-                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "security" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
-                >
-                  <Lock size={18} className={activeTab === "security" ? "text-forest-700" : "text-charcoal-400"} />
-                  รหัสผ่านและความปลอดภัย
-                </button>
-                <button
-                  onClick={() => changeTab("reviews")}
-                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "reviews" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
-                >
-                  <Star size={18} className={activeTab === "reviews" ? "text-forest-700" : "text-charcoal-400"} />
-                  รีวิวของฉัน
-                </button>
-                <button
-                  onClick={() => changeTab("coupons")}
-                  className={`flex shrink-0 items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${activeTab === "coupons" ? "bg-forest-50 text-forest-900" : "text-charcoal-500 hover:bg-stone-50 hover:text-charcoal-700"}`}
-                >
-                  <Ticket size={18} className={activeTab === "coupons" ? "text-forest-700" : "text-charcoal-400"} />
-                  โปรโมชั่นของฉัน
-                </button>
-              </nav>
+                  {DASHBOARD_TABS_CONFIG.map((t) => {
+                    const Icon = t.icon;
+                    const isActive = activeTab === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        data-tab={t.id}
+                        onClick={() => changeTab(t.id)}
+                        className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-semibold transition-all border ${
+                          isActive
+                            ? "bg-forest-900 text-white border-forest-900 shadow-xs"
+                            : "bg-stone-50/70 border-stone-200/70 text-charcoal-600 hover:bg-stone-100 hover:text-charcoal-900"
+                        }`}
+                      >
+                        <Icon
+                          size={16}
+                          className={`shrink-0 ${
+                            isActive ? "text-cream-200" : "text-charcoal-400"
+                          }`}
+                        />
+                        <span className="sm:hidden">{t.shortLabel}</span>
+                        <span className="hidden sm:inline">{t.label}</span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+
+              {/* Mobile Indicator Bar: Dots + Tab Counter */}
+              <div className="mt-2.5 pt-2 border-t border-stone-100/90 flex lg:hidden items-center justify-between text-xs text-charcoal-400 px-1">
+                <span className="text-[11px] font-medium text-charcoal-500">
+                  เมนู ({DASHBOARD_TABS_CONFIG.findIndex((t) => t.id === activeTab) + 1}/{DASHBOARD_TABS_CONFIG.length}): <span className="font-semibold text-forest-900">{DASHBOARD_TABS_CONFIG.find((t) => t.id === activeTab)?.label}</span>
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {DASHBOARD_TABS_CONFIG.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => changeTab(t.id)}
+                      aria-label={t.label}
+                      className={`h-1.5 rounded-full transition-all ${
+                        activeTab === t.id
+                          ? "w-5 bg-forest-800"
+                          : "w-1.5 bg-stone-200 hover:bg-stone-300"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 

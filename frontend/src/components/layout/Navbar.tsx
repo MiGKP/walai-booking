@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Menu, X, User, LogOut, ChevronDown, Star, Ticket } from "lucide-react";
+import { Menu, X, User, LogOut, ChevronDown, Star, Ticket, CalendarDays } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { resolveAvatarUrl } from "@/lib/avatar";
 import Image from "next/image";
@@ -208,12 +208,21 @@ export default function Navbar() {
                     </div>
 
                     <div className="p-1.5">
+                      {user.role === "customer" && (
+                        <Link
+                          href="/dashboard?tab=bookings"
+                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-charcoal-600 hover:text-forest-800 hover:bg-forest-50 transition-colors"
+                          onClick={() => setDropdownOpen(false)}
+                        >
+                          <CalendarDays size={16} /> การจองของฉัน
+                        </Link>
+                      )}
                       <Link
                         href={profileHref}
                         className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-charcoal-600 hover:text-forest-800 hover:bg-forest-50 transition-colors"
                         onClick={() => setDropdownOpen(false)}
                       >
-                        <User size={16} /> โปรไฟล์ของฉัน
+                        <User size={16} /> ข้อมูลส่วนตัว
                       </Link>
 
                       {(user.role === "admin" ||

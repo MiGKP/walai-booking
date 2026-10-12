@@ -95,7 +95,7 @@ const defaultForm = {
   usage_limit_per_member: "",
   is_collectible: false,
   stackable: false,
-  applies_to: "both" as PromoAppliesTo,
+  applies_to: "room" as PromoAppliesTo,
   is_active: true,
   room_type_id: "",
   room_type_ids: [] as number[],
@@ -548,10 +548,13 @@ export default function PromotionsPage() {
   };
 
   const openEdit = (p: Promotion) => {
+    if (p.applies_to === "kayak") {
+      notify.error("โค้ดส่วนลดเรือยกเลิกแล้ว กรุณาสร้างโปรโมชั่นห้องพักรายการใหม่");
+      return;
+    }
     setEditingId(p.id);
-    const isKayak = p.applies_to === "kayak";
     const hasAddon = Number(p.boat_ticket_count || 0) > 0;
-    setPromoTab(isKayak ? "kayak" : "room");
+    setPromoTab("room");
     setHasBoatAddon(hasAddon);
     const promoRoomTypeIds: number[] = Array.isArray(p.room_type_ids) && p.room_type_ids.length > 0
       ? p.room_type_ids
@@ -573,7 +576,7 @@ export default function PromotionsPage() {
         : "",
       is_collectible: Boolean(p.is_collectible),
       stackable: Boolean(p.stackable),
-      applies_to: parseAppliesTo(p.applies_to),
+      applies_to: "room",
       is_active: p.is_active,
       room_type_id: p.room_type_id ? String(p.room_type_id) : "",
       room_type_ids: promoRoomTypeIds,
@@ -590,12 +593,11 @@ export default function PromotionsPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const isRoom = promoTab === "room";
-      const selectedRoomTypeIds = isRoom ? form.room_type_ids : [];
+      const selectedRoomTypeIds = form.room_type_ids;
       const payload = {
         ...form,
         discount_value: Number(form.discount_value),
-        min_nights: isRoom && form.min_nights ? Number(form.min_nights) : null,
+        min_nights: form.min_nights ? Number(form.min_nights) : null,
         min_price: form.min_price ? Number(form.min_price) : null,
         max_discount: form.max_discount ? Number(form.max_discount) : null,
         usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
@@ -604,16 +606,16 @@ export default function PromotionsPage() {
           : null,
         is_collectible: form.is_collectible,
         stackable: form.stackable,
-        applies_to: parseAppliesTo(form.applies_to),
+        applies_to: "room",
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         room_type_ids: selectedRoomTypeIds,
         room_type_id: selectedRoomTypeIds.length === 1 ? selectedRoomTypeIds[0] : null,
-        room_count: isRoom && hasBoatAddon && form.room_count ? Number(form.room_count) : 1,
-        boat_ticket_count: isRoom && hasBoatAddon && form.boat_ticket_count ? Number(form.boat_ticket_count) : 0,
-        boat_addon_mode: isRoom && hasBoatAddon ? form.boat_addon_mode : "free",
+        room_count: hasBoatAddon && form.room_count ? Number(form.room_count) : 1,
+        boat_ticket_count: hasBoatAddon && form.boat_ticket_count ? Number(form.boat_ticket_count) : 0,
+        boat_addon_mode: hasBoatAddon ? form.boat_addon_mode : "free",
         boat_addon_price:
-          isRoom && hasBoatAddon && form.boat_addon_mode === "paid" && form.boat_addon_price
+          hasBoatAddon && form.boat_addon_mode === "paid" && form.boat_addon_price
             ? Number(form.boat_addon_price)
             : null,
       };
@@ -1434,39 +1436,7 @@ export default function PromotionsPage() {
         widthClass="max-w-6xl"
       >
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-3">
-          {/* Top Segmented Tab Switcher (Room vs Kayak) */}
-          <div className="flex p-1 bg-cream-100 rounded-2xl border border-cream-200">
-            <button
-              type="button"
-              onClick={() => {
-                setPromoTab("room");
-                setForm((f) => ({ ...f, applies_to: "room" }));
-              }}
-              className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                promoTab === "room"
-                  ? "bg-forest-800 text-white shadow-xs"
-                  : "text-charcoal-600 hover:text-forest-900 hover:bg-cream-200/50"
-              }`}
-            >
-              <Bed size={14} />
-              <span>โปรโมชั่นห้องพัก</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setPromoTab("kayak");
-                setForm((f) => ({ ...f, applies_to: "kayak", min_nights: "" }));
-              }}
-              className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                promoTab === "kayak"
-                  ? "bg-forest-800 text-white shadow-xs"
-                  : "text-charcoal-600 hover:text-forest-900 hover:bg-cream-200/50"
-              }`}
-            >
-              <Ship size={14} />
-              <span>โปรโมชั่นเรือ</span>
-            </button>
-          </div>
+
           {/* TAB 1: โปรโมชั่นห้องพัก (Side-by-side 2-column layout) */}
           {promoTab === "room" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-start animate-in fade-in duration-150">
@@ -1867,244 +1837,6 @@ export default function PromotionsPage() {
                         </div>
                       )}
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: โปรโมชั่นเรือ / คายัค (Side-by-side 2-column layout) */}
-          {promoTab === "kayak" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start animate-in fade-in duration-150">
-              {/* คอลัมน์ซ้าย: ข้อมูลส่วนลดเรือ */}
-              <div className="bg-cream-50/50 p-4 rounded-2xl border border-cream-200/80 space-y-3">
-                <div className="flex items-center gap-2 pb-2 border-b border-cream-200/70">
-                  <Ship size={15} className="text-forest-700" />
-                  <span className="text-xs font-bold text-forest-900">
-                    ข้อมูลส่วนลดเรือ
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1">
-                      โค้ดส่วนลดเรือ <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      className="w-full bg-white border border-cream-200 rounded-xl px-3 py-2 text-xs font-mono font-bold uppercase text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
-                      value={form.code}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          code: e.target.value.toUpperCase(),
-                        }))
-                      }
-                      placeholder="เช่น BOAT20"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1">
-                      ชื่อโปรโมชั่น <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      className="w-full bg-white border border-cream-200 rounded-xl px-3 py-2 text-xs font-semibold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
-                      value={form.name}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, name: e.target.value }))
-                      }
-                      placeholder="เช่น ลดค่าเรือ 20%"
-                      required
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1">
-                      คำอธิบาย / เงื่อนไขย่อ
-                    </label>
-                    <input
-                      className="w-full bg-white border border-cream-200 rounded-xl px-3 py-2 text-xs font-semibold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
-                      value={form.description}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, description: e.target.value }))
-                      }
-                      placeholder="เช่น ใช้ได้เฉพาะการจองกิจกรรมเรือพายและคายัค..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1">
-                      ประเภทส่วนลด <span className="text-rose-500">*</span>
-                    </label>
-                    <CustomSelect
-                      options={DISCOUNT_TYPE_OPTIONS}
-                      value={form.discount_type}
-                      onChange={(val) =>
-                        setForm((f) => ({
-                          ...f,
-                          discount_type: val as "percent" | "fixed",
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1">
-                      มูลค่าส่วนลด <span className="text-rose-500">*</span>{" "}
-                      {form.discount_type === "percent" ? "(%)" : "(฿)"}
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max={form.discount_type === "percent" ? "100" : undefined}
-                      step="0.01"
-                      className="w-full bg-white border border-cream-200 rounded-xl px-3 py-2 text-xs font-semibold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
-                      value={form.discount_value}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          discount_value: e.target.value,
-                        }))
-                      }
-                      placeholder={form.discount_type === "percent" ? "เช่น 20" : "เช่น 100"}
-                      required
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1">
-                      ยอดจองเรือขั้นต่ำ (฿)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="w-full bg-white border border-cream-200 rounded-xl px-3 py-2 text-xs font-semibold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
-                      value={form.min_price}
-                      onChange={(e) => setForm((f) => ({ ...f, min_price: e.target.value }))}
-                      placeholder="ไม่จำกัด (เว้นว่างได้)"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* คอลัมน์ขวา: เงื่อนไขและระยะเวลาเรือ */}
-              <div className="bg-cream-50/50 p-4 rounded-2xl border border-cream-200/80 space-y-3">
-                <div className="flex items-center gap-2 pb-2 border-b border-cream-200/70">
-                  <Calendar size={15} className="text-forest-700" />
-                  <span className="text-xs font-bold text-forest-900">
-                    เงื่อนไขและระยะเวลา
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1">
-                      ลดได้สูงสุดไม่เกิน (฿)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="w-full bg-white border border-cream-200 rounded-xl px-3 py-2 text-xs font-semibold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
-                      value={form.max_discount}
-                      onChange={(e) => setForm((f) => ({ ...f, max_discount: e.target.value }))}
-                      placeholder="ไม่จำกัด (เว้นว่างได้)"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1">
-                      สิทธิ์ทั้งหมด (ใบ)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      className="w-full bg-white border border-cream-200 rounded-xl px-3 py-2 text-xs font-semibold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
-                      value={form.usage_limit}
-                      onChange={(e) => setForm((f) => ({ ...f, usage_limit: e.target.value }))}
-                      placeholder="ไม่จำกัด (เช่น 50)"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1">
-                      วันที่เริ่มใช้งาน
-                    </label>
-                    <CustomDatePicker
-                      value={form.start_date || ""}
-                      onChange={(val) => setForm((f) => ({ ...f, start_date: val }))}
-                      placeholder="เริ่มทันที"
-                      className="w-full relative"
-                      buttonClassName="w-full flex items-center justify-between bg-white border border-cream-200 rounded-xl px-3 py-2 text-xs font-semibold text-charcoal-800 hover:border-forest-300 focus:outline-none focus:ring-2 focus:ring-forest-800/20 shadow-2xs"
-                      showCalendarIcon
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1">
-                      วันที่สิ้นสุดการใช้งาน
-                    </label>
-                    <CustomDatePicker
-                      value={form.end_date || ""}
-                      onChange={(val) => setForm((f) => ({ ...f, end_date: val }))}
-                      placeholder="ไม่กำหนดวันหมดอายุ"
-                      min={form.start_date}
-                      className="w-full relative"
-                      buttonClassName="w-full flex items-center justify-between bg-white border border-cream-200 rounded-xl px-3 py-2 text-xs font-semibold text-charcoal-800 hover:border-forest-300 focus:outline-none focus:ring-2 focus:ring-forest-800/20 shadow-2xs"
-                      showCalendarIcon
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1">
-                      จำกัดต่อสมาชิก (ครั้ง/คน)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      className="w-full bg-white border border-cream-200 rounded-xl px-3 py-2 text-xs font-semibold text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
-                      value={form.usage_limit_per_member}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          usage_limit_per_member: e.target.value,
-                        }))
-                      }
-                      placeholder="ไม่จำกัด (เช่น 1)"
-                    />
-                  </div>
-
-                  <div className="flex flex-col justify-end">
-                    <label className="block text-xs font-bold text-charcoal-700 mb-1">
-                      สถานะเปิดใช้งาน
-                    </label>
-                    <div className="flex items-center justify-between px-3 py-1.5 bg-white border border-cream-200 rounded-xl h-[38px]">
-                      <span className="text-xs font-semibold text-charcoal-700">
-                        {form.is_active ? "เปิดใช้งานทันที" : "ปิดใช้งาน"}
-                      </span>
-                      <label className="inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={form.is_active}
-                          onChange={(e) =>
-                            setForm((f) => ({ ...f, is_active: e.target.checked }))
-                          }
-                        />
-                        <div className="w-8 h-4.5 bg-cream-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-cream-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-forest-800 relative"></div>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2 pt-1 border-t border-cream-200/70">
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-charcoal-700 select-none">
-                      <input
-                        type="checkbox"
-                        checked={form.is_collectible}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, is_collectible: e.target.checked }))
-                        }
-                        className="rounded border-cream-300 text-forest-800 focus:ring-forest-800/20"
-                      />
-                      <span>สมาชิกเก็บคูปองในกระเป๋าได้</span>
-                    </label>
                   </div>
                 </div>
               </div>

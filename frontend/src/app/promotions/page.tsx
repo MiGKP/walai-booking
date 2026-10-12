@@ -68,6 +68,7 @@ export default function PromotionsPage(): React.ReactElement {
     return promos.filter((p) => {
       const scope = parseAppliesTo(p.applies_to);
       // โปร "ห้องพักและเรือ" ต้องแสดงในตัวกรองห้องพักและเรือด้วย เพราะใช้ได้กับทั้งสองอย่าง
+      if (scope === 'kayak') return false;
       if (appliesFilter === 'all') return true;
       if (appliesFilter === 'room' || appliesFilter === 'kayak') return scope === appliesFilter || scope === 'both';
       return scope === appliesFilter;
@@ -92,8 +93,6 @@ export default function PromotionsPage(): React.ReactElement {
           {([
             { id: 'all', label: 'ทั้งหมด', icon: Star },
             { id: 'room', label: 'ห้องพัก', icon: Home },
-            { id: 'kayak', label: 'เรือ', icon: Sailboat },
-            { id: 'both', label: 'ห้องพักและเรือ', icon: Star },
           ] as const).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
