@@ -24,7 +24,7 @@ test('a completed legacy stay listed as reviewable can submit its first review',
   assert.equal(res.code, 201);
 });
 
-test('an unfinished room in the group blocks a review even for a completed room type', async () => {
+test('an uncompleted room type remains blocked when another room is still occupied', async () => {
   let inserts = 0;
   query = async sql => {
     if (sql.startsWith('SELECT 1 FROM room_bookings')) return rows(sql.includes('NOT EXISTS') ? [] : [{}]);

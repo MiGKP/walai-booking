@@ -86,6 +86,7 @@ const nextConfig = {
   poweredByHeader: false,
   async redirects() {
     return [
+      { source: '/reviews', destination: '/dashboard?tab=reviews', statusCode: 301 },
       // /dashboard/bookings ถูกรวมเข้าไปในหน้า /dashboard แล้ว เก็บ redirect ไว้กันลิงก์เก่า/บุ๊กมาร์กพัง
       { source: '/dashboard/bookings', destination: '/dashboard', permanent: true },
       // /dashboard/promotions และ /dashboard/coupons ถูกรวมเข้าไปในแท็บโปรโมชั่นของฉันใน /dashboard แล้ว

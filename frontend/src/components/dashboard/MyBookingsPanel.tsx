@@ -346,10 +346,12 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
               </div>
             )}
 
-            {type === 'room' && b.status === 'approved' && (() => {
+            {type === 'room' && ['approved', 'checked_out'].includes(b.status) && (() => {
               // จองหลายประเภทห้องในบิลเดียวได้ ต้องรีวิวครบทุกประเภทถึงจะถือว่า "รีวิวแล้ว"
               const distinctTypes = new Set(
-                (Array.isArray(b.rooms) ? b.rooms : []).map((line: { type_name?: string; room_name: string }) => line.type_name || line.room_name)
+                (Array.isArray(b.rooms) ? b.rooms : [])
+                  .filter((line) => !['cancelled', 'rejected'].includes(line.status))
+                  .map((line) => line.type_name || line.room_name)
               );
               const reviewedTypes = reviewedTypesByBooking.get(bid) ?? new Set<string>();
               const allTypesReviewed = distinctTypes.size > 0 && [...distinctTypes].every((t) => reviewedTypes.has(t as string));
@@ -361,7 +363,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
                   </span>
                 ) : (
                   <Link
-                    href="/reviews"
+                    href="/dashboard?tab=reviews"
                     className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 px-4 py-2 text-xs font-bold text-amber-600 transition-colors hover:bg-amber-100"
                   >
                     <Star size={14} className="fill-amber-400 text-amber-400" /> เขียนรีวิวการพักนี้

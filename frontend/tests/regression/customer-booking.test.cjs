@@ -283,6 +283,41 @@ function bookingsMarkup(rooms, kayaks) {
   return renderToStaticMarkup(React.createElement(Component, { ready: true }));
 }
 
+function expandedReviewMarkup(status, lines, reviewedTypes = []) {
+  const room = { room_booking_id: 91, status, created_at: '2026-10-01', check_in: '2026-10-01', check_out: '2026-10-02', total_price: 1200, rooms: lines };
+  const Component = load('src/components/dashboard/MyBookingsPanel.tsx', ['all', [room], [], 3, false, false, new Set(['room-91']), new Map([[91, new Set(reviewedTypes)]])], {
+    '@/components/booking/BoatAddonSection': () => null,
+  }).default;
+  return renderToStaticMarkup(React.createElement(Component, { ready: true }));
+}
+
+test('approved and checked-out room cards link to the dashboard reviews tab', () => {
+  for (const status of ['approved', 'checked_out']) {
+    const html = expandedReviewMarkup(status, [{ booking_room_id: 1, room_name: 'Standard', room_number: 'TEST1', status: 'checked_out' }]);
+    assert(html.includes('href="/dashboard?tab=reviews"'));
+    assert(!html.includes('href="/reviews"'));
+  }
+  for (const status of ['pending', 'paid', 'cancelled', 'rejected']) {
+    assert(!expandedReviewMarkup(status, []).includes('href="/dashboard?tab=reviews"'));
+  }
+});
+
+test('cancelled room types do not prevent the already reviewed badge', () => {
+  const html = expandedReviewMarkup('checked_out', [
+    { booking_room_id: 1, room_name: 'Standard', room_number: 'TEST1', status: 'checked_out' },
+    { booking_room_id: 2, room_name: 'Deluxe', room_number: 'TEST2', status: 'cancelled' },
+  ], ['Standard']);
+  assert(html.includes('รีวิวการพักนี้แล้ว'));
+  assert(!html.includes('href="/dashboard?tab=reviews"'));
+});
+
+test('old review bookmarks permanently redirect to the dashboard reviews tab', async () => {
+  const config = require('../../next.config.js');
+  const redirect = (await config.redirects()).find(route => route.source === '/reviews');
+  assert.equal(redirect.destination, '/dashboard?tab=reviews');
+  assert.equal(redirect.statusCode, 301);
+});
+
 test('pending addons have no independent payment or cancellation action', () => {
   const html = bookingsMarkup([], [kayak]);
   assert(!html.includes('/payment?booking_type=kayak'), 'addon must be paid through its room');

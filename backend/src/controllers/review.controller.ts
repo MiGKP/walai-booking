@@ -79,7 +79,7 @@ export const getMyReviews = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// ดึงรายการ booking ที่ approved/completed ของ member ที่ยังไม่ได้รีวิว
+// ดึงประเภทห้องที่สมาชิกใช้บริการสิ้นสุดแล้วและยังไม่ได้รีวิว
 export const getReviewableBookings = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -94,9 +94,14 @@ export const getReviewableBookings = async (req: Request, res: Response): Promis
        JOIN room_types rt ON rt.id = r.room_type_id
        WHERE rb.member_id = $1
          AND rb.status IN ('approved', 'checked_out')
-         AND NOT EXISTS (
-           SELECT 1 FROM booking_room x
-           WHERE x.room_booking_id = rb.room_booking_id AND x.status <> 'checked_out'
+         AND br.status NOT IN ('cancelled', 'rejected')
+         AND (
+           rb.status = 'checked_out' OR br.status = 'checked_out'
+           OR NOT EXISTS (
+             SELECT 1 FROM booking_room x
+             WHERE x.room_booking_id = rb.room_booking_id
+               AND x.status NOT IN ('cancelled', 'rejected', 'checked_out')
+           )
          )
          AND NOT EXISTS (
            SELECT 1 FROM reviews rv
@@ -190,7 +195,7 @@ export const adminDeleteReview = async (req: Request, res: Response): Promise<vo
   }
 };
 
-// สร้างรีวิวใหม่ — 1 booking = 1 review เท่านั้น
+// สร้างรีวิวใหม่ — หนึ่งรีวิวต่อประเภทห้องในการจองของสมาชิก
 export const createReview = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -215,9 +220,14 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
        JOIN rooms r ON r.room_id = br.room_id
        WHERE rb.room_booking_id = $1 AND rb.member_id = $2
          AND rb.status IN ('approved', 'checked_out') AND r.room_type_id = $3
-         AND NOT EXISTS (
-           SELECT 1 FROM booking_room x
-           WHERE x.room_booking_id = rb.room_booking_id AND x.status <> 'checked_out'
+         AND br.status NOT IN ('cancelled', 'rejected')
+         AND (
+           rb.status = 'checked_out' OR br.status = 'checked_out'
+           OR NOT EXISTS (
+             SELECT 1 FROM booking_room x
+             WHERE x.room_booking_id = rb.room_booking_id
+               AND x.status NOT IN ('cancelled', 'rejected', 'checked_out')
+           )
          )
        LIMIT 1`,
       [bookingId, user.id, roomTypeId]
