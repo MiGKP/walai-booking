@@ -94,9 +94,13 @@ export const getReviewableBookings = async (req: Request, res: Response): Promis
        JOIN room_types rt ON rt.id = r.room_type_id
        WHERE rb.member_id = $1
          AND rb.status IN ('approved', 'checked_out')
-         AND NOT EXISTS (
-           SELECT 1 FROM booking_room x
-           WHERE x.room_booking_id = rb.room_booking_id AND x.status <> 'checked_out'
+         AND (
+           rb.status = 'checked_out'
+           OR br.status = 'checked_out'
+           OR NOT EXISTS (
+             SELECT 1 FROM booking_room x
+             WHERE x.room_booking_id = rb.room_booking_id AND x.status NOT IN ('checked_out', 'cancelled', 'rejected')
+           )
          )
          AND NOT EXISTS (
            SELECT 1 FROM reviews rv
@@ -215,9 +219,13 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
        JOIN rooms r ON r.room_id = br.room_id
        WHERE rb.room_booking_id = $1 AND rb.member_id = $2
          AND rb.status IN ('approved', 'checked_out') AND r.room_type_id = $3
-         AND NOT EXISTS (
-           SELECT 1 FROM booking_room x
-           WHERE x.room_booking_id = rb.room_booking_id AND x.status <> 'checked_out'
+         AND (
+           rb.status = 'checked_out'
+           OR br.status = 'checked_out'
+           OR NOT EXISTS (
+             SELECT 1 FROM booking_room x
+             WHERE x.room_booking_id = rb.room_booking_id AND x.status NOT IN ('checked_out', 'cancelled', 'rejected')
+           )
          )
        LIMIT 1`,
       [bookingId, user.id, roomTypeId]
