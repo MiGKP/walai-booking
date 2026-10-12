@@ -28,6 +28,7 @@ function ResetPasswordContent(): React.ReactElement | null {
     () => searchParams.get('email') || '',
     [searchParams]
   );
+  const accountType = searchParams.get('account_type') === 'staff' ? 'staff' : 'customer';
   const [form, setForm] = useState({
     email: initialEmail,
     otp: '',
@@ -68,6 +69,7 @@ function ResetPasswordContent(): React.ReactElement | null {
     try {
       await api.post('/auth/reset-password', {
         email: form.email.trim().toLowerCase(),
+        account_type: accountType,
         otp: form.otp,
         new_password: form.new_password,
       });

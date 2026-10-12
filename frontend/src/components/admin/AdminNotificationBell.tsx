@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   Bell,
@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { useAdminNotificationStore } from "@/hooks/useAdminNotificationStore";
 import { useAuth } from "@/hooks/useAuth";
+import { useVisiblePolling } from "@/hooks/useVisiblePolling";
+import { ADMIN_BOOKINGS_CHANGED } from "@/lib/admin-booking-events";
 
 export default function AdminNotificationBell(): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,14 +26,13 @@ export default function AdminNotificationBell(): React.ReactElement {
   const { user } = useAuth();
   const { counts, recentItems, isLoading, fetchNotifications } = useAdminNotificationStore();
 
-  // Polling notifications every 45 seconds & initial fetch
+  const enabled = Boolean(user && ['admin', 'room_staff', 'boat_staff'].includes(user.role));
+  const refresh = useCallback(() => fetchNotifications(true), [fetchNotifications]);
+  useVisiblePolling(refresh, enabled, ADMIN_BOOKINGS_CHANGED);
+
   useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(() => {
-      fetchNotifications(true);
-    }, 45000);
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
+    if (enabled) void fetchNotifications();
+  }, [enabled, user?.id, fetchNotifications]);
 
   // Close dropdown on outside click or ESC
   useEffect(() => {

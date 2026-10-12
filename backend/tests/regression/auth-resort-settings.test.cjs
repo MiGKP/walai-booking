@@ -51,7 +51,7 @@ test('actual reset then customer login in the same second accepts the newly issu
   const otpHash = crypto.createHash('sha256').update('123456').digest('hex');
   let passwordChangedAt;
   queryHandler = async (sql) => {
-    if (sql.includes('SELECT member_id, reset_token')) return rows([{ member_id: 7, reset_token: otpHash }]);
+    if (sql.includes('SELECT member_id as member_id, reset_token')) return rows([{ member_id: 7, reset_token: otpHash }]);
     if (sql.includes('SET password = $1')) {
       passwordChangedAt = new Date(now - 250);
       return rows([{ member_id: 7 }]);

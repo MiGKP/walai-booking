@@ -19,6 +19,7 @@ export default function ForgotPasswordPage(): React.ReactElement | null {
   const router = useRouter();
   const { ready } = useAuthGuard({ guestOnly: true });
   const [email, setEmail] = useState("");
+  const [accountType, setAccountType] = useState<"customer" | "staff">("customer");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -34,13 +35,13 @@ export default function ForgotPasswordPage(): React.ReactElement | null {
     try {
       await api.post(
         '/auth/forgot-password',
-        { email: normalizedEmail },
+        { email: normalizedEmail, account_type: accountType },
         { timeout: 25000 }
       );
       setSubmitted(true);
       toast.success('หากอีเมลนี้มีอยู่ในระบบ เราได้ส่ง OTP ให้แล้ว');
       router.push(
-        `/auth/reset-password?email=${encodeURIComponent(normalizedEmail)}`
+        `/auth/reset-password?email=${encodeURIComponent(normalizedEmail)}&account_type=${accountType}`
       );
     } catch (error: unknown) {
       if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
@@ -86,7 +87,7 @@ export default function ForgotPasswordPage(): React.ReactElement | null {
                 type="button"
                 onClick={() =>
                   router.push(
-                    `/auth/reset-password?email=${encodeURIComponent(normalizedEmail)}`
+                    `/auth/reset-password?email=${encodeURIComponent(normalizedEmail)}&account_type=${accountType}`
                   )
                 }
                 className="group mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-forest-800 px-6 py-3.5 font-semibold text-cream-100 transition duration-200 hover:bg-forest-700 focus:outline-hidden focus:ring-2 focus:ring-forest-500 focus:ring-offset-2 active:scale-[0.98]"
@@ -112,6 +113,15 @@ export default function ForgotPasswordPage(): React.ReactElement | null {
               className="animate-fade-in space-y-5"
               aria-busy={loading}
             >
+              <label className="block text-sm text-charcoal-600 mb-4">
+                ประเภทบัญชี
+                <select aria-label="ประเภทบัญชี" className="input-field mt-1 w-full" value={accountType}
+                  onChange={(e) => setAccountType(e.target.value as 'customer' | 'staff')}>
+                  <option value="customer">สมาชิก</option>
+                  <option value="staff">ผู้ดูแลระบบ / พนักงาน</option>
+                </select>
+              </label>
+
               <div>
                 <label
                   htmlFor="forgot-email"

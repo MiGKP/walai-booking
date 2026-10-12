@@ -24,10 +24,12 @@ export const loginValidator = [
 ];
 
 export const forgotPasswordValidator = [
+  body('account_type').optional().isIn(['customer', 'staff']).withMessage('ประเภทบัญชีไม่ถูกต้อง'),
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
 ];
 
 export const resetPasswordValidator = [
+  body('account_type').optional().isIn(['customer', 'staff']).withMessage('ประเภทบัญชีไม่ถูกต้อง'),
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
   body('otp')
     .trim()
@@ -40,14 +42,17 @@ export const resetPasswordValidator = [
 ];
 
 export const updateProfileValidator = [
-  body('first_name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
-  body('last_name').optional({ nullable: true }).trim(),
+  body('email').optional().isString().bail().trim().isEmail().isLength({ max: 100 }).customSanitizer(normalizeAuthEmail),
+  body('address').optional({ nullable: true }).isString().bail().trim().isLength({ max: 2000 }),
+  body('current_password').optional().isString().bail().isLength({ max: 200 }),
+  body('first_name').isString().bail().trim().notEmpty().withMessage('กรุณากรอกชื่อ').isLength({ max: 100 }),
+  body('last_name').optional({ nullable: true }).isString().bail().trim().isLength({ max: 100 }),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
     .withMessage('เบอร์โทรศัพท์ไม่ถูกต้อง'),
-  body('line_id').optional({ nullable: true, checkFalsy: true }).trim(),
-  body('facebook').optional({ nullable: true, checkFalsy: true }).trim(),
+  body('line_id').optional({ nullable: true, checkFalsy: true }).isString().bail().trim().isLength({ max: 100 }),
+  body('facebook').optional({ nullable: true, checkFalsy: true }).isString().bail().trim().isLength({ max: 255 }),
 ];
 
 export const changePasswordValidator = [

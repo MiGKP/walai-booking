@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   User,
   Mail,
@@ -18,7 +17,6 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 
 export default function AdminProfilePage() {
-  const router = useRouter();
   const { ready, user } = useAuthGuard();
   const { updateUser } = useAuth();
 
@@ -29,6 +27,7 @@ export default function AdminProfilePage() {
     line_id: "",
     facebook: "",
     address: "",
+    email: "",
   });
 
   const [passwords, setPasswords] = useState({
@@ -37,6 +36,7 @@ export default function AdminProfilePage() {
     confirm: "",
   });
 
+  const [emailPassword, setEmailPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
 
@@ -49,6 +49,7 @@ export default function AdminProfilePage() {
       line_id: user.line_id || "",
       facebook: user.facebook || "",
       address: user.address || "",
+      email: user.email || "",
     });
   }, [ready, user]);
 
@@ -56,8 +57,9 @@ export default function AdminProfilePage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await api.put("/auth/profile", profile);
+      const res = await api.put("/auth/profile", { ...profile, current_password: emailPassword || undefined });
       updateUser(res.data.data);
+      setEmailPassword("");
       notify.success("บันทึกข้อมูลสำเร็จ");
     } catch (err: unknown) {
       notify.error(getApiErrorMessage(err, "บันทึกไม่สำเร็จ"));
@@ -72,8 +74,8 @@ export default function AdminProfilePage() {
       notify.error("รหัสผ่านใหม่ไม่ตรงกัน");
       return;
     }
-    if (passwords.new_password.length < 6) {
-      notify.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+    if (passwords.new_password.length < 8) {
+      notify.error("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร");
       return;
     }
     setChangingPw(true);
@@ -107,7 +109,7 @@ export default function AdminProfilePage() {
               {user.first_name || "ผู้ใช้แอดมิน"} 
             </h1>
             <span className="bg-[#133E31] text-white text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wide">
-              ADMIN
+              {user.role === "room_staff" ? "พนักงานห้องพัก" : user.role === "boat_staff" ? "พนักงานเรือ" : "ผู้ดูแลระบบ"}
             </span>
           </div>
           <p className="text-xs text-stone-500 mt-0.5">{user.email}</p>
@@ -135,6 +137,7 @@ export default function AdminProfilePage() {
                   type="text"
                   required
                   className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
+                  aria-label="ชื่อ"
                   value={profile.first_name}
                   onChange={(e) =>
                     setProfile({ ...profile, first_name: e.target.value })
@@ -148,6 +151,7 @@ export default function AdminProfilePage() {
                 <input
                   type="text"
                   className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
+                  aria-label="นามสกุล"
                   value={profile.last_name}
                   onChange={(e) =>
                     setProfile({ ...profile, last_name: e.target.value })
@@ -158,7 +162,7 @@ export default function AdminProfilePage() {
 
             <div>
               <label className="block text-sm font-semibold text-stone-700 mb-1">
-                อีเมลผู้ดูแลระบบ
+                อีเมล
               </label>
               <div className="relative">
                 <Mail
@@ -167,13 +171,22 @@ export default function AdminProfilePage() {
                 />
                 <input
                   type="email"
-                  disabled
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 bg-stone-100/70 text-stone-500 text-sm cursor-not-allowed font-mono"
-                  value={user.email}
+                  required
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 bg-white text-charcoal text-sm font-mono"
+                  aria-label="อีเมล"
+                  value={profile.email}
+                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                 />
               </div>
             </div>
 
+            {profile.email.trim().toLowerCase() !== user.email.toLowerCase() && (
+              <label className="block text-sm text-charcoal-600">
+                รหัสผ่านปัจจุบันเพื่อยืนยันการเปลี่ยนอีเมล
+                <input type="password" required autoComplete="current-password" value={emailPassword}
+                  onChange={(e) => setEmailPassword(e.target.value)} className="input-field mt-1 w-full" />
+              </label>
+            )}
             <div>
               <label className="block text-sm font-semibold text-stone-700 mb-1">
                 เบอร์โทรศัพท์
@@ -187,6 +200,7 @@ export default function AdminProfilePage() {
                   type="tel"
                   className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                   placeholder="08X-XXX-XXXX"
+                  aria-label="เบอร์โทรศัพท์"
                   value={profile.phone}
                   onChange={(e) =>
                     setProfile({ ...profile, phone: e.target.value })
@@ -209,7 +223,8 @@ export default function AdminProfilePage() {
                     type="text"
                     className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                     placeholder="line_admin"
-                    value={profile.line_id}
+                    aria-label="LINE ID"
+                  value={profile.line_id}
                     onChange={(e) =>
                       setProfile({ ...profile, line_id: e.target.value })
                     }
@@ -229,7 +244,8 @@ export default function AdminProfilePage() {
                     type="text"
                     className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                     placeholder="ชื่อ Facebook"
-                    value={profile.facebook}
+                    aria-label="Facebook"
+                  value={profile.facebook}
                     onChange={(e) =>
                       setProfile({ ...profile, facebook: e.target.value })
                     }
@@ -251,6 +267,7 @@ export default function AdminProfilePage() {
                   rows={2}
                   className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30 resize-none"
                   placeholder="กรอกที่อยู่ปัจจุบัน..."
+                  aria-label="ที่อยู่"
                   value={profile.address}
                   onChange={(e) =>
                     setProfile({ ...profile, address: e.target.value })

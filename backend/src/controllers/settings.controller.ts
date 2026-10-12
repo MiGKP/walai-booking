@@ -1,3 +1,4 @@
+import { reportRange, packageReport, roomReportAmountSql, roomInventoryReport, boatInventoryReport } from '../services/scope-reports';
 import { Request, Response } from 'express';
 import { safeRollback } from '../utils/safe-rollback';
 import pool from '../config/database';
@@ -398,105 +399,63 @@ export const getLandingStats = async (req: Request, res: Response): Promise<void
 // ─── Statistics ─────────────────────────────────────────────────────────────────
 
 export const getStats = async (req: Request, res: Response): Promise<void> => {
+  const role = (req as AuthRequest).user?.role;
+  if (!role || !['admin', 'room_staff', 'boat_staff'].includes(role)) {
+    res.status(403).json({ success: false, message: 'ไม่มีสิทธิ์ดูรายงาน' });
+    return;
+  }
+  let range;
+  try { range = reportRange(req.query); } catch {
+    res.status(400).json({ success: false, message: 'กรุณาเลือกวันที่ เดือน และปีให้ถูกต้อง' });
+    return;
+  }
+  const showRoom = role === 'admin' || role === 'room_staff';
+  const showBoat = role === 'admin' || role === 'boat_staff';
+  const values = [range.start, range.end];
+  const summary = async (table: 'room_bookings' | 'boat_bookings'): Promise<Record<string, unknown>> => {
+    const amount = table === 'room_bookings' ? roomReportAmountSql('b') : 'b.total_price';
+    const result = await pool.query(`SELECT COUNT(*)::int AS total_count,
+      COUNT(*) FILTER (WHERE status IN ('approved', 'checked_out'))::int AS approved_count,
+      COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count,
+      COUNT(*) FILTER (WHERE status = 'paid')::int AS paid_count,
+      COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled_count,
+      COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected_count,
+      COALESCE(SUM(${amount}) FILTER (WHERE status IN ('approved', 'checked_out')), 0)::numeric AS revenue,
+      COALESCE(SUM(total_price) FILTER (WHERE status = 'paid'), 0)::numeric AS awaiting_approval_amount
+      FROM ${table} b WHERE created_at::date BETWEEN $1::date AND $2::date`, values);
+    return result.rows[0];
+  };
+  const chart = async (table: 'room_bookings' | 'boat_bookings'): Promise<Record<string, unknown>[]> => {
+    const amount = table === 'room_bookings' ? roomReportAmountSql('b') : 'b.total_price';
+    const result = await pool.query(`SELECT to_char(created_at::date, 'YYYY-MM-DD') AS day,
+      COALESCE(SUM(${amount}) FILTER (WHERE status IN ('approved', 'checked_out')), 0)::numeric AS revenue
+      FROM ${table} b WHERE created_at::date BETWEEN $1::date AND $2::date GROUP BY created_at::date ORDER BY day`, values);
+    return result.rows;
+  };
   try {
-    const { period, date, month, year } = req.query;
-
-    // ตรวจค่าก่อนนำไปใช้ใน SQL: date = YYYY-MM-DD, year/month = จำนวนเต็มในช่วงที่สมเหตุสมผล
-    const dateProvided = date !== undefined && date !== '';
-    if (dateProvided && (typeof date !== 'string' || !isValidIsoDate(date))) {
-      res.status(400).json({ success: false, message: 'date ต้องเป็นวันที่รูปแบบ YYYY-MM-DD' });
-      return;
-    }
-    const yearParam = parseQueryInt(year, 1970, 2100);
-    const monthParam = parseQueryInt(month, 1, 12);
-    if (yearParam === null || monthParam === null) {
-      res.status(400).json({ success: false, message: 'year และ month ต้องเป็นจำนวนเต็มที่อยู่ในช่วงที่ถูกต้อง' });
-      return;
-    }
-
-    const summaryParams: any[] = [];
-    const chartParams: any[] = [];
-    let whereClause = '';
-    let chartWhereClause = '';
-
-    if (period === 'day' && typeof date === 'string' && date) {
-      summaryParams.push(date);
-      whereClause = `WHERE DATE(created_at) = $1`;
-    } else {
-      const y = (period === 'month' && yearParam !== undefined) ? yearParam : new Date().getFullYear();
-      const m = (period === 'month' && monthParam !== undefined) ? monthParam : new Date().getMonth() + 1;
-      summaryParams.push(y, m);
-      chartParams.push(y, m);
-      whereClause = `WHERE EXTRACT(YEAR FROM created_at) = $1 AND EXTRACT(MONTH FROM created_at) = $2`;
-      chartWhereClause = whereClause;
-    }
-
-    // รายได้รวมการจองที่ยืนยันแล้ว + เช็คเอาต์แล้ว (checked_out = จบงานแล้วแต่เคยอนุมัติชำระเงิน)
-    const revenueStatusFilter = `status IN ('approved', 'checked_out')`;
-
-    const summaryRoomQuery = `
-      SELECT 
-        COUNT(*) FILTER (WHERE ${revenueStatusFilter})::int as approved_count,
-        COUNT(*) FILTER (WHERE status = 'pending')::int as pending_count,
-        COUNT(*) FILTER (WHERE status = 'cancelled')::int as cancelled_count,
-        COALESCE(SUM(total_price) FILTER (WHERE ${revenueStatusFilter}), 0)::numeric as revenue
-      FROM room_bookings ${whereClause}`;
-
-    const summaryKayakQuery = `
-      SELECT 
-        COUNT(*) FILTER (WHERE ${revenueStatusFilter})::int as approved_count,
-        COUNT(*) FILTER (WHERE status = 'pending')::int as pending_count,
-        COUNT(*) FILTER (WHERE status = 'cancelled')::int as cancelled_count,
-        COALESCE(SUM(total_price) FILTER (WHERE ${revenueStatusFilter}), 0)::numeric as revenue
-      FROM boat_bookings ${whereClause}`;
-
-    const chartRoomQuery = chartWhereClause ? `
-      SELECT 
-        TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as day,
-        COALESCE(SUM(total_price) FILTER (WHERE ${revenueStatusFilter}), 0)::numeric as revenue,
-        COUNT(*) FILTER (WHERE ${revenueStatusFilter})::int as approved_count
-      FROM room_bookings ${chartWhereClause}
-      GROUP BY DATE(created_at) ORDER BY day ASC` : null;
-
-    const chartKayakQuery = chartWhereClause ? `
-      SELECT 
-        TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as day,
-        COALESCE(SUM(total_price) FILTER (WHERE ${revenueStatusFilter}), 0)::numeric as revenue,
-        COUNT(*) FILTER (WHERE ${revenueStatusFilter})::int as approved_count
-      FROM boat_bookings ${chartWhereClause}
-      GROUP BY DATE(created_at) ORDER BY day ASC` : null;
-
-    const queries: Promise<any>[] = [
-      pool.query(summaryRoomQuery, summaryParams),
-      pool.query(summaryKayakQuery, summaryParams),
-      pool.query(`SELECT COUNT(*)::int as total FROM members`),
-    ];
-    if (chartRoomQuery) queries.push(pool.query(chartRoomQuery, chartParams));
-    if (chartKayakQuery) queries.push(pool.query(chartKayakQuery, chartParams));
-
-    const results = await Promise.all(queries);
-    const [roomSummaryRes, kayakSummaryRes, memberRes, roomChartRes, kayakChartRes] = results;
-
-    res.json({
-      success: true,
-      data: {
-        room_summary: roomSummaryRes.rows[0] || {},
-        kayak_summary: kayakSummaryRes.rows[0] || {},
-        room_chart: roomChartRes?.rows || [],
-        kayak_chart: kayakChartRes?.rows || [],
-        total_members: Number(memberRes.rows[0].total),
-        period: period || 'month',
-      }
-    });
+    const [roomSummary, boatSummary, roomChart, boatChart, packages, roomInventory, boatInventory, members] = await Promise.all([
+      showRoom ? summary('room_bookings') : undefined,
+      showBoat ? summary('boat_bookings') : undefined,
+      showRoom ? chart('room_bookings') : undefined,
+      showBoat ? chart('boat_bookings') : undefined,
+      showRoom ? packageReport(range) : undefined,
+      showRoom ? roomInventoryReport(range) : undefined,
+      showBoat ? boatInventoryReport(range) : undefined,
+      role === 'admin' ? pool.query('SELECT COUNT(*)::int AS total FROM members') : undefined,
+    ]);
+    res.json({ success: true, data: {
+      ...(showRoom ? { room_summary: roomSummary, room_chart: roomChart, packages, room_inventory: roomInventory } : {}),
+      ...(showBoat ? { kayak_summary: boatSummary, kayak_chart: boatChart, boat_inventory: boatInventory } : {}),
+      ...(role === 'admin' ? { total_members: Number(members?.rows[0].total ?? 0) } : {}),
+      period: req.query.period ?? 'month', start: range.start, end: range.end,
+    } });
   } catch (error) {
     console.error('Get stats error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'ไม่สามารถโหลดรายงานได้' });
   }
 };
 
-// นโยบายคืนเงิน: 
-// - เรือและบัตรเสริม: คืนเต็มจำนวนถ้ายกเลิกก่อนถึงรอบเวลา full_refund_hours ชั่วโมง ที่เหลือคืน late_refund_percent
-// - ห้องพัก: คืนเต็มจำนวนถ้ายกเลิกก่อนวันเข้าพัก room_full_refund_days วัน ที่เหลือคืน room_late_refund_percent
+// ─── Cancellation policy ─────────────────────────────────────────────────────
 export const getCancellationPolicy = async (req: Request, res: Response): Promise<void> => {
   try {
     let row;

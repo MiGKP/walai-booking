@@ -99,7 +99,7 @@ test('admin overview identifies normal and room-addon boats by their API booking
 test('room staff can approve zero-charge pending rooms but cannot approve unpaid positive amounts', () => {
   const Wrapper = ({ children }) => React.createElement('div', null, children);
   for (const [amount, slip, status, expected] of [[0, null, 'pending', true], [100, null, 'pending', false], [100, 'slip.png', 'pending', false], [100, 'slip.png', 'paid', true], [0, null, 'cancelled', false]]) {
-    const Page = load('src/app/admin/rooms/page.tsx', [[{ id: 7, room_booking_id: 7, status, total_price: amount, payment_slip: slip, rooms: [] }], false, { total: 1, totalPages: 1 }, { all: 1, totalRevenue: 0, pendingRevenue: 0 }, [], ''], {
+    const Page = load('src/app/admin/rooms/page.tsx', [[{ id: 7, room_booking_id: 7, status, total_price: amount, payment_slip: slip, rooms: [] }], false, { total: 1, totalPages: 1 }, { all: 1, totalRevenue: 0, pendingRevenue: 0 }, [], null, ''], {
       '@/components/admin/ui': { CustomDatePicker: Wrapper, CustomSelect: Wrapper, PageHeader: Wrapper, StatCard: Wrapper, Panel: Wrapper, Modal: () => null, EmptyState: Wrapper, BookingStatusBadge: Wrapper },
       '@/lib/admin-notify': { notify: {} }, '@/lib/avatar': { resolveMediaUrl: value => value },
     }).TestContent;
@@ -114,7 +114,7 @@ test('room detail and its printable document list every actual room, guests and 
     { booking_room_id: 1, room_number: 'TEST-W2', room_name: 'TEST Standard', subtotal: 2000 },
     { booking_room_id: 2, room_number: 'TEST-D3', room_name: 'TEST Deluxe', subtotal: 4000 },
   ] };
-  const Page = load('src/app/admin/rooms/page.tsx', [[], false, { total: 0, totalPages: 0 }, { totalRevenue: 0 }, [], '', { open: false }, { open: true, booking }], {
+  const Page = load('src/app/admin/rooms/page.tsx', [[], false, { total: 0, totalPages: 0 }, { totalRevenue: 0 }, [], null, '', { open: false }, { open: true, booking }], {
     '@/components/admin/ui': { CustomDatePicker: Wrapper, CustomSelect: Wrapper, PageHeader: Wrapper, StatCard: Wrapper, Panel: Wrapper, Modal: ({ open, children }) => open ? React.createElement('div', null, children) : null, EmptyState: Wrapper, BookingStatusBadge: Wrapper },
     '@/lib/avatar': { resolveMediaUrl: value => value },
   }).TestContent;
@@ -265,7 +265,7 @@ test('ended parent remains readable from addon origin link and offers no booking
 test('boat staff row and details identify room promotion origin and parent booking', () => {
   const addon = { boat_booking_id: 21, room_booking_id: 9, is_addon: true, addon_mode: 'paid', status: 'approved', booking_date: '2099-11-02', total_price: 200, user_name: 'Guest', kayak_name: 'Kayak' };
   const Wrapper = ({ children }) => React.createElement('div', null, children);
-  const Page = load('src/app/admin/boats/page.tsx', [[addon], false, { total: 1, totalPages: 1 }, { all: 1, has_slip: 0, pending: 0, approved: 1, checked_out: 0, totalRevenue: 200, pendingRevenue: 0 }, [], '', { open: false }, { open: true, booking: addon }], {
+  const Page = load('src/app/admin/boats/page.tsx', [[addon], false, { total: 1, totalPages: 1 }, { all: 1, has_slip: 0, pending: 0, approved: 1, checked_out: 0, totalRevenue: 200, pendingRevenue: 0 }, [], null, '', { open: false }, { open: true, booking: addon }], {
     '@/components/admin/ui': { CustomDatePicker: Wrapper, CustomSelect: Wrapper, PageHeader: Wrapper, StatCard: Wrapper, Panel: Wrapper, Modal: ({ open, children }) => open ? React.createElement('div', null, children) : null, BookingStatusBadge: Wrapper, EmptyState: Wrapper },
     '@/lib/admin-notify': { notify: { success() {}, error() {} } },
     '@/lib/avatar': { resolveMediaUrl: value => value },

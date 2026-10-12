@@ -70,6 +70,9 @@ export default function AdminMembersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
+  const [bookingStatus, setBookingStatus] = useState("all");
+  const [bookingService, setBookingService] = useState("all");
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -103,6 +106,8 @@ export default function AdminMembersPage() {
           limit: itemsPerPage,
           search: search.trim() || undefined,
           status: statusFilter,
+          booking_status: bookingStatus,
+          booking_service: bookingService,
         },
       });
       if (id !== requestId.current) return;
@@ -125,7 +130,7 @@ export default function AdminMembersPage() {
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [ready, currentPage, search, statusFilter]);
+  }, [ready, currentPage, search, statusFilter, bookingStatus, bookingService]);
 
   useEffect(() => {
     fetchMembers();
@@ -212,7 +217,7 @@ export default function AdminMembersPage() {
           </div>
 
           {/* Filter & Search Bar */}
-          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row flex-wrap items-center gap-2.5 w-full sm:w-auto">
             {/* Search Input */}
             <div className="relative w-full sm:w-64">
               <Search
@@ -244,6 +249,23 @@ export default function AdminMembersPage() {
               )}
             </div>
 
+            <label className="text-xs text-charcoal-600">
+              การจอง
+              <select aria-label="สถานะการจองของสมาชิก" value={bookingStatus}
+                onChange={(e) => { setBookingStatus(e.target.value); setCurrentPage(1); }} className="input-field ml-1">
+                <option value="all">ทุกสถานะการจอง</option><option value="none">ยังไม่มีการจอง</option>
+                <option value="pending">รอชำระเงิน</option><option value="paid">รอตรวจสลิป</option>
+                <option value="approved">อนุมัติแล้ว</option><option value="checked_out">ใช้บริการแล้ว</option>
+                <option value="cancelled">ยกเลิก</option><option value="rejected">ปฏิเสธ</option>
+              </select>
+            </label>
+            <label className="text-xs text-charcoal-600">
+              บริการ
+              <select aria-label="บริการที่สมาชิกจอง" value={bookingService}
+                onChange={(e) => { setBookingService(e.target.value); setCurrentPage(1); }} className="input-field ml-1">
+                <option value="all">ห้องพักและเรือ</option><option value="room">ห้องพัก</option><option value="boat">เรือ</option>
+              </select>
+            </label>
             {/* Status Filter Tabs */}
             <div className="flex items-center gap-1 p-1 bg-cream-100 rounded-2xl text-xs w-full sm:w-auto shrink-0 justify-between sm:justify-start">
               <button

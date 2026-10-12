@@ -18,6 +18,24 @@ export const getAllMembers = async (req: Request, res: Response): Promise<void> 
     }
     if (req.query.status === 'active') where += ' AND is_active IS DISTINCT FROM false';
     if (req.query.status === 'inactive') where += ' AND is_active = false';
+    const bookingStatus = req.query.booking_status;
+    const service = req.query.booking_service ?? 'all';
+    const statuses = ['pending', 'paid', 'approved', 'checked_out', 'cancelled', 'rejected'];
+    if (!['all', 'room', 'boat'].includes(String(service)) ||
+        (bookingStatus !== undefined && !['all', 'none', ...statuses].includes(String(bookingStatus)))) {
+      res.status(400).json({ success: false, message: 'ตัวกรองการจองไม่ถูกต้อง' });
+      return;
+    }
+    if (bookingStatus && bookingStatus !== 'all') {
+      if (bookingStatus !== 'none') params.push(String(bookingStatus));
+      const condition = bookingStatus === 'none' ? '' : ` AND b.status = $${params.length}`;
+      const predicates = (service === 'room' ? ['room_bookings'] : service === 'boat' ? ['boat_bookings'] : ['room_bookings', 'boat_bookings'])
+        .map(table => `EXISTS (SELECT 1 FROM ${table} b WHERE b.member_id = members.member_id${condition})`);
+      where += bookingStatus === 'none' ? ` AND NOT (${predicates.join(' OR ')})` : ` AND (${predicates.join(' OR ')})`;
+    } else if (service !== 'all') {
+      const table = service === 'room' ? 'room_bookings' : 'boat_bookings';
+      where += ` AND EXISTS (SELECT 1 FROM ${table} b WHERE b.member_id = members.member_id)`;
+    }
     let extra = {};
     if (pagination) {
       const count = await pool.query(`SELECT COUNT(*) AS total FROM members ${where}`, params);

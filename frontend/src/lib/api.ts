@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { isSafeInternalPath, setPostLoginRedirect } from '@/lib/auth-redirect';
+import { ADMIN_BOOKINGS_CHANGED } from '@/lib/admin-booking-events';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
@@ -17,7 +18,16 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const method = response.config.method?.toLowerCase();
+    const url = response.config.url || '';
+    if (typeof window !== 'undefined' && ['post', 'put', 'patch', 'delete'].includes(method || '')
+      && /^\/(?:bookings|kayaks\/bookings|payments)(?:\/|$)/.test(url)
+      && response.data?.success !== false) {
+      window.dispatchEvent(new Event(ADMIN_BOOKINGS_CHANGED));
+    }
+    return response;
+  },
   (error) => {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
       if (typeof window !== 'undefined') {

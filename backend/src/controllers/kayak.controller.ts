@@ -1966,6 +1966,10 @@ export const getAllKayakBookings = async (
         summary: { all: Number(row.all), has_slip: Number(row.has_slip), pending: Number(row.pending), approved: Number(row.approved),
           checked_out: Number(row.checked_out), totalRevenue: Number(row.totalRevenue), pendingRevenue: Number(row.pendingRevenue) } };
     }
+    const sortColumns: Record<string, string> = { booking_date: 'bb.booking_date', total_price: 'bb.total_price', created_at: 'bb.created_at' };
+    const sort = typeof req.query.sort === 'string' ? sortColumns[req.query.sort] || 'bb.created_at' : 'bb.created_at';
+    const direction = req.query.sort_dir === 'asc' ? 'ASC' : 'DESC';
+    const roundOrder = sort === 'bb.booking_date' ? `, bb.start_time ${direction}` : '';
     const result = await pool.query(
       `SELECT bb.*,
               (
@@ -1980,7 +1984,7 @@ export const getAllKayakBookings = async (
               (SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ', s_out.first_name, s_out.last_name)), ''), s_out.role) FROM staff s_out WHERE s_out.staff_id = bb.checkout_by_staff_id) AS checkout_by_name,
               ${BOATS_JSON_SQL} AS boats
        ${from} ${where}
-       ORDER BY bb.created_at DESC, bb.boat_booking_id DESC
+       ORDER BY ${sort} ${direction}${roundOrder}, bb.boat_booking_id DESC
        ${pagination ? `LIMIT $${params.length + 1} OFFSET $${params.length + 2}` : ''}`,
       pagination ? [...params, pagination.limit, pagination.offset] : params
     );
