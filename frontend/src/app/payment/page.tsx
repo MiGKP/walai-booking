@@ -99,8 +99,6 @@ function PaymentContent() {
   const [slipPreview, setSlipPreview] = useState('');
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
-  const [justUploaded, setJustUploaded] = useState(false);
-  const [countdown, setCountdown] = useState(2);
   // สถานะจริงของการจอง (ไม่ใช่ payment_status ที่ค้างเป็น 'paid' ตลอดหลังส่งสลิป) ใช้แยกว่าเจ้าหน้าที่อนุมัติ/ปฏิเสธไปแล้วหรือยังรอตรวจสอบ
   const [bookingStatus, setBookingStatus] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState<string | null>(null);
@@ -108,22 +106,19 @@ function PaymentContent() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [specialRequest, setSpecialRequest] = useState('');
+  const [justUploaded, setJustUploaded] = useState(false);
+  const [countdown, setCountdown] = useState(2);
 
   // เด้งไปที่แท็บ "การจองของฉัน" อัตโนมัติหลังส่งสลิปสำเร็จ
   useEffect(() => {
     if (!justUploaded) return;
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          router.push('/dashboard?tab=bookings');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    const timer = setInterval(() => setCountdown(prev => Math.max(0, prev - 1)), 1000);
     return () => clearInterval(timer);
-  }, [justUploaded, router]);
+  }, [justUploaded]);
+
+  useEffect(() => {
+    if (justUploaded && countdown === 0) router.push('/dashboard?tab=bookings');
+  }, [justUploaded, countdown, router]);
 
   // เรียก backend เพื่อสร้างหรือดึงข้อมูล payment ของ booking ปัจจุบัน รวมถึง QR Code และข้อมูลบัญชีรับเงิน
   async function createPayment() {
@@ -188,7 +183,6 @@ function PaymentContent() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setBookingStatus('paid');
-      localStorage.setItem('walai_dashboard_tab', 'bookings');
       if (payment.booking_type === 'room') {
         // Mixed grants may retain paid rights after all free rights were reserved.
         // Do not keep the pre-payment reservation allowance while reloading it.
@@ -220,7 +214,6 @@ function PaymentContent() {
       const cancelUrl = booking_type === 'room' ? `/bookings/${booking_id}/cancel` : `/kayaks/bookings/${booking_id}/cancel`;
       await api.put(cancelUrl);
       toast.success('ยกเลิกการจองแล้ว');
-      localStorage.setItem('walai_dashboard_tab', 'bookings');
       router.push('/dashboard?tab=bookings');
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'ไม่สามารถยกเลิกการจองได้'));

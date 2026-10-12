@@ -548,6 +548,10 @@ export default function PromotionsPage() {
   };
 
   const openEdit = (p: Promotion) => {
+    if (p.applies_to === "kayak") {
+      notify.error("โค้ดส่วนลดเรือยกเลิกแล้ว กรุณาสร้างโปรโมชั่นห้องพักรายการใหม่");
+      return;
+    }
     setEditingId(p.id);
     const hasAddon = Number(p.boat_ticket_count || 0) > 0;
     setPromoTab("room");
@@ -1432,26 +1436,6 @@ export default function PromotionsPage() {
         widthClass="max-w-6xl"
       >
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-3">
-          <fieldset className="grid gap-3 rounded-2xl border border-cream-200 bg-cream-50/50 p-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-bold text-charcoal-700">บริการที่ใช้ส่วนลดได้</label>
-              <div className="rounded-xl border border-cream-200 bg-white px-3 py-2 text-xs font-semibold text-forest-900 flex items-center gap-2">
-                <Bed size={14} className="text-forest-700 shrink-0" />
-                <span>ห้องพักเท่านั้น (สิทธิ์พายเรือแถมกำหนดได้ที่ส่วน Add-on ด้านล่าง)</span>
-              </div>
-            </div>
-            <div className="flex items-center text-xs text-charcoal-700">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.stackable}
-                  onChange={(event) => setForm((previous) => ({ ...previous, stackable: event.target.checked }))}
-                  className="rounded border-cream-300 text-forest-800 focus:ring-forest-800/20"
-                />
-                <span>ใช้ร่วมกับโค้ดอื่นที่อนุญาตให้ใช้ร่วมกันได้</span>
-              </label>
-            </div>
-          </fieldset>
 
           {/* TAB 1: โปรโมชั่นห้องพัก (Side-by-side 2-column layout) */}
           {promoTab === "room" && (

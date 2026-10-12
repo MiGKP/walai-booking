@@ -75,9 +75,9 @@ const RANGE_PRESETS = [
 const PLUS_PRESETS = [12, 13, 16, 18];
 
 function extractPriceFromDetail(detail: string): number | null {
-  const priceMatch = detail.match(/(?:฿|\b)(\d{2,5})\s*(?:บาท|.-|บ\.|\/คืน)?/);
+  const priceMatch = detail.match(/(?:฿\s*(\d+(?:,\d{3})*(?:\.\d+)?)|(\d+(?:,\d{3})*(?:\.\d+)?)\s*(?:บาท|\.-|บ\.|\/คืน))/);
   if (priceMatch) {
-    const p = parseInt(priceMatch[1], 10);
+    const p = Number((priceMatch[1] || priceMatch[2]).replaceAll(",", ""));
     if (!isNaN(p) && p >= 50 && p <= 10000) return p;
   }
   return null;
@@ -240,8 +240,11 @@ export default function KidsPolicyEditor({
   helperText = "กำหนดช่วงอายุและเงื่อนไขการเข้าพักหรือเตียงเสริม โดยระบบจะนำไปจัดรูปแบบแสดงผลที่หน้าห้องพัก",
 }: KidsPolicyEditorProps) {
   const [items, setItems] = useState<ParsedItem[]>([]);
+  const lastEmittedValue = useRef<string | null>(null);
 
   useEffect(() => {
+    // Preserve row keys and input focus when the parent echoes an in-progress edit.
+    if (value === lastEmittedValue.current) return;
     if (!value || !value.trim()) {
       setItems([]);
       return;
@@ -263,6 +266,7 @@ export default function KidsPolicyEditor({
       })
       .filter(Boolean)
       .join("\n");
+    lastEmittedValue.current = text;
     onChange(text);
   };
 

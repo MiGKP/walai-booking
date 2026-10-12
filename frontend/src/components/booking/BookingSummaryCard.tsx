@@ -34,7 +34,7 @@ export default function BookingSummaryCard() {
   // Capacity validation
   const countableChildren = childAges.filter((age) => age !== null && age >= policy.infantAge).length;
   const totalGuests = adults + countableChildren;
-  const totalCapacity = cartItems.reduce((sum, item) => sum + (item.capacity || 2), 0);
+  const totalCapacity = cartItems.reduce((sum, item) => sum + Number(item.capacity || 0), 0);
   const isCapacityInsufficient = cartItems.length > 0 && totalGuests > totalCapacity;
   const missingCapacity = Math.max(0, totalGuests - totalCapacity);
 
@@ -139,7 +139,7 @@ export default function BookingSummaryCard() {
               <AlertTriangle size={14} className="text-amber-600 shrink-0" />
               <span>ห้องพักไม่เพียงพอสำหรับ {totalGuests} ท่าน</span>
             </div>
-            ห้องที่เลือก ({cartItems.length} ห้อง) รองรับได้สูงสุด {totalCapacity} ท่าน กรุณาเลือกห้องพักเพิ่มอีกอย่างน้อย {Math.ceil(missingCapacity / 2)} ห้อง เพื่อดำเนินการจอง
+            ห้องที่เลือก ({cartItems.length} ห้อง) รองรับได้สูงสุด {totalCapacity} ท่าน กรุณาเลือกห้องพักเพิ่มให้รองรับอีก {missingCapacity} ท่าน เพื่อดำเนินการจอง
           </div>
         )}
 
@@ -166,7 +166,7 @@ export default function BookingSummaryCard() {
             <AlertTriangle size={12} className="text-amber-600 shrink-0" />
             <span>จุได้ {totalCapacity}/{totalGuests} ท่าน (ไม่พอ)</span>
           </span>
-          <span className="font-bold text-amber-950">เลือกเพิ่มอีก {Math.ceil(missingCapacity / 2)} ห้อง</span>
+          <span className="font-bold text-amber-950">เลือกเพิ่มให้รองรับอีก {missingCapacity} ท่าน</span>
         </div>
       )}
       <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>

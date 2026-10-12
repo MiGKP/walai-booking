@@ -367,6 +367,16 @@ test('addon locks all rounds in the shared time window before counting capacity'
   assert.ok(queries.indexOf(roundLock) < queries.findIndex(q => /SUM\(bnb.boat_count\)/.test(q.sql)));
 });
 
+test('retired kayak discounts cannot create a booking or consume coupon quota', async () => {
+  const queries = addonScenario();
+  const res = response();
+  await kayak.createKayakBooking(request({ items: [{ boat_type_id: 1, num_passengers: 1 }], start_time: '09:00', end_time: '10:00', booking_date: '2099-01-02', promotion_ids: [17] }), res);
+  assert.equal(res.code, 400);
+  assert.match(res.body.message, /ไม่สามารถใช้โค้ดโปรโมชั่น/);
+  assert(queries.some(q => /ROLLBACK/.test(q.sql)));
+  assert(!queries.some(q => /INSERT INTO boat_bookings|UPDATE promotions|INSERT INTO booking_promotions/.test(q.sql)));
+});
+
 test('normal kayak bookings use the same ascending shared-round lock order', async () => {
   const queries = addonScenario();
   const res = response();

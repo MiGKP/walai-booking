@@ -47,6 +47,29 @@ function load(relative, states = [], overrides = {}) {
 
 const kayak = { boat_booking_id: 21, is_addon: true, room_booking_id: 9, kayak_name: 'เรือเสริม', status: 'pending', created_at: new Date().toISOString(), booking_date: '2026-11-02', total_price: 250 };
 
+test('guest age policy matches the booking API and handles missing settings', () => {
+  const { parseGuestAgePolicy } = load('src/hooks/useInfantAgePolicy.ts');
+  for (const value of [null, undefined, '']) assert.equal(parseGuestAgePolicy(null, value).infantAge, 6);
+  assert.equal(parseGuestAgePolicy(null, 0).infantAge, 0);
+  const policy = parseGuestAgePolicy('เด็ก 0-5 ปี: เข้าพักฟรี\nเด็ก 6-17 ปี: เตียงเสริม 500 บาท/คืน\n18 ปีขึ้นไป: คิดราคาผู้ใหญ่', 6);
+  assert.equal(policy.childMaxAge, 11);
+  assert.equal(policy.adultMinAge, 12);
+});
+
+test('guest capacity reads the same main settings row as backend', () => {
+  const { guestPolicyFromResortRows } = load('src/hooks/useInfantAgePolicy.ts');
+  const policy = guestPolicyFromResortRows([{ id: 3, infant_max_age_exclusive: 6 }, { id: 4, infant_max_age_exclusive: 0, kids_policy: 'เด็ก 6-11 ปี: เตียงเสริม 500 บาท/คืน' }]);
+  assert.equal(policy.infantAge, 6);
+  assert.equal(policy.childChargePricePerNight, 500);
+});
+
+test('free-child policy text never creates an automatic extra charge', () => {
+  const { parseGuestAgePolicy } = load('src/hooks/useInfantAgePolicy.ts');
+  const policy = parseGuestAgePolicy('เด็ก 6-11 ปี: เข้าพักฟรี ใช้เตียงเสริมฟรี', 6);
+  assert.equal(policy.childChargeMinAge, null);
+  assert.equal(policy.childChargePricePerNight, null);
+});
+
 test('cancelled bookings never display payment instructions despite stale payment status or an old slip', () => {
   for (const kind of ['room', 'kayak']) {
     for (const hasSlip of [false, true]) {
@@ -79,7 +102,7 @@ test('coupon booking links prefill the shared promotion field using promo_code',
   assert.match(html, /value="TESTBOAT"/);
 });
 
-test('kayak booking submits only the current validated promotion selection', async () => {
+test('kayak booking submits without discount codes and preserves room rights', async () => {
   const source = fs.readFileSync(path.join(root, 'src/app/kayaks/page.tsx'), 'utf8');
   const start = source.indexOf('  const handleBooking =');
   const end = source.indexOf('\n  };', start);
@@ -89,17 +112,18 @@ test('kayak booking submits only the current validated promotion selection', asy
   let payload;
   const handle = new Function('selectedDate', 'selectedSlot', 'today', 'pastCutoffToday', 'boatHours', 'isBoatSlotBookable', 'cartLines', 'slotFitsCart', 'setBookingLoading', 'api', 'toast', 'router', 'roomBookingId', 'normalizeSlotTime', 'promotionIds', js)('2099-01-02', { start_time: '15:00', end_time: '15:30' }, '2099-01-01', false, [], () => true, [{ boat_type_id: 1, num_passengers: 1, boat_count: 1, free_tickets_used: 0 }], () => true, () => {}, { post: async (_path, body) => { payload = body; return { data: { data: { boat_booking_id: 1 } } }; } }, { success() {}, error() {} }, { push() {} }, null, value => value, [32]);
   await handle({ preventDefault() {} });
-  assert.deepEqual(payload.promotion_ids, [32]);
+  assert.equal(payload.promotion_ids, undefined);
+  assert.equal(payload.items[0].free_tickets_used, 0);
 });
 
-test('kayak checkout keeps its coupon field and room-rights entry', () => {
+test('kayak checkout removes discount entry and keeps room rights', () => {
   const source = fs.readFileSync(path.join(root, 'src/app/kayaks/page.tsx'), 'utf8');
-  assert.match(source, /<PromoCodeFields[\s\S]*?scope="kayak"/);
+  assert.doesNotMatch(source, /<PromoCodeFields/);
   assert.match(source, /<RoomBoatRightsChoice/);
-  assert.match(source, /promotionSelection\?\.price === totalPrice/);
+  assert.match(source, /totalPrice.toLocaleString/);
 });
 
-test('admin promotion edits retain both-service scope and existing wallet/stack policies', async () => {
+test('admin edits apply to rooms and preserve wallet and stacking settings', async () => {
   const source = fs.readFileSync(path.join(root, 'src/app/admin/promotions/page.tsx'), 'utf8');
   const extract = name => {
     const start = source.indexOf(`  const ${name} =`);
@@ -112,7 +136,7 @@ test('admin promotion edits retain both-service scope and existing wallet/stack 
     () => {}, () => {}, () => {}, value => { form = value; }, () => {}, value => value || '', value => value || 'both',
   );
   edit({ id: 32, code: 'TESTBOTH', applies_to: 'both', discount_type: 'fixed', discount_value: 10, is_collectible: false, stackable: true });
-  assert.equal(form.applies_to, 'both');
+  assert.equal(form.applies_to, 'room');
   assert.equal(form.is_collectible, false);
   assert.equal(form.stackable, true);
   let payload;
@@ -120,7 +144,7 @@ test('admin promotion edits retain both-service scope and existing wallet/stack 
     () => {}, 'room', form, false, 32, { put: async (_url, body) => { payload = body; } }, { success() {}, error(message) { assert.fail(message); } }, () => {}, () => {}, () => 'Unexpected save error', value => value || 'both',
   );
   await submit({ preventDefault() {} });
-  assert.equal(payload.applies_to, 'both');
+  assert.equal(payload.applies_to, 'room');
   assert.equal(payload.is_collectible, false);
   assert.equal(payload.stackable, true);
 });
@@ -233,7 +257,7 @@ test('missing rights dates explain the blocker once without repeating five room 
   const Component = load('src/components/booking/RoomBoatRightsChoice.tsx', [[booking], false, null, 102, detail, false, null], { './BoatAddonSection': () => React.createElement('div', { 'data-room-panel': true }) }).default;
   const html = renderToStaticMarkup(React.createElement(Component, { memberId: 7, enabled: true, onChange() {} }));
   assert(html.includes('การจองนี้ยังเลือกวันและรอบเรือไม่ได้'));
-  assert(html.includes('href="/dashboard"'));
+  assert(html.includes('href="/dashboard?tab=bookings"'));
   assert(!html.includes('data-room-panel'));
   assert.equal(html.split('ไม่พบช่วงวันที่ใช้สิทธิ์').length - 1, 1);
 });

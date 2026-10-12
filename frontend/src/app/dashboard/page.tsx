@@ -162,7 +162,7 @@ function DashboardContent() {
       el.removeEventListener("scroll", checkScroll);
       window.removeEventListener("resize", checkScroll);
     };
-  }, [checkScroll]);
+  }, [checkScroll, ready, user]);
 
   // เมื่อเปลี่ยน activeTab ให้เลื่อนปุ่มแท็บนั้นมาตรงกลางเสมอ (โดยเฉพาะบนจอมือถือ)
   useEffect(() => {

@@ -166,14 +166,17 @@ function BookingDetailsContent() {
   const { checkIn, checkOut, adults, children: childrenCount, childAges } = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
   const childAgesStr = childAges.join(',');
   const nights = nightsBetween(checkIn, checkOut);
-  const chargeableKidsCount = childAges.filter(a => a !== null && a >= policy.infantAge).length;
+  const capacityKidsCount = childAges.filter(a => Number.isInteger(a) && a >= policy.infantAge).length;
+  const chargeableKidsCount = policy.childChargeMinAge === null ? 0 : childAges.filter(a =>
+    Number.isInteger(a) && a >= policy.childChargeMinAge! && a <= policy.childChargeMaxAge!
+  ).length;
   const hasOnsiteCharges = extraBed || chargeableKidsCount > 0;
 
   const cartItems = cart?.items.filter(item => item.room_id !== null) ?? [];
 
   // Capacity validation
-  const totalGuests = adults + chargeableKidsCount;
-  const totalCapacity = cartItems.reduce((sum, item) => sum + (item.capacity || 2), 0);
+  const totalGuests = adults + capacityKidsCount;
+  const totalCapacity = cartItems.reduce((sum, item) => sum + Number(item.capacity || 0), 0);
   const isCapacityInsufficient = cartItems.length > 0 && totalGuests > totalCapacity;
   const missingCapacity = Math.max(0, totalGuests - totalCapacity);
 
@@ -339,7 +342,6 @@ function BookingDetailsContent() {
       }
       const grantedTickets = Number(res.data?.data?.boat_ticket_summary?.total_tickets ?? res.data?.data?.boat_tickets_granted ?? 0);
       toast.success(grantedTickets > 0 ? `จองห้องพักสำเร็จ ได้รับสิทธิ์เรือ ${grantedTickets} สิทธิ์จากโปรโมชั่น` : 'จองห้องพักสำเร็จ');
-      localStorage.setItem('walai_dashboard_tab', 'bookings');
       router.push(`/payment?booking_type=room&booking_id=${bId}`);
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'เกิดข้อผิดพลาดในการสร้างการจอง'));
@@ -580,6 +582,7 @@ function BookingDetailsContent() {
                   )})}
                 </div>
 
+                {policy.kidsPolicyRaw && <p className="mt-4 whitespace-pre-line text-xs text-charcoal-600">{policy.kidsPolicyRaw}</p>}
                 {/* On-Site Extra Charges Notice Box (ชำระหน้าเคาน์เตอร์) */}
                 {hasOnsiteCharges && (
                   <div className="mt-5 rounded-2xl border border-amber-200/90 bg-amber-50/70 p-4 text-xs text-amber-950 space-y-2.5">
@@ -660,7 +663,7 @@ function BookingDetailsContent() {
                   )}
                   {isCapacityInsufficient && (
                     <div className="bg-amber-100 text-amber-950 p-3 rounded-xl text-xs font-semibold mt-2">
-                      ⚠️ ความจุห้องไม่พอสำหรับ {totalGuests} ท่าน (ห้องที่เลือกรองรับได้ {totalCapacity} ท่าน) กรุณากลับไปเลือกห้องพักเพิ่มอีก {Math.ceil(missingCapacity / 2)} ห้อง
+                      ⚠️ ความจุห้องไม่พอสำหรับ {totalGuests} ท่าน (ห้องที่เลือกรองรับได้ {totalCapacity} ท่าน) กรุณากลับไปเลือกห้องพักเพิ่มให้รองรับอีก {missingCapacity} ท่าน
                     </div>
                   )}
                 </div>

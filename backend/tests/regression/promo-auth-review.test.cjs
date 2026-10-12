@@ -28,6 +28,15 @@ test('room list and detail use active catalog rules and expose checkout conditio
   assert.equal(seen.filter(sql => sql.includes('as available_promotions')).length, 2);
 });
 const ctx=overrides=>({memberId:7,nights:1,basePrice:200,now:new Date(),memberUsedCountByPromoId:{},walletsByPromoId:{},scope:'room',...overrides});
+
+test('retired kayak discount validation returns 400 before looking up a coupon', async () => {
+  query = async () => assert.fail('A retired discount must not load the catalog');
+  const res = { code: 200, status(code) { this.code = code; return this; }, json(body) { this.body = body; } };
+  await controller.validatePromoCode({ body: { scope: 'kayak', code: 'TESTBOAT' } }, res);
+  assert.equal(res.code, 400);
+  assert.equal(res.body.success, false);
+  assert.match(res.body.message, /ไม่สามารถใช้โค้ดโปรโมชั่น/);
+});
 test('admin listing preserves paid addon metadata',async()=>{query=async sql=>{const source=promo({boat_addon_mode:'paid',boat_addon_price:250});const fields=sql.split('FROM')[0];return rows([Object.fromEntries(Object.entries(source).filter(([key])=>fields.includes(key)))]);};const res=response();await controller.getAllPromotions({},res);assert.equal(res.body.data[0].boat_addon_mode,'paid');assert.equal(res.body.data[0].boat_addon_price,250);});
 test('room promotion validates actual types',()=>{assert.throws(()=>applyPromotionList([promo({room_type_id:99})],ctx({roomTypeIds:[2]})),/ประเภทห้อง/);assert.equal(applyPromotionList([promo({room_type_id:99})],ctx({roomTypeIds:[99]})).totalPrice,100);assert.throws(()=>applyPromotionList([promo({room_type_id:99})],ctx({roomTypeIds:[99,2]})),/ประเภทห้อง/);});
 test('catalog loader preserves room restriction',async()=>{const loaded=await loadPromosForApply({query:async sql=>rows([promo({room_type_id:sql.includes('room_type_id')?99:undefined})])},[1]);assert.equal(loaded[0].room_type_id,99);});
