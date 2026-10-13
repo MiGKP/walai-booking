@@ -16,6 +16,7 @@ export interface GuestAgePolicy {
   childChargePricePerNight: number | null;
   childChargeMinAge: number | null;
   childChargeMaxAge: number | null;
+  bookingPolicyText: string;
 }
 
 export function parseGuestAgePolicy(
@@ -30,7 +31,7 @@ export function parseGuestAgePolicy(
   // Match booking validators; free-text policies do not change the API age range.
   const adultMinAge = 12;
   const childMaxAge = 11;
-  let childChargePolicyTitle = `เด็ก ${infantAge}-${childMaxAge} ปี`;
+  const childChargePolicyTitle = `เด็ก ${infantAge}–${childMaxAge} ปี`;
   let childChargePolicyDetail = "ค่าบริการเป็นไปตามนโยบายของรีสอร์ต";
   let childChargePricePerNight: number | null = null;
   let childChargeMinAge: number | null = null;
@@ -60,7 +61,6 @@ export function parseGuestAgePolicy(
           childChargeMinAge = min;
           childChargeMaxAge = childMaxAge;
           childChargePricePerNight = null;
-          childChargePolicyTitle = title;
           if (detail) {
             childChargePolicyDetail = detail;
             // ดึงราคาถ้ามี เช่น "500 บาท", "300.-", "฿500", "500/คืน"
@@ -94,6 +94,11 @@ export function parseGuestAgePolicy(
     childChargePricePerNight,
     childChargeMinAge,
     childChargeMaxAge,
+    bookingPolicyText: [
+      infantAge > 0 ? `เด็ก 0–${infantAge - 1} ปี: เข้าพักฟรี ใช้เตียงเดิม และเก็บอายุในการจอง` : 'เด็กทุกอายุนับรวมในความจุห้อง',
+      infantAge <= childMaxAge ? `เด็ก ${infantAge}–${childMaxAge} ปี: ใช้เตียงเดิมได้ หรือเลือกเตียงเสริมรายคน คิดค่าเตียงเฉพาะคนที่เลือก${childChargePricePerNight != null ? ` ${childChargePricePerNight.toLocaleString()} บาท/คน/คืน` : 'ตามนโยบายรีสอร์ต'} (ชำระหน้าเคาน์เตอร์)` : '',
+      `อายุ ${adultMinAge} ปีขึ้นไป: เลือกเป็นผู้ใหญ่ และนับ 1 คนในการค้นหาห้องพัก`,
+    ].filter(Boolean).join('\n'),
   };
 }
 

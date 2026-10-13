@@ -10,7 +10,7 @@ import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { PromoNotice, usePromoNotice } from '@/components/promotions/PromoNotice';
 import { formatThaiDate, nightsBetween } from '@/lib/date';
-import { chooseRoomPromotions, eligibleRoomPromotion, resolveCheckoutDetails, roomPromotionDiscount, roomPromotionReasons, roomPromotionLabel } from '@/lib/booking-checkout';
+import { chooseRoomPromotions, eligibleRoomPromotion, resolveCheckoutDetails, roomPromotionDiscount, roomPromotionReasons, roomPromotionLabel, selectedChildExtraBeds } from '@/lib/booking-checkout';
 import type { CheckoutPromotion } from '@/lib/booking-checkout';
 import type { RoomCartItem } from '@/lib/room-cart';
 import { useGuestAgePolicy } from '@/hooks/useInfantAgePolicy';
@@ -161,15 +161,16 @@ function BookingDetailsContent() {
   const { notice: promoNotice, showNotice: showPromoNotice } = usePromoNotice();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [childBeds, setChildBeds] = useState<Record<number, number>>({});
   const policy = useGuestAgePolicy();
 
   const { checkIn, checkOut, adults, children: childrenCount, childAges } = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
   const childAgesStr = childAges.join(',');
   const nights = nightsBetween(checkIn, checkOut);
   const capacityKidsCount = childAges.filter(a => Number.isInteger(a) && a >= policy.infantAge).length;
-  const chargeableKidsCount = policy.childChargeMinAge === null ? 0 : childAges.filter(a =>
-    Number.isInteger(a) && a >= policy.childChargeMinAge! && a <= policy.childChargeMaxAge!
-  ).length;
+  const eligibleChildBeds = childAges.flatMap((age, index) => Number.isInteger(age) && age >= policy.infantAge && age <= policy.childMaxAge ? [{ index, age }] : []);
+  const selectedBeds = selectedChildExtraBeds(childAges, childBeds, policy.infantAge, policy.childMaxAge);
+  const chargeableKidsCount = selectedBeds.length;
   const hasOnsiteCharges = extraBed || chargeableKidsCount > 0;
 
   const cartItems = cart?.items.filter(item => item.room_id !== null) ?? [];
@@ -299,8 +300,8 @@ function BookingDetailsContent() {
     }
     if (chargeableKidsCount > 0) {
       const chargeText = policy.childChargePricePerNight
-        ? `เด็ก ${policy.infantAge}-${policy.childMaxAge} ปี ${chargeableKidsCount} ท่าน (เตียงเสริม ฿${policy.childChargePricePerNight}/คืน ชำระหน้าเคาน์เตอร์)`
-        : `เด็ก ${policy.infantAge}-${policy.childMaxAge} ปี ${chargeableKidsCount} ท่าน (${policy.childChargePolicyDetail} ชำระหน้าเคาน์เตอร์)`;
+        ? `ขอเตียงเสริมสำหรับเด็ก ${chargeableKidsCount} คน (${selectedBeds.map(bed => `คนที่ ${bed.index + 1} อายุ ${bed.age} ปี`).join('; ')}) ฿${policy.childChargePricePerNight}/คน/คืน รวม ฿${policy.childChargePricePerNight * chargeableKidsCount * nights} (${nights} คืน ชำระหน้าเคาน์เตอร์)`
+        : `ขอเตียงเสริมสำหรับเด็ก ${chargeableKidsCount} คน (${selectedBeds.map(bed => `คนที่ ${bed.index + 1} อายุ ${bed.age} ปี`).join('; ')}) ชำระหน้าเคาน์เตอร์ตามนโยบายรีสอร์ต`;
       requests.push(chargeText);
     }
     if (lowerFloor) requests.push("ขอห้องพักชั้นล่าง");
@@ -417,11 +418,26 @@ function BookingDetailsContent() {
               <p className="text-sm text-stone-500 mb-5">โปรดทราบว่าคำขอพิเศษขึ้นอยู่กับความพร้อมให้บริการ และอาจมีค่าใช้จ่ายเพิ่มเติม</p>
               
               <div className="space-y-3 mb-6">
+                {eligibleChildBeds.length > 0 && <fieldset className="space-y-3">
+                  <legend className="mb-2 text-sm font-bold text-forest-900">เตียงเสริมสำหรับเด็ก {policy.infantAge}–{policy.childMaxAge} ปี (เลือกได้รายคน)</legend>
+                  <p className="text-xs text-stone-500">ไม่เลือกใช้เตียงเสริมได้ โดยใช้เตียงเดิม คิดค่าเตียงเฉพาะคนที่ติ๊ก และชำระหน้าเคาน์เตอร์ จำนวนผู้เข้าพักยังต้องไม่เกินความจุห้อง</p>
+                  {eligibleChildBeds.map(({ index, age }) => <label key={`${index}-${age}`} className="flex items-start gap-3 rounded-2xl border border-stone-200 p-3.5 cursor-pointer hover:bg-stone-50">
+                    <input type="checkbox" checked={childBeds[index] === age} onChange={event => setChildBeds(current => {
+                      const next = { ...current };
+                      if (event.target.checked) next[index] = age;
+                      else delete next[index];
+                      return next;
+                    })} className="mt-0.5 h-5 w-5 shrink-0 accent-forest-800" />
+                    <span className="min-w-0 text-sm font-semibold text-forest-900">เตียงเสริมสำหรับเด็กคนที่ {index + 1} (อายุ {age} ปี)
+                      <span className="mt-1 block text-xs font-normal text-stone-500">{policy.childChargePricePerNight != null ? `${policy.childChargePricePerNight.toLocaleString()} บาท/คืน · ${(policy.childChargePricePerNight * nights).toLocaleString()} บาทสำหรับ ${nights} คืน` : 'ค่าบริการตามนโยบายรีสอร์ต'} · ชำระหน้าเคาน์เตอร์</span>
+                    </span>
+                  </label>)}
+                </fieldset>}
                 <label className={`flex items-start gap-3 p-3.5 border rounded-2xl cursor-pointer transition-all ${extraBed ? 'border-forest-700 bg-forest-50/40 shadow-xs' : 'border-stone-200 hover:bg-stone-50'}`}>
                   <input type="checkbox" checked={extraBed} onChange={e => setExtraBed(e.target.checked)} className="mt-0.5 w-5 h-5 text-forest-700 rounded border-stone-300 focus:ring-forest-500 cursor-pointer" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-stone-900">ขอเตียงเสริม</span>
+                      <span className="text-sm font-bold text-stone-900">{eligibleChildBeds.length > 0 ? 'ขอเตียงเสริมอื่น ๆ (นอกเหนือจากเตียงเด็กที่เลือก)' : 'ขอเตียงเสริม'}</span>
                       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">ชำระหน้าเคาน์เตอร์</span>
                     </div>
                     <p className="text-xs text-stone-500 mt-0.5">เหมาะสำหรับผู้เข้าพักเพิ่มเติมหรือผู้ที่ต้องการเตียงแยก (ชำระค่าบริการเพิ่มเติมตอนเช็คอิน)</p>
@@ -582,7 +598,7 @@ function BookingDetailsContent() {
                   )})}
                 </div>
 
-                {policy.kidsPolicyRaw && <p className="mt-4 whitespace-pre-line text-xs text-charcoal-600">{policy.kidsPolicyRaw}</p>}
+                <p className="mt-4 whitespace-pre-line text-xs text-charcoal-600">{policy.bookingPolicyText}</p>
                 {/* On-Site Extra Charges Notice Box (ชำระหน้าเคาน์เตอร์) */}
                 {hasOnsiteCharges && (
                   <div className="mt-5 rounded-2xl border border-amber-200/90 bg-amber-50/70 p-4 text-xs text-amber-950 space-y-2.5">
@@ -598,10 +614,10 @@ function BookingDetailsContent() {
                         <div className="flex justify-between items-start gap-2">
                           <div>
                             <span className="font-bold text-amber-950">
-                              เด็กอายุ {policy.infantAge}–{policy.childMaxAge} ปี ({chargeableKidsCount} ท่าน)
+                              เตียงเสริมสำหรับเด็กที่เลือก ({chargeableKidsCount} คน)
                             </span>
                             <p className="text-[11px] text-amber-800">
-                              {policy.childChargePolicyDetail}
+                              {selectedBeds.map(bed => `คนที่ ${bed.index + 1} อายุ ${bed.age} ปี`).join(' · ')} · ชำระหน้าเคาน์เตอร์
                             </p>
                           </div>
                           {policy.childChargePricePerNight ? (

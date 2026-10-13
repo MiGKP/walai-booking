@@ -70,6 +70,48 @@ test('free-child policy text never creates an automatic extra charge', () => {
   assert.equal(policy.childChargePricePerNight, null);
 });
 
+function childBedCheckoutMarkup() {
+  const { parseGuestAgePolicy } = load('src/hooks/useInfantAgePolicy.ts');
+  const policy = parseGuestAgePolicy('เด็ก 0-5 ปี: เข้าพักฟรี\nเด็ก 6-17 ปี: มีค่าบริการเตียงเสริม 300 บาท/คืน (ชำระหน้าเคาน์เตอร์)\n18 ปีขึ้นไป: คิดราคาผู้ใหญ่', 6);
+  const cart = { check_in: '2099-01-01', check_out: '2099-01-03', adults: 1, children: 3, child_ages: [0, 6, 11], items: [{ room_id: 1, room_type_id: 1, capacity: 4, quantity: 1, room_name: 'TEST Room', price_per_night: 1000 }] };
+  const Page = load('src/app/booking/details/page.tsx', [], {
+    '@/lib/room-cart-store': { useRoomCart: () => cart },
+    '@/hooks/useInfantAgePolicy': { useGuestAgePolicy: () => policy },
+    '@/components/promotions/PromoNotice': { PromoNotice: () => null, usePromoNotice: () => ({ notice: null, showNotice() {} }) },
+  }).default;
+  return renderToStaticMarkup(React.createElement(Page));
+}
+
+test('checkout does not charge children for beds they have not selected', () => {
+  const html = childBedCheckoutMarkup();
+  assert(!html.includes('ชำระเพิ่มเติม ณ วันเข้าพัก'), 'Unselected child beds must not create an onsite charge');
+});
+
+test('checkout offers separate beds for ages 6 and 11 but not a baby', () => {
+  const html = childBedCheckoutMarkup();
+  assert(html.includes('เตียงเสริมสำหรับเด็กคนที่ 2'));
+  assert(html.includes('เตียงเสริมสำหรับเด็กคนที่ 3'));
+  assert(!html.includes('เตียงเสริมสำหรับเด็กคนที่ 1'));
+});
+
+test('child bed selection counts only eligible selected children and expires when their age changes', () => {
+  const { selectedChildExtraBeds } = load('src/lib/booking-checkout.ts');
+  assert.equal(typeof selectedChildExtraBeds, 'function');
+  const ages = [0, 5, 6, 11, 12, 17];
+  assert.deepEqual(selectedChildExtraBeds(ages, {}, 6, 11), []);
+  assert.deepEqual(selectedChildExtraBeds(ages, { 0: 0, 1: 5, 2: 6, 3: 11, 4: 12, 5: 17 }, 6, 11), [{ index: 2, age: 6 }, { index: 3, age: 11 }]);
+  assert.deepEqual(selectedChildExtraBeds([5, 11], { 0: 6, 1: 6 }, 6, 11), []);
+});
+
+test('customer policy copy uses the booking adult boundary and optional child beds', () => {
+  const { parseGuestAgePolicy } = load('src/hooks/useInfantAgePolicy.ts');
+  const policy = parseGuestAgePolicy('เด็ก 6-17 ปี: เตียงเสริม 300 บาท/คืน\n18 ปีขึ้นไป: คิดราคาผู้ใหญ่', 6);
+  assert.equal(policy.childChargePolicyTitle, 'เด็ก 6–11 ปี');
+  assert.match(policy.bookingPolicyText, /12 ปีขึ้นไป/);
+  assert.match(policy.bookingPolicyText, /เฉพาะ.*เลือก/);
+  assert(!policy.bookingPolicyText.includes('18 ปีขึ้นไป'));
+});
+
 test('cancelled bookings never display payment instructions despite stale payment status or an old slip', () => {
   for (const kind of ['room', 'kayak']) {
     for (const hasSlip of [false, true]) {

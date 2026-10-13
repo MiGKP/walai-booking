@@ -1047,7 +1047,7 @@ export default function RoomDetailPage(): React.ReactElement {
                 <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-xs">
                   <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Users size={16} className="text-forest-600" />นโยบายเด็กและเตียงเสริม</p>
                   <ul className="list-disc list-outside ml-4 space-y-1.5 text-stone-500">
-                    {(resortInfo?.kids_policy || (infantAge === 0 ? 'เด็กทุกอายุนับรวมในความจุห้อง' : `เด็กอายุต่ำกว่า ${infantAge} ปี: เข้าพักฟรี (ใช้เตียงที่มีอยู่) และไม่นับความจุห้อง`)).split('\n').map((line: string, i: number) => {
+                    {policy.bookingPolicyText.split('\n').map((line: string, i: number) => {
                       const [title, ...rest] = line.split(':');
                       if (rest.length === 0) return <li key={i}>{line.trim()}</li>;
                       return (
