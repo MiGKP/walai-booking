@@ -220,9 +220,11 @@ function BoatCheckinContent(): React.ReactElement {
   return (
     <div className="space-y-6 pb-12">
       {/* Top Banner / Title */}
-      <div className="bg-linear-to-r from-teal-900 via-forest-800 to-forest-900 rounded-3xl p-6 sm:p-8 text-cream-100 shadow-lg relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 opacity-10 flex items-center pr-10 pointer-events-none">
-          <Waves size={200} />
+      <div className="bg-linear-to-r from-teal-900 via-forest-800 to-forest-900 rounded-3xl p-4 sm:p-8 text-cream-100 shadow-lg relative z-20">
+        <div aria-hidden="true" className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <div className="absolute right-0 top-0 bottom-0 opacity-10 flex items-center pr-10">
+            <Waves size={200} />
+          </div>
         </div>
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -233,7 +235,7 @@ function BoatCheckinContent(): React.ReactElement {
           </div>
 
           {/* Quick Date Switcher */}
-          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md p-1.5 rounded-2xl border border-white/20 shrink-0">
+          <div className="relative flex max-w-full flex-wrap items-center gap-2 bg-white/10 backdrop-blur-md p-1.5 rounded-2xl border border-white/20 shrink-0 sm:flex-nowrap">
             <button
               type="button"
               onClick={() => setSelectedDate(todayStr)}
@@ -246,6 +248,7 @@ function BoatCheckinContent(): React.ReactElement {
               วันนี้
             </button>
             <CustomDatePicker
+              className="static sm:relative"
               value={selectedDate}
               onChange={(val) => {
                 if (val) setSelectedDate(val);
