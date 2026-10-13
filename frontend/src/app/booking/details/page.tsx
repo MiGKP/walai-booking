@@ -12,7 +12,7 @@ import { PromoNotice, usePromoNotice } from '@/components/promotions/PromoNotice
 import { formatThaiDate, nightsBetween } from '@/lib/date';
 import { chooseRoomPromotions, eligibleRoomPromotion, resolveCheckoutDetails, roomPromotionDiscount, roomPromotionReasons, roomPromotionLabel, selectedChildExtraBeds } from '@/lib/booking-checkout';
 import type { CheckoutPromotion } from '@/lib/booking-checkout';
-import type { RoomCartItem } from '@/lib/room-cart';
+import { roomOccupancy, type RoomCartItem } from '@/lib/room-cart';
 import { useGuestAgePolicy } from '@/hooks/useInfantAgePolicy';
 
 type Promotion = CheckoutPromotion;
@@ -167,7 +167,6 @@ function BookingDetailsContent() {
   const { checkIn, checkOut, adults, children: childrenCount, childAges } = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
   const childAgesStr = childAges.join(',');
   const nights = nightsBetween(checkIn, checkOut);
-  const capacityKidsCount = childAges.filter(a => Number.isInteger(a) && a >= policy.infantAge).length;
   const eligibleChildBeds = childAges.flatMap((age, index) => Number.isInteger(age) && age >= policy.infantAge && age <= policy.childMaxAge ? [{ index, age }] : []);
   const selectedBeds = selectedChildExtraBeds(childAges, childBeds, policy.infantAge, policy.childMaxAge);
   const chargeableKidsCount = selectedBeds.length;
@@ -176,10 +175,11 @@ function BookingDetailsContent() {
   const cartItems = cart?.items.filter(item => item.room_id !== null) ?? [];
 
   // Capacity validation
-  const totalGuests = adults + capacityKidsCount;
   const totalCapacity = cartItems.reduce((sum, item) => sum + Number(item.capacity || 0), 0);
-  const isCapacityInsufficient = cartItems.length > 0 && totalGuests > totalCapacity;
-  const missingCapacity = Math.max(0, totalGuests - totalCapacity);
+  const occupancy = roomOccupancy({ adults, children: childrenCount, childAges, infantAge: policy.infantAge, capacity: totalCapacity, roomCount: cartItems.length });
+  const totalGuests = occupancy.occupyingGuests;
+  const isCapacityInsufficient = cartItems.length > 0 && !occupancy.fits;
+  const missingCapacity = occupancy.missingCapacity;
 
   useEffect(() => {
     if (user) {
@@ -275,7 +275,7 @@ function BookingDetailsContent() {
       return;
     }
     if (isCapacityInsufficient) {
-      toast.error(`จำนวนผู้เข้าพัก (${totalGuests} ท่าน) เกินความจุของห้องพักที่เลือก (${totalCapacity} ท่าน) กรุณากลับไปเลือกห้องพักเพิ่ม`);
+      toast.error(`ยังขาดที่พักสำหรับ ${missingCapacity} ท่าน กรุณากลับไปเลือกห้องพักเพิ่ม (เด็ก 6–11 ปีพักเพิ่มได้ไม่เกิน 1 คนต่อห้อง)`);
       return;
     }
     for (const group of groups) {
@@ -420,7 +420,7 @@ function BookingDetailsContent() {
               <div className="space-y-3 mb-6">
                 {eligibleChildBeds.length > 0 && <fieldset className="space-y-3">
                   <legend className="mb-2 text-sm font-bold text-forest-900">เตียงเสริมสำหรับเด็ก {policy.infantAge}–{policy.childMaxAge} ปี (เลือกได้รายคน)</legend>
-                  <p className="text-xs text-stone-500">ไม่เลือกใช้เตียงเสริมได้ โดยใช้เตียงเดิม คิดค่าเตียงเฉพาะคนที่ติ๊ก และชำระหน้าเคาน์เตอร์ จำนวนผู้เข้าพักยังต้องไม่เกินความจุห้อง</p>
+                  <p className="text-xs text-stone-500">เด็ก 6–11 ปีพักเกินความจุหลักได้ไม่เกิน 1 คนต่อห้อง และใช้เตียงเดิมได้ คิดค่าเตียงเสริมเฉพาะคนที่ติ๊ก และชำระหน้าเคาน์เตอร์ อายุ 12 ปีขึ้นไปนับเป็นผู้ใหญ่ตามความจุหลัก</p>
                   {eligibleChildBeds.map(({ index, age }) => <label key={`${index}-${age}`} className="flex items-start gap-3 rounded-2xl border border-stone-200 p-3.5 cursor-pointer hover:bg-stone-50">
                     <input type="checkbox" checked={childBeds[index] === age} onChange={event => setChildBeds(current => {
                       const next = { ...current };
@@ -679,7 +679,7 @@ function BookingDetailsContent() {
                   )}
                   {isCapacityInsufficient && (
                     <div className="bg-amber-100 text-amber-950 p-3 rounded-xl text-xs font-semibold mt-2">
-                      ⚠️ ความจุห้องไม่พอสำหรับ {totalGuests} ท่าน (ห้องที่เลือกรองรับได้ {totalCapacity} ท่าน) กรุณากลับไปเลือกห้องพักเพิ่มให้รองรับอีก {missingCapacity} ท่าน
+                      ความจุหลัก {totalCapacity} ท่าน รวมสิทธิ์เด็ก 6–11 ปีเพิ่มได้ไม่เกิน 1 คนต่อห้อง ยังไม่พอสำหรับ {totalGuests} ท่าน กรุณากลับไปเลือกห้องพักเพิ่มให้รองรับอีก {missingCapacity} ท่าน
                     </div>
                   )}
                 </div>

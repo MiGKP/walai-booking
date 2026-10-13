@@ -6,7 +6,7 @@ import {
   RoomCartState,
   cartCapacitySum,
   cartEstimatedTotal,
-  cartOccupyingGuestTotal,
+  roomOccupancy,
   cartRoomCount,
   setCartItemQuantity,
 } from '@/lib/room-cart';
@@ -61,10 +61,9 @@ export default function RoomCartPanel({
   const nights = nightsBetween(cart.check_in, cart.check_out);
   const capacity = cartCapacitySum(cart);
   const infantAge = useInfantAgePolicy();
-  const guests = cartOccupyingGuestTotal(cart, infantAge);
   const baseTotal = cartEstimatedTotal(cart);
   const roomCount = cartRoomCount(cart);
-  const overCapacity = guests > capacity;
+  const overCapacity = !roomOccupancy({ adults: cart.adults, children: cart.children, childAges: cart.child_ages ?? [], infantAge, capacity, roomCount }).fits;
   const empty = cart.items.length === 0;
   const roomTypeIds = Array.from(new Set(cart.items.map(item => item.room_type_id)));
   const roomTypeKey = roomTypeIds.join(',');

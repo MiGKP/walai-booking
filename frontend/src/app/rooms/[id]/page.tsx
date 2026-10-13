@@ -50,7 +50,7 @@ import {
 } from '@/lib/date';
 
 import { roomPromotionLabel, type CheckoutPromotion } from '@/lib/booking-checkout';
-import { RoomCartItem } from '@/lib/room-cart';
+import { RoomCartItem, minimumRoomsForGuests, roomOccupancy } from '@/lib/room-cart';
 import { useRoomCart, setRoomCart } from '@/lib/room-cart-store';
 import { useCartSync } from '@/hooks/useCartSync';
 import { useGuestAgePolicy } from '@/hooks/useInfantAgePolicy';
@@ -238,8 +238,9 @@ export default function RoomDetailPage(): React.ReactElement {
 
   const cart = useRoomCart();
   const adultsCount = parseInt(searchParams.get('adults') || '1', 10);
-  const countableChildren = childAges.filter((age) => age !== null && age >= infantAge).length;
-  const totalGuests = adultsCount + countableChildren;
+  const guestInput = { adults: adultsCount, children: parseInt(searchParams.get('children') || '0', 10), childAges, infantAge };
+  const totalGuests = roomOccupancy({ ...guestInput, capacity: 0, roomCount: 0 }).occupyingGuests;
+  const minimumRooms = room ? minimumRoomsForGuests(guestInput, Number(room.capacity)) : 1;
   const [openPanel, setOpenPanel] = useState<"guests" | "calendar" | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
@@ -596,7 +597,7 @@ export default function RoomDetailPage(): React.ReactElement {
                     )}
                     <div className="flex items-center gap-2 font-medium text-stone-700">
                       <Users size={18} className="text-stone-400" />
-                      <span>พักได้สูงสุด {room.capacity} ท่าน</span>
+                      <span>ความจุหลัก {room.capacity} ท่าน · เด็ก 6–11 ปีเพิ่มได้ 1 คน/ห้อง</span>
                     </div>
                   </div>
 
@@ -853,16 +854,16 @@ export default function RoomDetailPage(): React.ReactElement {
               />
 
               {/* Capacity guidance note (Agoda style) */}
-              {room && totalGuests > Number(room.capacity) && (
+              {room && minimumRooms > 1 && (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-200/90 bg-amber-50/80 p-3 text-xs text-amber-900">
                   <div className="flex items-center gap-2">
                     <Users size={16} className="text-amber-700 shrink-0" />
                     <span>
-                      ผู้เข้าพัก <strong>{totalGuests} ท่าน</strong> (ห้องนี้รองรับ <strong>{room.capacity} ท่าน/ห้อง</strong>) — ต้องเลือกอย่างน้อย <strong>{Math.ceil(totalGuests / Number(room.capacity))} ห้อง</strong>
+                      ผู้เข้าพัก <strong>{totalGuests} ท่าน</strong> (ความจุหลัก <strong>{room.capacity} ท่าน/ห้อง</strong> และเด็ก 6–11 ปีเพิ่มได้ 1 คน/ห้อง) — ต้องเลือกอย่างน้อย <strong>{minimumRooms} ห้อง</strong>
                     </span>
                   </div>
                   <span className="shrink-0 rounded-full bg-amber-200/80 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
-                    เลือกแล้ว {selectedRoomIds.length}/{Math.ceil(totalGuests / Number(room.capacity))} ห้อง
+                    เลือกแล้ว {selectedRoomIds.length}/{minimumRooms} ห้อง
                   </span>
                 </div>
               )}

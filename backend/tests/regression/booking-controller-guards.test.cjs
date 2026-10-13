@@ -160,13 +160,13 @@ test('POST payment exposes the room ticket flag used by the payment CTA', async 
   assert.equal(res.body.data.has_boat_tickets, true);
 });
 
-function roomScenario({ infantAge = 6, busy = new Set() } = {}) {
+function roomScenario({ infantAge = 6, busy = new Set(), capacity = 1 } = {}) {
   const queries = [];
   let lineId = 0;
   const handler = async (sql, values = []) => {
     queries.push({ sql, values });
     if (sql.includes('infant_max_age_exclusive')) return rows([{ infant_max_age_exclusive: infantAge }]);
-    if (sql.includes('FROM room_types WHERE id')) return rows([{ id: values[0], price: 100, capacity: 1, room_name: `Type ${values[0]}` }]);
+    if (sql.includes('FROM room_types WHERE id')) return rows([{ id: values[0], price: 100, capacity, room_name: `Type ${values[0]}` }]);
     if (sql.includes('FROM rooms') && sql.includes('ANY')) return rows([{ room_id: 10 }, { room_id: 20 }, { room_id: 21 }]);
     if (sql.startsWith('SELECT room_id FROM rooms')) return rows([{ room_id: values[0] }]);
     if (sql.includes('FROM rooms r') && sql.includes('r.room_id = $1')) {
@@ -196,6 +196,19 @@ function roomScenario({ infantAge = 6, busy = new Set() } = {}) {
 function roomBody(items) {
   return { items, check_in_date: '2099-01-01', check_out_date: '2099-01-03', adults: 1, children: 0 };
 }
+
+for (const [adults, ages, quantity, expected] of [
+  [2, [6], 1, 201], [2, [11], 1, 201], [2, [0, 5, 6], 1, 201],
+  [2, [6, 11], 1, 400], [3, [], 1, 400], [3, [6], 1, 400],
+  [4, [6, 11], 2, 201], [4, [6, 7, 11], 2, 400], [2, [12], 1, 400],
+]) test(`family capacity API: adults=${adults}, ages=${ages}, rooms=${quantity}`, async () => {
+  const queries = roomScenario({ capacity: 2 });
+  const res = response();
+  await booking.createRoomBooking(request({ ...roomBody([{ room_type_id: 2, quantity }]), adults, children: ages.length, child_ages: ages }), res);
+  assert.equal(res.code, expected, JSON.stringify(res.body));
+  if (expected === 201) assert.deepEqual(res.body.data.child_ages, ages);
+  else assert(!queries.some(query => query.sql.includes('INSERT INTO room_bookings')));
+});
 
 test('room child age boundary accepts 11 and rejects 12 as an adult', async () => {
   roomScenario();

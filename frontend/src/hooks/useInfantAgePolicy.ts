@@ -96,6 +96,7 @@ export function parseGuestAgePolicy(
     childChargeMaxAge,
     bookingPolicyText: [
       infantAge > 0 ? `เด็ก 0–${infantAge - 1} ปี: เข้าพักฟรี ใช้เตียงเดิม และเก็บอายุในการจอง` : 'เด็กทุกอายุนับรวมในความจุห้อง',
+      'เด็ก 6–11 ปี: พักเกินความจุหลักได้ไม่เกิน 1 คนต่อห้อง โดยใช้เตียงเดิมได้',
       infantAge <= childMaxAge ? `เด็ก ${infantAge}–${childMaxAge} ปี: ใช้เตียงเดิมได้ หรือเลือกเตียงเสริมรายคน คิดค่าเตียงเฉพาะคนที่เลือก${childChargePricePerNight != null ? ` ${childChargePricePerNight.toLocaleString()} บาท/คน/คืน` : 'ตามนโยบายรีสอร์ต'} (ชำระหน้าเคาน์เตอร์)` : '',
       `อายุ ${adultMinAge} ปีขึ้นไป: เลือกเป็นผู้ใหญ่ และนับ 1 คนในการค้นหาห้องพัก`,
     ].filter(Boolean).join('\n'),

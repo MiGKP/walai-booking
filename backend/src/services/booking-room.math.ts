@@ -27,17 +27,27 @@ export function countCapacityChildren(
 export function assertGuestsFitCapacity(
   adults: number,
   children: number,
-  capacitySum: number
+  capacitySum: number,
+  additionalChildPlaces: number = 0
 ): void {
   const total = adults + children;
   if (adults < 1) {
     throw new Error('ต้องมีผู้ใหญ่อย่างน้อย 1 คน');
   }
-  if (total > capacitySum) {
+  const allowance = Math.min(children, Math.max(0, additionalChildPlaces));
+  if (adults > capacitySum || total > capacitySum + allowance) {
     throw new Error(
-      `ผู้เข้าพักรวม ${total} คน เกินความจุรวม ${capacitySum} คน`
+      `ผู้เข้าพักรวม ${total} คน เกินความจุหลัก ${capacitySum} คนและสิทธิ์เด็ก 6–11 ปีเพิ่มเติม ${allowance} คน (ไม่เกิน 1 คนต่อห้อง)`
     );
   }
+}
+
+export function childOvercapacityAllowance(
+  childAges: number[],
+  roomCount: number,
+  infantMaxAgeExclusive: number = INFANT_MAX_AGE_EXCLUSIVE
+): number {
+  return Math.min(roomCount, childAges.filter(age => Number.isInteger(age) && age >= Math.max(6, infantMaxAgeExclusive) && age <= 11).length);
 }
 
 export function lineSubtotal(pricePerNight: number, nights: number): number {

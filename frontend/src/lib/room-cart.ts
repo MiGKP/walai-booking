@@ -1,5 +1,45 @@
 import { nightsBetween } from './date';
 
+export interface RoomGuestInput {
+  adults: number;
+  children: number;
+  childAges: Array<number | null>;
+  infantAge: number;
+}
+
+function occupancyCounts(input: RoomGuestInput): { occupyingGuests: number; eligibleChildren: number } {
+  let occupyingGuests = input.adults;
+  let eligibleChildren = 0;
+  for (let index = 0; index < input.children; index += 1) {
+    const age = input.childAges[index];
+    if (age == null || !Number.isInteger(age) || age < 0 || age >= input.infantAge) {
+      occupyingGuests += 1;
+      if (age != null && Number.isInteger(age) && age >= Math.max(6, input.infantAge) && age <= 11) {
+        eligibleChildren += 1;
+      }
+    }
+  }
+  return { occupyingGuests, eligibleChildren };
+}
+
+export function roomOccupancy(input: RoomGuestInput & { capacity: number; roomCount: number }): {
+  occupyingGuests: number;
+  additionalChildren: number;
+  missingCapacity: number;
+  fits: boolean;
+} {
+  const { occupyingGuests, eligibleChildren } = occupancyCounts(input);
+  const additionalChildren = Math.min(eligibleChildren, Math.max(0, Math.floor(input.roomCount)));
+  const missingCapacity = Math.max(0, occupyingGuests - additionalChildren - input.capacity);
+  return { occupyingGuests, additionalChildren, missingCapacity, fits: input.adults >= 1 && missingCapacity === 0 };
+}
+
+export function minimumRoomsForGuests(input: RoomGuestInput, capacityPerRoom: number): number {
+  if (!Number.isFinite(capacityPerRoom) || capacityPerRoom <= 0) return Infinity;
+  const { occupyingGuests, eligibleChildren } = occupancyCounts(input);
+  return Math.max(1, Math.ceil((occupyingGuests - eligibleChildren) / capacityPerRoom), Math.ceil(occupyingGuests / (capacityPerRoom + 1)));
+}
+
 export interface RoomCartItem {
   room_type_id: number;
   room_id?: number | null; // For physical room snapshot

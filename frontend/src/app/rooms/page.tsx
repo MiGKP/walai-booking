@@ -34,6 +34,7 @@ import BookingCalendar, {
 import BookingSummaryCard from "@/components/booking/BookingSummaryCard";
 import ChildAgeSelect from "@/components/booking/ChildAgeSelect";
 import { useRoomCart, setRoomCart } from "@/lib/room-cart-store";
+import { minimumRoomsForGuests, roomOccupancy } from "@/lib/room-cart";
 import { fetchRoomCalendar, toRoomDayStatus } from "@/lib/booking-calendar";
 import {
   MonthCursor,
@@ -344,10 +345,10 @@ function RoomsPageContent(): React.ReactElement {
   const roomTypeOptions = useMemo(() => Array.from(new Set(rooms.map((room) => room.type_name).filter(Boolean))), [rooms]);
   const roomsByType = useMemo(() => typeFilter === "all" ? rooms : rooms.filter((room) => room.type_name === typeFilter), [rooms, typeFilter]);
   const infantAge = policy.infantAge;
-  const countableChildren = childAges.filter((age) => age !== null && age >= infantAge).length;
-  const totalGuests = guests.adults + countableChildren;
-  const availableRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) > 0 && (Number(room.capacity) * Number(room.available_count)) >= totalGuests), [roomsByType, totalGuests]);
-  const fullRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) <= 0 || (Number(room.capacity) * Number(room.available_count)) < totalGuests), [roomsByType, totalGuests]);
+  const guestInput = useMemo(() => ({ adults: guests.adults, children: guests.children, childAges, infantAge }), [guests.adults, guests.children, childAges, infantAge]);
+  const totalGuests = roomOccupancy({ ...guestInput, capacity: 0, roomCount: 0 }).occupyingGuests;
+  const availableRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) >= minimumRoomsForGuests(guestInput, Number(room.capacity))), [roomsByType, guestInput]);
+  const fullRooms = useMemo(() => roomsByType.filter((room) => Number(room.available_count) < minimumRoomsForGuests(guestInput, Number(room.capacity))), [roomsByType, guestInput]);
 
   return (
     <div className="min-h-screen bg-cream-100 pb-20 pt-4">
@@ -580,7 +581,8 @@ function RoomsPageContent(): React.ReactElement {
               <div className={`grid gap-8 transition-opacity duration-300 ${loading ? 'pointer-events-none opacity-50' : 'opacity-100'}`}>
                 {[...availableRooms, ...fullRooms].map((room, idx) => {
                   const availableCount = Number(room.available_count);
-                  const isCapacityEnough = (Number(room.capacity) * availableCount) >= totalGuests;
+                  const minimumRooms = minimumRoomsForGuests(guestInput, Number(room.capacity));
+                  const isCapacityEnough = availableCount >= minimumRooms;
                   const isAvailable = availableCount > 0 && isCapacityEnough;
                   const unitPrice = Number(room.price_per_night);
                   const activePromotion = room.available_promotions?.find((p) => selectedPromoCodes.includes(p.code));
@@ -612,9 +614,9 @@ function RoomsPageContent(): React.ReactElement {
                             <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${isAvailable ? "bg-forest-50 text-forest-700" : "bg-stone-200 text-stone-600"}`}>
                               {isAvailable ? `ว่าง ${availableCount} ห้อง` : !isCapacityEnough ? "ความจุไม่พอ" : "เต็ม"}
                             </span>
-                            {isAvailable && totalGuests > Number(room.capacity) && (
+                            {isAvailable && minimumRooms > 1 && (
                               <span className="rounded-full px-2.5 py-0.5 text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200/80">
-                                แนะนำจอง {Math.ceil(totalGuests / Number(room.capacity))} ห้อง (สำหรับ {totalGuests} ท่าน)
+                                แนะนำจอง {minimumRooms} ห้อง (สำหรับ {totalGuests} ท่าน)
                               </span>
                             )}
                             {typeof room.avg_rating !== "undefined" && <div className="flex items-center gap-1.5 rounded-full bg-amber-50/70 px-2 py-0.5 text-xs font-bold text-amber-600"><Star size={11} className="fill-amber-400 text-amber-400" /><span>{Number(room.avg_rating).toFixed(1)}</span><span className="font-medium text-stone-500">({room.review_count ?? 0} รีวิว)</span></div>}
@@ -622,7 +624,7 @@ function RoomsPageContent(): React.ReactElement {
                           <div><h3 className="font-sans text-xl font-semibold leading-tight text-forest-900">{room.room_name}</h3><p className="mt-1 line-clamp-2 text-sm leading-relaxed text-charcoal-400">{room.description}</p></div>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-4 border-t border-stone-100 pt-3">
-                          <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><Users size={14} className="text-forest-400" /><span>ความจุ {room.capacity} ท่าน</span></div>
+                          <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><Users size={14} className="text-forest-400" /><span>ความจุหลัก {room.capacity} ท่าน · เด็ก 6–11 ปีเพิ่มได้ 1 คน/ห้อง</span></div>
                           {room.air_conditioner && <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><Wind size={14} className="text-forest-400" /><span>เครื่องปรับอากาศ</span></div>}
                           {room.bed_size && <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><BedDouble size={14} className="text-forest-400" /><span>{room.bed_size}</span></div>}
                         </div>

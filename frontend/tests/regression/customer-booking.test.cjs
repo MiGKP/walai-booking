@@ -247,6 +247,36 @@ test('cart capacity uses the configured free-child boundary and counts missing a
   assert.equal(cartOccupyingGuestTotal(state, 0), 4);
 });
 
+test('family occupancy allows one extra age-6-to-11 child per room and preserves adult limits', () => {
+  const { roomOccupancy, minimumRoomsForGuests } = load('src/lib/room-cart.ts');
+  assert.equal(typeof roomOccupancy, 'function');
+  const guests = { adults: 2, children: 1, childAges: [6], infantAge: 6 };
+  assert.equal(roomOccupancy({ ...guests, capacity: 2, roomCount: 1 }).fits, true);
+  assert.equal(roomOccupancy({ ...guests, childAges: [11], capacity: 2, roomCount: 1 }).fits, true);
+  assert.equal(roomOccupancy({ ...guests, children: 2, childAges: [6, 11], capacity: 2, roomCount: 1 }).missingCapacity, 1);
+  assert.equal(roomOccupancy({ ...guests, adults: 3, capacity: 2, roomCount: 1 }).fits, false);
+  assert.equal(roomOccupancy({ ...guests, childAges: [12], capacity: 2, roomCount: 1 }).fits, false);
+  assert.equal(roomOccupancy({ ...guests, childAges: [], capacity: 2, roomCount: 1 }).fits, false);
+  assert.equal(roomOccupancy({ ...guests, childAges: [0], capacity: 2, roomCount: 1 }).fits, true);
+  assert.equal(roomOccupancy({ ...guests, adults: 4, children: 2, childAges: [6, 11], capacity: 4, roomCount: 2 }).fits, true);
+  assert.equal(minimumRoomsForGuests(guests, 2), 1);
+  assert.equal(minimumRoomsForGuests({ ...guests, adults: 3 }, 2), 2);
+  assert.equal(minimumRoomsForGuests({ ...guests, children: 2, childAges: [6, 11] }, 2), 2);
+});
+
+test('room summary lets two adults and one child reach the optional-bed checkout', () => {
+  const cart = { check_in: '2099-01-01', check_out: '2099-01-03', adults: 2, children: 1, child_ages: [6], items: [{ room_id: 1, room_type_id: 1, capacity: 2, quantity: 1, room_name: 'TEST Room', price_per_night: 1000 }] };
+  const Page = load('src/components/booking/BookingSummaryCard.tsx', [], {
+    '@/lib/room-cart-store': { useRoomCart: () => cart },
+    '@/hooks/useCartSync': { useCartSync: () => ({ commit() {}, clearAll() {} }) },
+  }).default;
+  const html = renderToStaticMarkup(React.createElement(Page));
+  assert(!html.includes('ห้องพักไม่เพียงพอ'));
+  const bookingButton = html.match(/<button[^>]*>จองรายการนี้<\/button>/)?.[0];
+  assert(bookingButton);
+  assert(!/\sdisabled(?:=|\s|>)/.test(bookingButton));
+});
+
 test('slip selection rejects missing, unsupported and oversized files and accepts the size boundary', () => {
   const { validateSlipFile } = load('src/lib/payment-slip.ts');
   assert.match(validateSlipFile(undefined), /เลือก/);
