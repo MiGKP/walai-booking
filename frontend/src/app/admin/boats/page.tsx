@@ -29,6 +29,9 @@ import {
   Printer,
   Ship,
   Timer,
+  Layers,
+  FileCheck,
+  ShieldCheck,
 } from "lucide-react";
 import {
   Modal,
@@ -505,35 +508,42 @@ function BoatStaffDashboardContent() {
         </div>
       </div>
 
-      <section aria-label="ภาพรวมสถานะการจอง" className="flex flex-wrap gap-2 print:hidden">
+      <section aria-label="ภาพรวมสถานะการจอง" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 print:hidden">
         {([
-          ['all', 'ทั้งหมด', counts.all],
-          ['has_slip', 'รอตรวจสอบสลิป', counts.has_slip],
-          ['pending', 'ยังไม่ชำระเงิน', counts.pending],
-          ['approved', 'อนุมัติแล้ว', counts.approved],
-          ['checked_out', 'คืนเรือแล้ว', counts.checked_out],
-        ] as const).map(([key, label, count]) => (
+          ['all', 'ทั้งหมด', counts.all, Layers, 'bg-forest-50 text-forest-700 border-forest-200'],
+          ['has_slip', 'รอตรวจสอบสลิป', counts.has_slip, FileCheck, 'bg-lagoon-50 text-lagoon-700 border-lagoon-200'],
+          ['pending', 'ยังไม่ชำระเงิน', counts.pending, Clock, 'bg-amber-50 text-amber-700 border-amber-200'],
+          ['approved', 'อนุมัติแล้ว', counts.approved, ShieldCheck, 'bg-forest-50 text-forest-700 border-forest-200'],
+          ['checked_out', 'คืนเรือแล้ว', counts.checked_out, LogOut, 'bg-bamboo-50 text-bamboo-800 border-bamboo-200'],
+        ] as const).map(([key, label, count, Icon, iconStyle]) => (
           <button key={key} type="button" aria-pressed={filter === key} onClick={() => handleFilterChange(key)}
-            className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${filter === key ? 'border-forest-800 bg-forest-800 text-white' : 'border-cream-300 bg-white text-charcoal-600 hover:bg-forest-50'}`}>
-            {label}<span className={`rounded-md px-2 py-0.5 text-xs font-bold tabular-nums ${filter === key ? 'bg-white/15' : 'bg-cream-100 text-forest-800'}`}>{count}</span>
+            className={`flex min-w-0 items-center justify-between gap-2 rounded-3xl border p-4 text-left shadow-panel transition-colors sm:px-5 ${filter === key ? 'border-forest-500 bg-forest-900 text-white' : 'border-cream-200 bg-white text-charcoal-600 hover:bg-forest-50'}`}>
+            <span className="min-w-0">
+              <span className={`block text-xs font-semibold ${filter === key ? 'text-white/80' : 'text-charcoal-500'}`}>{label}</span>
+              <span className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
+                <span className={`font-display text-3xl font-bold tabular-nums leading-tight ${filter === key ? 'text-white' : 'text-forest-950'}`}>{count.toLocaleString()}</span>
+                <span className="text-xs">รายการ</span>
+              </span>
+            </span>
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${filter === key ? 'border-white/20 bg-white/15 text-white' : iconStyle}`}><Icon size={20} /></span>
           </button>
         ))}
       </section>
 
-      <BookingListToolbar service="boat" filter={filter} search={searchInput}
+      <BookingListToolbar service="boat" compact filter={filter} search={searchInput}
         type={boatType} types={catalogTypes} dateFrom={dateFrom} dateTo={dateTo}
         sort={sort} limit={itemsPerPage} loading={loading} updatedAt={updatedAt} active={hasActiveFilters}
         onSearch={setSearchInput} onQuery={updateQueryParams} onReset={handleClearFilters}
         onRefresh={() => { void fetchBookings(); }} />
 
-      {/* Bookings table with a bounded scroll area and visible pagination. */}
+      {/* Bookings table and pagination. */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col print:hidden">
         {/* Table Panel Header */}
         <div className="pb-4 mb-4 border-b border-cream-200/80 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
             <h2 className="text-base font-bold text-forest-900">
-              รายการจองเรือ
+              รายการจองเรือ{filter === 'all' ? 'ทั้งหมด' : ''}
             </h2>
             <span className="px-2.5 py-0.5 bg-forest-50 text-forest-800 border border-forest-200 rounded-full text-xs font-bold font-mono">
               {pagination.total} รายการ
@@ -541,7 +551,7 @@ function BoatStaffDashboardContent() {
           </div>
         </div>
 
-        <div ref={tableRef} aria-label="รายการจองเรือ" tabIndex={0} className="max-h-[58vh] overflow-auto border border-cream-200/90 rounded-xl shadow-2xs">
+        <div ref={tableRef} aria-label="รายการจองเรือ" tabIndex={0} className="overflow-x-auto border border-cream-200/90 rounded-xl shadow-2xs">
           <table className="w-full min-w-[960px] text-left text-xs md:text-sm">
             <thead className="sticky top-0 z-20 bg-cream-50">
               <tr className="border-b border-cream-200 bg-cream-50/80 text-charcoal-600 font-bold text-xs uppercase tracking-wider">
@@ -551,13 +561,14 @@ function BoatStaffDashboardContent() {
                 <th className="px-3 py-3.5 whitespace-nowrap">ยอดรวม</th>
                 <th className="px-3.5 py-3.5 whitespace-nowrap">สถานะ</th>
 
-                <th className="px-4 py-3.5 text-right whitespace-nowrap lg:sticky lg:right-0 bg-cream-50 z-30">สลิป / การจัดการ</th>
+                <th className="px-3.5 py-3.5 whitespace-nowrap">สลิปโอนเงิน</th>
+                <th className="px-4 py-3.5 text-right whitespace-nowrap lg:sticky lg:right-0 bg-cream-50 z-30">การจัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cream-100 bg-white">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center text-charcoal-400">
+                  <td colSpan={7} className="py-16 text-center text-charcoal-400">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <RefreshCw
                         size={28}
@@ -571,7 +582,7 @@ function BoatStaffDashboardContent() {
                 </tr>
               ) : paginatedBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center">
+                  <td colSpan={7} className="py-16 text-center">
                     <div className="flex flex-col items-center justify-center gap-2 px-6 py-8">
                       <div className="w-14 h-14 rounded-2xl bg-cream-50 border border-cream-200 text-charcoal-400 flex items-center justify-center mb-1">
                         <Ship size={26} className="stroke-[1.5]" />
@@ -704,8 +715,7 @@ function BoatStaffDashboardContent() {
 
 
 
-                      <td className="px-4 py-3.5 text-right whitespace-nowrap lg:sticky lg:right-0 bg-white group-hover:bg-cream-50 z-10 transition-colors">
-                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <td className="px-3.5 py-3.5 whitespace-nowrap">
                           {b.payment_slip ? (
                           <button
                             onClick={() =>
@@ -725,6 +735,10 @@ function BoatStaffDashboardContent() {
                             -
                           </span>
                         )}
+                      </td>
+
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap lg:sticky lg:right-0 bg-white group-hover:bg-cream-50 z-10 transition-colors">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
                           <button
                             onClick={() =>
                               setDetailsModal({ open: true, booking: b })

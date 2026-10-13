@@ -500,7 +500,7 @@ function RoomStaffDashboardContent() {
         onSearch={setSearchInput} onQuery={updateQueryParams} onReset={handleClearFilters}
         onRefresh={() => { void fetchBookings(); }} />
 
-      {/* Bookings table with a bounded scroll area and visible pagination. */}
+      {/* Bookings table and pagination. */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col print:hidden">
         {/* Table Panel Header */}
         <div className="pb-4 mb-4 border-b border-cream-200/80 flex items-center justify-between gap-3">
@@ -516,7 +516,7 @@ function RoomStaffDashboardContent() {
         </div>
 
         {/* Table Container */}
-        <div ref={tableRef} aria-label="รายการจองห้องพัก" tabIndex={0} className="max-h-[58vh] overflow-auto border border-cream-200/90 rounded-xl shadow-2xs">
+        <div ref={tableRef} aria-label="รายการจองห้องพัก" tabIndex={0} className="overflow-x-auto border border-cream-200/90 rounded-xl shadow-2xs">
           <table className="w-full min-w-[1060px] text-left text-xs">
             <thead className="sticky top-0 z-20 bg-cream-50">
               <tr className="border-b border-cream-200 bg-cream-50/80 text-charcoal-600 font-bold text-xs uppercase tracking-wider">

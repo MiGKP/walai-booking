@@ -58,7 +58,6 @@ function useBreadcrumb(pathname: string | null): string[] {
 export default function AdminShell({ children }: { children: ReactNode }): React.ReactElement {
   const pathname = usePathname();
   const crumbs = useBreadcrumb(pathname);
-  const roomBookingPage = pathname === "/admin/rooms" || pathname === "/staff/rooms/dashboard";
 
   // เมื่อเปลี่ยนหน้า ให้ล้างการแจ้งเตือน (แก้ปัญหาการแจ้งเตือนค้างข้ามหน้า)
   useEffect(() => {
@@ -69,7 +68,7 @@ export default function AdminShell({ children }: { children: ReactNode }): React
     <div className="admin-theme flex min-h-screen min-w-0 bg-cream-100">
       <AdminSidebar />
       <div className="min-w-0 flex-1">
-        <div className={`mx-auto w-full space-y-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 ${roomBookingPage ? "max-w-[1600px]" : "max-w-7xl"}`}>
+        <div className="mx-auto w-full max-w-7xl space-y-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
           <header className="flex items-center justify-between gap-4">
             <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-1 text-xs text-charcoal-400">
               {crumbs.map((c, i) => (

@@ -72,8 +72,9 @@ const baseURL = process.env.TEST_FRONTEND_URL || 'http://localhost:3010';
     assert(notificationRequests >= 2, 'Successful approval must immediately refresh badges');
     for (const service of ['rooms', 'boats']) {
       await page.goto(`${baseURL}/admin/${service}?page=3`, { waitUntil: 'domcontentloaded' });
+      await page.getByText('ตัวกรองเพิ่มเติม', { exact: true }).click();
+      assert.equal(await page.locator('thead th').count(), service === 'rooms' ? 8 : 7);
       if (service === 'rooms') {
-        await page.getByText('ตัวกรองเพิ่มเติม', { exact: true }).click();
         assert.equal(await page.locator('thead th').count(), 8);
         await firstRow.getByText('TEST1', { exact: true }).waitFor();
         await firstRow.getByText('TEST2', { exact: true }).waitFor();
@@ -95,6 +96,16 @@ const baseURL = process.env.TEST_FRONTEND_URL || 'http://localhost:3010';
       await page.getByRole('button', { name: 'รีเซ็ตตัวกรอง', exact: true }).click();
       await page.waitForURL(`${baseURL}/admin/${service}`);
       assert.equal(await page.getByLabel('ค้นหาการจอง').inputValue(), '');
+      const typeGroup = page.getByRole('group', { name: service === 'rooms' ? 'ประเภทห้องพัก' : 'ประเภทเรือ', exact: true });
+      await typeGroup.getByRole('button', { name: 'ทั้งหมดทุกประเภท', exact: true }).click();
+      await typeGroup.getByRole('button', { name: service === 'rooms' ? 'ห้องพิเศษ' : 'เรือ TEST', exact: true }).click();
+      await page.waitForFunction(key => new URL(location.href).searchParams.has(key), service === 'rooms' ? 'roomType' : 'boatType');
+      const startDate = page.getByRole('group', { name: 'วันที่เริ่มต้น', exact: true });
+      await startDate.getByRole('button', { name: 'เริ่ม', exact: true }).click();
+      await startDate.getByRole('button', { name: '15', exact: true }).click();
+      await page.waitForFunction(() => new URL(location.href).searchParams.get('dateFrom')?.endsWith('-15'));
+      await page.getByRole('button', { name: 'รีเซ็ตตัวกรอง', exact: true }).click();
+      await page.waitForURL(`${baseURL}/admin/${service}`);
       const before = notificationRequests;
       roomSlips = 3;
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
@@ -111,9 +122,17 @@ const baseURL = process.env.TEST_FRONTEND_URL || 'http://localhost:3010';
     for (const [staffRole, route] of [['room_staff', '/staff/rooms/dashboard'], ['boat_staff', '/staff/boats/dashboard']]) {
       role = staffRole;
       await page.goto(`${baseURL}${route}`, { waitUntil: 'domcontentloaded' });
-      if (staffRole === 'room_staff') await page.getByText('ตัวกรองเพิ่มเติม', { exact: true }).click();
+      await page.getByText('ตัวกรองเพิ่มเติม', { exact: true }).click();
       await page.getByLabel('สถานะการจอง', { exact: true }).waitFor();
       await page.waitForFunction(() => document.querySelector('aside')?.getBoundingClientRect().width === 80);
+      const startDate = page.getByRole('group', { name: 'วันที่เริ่มต้น', exact: true });
+      await startDate.getByRole('button', { name: 'เริ่ม', exact: true }).click();
+      const popup = startDate.getByRole('button', { name: '15', exact: true });
+      const box = await popup.boundingBox();
+      assert(box && box.x >= 0 && box.x + box.width <= 390, 'Custom calendar remains visible on mobile');
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'Open calendar has no page overflow');
+      await popup.click();
+      await page.waitForFunction(() => new URL(location.href).searchParams.get('dateFrom')?.endsWith('-15'));
       await page.screenshot({ path: `${process.env.TEST_ARTIFACT_DIR || require('node:os').tmpdir()}/admin-${staffRole}-mobile.png`, fullPage: true });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${staffRole}: no page overflow at 390px`);
     }

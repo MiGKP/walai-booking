@@ -111,11 +111,17 @@ const summary = { total_count: 4, approved_count: 1, pending_count: 1, paid_coun
       await page.goto(`${baseURL}${prefix}/stats`);
       await page.getByRole('heading', { name: 'รายงานสถิติ', exact: true }).waitFor();
       const expectedTitle = staffRole === 'boat_staff' ? 'สรุปการจองและชำระเงินเรือ' : 'สรุปการจองและชำระเงินห้องพัก';
+      await page.getByRole('heading', { name: /กราฟรายได้รายวัน/ }).waitFor();
+      await page.locator('details > summary').click();
       await page.getByRole('heading', { name: expectedTitle, exact: true }).waitFor();
       assert.equal(await page.getByRole('heading', { name: 'สรุปการจองและชำระเงินห้องพัก', exact: true }).count(), staffRole === 'boat_staff' ? 0 : 1);
       assert.equal(await page.getByRole('heading', { name: 'สรุปการจองและชำระเงินเรือ', exact: true }).count(), staffRole === 'room_staff' ? 0 : 1);
-      await page.getByLabel('ช่วงรายงาน').selectOption('day');
-      await page.getByLabel('วันที่หรือเดือนรายงาน').fill('2026-10-12');
+      await page.getByRole('button', { name: 'รายวัน', exact: true }).click();
+      await page.getByRole('button', { name: /ต\.ค\./ }).click();
+      const dayReport = page.waitForResponse(res => res.url().includes('/settings/stats?') && res.url().includes('date=2026-10-12'));
+      await page.getByRole('button', { name: '12', exact: true }).click();
+      await dayReport;
+      await page.locator('details > summary').click();
       await page.getByRole('heading', { name: expectedTitle, exact: true }).waitFor();
       assert(reportQueries.some(q => q.includes('period=day') && q.includes('date=2026-10-12')));
       const downloadPromise = page.waitForEvent('download');
@@ -130,6 +136,8 @@ const summary = { total_count: 4, approved_count: 1, pending_count: 1, paid_coun
       await noOverflow(page, `${staffRole} reports desktop`);
       await page.setViewportSize({ width: 390, height: 844 });
       await page.reload();
+      await page.getByRole('heading', { name: /กราฟรายได้รายวัน/ }).waitFor();
+      await page.locator('details > summary').click();
       await page.getByRole('heading', { name: expectedTitle, exact: true }).waitFor();
       await noOverflow(page, `${staffRole} reports mobile`);
       await page.screenshot({ path: path.join(artifacts, `scope-${staffRole}-mobile.png`), fullPage: true });

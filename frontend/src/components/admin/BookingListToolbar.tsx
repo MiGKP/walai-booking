@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from 'react';
-import { RefreshCw, Search, RotateCcw, BedDouble, CalendarDays, SlidersHorizontal } from 'lucide-react';
+import { RefreshCw, Search, RotateCcw, BedDouble, Ship, CalendarDays, SlidersHorizontal } from 'lucide-react';
+import { CustomDatePicker, CustomSelect } from '@/components/admin/ui';
 import { toISODate } from '@/lib/date';
 import type { BookingListFilter, BookingListSort } from '@/lib/admin-booking-list';
 
@@ -47,7 +48,7 @@ export default function BookingListToolbar(p: BookingListToolbarProps): React.Re
   if (p.compact) {
     const statusLabels: Record<BookingListFilter, string> = {
       all: 'ทั้งหมด', has_slip: 'รอตรวจสอบสลิป', pending: 'ยังไม่ชำระเงิน',
-      approved: 'อนุมัติแล้ว', checked_out: 'เช็คเอาต์แล้ว', cancelled: 'ยกเลิกแล้ว', rejected: 'ถูกปฏิเสธ',
+      approved: 'อนุมัติแล้ว', checked_out: room ? 'เช็คเอาต์แล้ว' : 'คืนเรือแล้ว', cancelled: 'ยกเลิกแล้ว', rejected: 'ถูกปฏิเสธ',
     };
     const compactInput = 'min-w-0 rounded-xl border border-cream-200 bg-cream-50/50 px-3 py-2 text-xs text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-500/30';
     return (
@@ -66,21 +67,21 @@ export default function BookingListToolbar(p: BookingListToolbarProps): React.Re
         </div>
         <div className="grid min-w-0 items-center gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(160px,1.6fr)_minmax(150px,1fr)_minmax(320px,1.15fr)_auto]">
           <label className="relative block min-w-0">
-            <span className="sr-only">ค้นหาเลขจอง ชื่อลูกค้า เบอร์โทร หรือเลขห้อง</span>
+            <span className="sr-only">ค้นหาเลขจอง ชื่อลูกค้า เบอร์โทร หรือ{room ? 'เลขห้อง' : 'ประเภทเรือ'}</span>
             <Search size={16} className="pointer-events-none absolute left-3 top-2.5 text-charcoal-400" />
-            <input aria-label="ค้นหาการจอง" type="search" value={p.search} onChange={e => p.onSearch(e.target.value)} placeholder="ค้นหาชื่อ, เบอร์โทร, ห้อง, ID..." className={`${compactInput} w-full rounded-full pl-9`} />
+            <input aria-label="ค้นหาการจอง" type="search" value={p.search} onChange={e => p.onSearch(e.target.value)} placeholder={room ? 'ค้นหาชื่อ, เบอร์โทร, ห้อง, ID...' : 'ค้นหาชื่อ, เบอร์โทร, ประเภทเรือ, ID...'} className={`${compactInput} w-full rounded-full pl-9`} />
           </label>
-          <label className="flex min-w-0 items-center gap-2 rounded-2xl border border-cream-200 px-3 py-1 text-xs text-charcoal-600">
-            <BedDouble size={14} className="shrink-0 text-forest-700" /><span className="shrink-0">ประเภท:</span>
-            <select aria-label={`ประเภท${serviceLabel}`} value={p.type} onChange={e => p.onQuery({ [room ? 'roomType' : 'boatType']: e.target.value, page: 1 })} className={`${compactInput} w-full border-0 font-semibold`}>
-              <option value="all">ทั้งหมดทุกประเภท</option>{p.types.map(type => <option key={type} value={type}>{type}</option>)}
-            </select>
-          </label>
+          <div role="group" aria-label={`ประเภท${serviceLabel}`} className="flex min-w-0 items-center gap-2 rounded-2xl border border-cream-200 px-3 py-1 text-xs text-charcoal-600">
+            {room ? <BedDouble size={14} className="shrink-0 text-forest-700" /> : <Ship size={14} className="shrink-0 text-forest-700" />}<span className="shrink-0">ประเภท:</span>
+            <CustomSelect value={p.type} onChange={(value: string) => p.onQuery({ [room ? 'roomType' : 'boatType']: value, page: 1 })}
+              options={[{ value: 'all', label: 'ทั้งหมดทุกประเภท' }, ...p.types.map(type => ({ value: type, label: type }))]}
+              buttonClassName="flex w-full min-w-0 items-center justify-between gap-2 rounded-xl bg-cream-50/50 px-3 py-2 text-xs font-semibold text-charcoal-800" />
+          </div>
           <div className="flex min-w-0 flex-col items-start gap-2 rounded-2xl border border-cream-200 px-3 py-2 text-xs text-charcoal-600 sm:flex-row sm:items-center sm:py-1">
             <span className="flex shrink-0 items-center gap-2"><CalendarDays size={14} className="text-forest-700" />วันที่:</span>
-            <input aria-label="วันที่เริ่มต้น" type="date" max={p.dateTo || undefined} value={p.dateFrom} onChange={e => setDates(e.target.value, p.dateTo)} className={`${compactInput} w-full px-1.5`} />
+            <div role="group" aria-label="วันที่เริ่มต้น" className="min-w-0 flex-1"><CustomDatePicker mobileCentered value={p.dateFrom} max={p.dateTo || undefined} onChange={value => setDates(value, p.dateTo)} placeholder="เริ่ม" className="relative w-full" buttonClassName={compactInput + ' flex w-full items-center justify-between gap-1 px-2'} /></div>
             <span className="hidden sm:inline">–</span>
-            <input aria-label="วันที่สิ้นสุด" type="date" min={p.dateFrom || undefined} value={p.dateTo} onChange={e => setDates(p.dateFrom, e.target.value)} className={`${compactInput} w-full px-1.5`} />
+            <div role="group" aria-label="วันที่สิ้นสุด" className="min-w-0 flex-1"><CustomDatePicker mobileCentered align="right" value={p.dateTo} min={p.dateFrom || undefined} onChange={value => setDates(p.dateFrom, value)} placeholder="สิ้นสุด" className="relative w-full" buttonClassName={compactInput + ' flex w-full items-center justify-between gap-1 px-2'} /></div>
           </div>
           <div className="flex items-center justify-end gap-1 text-xs">
             {([['today', 'วันนี้'], ['week', 'สัปดาห์นี้'], ['month', 'เดือนนี้']] as const).map(([range, label]) => <button key={range} type="button" onClick={() => applyRange(range)} className="whitespace-nowrap rounded-full bg-cream-50 px-2.5 py-2 font-medium text-charcoal-600 hover:bg-forest-50">{label}</button>)}
@@ -95,7 +96,7 @@ export default function BookingListToolbar(p: BookingListToolbarProps): React.Re
             </label>
             <label className="space-y-1"><span>เรียงรายการ</span>
               <select aria-label="เรียงรายการ" value={p.sort} onChange={e => p.onQuery({ sort: e.target.value, page: 1 })} className={inputClass}>
-                <option value="newest">จองล่าสุดก่อน</option><option value="oldest">จองเก่าก่อน</option><option value="service_asc">วันเช็คอิน (ก่อน → หลัง)</option><option value="price_desc">ยอดรวมมากที่สุดก่อน</option>
+                <option value="newest">จองล่าสุดก่อน</option><option value="oldest">จองเก่าก่อน</option><option value="service_asc">{room ? 'วันเช็คอิน (ก่อน → หลัง)' : 'วันและรอบ (ก่อน → หลัง)'}</option><option value="price_desc">ยอดรวมมากที่สุดก่อน</option>
               </select>
             </label>
             <label className="space-y-1"><span>รายการต่อหน้า</span>
