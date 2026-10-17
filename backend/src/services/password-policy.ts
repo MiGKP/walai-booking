@@ -7,7 +7,7 @@ const COMMON_PASSWORDS = new Set([
 export function getNewPasswordError(value: unknown): string | null {
   if (typeof value !== 'string') return 'กรุณากรอกรหัสผ่านเป็นข้อความ';
   if (Array.from(value).length < 8) return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
-  if (Buffer.byteLength(value, 'utf8') > 72) return 'รหัสผ่านยาวเกินกำหนด (สูงสุด 72 ไบต์ โดยภาษาไทยใช้หลายไบต์ต่อตัว)';
+  if (Buffer.byteLength(value, 'utf8') > 72) return 'รหัสผ่านยาวเกินกำหนด';
   if (!value.trim() || /^([\s\S])\1+$/u.test(value) || COMMON_PASSWORDS.has(value.trim().toLowerCase())) {
     return 'รหัสผ่านเดาง่ายเกินไป กรุณาใช้ข้อความที่ยาวขึ้นและไม่ซ้ำกับรหัสผ่านทั่วไป';
   }
