@@ -1,5 +1,7 @@
 "use client";
 
+import { getNewPasswordError } from '@/lib/password-policy';
+
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   UserPlus,
@@ -196,8 +198,9 @@ export default function StaffManagementPage() {
         return;
       }
     } else {
-      if (!staffForm.password || staffForm.password.trim().length < 8) {
-        notify.error("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร");
+      const passwordError = getNewPasswordError(staffForm.password);
+      if (passwordError) {
+        notify.error(passwordError);
         return;
       }
     }

@@ -47,6 +47,31 @@ function load(relative, states = [], overrides = {}) {
 
 const kayak = { boat_booking_id: 21, is_addon: true, room_booking_id: 9, kayak_name: 'เรือเสริม', status: 'pending', created_at: new Date().toISOString(), booking_date: '2026-11-02', total_price: 250 };
 
+test('new password policy matches UTF-8 bcrypt limits and rejects easy guesses', () => {
+  const { getNewPasswordError } = load('src/lib/password-policy.ts');
+  for (const value of ['Stay2026', 'a long quiet stay beside the river', 'พักริมแม่น้ำ2569', 'A7!'.repeat(24)]) assert.equal(getNewPasswordError(value), null);
+  for (const value of ['short', '12345678', 'PASSWORD', '        ', 'aaaaaaaa', 'A'.repeat(73), 'ก'.repeat(25)]) assert(getNewPasswordError(value));
+});
+
+test('room check-in offers whole-booking rejection only before any room starts', () => {
+  for (const started of [false, true]) {
+    const b = { id: 9, room_booking_id: 9, status: 'approved', user_name: 'TEST', check_in: '2099-01-01', check_out: '2099-01-02', rooms: [{ booking_room_id: 51, room_number: 'W1', status: 'approved' }, { booking_room_id: 52, room_number: 'W2', status: started ? 'checked_in' : 'approved' }] };
+    const states = [[b], false, '', 'all', 'all', 'arrivals', 'detailed', 'time', 1, 1, new Set(), '14:00', '23:00', false, {}, false, null, null];
+    const Page = load('src/app/admin/checkin/page.tsx', states, { '@/components/admin/ui': { Modal: () => null, CustomSelect: () => null } }).default;
+    const html = renderToStaticMarkup(React.createElement(Page));
+    assert.equal(html.includes('aria-label="ปฏิเสธทั้งการจอง #9"'), !started);
+  }
+});
+
+test('rejected room and boat cards preserve reasons without offering payment again', () => {
+  for (const type of ['room', 'kayak']) {
+    const b = { id: 9, room_name: 'TEST', kayak_name: 'TEST', status: 'rejected', reject_reason: 'เหตุผลทดสอบ', payment_status: 'paid', created_at: '2026-10-17', check_in: '2026-11-01', check_out: '2026-11-02', booking_date: '2026-11-01', total_price: 100 };
+    const Page = load('src/components/dashboard/MyBookingsPanel.tsx', ['all', type === 'room' ? [b] : [], type === 'kayak' ? [b] : [], 3, false, false, new Set([`${type}-9`]), new Map()], { '@/components/booking/BoatAddonSection': () => null, '@/components/booking/RoomBoatTicketSummary': () => null }).default;
+    const html = renderToStaticMarkup(React.createElement(Page, { ready: true }));
+    assert(html.includes('ถูกปฏิเสธ')); assert(html.includes('เหตุผลทดสอบ')); assert(!html.includes('href="/payment'));
+  }
+});
+
 test('guest age policy matches the booking API and handles missing settings', () => {
   const { parseGuestAgePolicy } = load('src/hooks/useInfantAgePolicy.ts');
   for (const value of [null, undefined, '']) assert.equal(parseGuestAgePolicy(null, value).infantAge, 6);

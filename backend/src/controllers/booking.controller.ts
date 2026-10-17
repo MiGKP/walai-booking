@@ -1,3 +1,4 @@
+import { notifyBookingStatus } from '../services/booking-notifications';
 import { parsePagination, paginationMeta } from '../utils/pagination';
 import { Request, Response } from 'express';
 import { safeRollback } from '../utils/safe-rollback';
@@ -7,7 +8,6 @@ import pool from '../config/database';
 import { AuthPayload } from '../types';
 import {
   sendBookingConfirmationEmail,
-  sendBookingStatusEmail,
 } from '../services/mail.service';
 import {
   assertGuestsFitCapacity,
@@ -1118,41 +1118,7 @@ export const updateRoomBookingStatus = async (
     await client.query('COMMIT');
 
     if (status === 'approved' || status === 'rejected') {
-      (async () => {
-        try {
-          const infoRes = await pool.query(
-            `SELECT COALESCE(rb.guest_email, m.email) AS email,
-                    COALESCE(rb.guest_name, CONCAT_WS(' ', m.first_name, m.last_name)) AS customer_name,
-                    (
-                      SELECT string_agg(rt.room_name || ' (ห้อง ' || r.room_number || ')', ', ' ORDER BY br.booking_room_id)
-                      FROM booking_room br
-                      JOIN rooms r ON r.room_id = br.room_id
-                      JOIN room_types rt ON rt.id = r.room_type_id
-                      WHERE br.room_booking_id = rb.room_booking_id
-                    ) AS details
-             FROM room_bookings rb
-             JOIN members m ON rb.member_id = m.member_id
-             WHERE rb.room_booking_id = $1`,
-            [id]
-          );
-          if (infoRes.rows.length > 0) {
-            const info = infoRes.rows[0];
-            const customerName =
-              info.customer_name ||
-              info.email;
-            await sendBookingStatusEmail({
-              to: info.email,
-              customerName,
-              bookingType: 'room',
-              bookingId: Number(id),
-              status: status as 'approved' | 'rejected',
-              details: info.details || 'การจองห้องพัก',
-            });
-          }
-        } catch (err) {
-          console.error('Send booking status mail error:', err);
-        }
-      })();
+      void notifyBookingStatus('room', Number(id), status, reject_reason);
     }
 
     res.json({

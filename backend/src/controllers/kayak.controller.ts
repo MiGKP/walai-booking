@@ -1,3 +1,4 @@
+import { notifyBookingStatus } from '../services/booking-notifications';
 import { restoreBoatTicketRedemptions } from '../services/boat-booking-lifecycle';
 import { validateBoatBookingTime } from '../services/boat-booking-time';
 import { boatCheckinWindow, boatCheckinError } from '../services/boat-checkin-time';
@@ -12,7 +13,6 @@ import pool from "../config/database";
 import { AuthPayload } from "../types";
 import {
   sendBookingConfirmationEmail,
-  sendBookingStatusEmail,
 } from "../services/mail.service";
 import { deleteCloudinaryImage } from "../services/cloudinary.service";
 import { mapDbError } from "../utils/db-errors";
@@ -2324,7 +2324,8 @@ export const updateKayakBookingStatus = async (
         client,
         Number(id),
         { id: user.id, role: user.role },
-        "ปฏิเสธโดยเจ้าหน้าที่",
+        typeof reject_reason === 'string' && reject_reason.trim() ? reject_reason.trim() : 'ไม่ระบุเหตุผล',
+        'rejected',
       );
       if (!addonResult.ok) {
         await safeRollback(client);
@@ -2332,6 +2333,7 @@ export const updateKayakBookingStatus = async (
         return;
       }
       await client.query("COMMIT");
+      void notifyBookingStatus('kayak', Number(id), 'rejected', reject_reason);
       res.json({
         success: true,
         message: "ปฏิเสธบัตรเสริมสำเร็จ",
@@ -2390,41 +2392,7 @@ export const updateKayakBookingStatus = async (
     await client.query("COMMIT");
 
     if (status === "approved" || status === "rejected") {
-      (async () => {
-        try {
-          const infoRes = await pool.query(
-            `SELECT m.email, m.first_name, m.last_name,
-                    bb.start_time, bb.end_time,
-                    (
-                      SELECT string_agg(bt.type_name, ', ' ORDER BY bnb.booking_boat_id)
-                      FROM booking_boat bnb
-                      JOIN boat_types bt ON bt.boat_type_id = bnb.boat_type_id
-                      WHERE bnb.boat_booking_id = bb.boat_booking_id
-                    ) AS type_name
-             FROM boat_bookings bb
-             JOIN members m ON bb.member_id = m.member_id
-             WHERE bb.boat_booking_id = $1`,
-            [id],
-          );
-          if (infoRes.rows.length > 0) {
-            const info = infoRes.rows[0];
-            const customerName =
-              `${info.first_name || ""} ${info.last_name || ""}`.trim() ||
-              info.email;
-            const timeRange = `${info.start_time || ""} - ${info.end_time || ""}`;
-            await sendBookingStatusEmail({
-              to: info.email,
-              customerName,
-              bookingType: "kayak",
-              bookingId: Number(id),
-              status: status as "approved" | "rejected",
-              details: `เรือคายัค ${info.type_name || "เรือคายัค"} (รอบเวลา ${timeRange})`,
-            });
-          }
-        } catch (err) {
-          console.error("Send boat booking status mail error:", err);
-        }
-      })();
+      void notifyBookingStatus('kayak', Number(id), status, reject_reason);
     }
 
     res.json({
@@ -2608,6 +2576,7 @@ export const getKayakCheckinSessions = async (
              bb.total_price,
              bb.status,
              bb.checkin_at,
+             bb.handed_out_at,
              bb.checkin_by_staff_id,
              (SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ', s_in.first_name, s_in.last_name)), ''), s_in.role) FROM staff s_in WHERE s_in.staff_id = bb.checkin_by_staff_id) AS checkin_by_name,
              bb.checkout_at,
@@ -3320,6 +3289,7 @@ async function cancelBoatAddonInTx(
   boatBookingId: number,
   actor: { id: number; role: string },
   reason: string | null,
+  outcome: 'cancelled' | 'rejected' = 'cancelled',
 ): Promise<AddonCancelResult> {
   await lockAddonRoomHeader(client, boatBookingId);
   const addonRes = await client.query(
@@ -3390,14 +3360,16 @@ async function cancelBoatAddonInTx(
   });
   await restoreBoatTicketRedemptions(client, boatBookingId);
 
-  await client.query(
-    `UPDATE boat_bookings SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`,
-    [boatBookingId],
-  );
-  await client.query(
-    `UPDATE booking_boat SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`,
-    [boatBookingId],
-  );
+  if (outcome === 'rejected') {
+    await client.query(
+      `UPDATE boat_bookings SET status = 'rejected', reject_reason = $2, approved_by_staff_id = $3, updated_at = NOW() WHERE boat_booking_id = $1`,
+      [boatBookingId, reason, actor.id],
+    );
+    await client.query(`UPDATE booking_boat SET status = 'rejected', updated_at = NOW() WHERE boat_booking_id = $1`, [boatBookingId]);
+  } else {
+    await client.query(`UPDATE boat_bookings SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`, [boatBookingId]);
+    await client.query(`UPDATE booking_boat SET status = 'cancelled', updated_at = NOW() WHERE boat_booking_id = $1`, [boatBookingId]);
+  }
   if (roomTotalReduction > 0) {
     await client.query(
       `UPDATE room_bookings SET total_price = GREATEST(total_price - $1, 0), updated_at = NOW()

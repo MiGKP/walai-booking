@@ -1,3 +1,4 @@
+import { getNewPasswordError } from '../services/password-policy';
 import { legacyAuthEmail, normalizeAuthEmail } from '../services/auth-email';
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
@@ -263,9 +264,10 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    const rawPassword = (password && String(password).trim()) || (phone && String(phone).trim());
-    if (!rawPassword || rawPassword.length < 8) {
-      res.status(400).json({ success: false, message: 'รหัสผ่านหรือเบอร์โทรศัพท์ต้องมีความยาวอย่างน้อย 8 ตัวอักษร' });
+    const rawPassword = password === undefined || password === null || password === '' ? phone : password;
+    const passwordError = getNewPasswordError(rawPassword);
+    if (passwordError) {
+      res.status(400).json({ success: false, message: passwordError });
       return;
     }
 

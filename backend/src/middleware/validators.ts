@@ -1,5 +1,6 @@
 import { normalizeAuthEmail } from '../services/auth-email';
 import { body, param, query } from 'express-validator';
+import { validateNewPassword } from '../services/password-policy';
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
@@ -7,9 +8,7 @@ export const registerValidator = [
   body('first_name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
   body('last_name').trim().notEmpty().withMessage('กรุณากรอกนามสกุล'),
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
-  body('password')
-    .isLength({ min: 8 })
-    .withMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'),
+  body('password').custom(validateNewPassword),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
@@ -20,7 +19,7 @@ export const registerValidator = [
 
 export const loginValidator = [
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
-  body('password').notEmpty().withMessage('กรุณากรอกรหัสผ่าน'),
+  body('password').isString().bail().notEmpty().withMessage('กรุณากรอกรหัสผ่าน'),
 ];
 
 export const forgotPasswordValidator = [
@@ -36,9 +35,7 @@ export const resetPasswordValidator = [
     .isLength({ min: 6, max: 6 })
     .isNumeric()
     .withMessage('รหัส OTP ต้องเป็นตัวเลข 6 หลัก'),
-  body('new_password')
-    .isLength({ min: 8 })
-    .withMessage('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร'),
+  body('new_password').custom(validateNewPassword),
 ];
 
 export const updateProfileValidator = [
@@ -57,15 +54,11 @@ export const updateProfileValidator = [
 
 export const changePasswordValidator = [
   body('current_password').notEmpty().withMessage('กรุณากรอกรหัสผ่านปัจจุบัน'),
-  body('new_password')
-    .isLength({ min: 8 })
-    .withMessage('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร'),
+  body('new_password').custom(validateNewPassword),
 ];
 
 export const setPasswordValidator = [
-  body('new_password')
-    .isLength({ min: 8 })
-    .withMessage('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร'),
+  body('new_password').custom(validateNewPassword),
 ];
 
 export const createStaffValidator = [
@@ -73,11 +66,8 @@ export const createStaffValidator = [
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
   body('password')
     .custom((val, { req }) => {
-      const pwd = (val && String(val).trim()) || (req.body.phone && String(req.body.phone).trim());
-      if (!pwd || pwd.length < 8) {
-        throw new Error('รหัสผ่านหรือเบอร์โทรศัพท์ต้องมีความยาวอย่างน้อย 8 ตัวอักษร');
-      }
-      return true;
+      const pwd = val === undefined || val === null || val === '' ? req.body.phone : val;
+      return validateNewPassword(pwd);
     }),
   body('role')
     .isIn(['admin', 'room_staff', 'boat_staff'])
@@ -90,9 +80,7 @@ export const createStaffValidator = [
 
 export const initAdminValidator = [
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
-  body('password')
-    .isLength({ min: 8 })
-    .withMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'),
+  body('password').custom(validateNewPassword),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
@@ -169,6 +157,10 @@ export const updateRoomBookingStatusValidator = [
   body('status')
     .isIn(['approved', 'rejected', 'pending', 'cancelled'])
     .withMessage('สถานะต้องเป็น approved, rejected, pending หรือ cancelled'),
+  body('reject_reason').if(body('status').equals('rejected'))
+    .isString().withMessage('กรุณาระบุเหตุผลที่ปฏิเสธ').bail().trim()
+    .notEmpty().withMessage('กรุณาระบุเหตุผลที่ปฏิเสธ')
+    .isLength({ max: 500 }).withMessage('เหตุผลต้องไม่เกิน 500 ตัวอักษร'),
 ];
 
 // ─── Kayak Booking ────────────────────────────────────────────────────────────
@@ -217,6 +209,10 @@ export const updateKayakBookingStatusValidator = [
   body('status')
     .isIn(['approved', 'rejected', 'pending', 'checked_out'])
     .withMessage('สถานะต้องเป็น approved, rejected, pending หรือ checked_out'),
+  body('reject_reason').if(body('status').equals('rejected'))
+    .isString().withMessage('กรุณาระบุเหตุผลที่ปฏิเสธ').bail().trim()
+    .notEmpty().withMessage('กรุณาระบุเหตุผลที่ปฏิเสธ')
+    .isLength({ max: 500 }).withMessage('เหตุผลต้องไม่เกิน 500 ตัวอักษร'),
 ];
 
 export const kayakCheckinSessionsValidator = [

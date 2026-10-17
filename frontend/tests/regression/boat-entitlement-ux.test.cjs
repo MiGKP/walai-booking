@@ -52,6 +52,39 @@ function load(relative, states = [], overrides = {}) {
 const summary = { total_tickets: 3, used_tickets: 1, remaining_tickets: 2, free_tickets: 2, paid_tickets: 1, valid_from: '2099-11-02', valid_to: '2099-11-03' };
 const room = { id: 9, status: 'approved', created_at: new Date().toISOString(), check_in_date: '2099-11-01', check_out_date: '2099-11-04', boat_ticket_summary: summary };
 
+test('boat check-in only offers rejection before handout, check-in and return', () => {
+  for (const state of [
+    { status: 'approved', checkin_at: null, handed_out_at: null, allowed: true },
+    { status: 'approved', checkin_at: '2026-10-10', allowed: false },
+    { status: 'approved', checkin_at: null, handed_out_at: '2026-10-10', allowed: false },
+    { status: 'checked_out', checkin_at: '2026-10-10', allowed: false },
+  ]) {
+    const b = { boat_booking_id: 7, booking_date: '2026-10-10', start_time: '12:00', end_time: '13:00', customer_name: 'TEST', boats: [], total_price: 100, ...state };
+    const Page = load('src/app/admin/boats/checkin/page.tsx', ['2026-10-10', '', 'all', [b], {}, false, null, Date.now()], { '@/components/admin/ui': { CustomDatePicker: () => null, Modal: () => null } }).TestContent;
+    const html = renderToStaticMarkup(React.createElement(Page));
+    assert.equal(html.includes('aria-label="ปฏิเสธการจองเรือ #7"'), state.allowed);
+  }
+});
+
+test('boat check-in rejection submits its selected booking and refreshes the list', async () => {
+  const requests = [];
+  const b = { boat_booking_id: 7 };
+  const { TestContent } = load('src/app/admin/boats/checkin/page.tsx', ['2026-10-10', '', 'all', [], {}, false, null, Date.now(), {}, b, false], {
+    '@/components/admin/ui': { CustomDatePicker: () => null, Modal: () => null },
+    '@/lib/admin-notify': { notify: { success() {}, error: message => assert.fail(message) } },
+    '@/lib/api': { put: async (url, body) => requests.push({ url, body }), get: async url => { requests.push({ url }); return { data: { success: true, data: { bookings: [], summary: {} } } }; } },
+  });
+  function find(node) {
+    if (!node || typeof node !== 'object') return null;
+    if (node.props?.title === 'ปฏิเสธการจองเรือ #7' && node.props?.onSubmit) return node;
+    return React.Children.toArray(node.props?.children).map(find).find(Boolean);
+  }
+  const dialog = find(TestContent()); assert(dialog);
+  await dialog.props.onSubmit('เหตุผลทดสอบ');
+  assert.deepEqual(requests[0], { url: '/kayaks/bookings/7/status', body: { status: 'rejected', reject_reason: 'เหตุผลทดสอบ' } });
+  assert.equal(requests[1].url, '/kayaks/checkin-sessions');
+});
+
 test('room rights can select the future 15:00 round with ten boats and adequate rights', () => {
   const info = { room_status: 'paid', room_line_status: 'paid', balance: 5, mode: 'free', unit_price: 0, valid_from: '2099-11-01', valid_to: '2099-11-02' };
   const round = { boat_round_id: 25, start_time: '15:00:00', end_time: '15:30:00', remaining: 10, available: true };

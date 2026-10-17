@@ -25,6 +25,7 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { toISODate, formatThaiDateLong } from "@/lib/date";
 import { CustomDatePicker } from "@/components/admin/ui";
+import RejectBookingDialog from '@/components/admin/RejectBookingDialog';
 
 interface BoatLine {
   booking_boat_id: number;
@@ -42,6 +43,7 @@ interface BoatCheckinBooking {
   total_price: number;
   status: "approved" | "checked_out";
   checkin_at: string | null;
+  handed_out_at?: string | null;
   checkin_opens_at: string | null;
   checkin_closes_at: string | null;
   checkin_unavailable_reason: string | null;
@@ -120,6 +122,9 @@ function BoatCheckinContent(): React.ReactElement {
     description: "",
   });
 
+  const [rejectBooking, setRejectBooking] = useState<BoatCheckinBooking | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+
   const fetchCheckinSessions = useCallback(async () => {
     setLoading(true);
     try {
@@ -150,6 +155,21 @@ function BoatCheckinContent(): React.ReactElement {
   useEffect(() => {
     fetchCheckinSessions();
   }, [fetchCheckinSessions]);
+
+  const handleReject = async (reason: string): Promise<void> => {
+    if (!rejectBooking || rejecting || actionLoadingId !== null) return;
+    setRejecting(true);
+    try {
+      await api.put(`/kayaks/bookings/${rejectBooking.boat_booking_id}/status`, { status: 'rejected', reject_reason: reason });
+      notify.success('ปฏิเสธการจองและบันทึกเหตุผลแล้ว');
+      setRejectBooking(null);
+      await fetchCheckinSessions();
+    } catch (error: unknown) {
+      notify.error(getApiErrorMessage(error, 'ปฏิเสธการจองไม่สำเร็จ'));
+    } finally {
+      setRejecting(false);
+    }
+  };
 
   // Handle Check-in (ปล่อยเรือลงน้ำ)
   const handleCheckin = async (id: number) => {
@@ -576,7 +596,11 @@ function BoatCheckinContent(): React.ReactElement {
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-stone-100 justify-end">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-stone-100 justify-end">
+                          {isWaiting && !b.handed_out_at && (
+                            <button type="button" aria-label={`ปฏิเสธการจองเรือ #${b.boat_booking_id}`} onClick={() => setRejectBooking(b)} disabled={rejecting || actionLoadingId !== null}
+                              className="whitespace-nowrap rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">ปฏิเสธการจอง</button>
+                          )}
                           {isWaiting && (
                             <button
                               type="button"
@@ -589,7 +613,7 @@ function BoatCheckinContent(): React.ReactElement {
                                   description: `คุณ ${b.customer_name} มารายงานตัวและรับชูชีพพร้อมลงเรือแล้วหรือไม่?`,
                                 });
                               }}
-                              disabled={!canCheckin || actionLoadingId === b.boat_booking_id}
+                              disabled={rejecting || !canCheckin || actionLoadingId === b.boat_booking_id}
                               title={canCheckin ? undefined : checkinReason}
                               className="px-3.5 py-2 rounded-xl bg-forest-800 text-cream-100 hover:bg-forest-900 text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
                             >
@@ -690,6 +714,9 @@ function BoatCheckinContent(): React.ReactElement {
           </div>
         </div>
       )}
+      {rejectBooking && <RejectBookingDialog key={rejectBooking.boat_booking_id}
+        title={`ปฏิเสธการจองเรือ #${rejectBooking.boat_booking_id}`} busy={rejecting} onClose={() => setRejectBooking(null)} onSubmit={handleReject}
+        description="ปฏิเสธรายการนี้ก่อนปล่อยเรือลงน้ำ พร้อมแจ้งเหตุผลให้ลูกค้า หากเป็นเรือเสริมของห้องพัก ระบบจะคำนวณยอดและบันทึกการคืนเงินตามนโยบายเดิม" />}
     </div>
   );
 }
