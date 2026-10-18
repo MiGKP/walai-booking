@@ -12,6 +12,7 @@ import {
 import {
   assertGuestsFitCapacity,
   countCapacityChildren,
+  childOvercapacityAllowance,
   lineSubtotal,
   nightsBetween,
   sumCapacity,
@@ -329,7 +330,13 @@ export const createRoomBooking = async (
       throw new Error('Invalid infant age configuration');
     }
     try {
-      assertGuestsFitCapacity(adults, countCapacityChildren(childAges, infantMaxAgeExclusive), sumCapacity(capacityItems));
+      const roomCount = capacityItems.reduce((sum, item) => sum + item.quantity, 0);
+      assertGuestsFitCapacity(
+        adults,
+        countCapacityChildren(childAges, infantMaxAgeExclusive),
+        sumCapacity(capacityItems),
+        childOvercapacityAllowance(childAges, roomCount, infantMaxAgeExclusive)
+      );
     } catch (err) {
       await safeRollback(client);
       res.status(400).json({

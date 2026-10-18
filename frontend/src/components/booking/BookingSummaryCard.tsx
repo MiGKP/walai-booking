@@ -6,7 +6,7 @@ import { AlertTriangle, Minus, Trash2 } from 'lucide-react';
 import { useRoomCart } from '@/lib/room-cart-store';
 import { useCartSync } from '@/hooks/useCartSync';
 import { useGuestAgePolicy } from '@/hooks/useInfantAgePolicy';
-import { RoomCartItem } from '@/lib/room-cart';
+import { RoomCartItem, roomOccupancy } from '@/lib/room-cart';
 import { formatThaiDate } from '@/lib/date';
 import { resolveCheckoutDetails } from '@/lib/booking-checkout';
 
@@ -32,11 +32,11 @@ export default function BookingSummaryCard() {
   const hasDateMismatch = !!(cart && cart.items.length > 0 && checkIn && checkOut && (cart.check_in !== checkIn || cart.check_out !== checkOut));
 
   // Capacity validation
-  const countableChildren = childAges.filter((age) => age !== null && age >= policy.infantAge).length;
-  const totalGuests = adults + countableChildren;
   const totalCapacity = cartItems.reduce((sum, item) => sum + Number(item.capacity || 0), 0);
-  const isCapacityInsufficient = cartItems.length > 0 && totalGuests > totalCapacity;
-  const missingCapacity = Math.max(0, totalGuests - totalCapacity);
+  const occupancy = roomOccupancy({ adults, children, childAges, infantAge: policy.infantAge, capacity: totalCapacity, roomCount: cartItems.length });
+  const totalGuests = occupancy.occupyingGuests;
+  const isCapacityInsufficient = cartItems.length > 0 && !occupancy.fits;
+  const missingCapacity = occupancy.missingCapacity;
 
   const groupedItems = cartItems.reduce((acc, item) => {
     if (!acc[item.room_type_id]) {
@@ -65,6 +65,7 @@ export default function BookingSummaryCard() {
   };
 
   const handleConfirmBooking = () => {
+    if (hasDateMismatch || isCapacityInsufficient) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set('check_in', checkIn);
     params.set('check_out', checkOut);
@@ -139,8 +140,12 @@ export default function BookingSummaryCard() {
               <AlertTriangle size={14} className="text-amber-600 shrink-0" />
               <span>ห้องพักไม่เพียงพอสำหรับ {totalGuests} ท่าน</span>
             </div>
-            ห้องที่เลือก ({cartItems.length} ห้อง) รองรับได้สูงสุด {totalCapacity} ท่าน กรุณาเลือกห้องพักเพิ่มให้รองรับอีก {missingCapacity} ท่าน เพื่อดำเนินการจอง
+            ห้องที่เลือก ({cartItems.length} ห้อง) มีความจุหลัก {totalCapacity} ท่าน และรับเด็ก 6–11 ปีเพิ่มได้ไม่เกิน 1 คนต่อห้อง กรุณาเลือกห้องพักเพิ่มให้รองรับอีก {missingCapacity} ท่าน
           </div>
+        )}
+
+        {occupancy.fits && totalGuests > totalCapacity && (
+          <p className="mb-3 text-xs leading-relaxed text-forest-800">เด็ก 6–11 ปีพักเพิ่มได้ 1 คนต่อห้อง ใช้เตียงเดิมได้ หรือเลือกเตียงเสริมในหน้าถัดไปและชำระหน้าเคาน์เตอร์</p>
         )}
 
         <button 
@@ -164,7 +169,7 @@ export default function BookingSummaryCard() {
         <div className="bg-amber-50 px-5 py-2 text-[10px] text-amber-900 border-b border-amber-200 font-medium flex items-center justify-between">
           <span className="flex items-center gap-1">
             <AlertTriangle size={12} className="text-amber-600 shrink-0" />
-            <span>จุได้ {totalCapacity}/{totalGuests} ท่าน (ไม่พอ)</span>
+            <span>ยังขาดที่พักสำหรับ {missingCapacity} ท่าน</span>
           </span>
           <span className="font-bold text-amber-950">เลือกเพิ่มให้รองรับอีก {missingCapacity} ท่าน</span>
         </div>

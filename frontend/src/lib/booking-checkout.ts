@@ -41,6 +41,16 @@ export interface CheckoutDetails {
   childAges: number[];
 }
 
+export function selectedChildExtraBeds(
+  childAges: number[],
+  selections: Record<number, number>,
+  minAge: number,
+  maxAge: number,
+): Array<{ index: number; age: number }> {
+  return childAges.flatMap((age, index) => Number.isInteger(age) && age >= minAge && age <= maxAge && selections[index] === age
+    ? [{ index, age }] : []);
+}
+
 export function resolveCheckoutDetails(params: URLSearchParams, cart: CheckoutCart | null): CheckoutDetails {
   const ages = params.get('child_ages');
   return {

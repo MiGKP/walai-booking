@@ -1,3 +1,4 @@
+import { getNewPasswordError } from '../services/password-policy';
 import { legacyAuthEmail, normalizeAuthEmail } from '../services/auth-email';
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
@@ -263,9 +264,10 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    const rawPassword = (password && String(password).trim()) || (phone && String(phone).trim());
-    if (!rawPassword || rawPassword.length < 8) {
-      res.status(400).json({ success: false, message: 'รหัสผ่านหรือเบอร์โทรศัพท์ต้องมีความยาวอย่างน้อย 8 ตัวอักษร' });
+    const rawPassword = password === undefined || password === null || password === '' ? phone : password;
+    const passwordError = getNewPasswordError(rawPassword);
+    if (passwordError) {
+      res.status(400).json({ success: false, message: passwordError });
       return;
     }
 
@@ -540,7 +542,7 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
       });
     } else {
       const result = await pool.query(
-        'SELECT staff_id as id, first_name, last_name, email, phone, role FROM staff WHERE staff_id = $1',
+        'SELECT staff_id as id, first_name, last_name, email, phone, role, address, line_id, facebook FROM staff WHERE staff_id = $1',
         [authUser.id]
       );
       
@@ -591,10 +593,48 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         [trimmedFirstName, trimmedLastName, phone || null, line_id || null, facebook || null, authUser.id]
       );
     } else {
-      await pool.query(
-        'UPDATE staff SET first_name = $1, last_name = $2, phone = $3 WHERE staff_id = $4',
-        [trimmedFirstName, trimmedLastName, phone || null, authUser.id]
+      const current = await pool.query('SELECT email, password FROM staff WHERE staff_id = $1', [authUser.id]);
+      if (!current.rows[0]) {
+        res.status(404).json({ success: false, message: 'ไม่พบบัญชีพนักงาน' });
+        return;
+      }
+      const email = req.body.email === undefined ? current.rows[0].email : normalizeAuthEmail(req.body.email);
+      const emailChanged = email !== normalizeAuthEmail(current.rows[0].email);
+      if (emailChanged) {
+        if (typeof req.body.current_password !== 'string' || !await bcrypt.compare(req.body.current_password, current.rows[0].password)) {
+          res.status(400).json({ success: false, message: 'กรุณายืนยันรหัสผ่านปัจจุบันเพื่อเปลี่ยนอีเมล' });
+          return;
+        }
+        const duplicate = await pool.query(
+          `SELECT 1 FROM staff WHERE staff_id <> $1 AND (LOWER(email) = $2 OR LOWER(email) = $3)
+           UNION ALL SELECT 1 FROM members WHERE LOWER(email) = $2 OR LOWER(email) = $3 LIMIT 1`,
+          [authUser.id, email, legacyAuthEmail(email)]
+        );
+        if (duplicate.rows.length) {
+          res.status(409).json({ success: false, message: 'อีเมลนี้ถูกใช้งานแล้ว' });
+          return;
+        }
+      }
+      const saved = await pool.query(
+        `UPDATE staff SET first_name = $1, last_name = $2, phone = $3, email = $4,
+          address = CASE WHEN $5::boolean THEN $6 ELSE address END,
+          line_id = CASE WHEN $7::boolean THEN $8 ELSE line_id END,
+          facebook = CASE WHEN $9::boolean THEN $10 ELSE facebook END,
+          reset_token = CASE WHEN $11::boolean THEN NULL ELSE reset_token END,
+          reset_token_expires_at = CASE WHEN $11::boolean THEN NULL ELSE reset_token_expires_at END
+         WHERE staff_id = $12 AND email = $13 AND password = $14 AND status = true
+         RETURNING first_name, last_name, phone, email, address, line_id, facebook`,
+        [trimmedFirstName, trimmedLastName, phone || null, email,
+          req.body.address !== undefined, req.body.address || null,
+          line_id !== undefined, line_id || null, facebook !== undefined, facebook || null,
+          emailChanged, authUser.id, current.rows[0].email, current.rows[0].password]
       );
+      if (!saved.rows.length) {
+        res.status(409).json({ success: false, message: 'ข้อมูลบัญชีเปลี่ยนแปลงแล้ว กรุณาโหลดหน้าใหม่และลองอีกครั้ง' });
+        return;
+      }
+      res.json({ success: true, message: 'บันทึกข้อมูลสำเร็จ', data: saved.rows[0] });
+      return;
     }
 
     res.json({
@@ -611,6 +651,8 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     });
   } catch (error) {
     console.error('Update profile error:', error);
+    const mapped = mapDbError(error);
+    if (mapped) { res.status(mapped.status).json({ success: false, message: mapped.message }); return; }
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -970,6 +1012,15 @@ export const toggleMemberStatus = async (req: Request, res: Response): Promise<v
 
 export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   try {
+    const accountType = req.body.account_type ?? 'customer';
+    if (accountType !== 'customer' && accountType !== 'staff') {
+      res.status(400).json({ success: false, message: 'ประเภทบัญชีไม่ถูกต้อง' });
+      return;
+    }
+    const table = accountType === 'staff' ? 'staff' : 'members';
+    const idColumn = accountType === 'staff' ? 'staff_id' : 'member_id';
+    const activeFilter = accountType === 'staff' ? ' AND status = true' : '';
+
     const genericForgotPasswordMessage = 'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่ง OTP สำหรับรีเซ็ตรหัสผ่านให้แล้ว';
     const email = normalizeAuthEmail(String(req.body.email || ''));
 
@@ -979,7 +1030,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     }
 
     const memberResult = await pool.query(
-      'SELECT member_id as id, first_name, last_name, email FROM members WHERE (LOWER(email) = $1 OR LOWER(email) = $2) ORDER BY CASE WHEN LOWER(email) = $1 THEN 0 ELSE 1 END LIMIT 1',
+      `SELECT ${idColumn} as id, first_name, last_name, email FROM ${table} WHERE (LOWER(email) = $1 OR LOWER(email) = $2)${activeFilter} ORDER BY CASE WHEN LOWER(email) = $1 THEN 0 ELSE 1 END LIMIT 1`,
       [email, legacyAuthEmail(email)]
     );
 
@@ -993,9 +1044,9 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     const { otpCode, hashedOtp, expiresAt } = createPasswordResetOtp();
 
     await pool.query(
-      `UPDATE members 
+      `UPDATE ${table}
        SET reset_token = $1, reset_token_expires_at = $2, reset_attempts = CASE WHEN reset_token_expires_at IS NULL OR reset_token_expires_at < NOW() THEN 0 ELSE reset_attempts END 
-       WHERE member_id = $3`,
+       WHERE ${idColumn} = $3${activeFilter}`,
       [hashedOtp, expiresAt, member.id]
     );
 
@@ -1023,6 +1074,15 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   try {
+    const accountType = req.body.account_type ?? 'customer';
+    if (accountType !== 'customer' && accountType !== 'staff') {
+      res.status(400).json({ success: false, message: 'ประเภทบัญชีไม่ถูกต้อง' });
+      return;
+    }
+    const table = accountType === 'staff' ? 'staff' : 'members';
+    const idColumn = accountType === 'staff' ? 'staff_id' : 'member_id';
+    const activeFilter = accountType === 'staff' ? ' AND status = true' : '';
+
     const email = normalizeAuthEmail(String(req.body.email || ''));
     const otp = String(req.body.otp || '').trim();
     const newPassword = String(req.body.new_password || '');
@@ -1032,8 +1092,8 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    if (newPassword.length < 6) {
-      res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    if (newPassword.length < 8) {
+      res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
       return;
     }
 
@@ -1041,9 +1101,9 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     // นับ OTP ที่กรอกผิดต่อบัญชีแบบ atomic เมื่อครบเกณฑ์แล้ว OTP นั้นใช้ไม่ได้ทันที (ต้องขอใหม่)
     const MAX_OTP_ATTEMPTS = 5;
     const pending = await pool.query(
-      `SELECT member_id, reset_token
-       FROM members
-       WHERE (LOWER(email) = $1 OR (LOWER(email) = $3 AND NOT EXISTS (SELECT 1 FROM members exact WHERE LOWER(exact.email) = $1))) AND reset_token IS NOT NULL AND reset_token_expires_at > NOW() AND reset_attempts < $2
+      `SELECT ${idColumn} as member_id, reset_token
+       FROM ${table}
+       WHERE (LOWER(email) = $1 OR (LOWER(email) = $3 AND NOT EXISTS (SELECT 1 FROM ${table} exact WHERE LOWER(exact.email) = $1))) ${activeFilter} AND reset_token IS NOT NULL AND reset_token_expires_at > NOW() AND reset_attempts < $2
        ORDER BY CASE WHEN LOWER(email) = $1 THEN 0 ELSE 1 END LIMIT 1`,
       [email, MAX_OTP_ATTEMPTS, legacyAuthEmail(email)]
     );
@@ -1055,12 +1115,12 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     if (pendingRow.reset_token !== hashedOtp) {
       // เพิ่มตัวนับในคำสั่งเดียว (atomic) เพื่อไม่ให้ request ขนานทายได้ไม่จำกัด
       await pool.query(
-        `UPDATE members
+        `UPDATE ${table}
          SET reset_attempts = reset_attempts + 1,
              reset_token = CASE WHEN reset_attempts + 1 >= $2::int THEN NULL ELSE reset_token END,
              reset_token_expires_at = CASE WHEN reset_attempts + 1 >= $2::int THEN NULL ELSE reset_token_expires_at END
-         WHERE member_id = $1`,
-        [pendingRow.member_id, MAX_OTP_ATTEMPTS]
+         WHERE ${idColumn} = $1 AND reset_token = $3${activeFilter}`,
+        [pendingRow.member_id, MAX_OTP_ATTEMPTS, pendingRow.reset_token]
       );
       res.status(400).json({ success: false, message: 'OTP is invalid or expired' });
       return;
@@ -1069,9 +1129,9 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     const passwordHash = await bcrypt.hash(newPassword, 12);
     // ใช้ token ได้ครั้งเดียว: request ขนานที่ผ่านการตรวจแล้วจะได้ 0 แถวในครั้งที่สอง
     const consumed = await pool.query(
-      `UPDATE members
+      `UPDATE ${table}
        SET password = $1, reset_token = NULL, reset_token_expires_at = NULL, reset_attempts = 0, password_changed_at = NOW()
-       WHERE member_id = $2 AND reset_token = $3 AND reset_token_expires_at > NOW() AND reset_attempts < $4`,
+       WHERE ${idColumn} = $2${activeFilter} AND reset_token = $3 AND reset_token_expires_at > NOW() AND reset_attempts < $4`,
       [passwordHash, pendingRow.member_id, hashedOtp, MAX_OTP_ATTEMPTS]
     );
     if ((consumed.rowCount ?? 0) === 0) {

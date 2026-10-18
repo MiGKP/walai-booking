@@ -106,19 +106,6 @@ function PaymentContent() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [specialRequest, setSpecialRequest] = useState('');
-  const [justUploaded, setJustUploaded] = useState(false);
-  const [countdown, setCountdown] = useState(2);
-
-  // เด้งไปที่แท็บ "การจองของฉัน" อัตโนมัติหลังส่งสลิปสำเร็จ
-  useEffect(() => {
-    if (!justUploaded) return;
-    const timer = setInterval(() => setCountdown(prev => Math.max(0, prev - 1)), 1000);
-    return () => clearInterval(timer);
-  }, [justUploaded]);
-
-  useEffect(() => {
-    if (justUploaded && countdown === 0) router.push('/dashboard?tab=bookings');
-  }, [justUploaded, countdown, router]);
 
   // เรียก backend เพื่อสร้างหรือดึงข้อมูล payment ของ booking ปัจจุบัน รวมถึง QR Code และข้อมูลบัญชีรับเงิน
   async function createPayment() {
@@ -197,8 +184,6 @@ function PaymentContent() {
         }
       }
       setDone(true);
-      setJustUploaded(true);
-      toast.success('ส่งหลักฐานการชำระเงินเรียบร้อยแล้ว');
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'อัปโหลดสลิปไม่สำเร็จ'));
     } finally {
@@ -322,13 +307,6 @@ function PaymentContent() {
             </div>
             {!isApproved && <p className="mt-3 text-xs text-charcoal-400">ใช้เวลาตรวจสอบประมาณ 15-30 นาที</p>}
           </>
-        )}
-
-        {justUploaded && (
-          <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-forest-50 py-2.5 px-3 text-xs font-semibold text-forest-800">
-            <span className="h-2 w-2 rounded-full bg-forest-600 animate-pulse" />
-            กำลังนำคุณไปยังแท็บ &ldquo;การจองของฉัน&rdquo; ใน {countdown} วินาที...
-          </div>
         )}
 
         <div className="mt-7 flex flex-col gap-3">

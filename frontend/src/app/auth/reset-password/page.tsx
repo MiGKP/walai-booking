@@ -1,4 +1,5 @@
 "use client";
+import { getNewPasswordError, PASSWORD_HINT } from '@/lib/password-policy';
 
 import { Suspense, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -28,6 +29,7 @@ function ResetPasswordContent(): React.ReactElement | null {
     () => searchParams.get('email') || '',
     [searchParams]
   );
+  const accountType = searchParams.get('account_type') === 'staff' ? 'staff' : 'customer';
   const [form, setForm] = useState({
     email: initialEmail,
     otp: '',
@@ -53,10 +55,9 @@ function ResetPasswordContent(): React.ReactElement | null {
       toast.error('กรุณากรอกอีเมลและ OTP');
       return;
     }
-    if (form.new_password.length < MIN_PASSWORD_LENGTH) {
-      toast.error(
-        `รหัสผ่านต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`
-      );
+    const passwordError = getNewPasswordError(form.new_password);
+    if (passwordError) {
+      toast.error(passwordError);
       return;
     }
     if (form.new_password !== form.confirm_password) {
@@ -68,6 +69,7 @@ function ResetPasswordContent(): React.ReactElement | null {
     try {
       await api.post('/auth/reset-password', {
         email: form.email.trim().toLowerCase(),
+        account_type: accountType,
         otp: form.otp,
         new_password: form.new_password,
       });
@@ -179,6 +181,7 @@ function ResetPasswordContent(): React.ReactElement | null {
                 />
                 <input
                   id="new-password"
+                  data-password-toggle
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
                   required
@@ -201,6 +204,7 @@ function ResetPasswordContent(): React.ReactElement | null {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              <p className="mt-2 text-xs text-stone-400">{PASSWORD_HINT}</p>
             </div>
 
             <div>
@@ -218,6 +222,7 @@ function ResetPasswordContent(): React.ReactElement | null {
                 />
                 <input
                   id="confirm-password"
+                  data-password-toggle
                   type={showConfirmPassword ? 'text' : 'password'}
                   autoComplete="new-password"
                   required
