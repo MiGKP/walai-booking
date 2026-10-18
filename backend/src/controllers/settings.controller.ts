@@ -436,18 +436,26 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
 
     const summaryRoomQuery = `
       SELECT 
+        COUNT(*)::int as total_count,
         COUNT(*) FILTER (WHERE ${revenueStatusFilter})::int as approved_count,
         COUNT(*) FILTER (WHERE status = 'pending')::int as pending_count,
+        COUNT(*) FILTER (WHERE status = 'paid')::int as paid_count,
         COUNT(*) FILTER (WHERE status = 'cancelled')::int as cancelled_count,
-        COALESCE(SUM(total_price) FILTER (WHERE ${revenueStatusFilter}), 0)::numeric as revenue
+        COUNT(*) FILTER (WHERE status = 'rejected')::int as rejected_count,
+        COALESCE(SUM(total_price) FILTER (WHERE ${revenueStatusFilter}), 0)::numeric as revenue,
+        COALESCE(SUM(total_price) FILTER (WHERE status = 'paid'), 0)::numeric as awaiting_approval_amount
       FROM room_bookings ${whereClause}`;
 
     const summaryKayakQuery = `
       SELECT 
+        COUNT(*)::int as total_count,
         COUNT(*) FILTER (WHERE ${revenueStatusFilter})::int as approved_count,
         COUNT(*) FILTER (WHERE status = 'pending')::int as pending_count,
+        COUNT(*) FILTER (WHERE status = 'paid')::int as paid_count,
         COUNT(*) FILTER (WHERE status = 'cancelled')::int as cancelled_count,
-        COALESCE(SUM(total_price) FILTER (WHERE ${revenueStatusFilter}), 0)::numeric as revenue
+        COUNT(*) FILTER (WHERE status = 'rejected')::int as rejected_count,
+        COALESCE(SUM(total_price) FILTER (WHERE ${revenueStatusFilter}), 0)::numeric as revenue,
+        COALESCE(SUM(total_price) FILTER (WHERE status = 'paid'), 0)::numeric as awaiting_approval_amount
       FROM boat_bookings ${whereClause}`;
 
     const chartRoomQuery = chartWhereClause ? `
@@ -466,16 +474,143 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       FROM boat_bookings ${chartWhereClause}
       GROUP BY DATE(created_at) ORDER BY day ASC` : null;
 
+    const whereClauseRb = whereClause ? whereClause.replace(/created_at/g, 'rb.created_at') : '';
+    const packageQuery = `
+      WITH promo_bookings AS (
+        SELECT 
+          p.id,
+          p.name,
+          p.code,
+          rb.room_booking_id,
+          rb.total_price,
+          rb.status,
+          TO_CHAR(DATE(rb.created_at), 'YYYY-MM-DD') AS book_date
+        FROM promotions p
+        JOIN (
+          SELECT bp.promotion_id, bp.room_booking_id
+          FROM booking_promotions bp
+          WHERE bp.room_booking_id IS NOT NULL
+          UNION
+          SELECT rb_legacy.promotion_id, rb_legacy.room_booking_id
+          FROM room_bookings rb_legacy
+          WHERE rb_legacy.promotion_id IS NOT NULL
+        ) promo_map ON promo_map.promotion_id = p.id
+        JOIN room_bookings rb ON rb.room_booking_id = promo_map.room_booking_id
+        ${whereClauseRb}
+      ),
+      promo_daily_counts AS (
+        SELECT 
+          id,
+          book_date,
+          COUNT(*)::int AS daily_cnt,
+          DENSE_RANK() OVER (PARTITION BY id ORDER BY COUNT(*) DESC) AS rnk
+        FROM promo_bookings
+        GROUP BY id, book_date
+      ),
+      peak_dates_per_promo AS (
+        SELECT 
+          id,
+          STRING_AGG(book_date, ', ' ORDER BY book_date ASC) AS peak_dates
+        FROM promo_daily_counts
+        WHERE rnk = 1
+        GROUP BY id
+      )
+      SELECT 
+        pb.id,
+        pb.name,
+        pb.code,
+        COUNT(DISTINCT pb.room_booking_id)::int AS booking_count,
+        COALESCE(SUM(pb.total_price) FILTER (WHERE pb.status IN ('approved', 'checked_out')), 0)::numeric AS revenue,
+        COALESCE(pdp.peak_dates, '') AS peak_dates
+      FROM promo_bookings pb
+      LEFT JOIN peak_dates_per_promo pdp ON pdp.id = pb.id
+      GROUP BY pb.id, pb.name, pb.code, pdp.peak_dates
+      ORDER BY booking_count DESC, revenue DESC`;
+
     const queries: Promise<any>[] = [
       pool.query(summaryRoomQuery, summaryParams),
       pool.query(summaryKayakQuery, summaryParams),
       pool.query(`SELECT COUNT(*)::int as total FROM members`),
+      pool.query(packageQuery, summaryParams),
     ];
     if (chartRoomQuery) queries.push(pool.query(chartRoomQuery, chartParams));
     if (chartKayakQuery) queries.push(pool.query(chartKayakQuery, chartParams));
 
+    const isDayPeriod = period === 'day' && typeof date === 'string' && date;
+    const roomInventoryQuery = isDayPeriod ? `
+      SELECT 
+        $1::text AS date,
+        rt.name AS type_name,
+        COUNT(r.room_id)::int AS total,
+        COALESCE((
+          SELECT COUNT(DISTINCT br.room_id)
+          FROM booking_room br
+          JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+          JOIN rooms r2 ON r2.room_id = br.room_id
+          WHERE r2.room_type_id = rt.id
+            AND br.status NOT IN ('cancelled', 'rejected', 'checked_out')
+            AND r2.status <> 'maintenance'
+            AND rb.check_in <= $1::date
+            AND rb.check_out > $1::date
+        ), 0)::int AS booked,
+        GREATEST(COUNT(r.room_id) - COALESCE((
+          SELECT COUNT(DISTINCT br.room_id)
+          FROM booking_room br
+          JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
+          JOIN rooms r2 ON r2.room_id = br.room_id
+          WHERE r2.room_type_id = rt.id
+            AND br.status NOT IN ('cancelled', 'rejected', 'checked_out')
+            AND r2.status <> 'maintenance'
+            AND rb.check_in <= $1::date
+            AND rb.check_out > $1::date
+        ), 0), 0)::int AS available
+      FROM room_types rt
+      LEFT JOIN rooms r ON r.room_type_id = rt.id AND r.status <> 'maintenance'
+      WHERE rt.status = true
+      GROUP BY rt.id, rt.name
+      ORDER BY rt.name ASC` : null;
+
+    const boatInventoryQuery = isDayPeriod ? `
+      SELECT 
+        $1::text AS date,
+        r.start_time::text,
+        r.end_time::text,
+        bt.name AS type_name,
+        COALESCE(rb_slot.quantity, bt.quantity, 0)::int AS total,
+        COALESCE((
+          SELECT SUM(bnb.boat_count)
+          FROM booking_boat bnb
+          JOIN boat_bookings bb ON bb.boat_booking_id = bnb.boat_booking_id
+          WHERE bb.booking_date = $1::date
+            AND bnb.boat_type_id = bt.boat_type_id
+            AND bnb.boat_round_id = r.boat_round_id
+            AND bnb.status NOT IN ('cancelled', 'rejected')
+        ), 0)::int AS booked,
+        GREATEST(COALESCE(rb_slot.quantity, bt.quantity, 0) - COALESCE((
+          SELECT SUM(bnb.boat_count)
+          FROM booking_boat bnb
+          JOIN boat_bookings bb ON bb.boat_booking_id = bnb.boat_booking_id
+          WHERE bb.booking_date = $1::date
+            AND bnb.boat_type_id = bt.boat_type_id
+            AND bnb.boat_round_id = r.boat_round_id
+            AND bnb.status NOT IN ('cancelled', 'rejected')
+        ), 0), 0)::int AS available
+      FROM boat_rounds r
+      CROSS JOIN boat_types bt
+      LEFT JOIN round_boats rb_slot ON rb_slot.boat_round_id = r.boat_round_id AND rb_slot.boat_type_id = bt.boat_type_id
+      WHERE r.is_active = true AND bt.is_active = true
+      ORDER BY r.start_time ASC, bt.name ASC` : null;
+
+    if (roomInventoryQuery) queries.push(pool.query(roomInventoryQuery, [date]));
+    if (boatInventoryQuery) queries.push(pool.query(boatInventoryQuery, [date]));
+
     const results = await Promise.all(queries);
-    const [roomSummaryRes, kayakSummaryRes, memberRes, roomChartRes, kayakChartRes] = results;
+    const [roomSummaryRes, kayakSummaryRes, memberRes, packageRes] = results;
+    let cursor = 4;
+    const roomChartRes = chartRoomQuery ? results[cursor++] : null;
+    const kayakChartRes = chartKayakQuery ? results[cursor++] : null;
+    const roomInventoryRes = roomInventoryQuery ? results[cursor++] : null;
+    const boatInventoryRes = boatInventoryQuery ? results[cursor++] : null;
 
     res.json({
       success: true,
@@ -484,6 +619,9 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
         kayak_summary: kayakSummaryRes.rows[0] || {},
         room_chart: roomChartRes?.rows || [],
         kayak_chart: kayakChartRes?.rows || [],
+        packages: packageRes?.rows || [],
+        room_inventory: roomInventoryRes?.rows || [],
+        boat_inventory: boatInventoryRes?.rows || [],
         total_members: Number(memberRes.rows[0].total),
         period: period || 'month',
       }
