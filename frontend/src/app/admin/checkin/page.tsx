@@ -38,6 +38,7 @@ import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { Modal, CustomSelect } from "@/components/admin/ui";
+import RejectBookingDialog from "@/components/admin/RejectBookingDialog";
 import {
   formatThaiDateShort as formatThaiDate,
   formatThaiDateLong,
@@ -97,6 +98,7 @@ interface BookingRow {
 }
 
 interface FlatLine extends RoomLine {
+  can_reject: boolean;
   room_booking_id: number;
   check_in: string;
   check_out: string;
@@ -211,6 +213,9 @@ function AdminCheckinContent() {
     onConfirm: () => void;
   } | null>(null);
 
+  const [rejectLine, setRejectLine] = useState<FlatLine | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+
   const today = useMemo(() => toBangkokISODate(new Date()), [currentTime]);
   const tomorrow = useMemo(() => {
     const d = new Date();
@@ -296,6 +301,7 @@ function AdminCheckinContent() {
       b.rooms.forEach((line) => {
         lines.push({
           ...line,
+          can_reject: !b.rooms.some((room) => ['checked_in', 'checked_out'].includes(room.status) || room.checkin_at || room.checkout_at),
           room_booking_id: b.room_booking_id || b.id,
           check_in: b.check_in,
           check_out: b.check_out,
@@ -426,6 +432,34 @@ function AdminCheckinContent() {
     navigator.clipboard.writeText(phone);
     notify.success(`คัดลอกเบอร์ ${phone} แล้ว`);
   };
+
+  const handleReject = async (reason: string): Promise<void> => {
+    if (!rejectLine || rejecting) return;
+    setRejecting(true);
+    try {
+      await api.put(`/bookings/${rejectLine.room_booking_id}/status`, { status: 'rejected', reject_reason: reason });
+      notify.success('ปฏิเสธการจองและบันทึกเหตุผลแล้ว');
+      setRejectLine(null);
+      await fetchBookings();
+    } catch (error: unknown) {
+      notify.error(getApiErrorMessage(error, 'ปฏิเสธการจองไม่สำเร็จ'));
+    } finally {
+      setRejecting(false);
+    }
+  };
+
+  const renderRejectButton = (line: FlatLine): React.ReactNode =>
+    line.can_reject ? (
+      <button
+        type="button"
+        aria-label={`ปฏิเสธทั้งการจอง #${line.room_booking_id}`}
+        onClick={() => setRejectLine(line)}
+        disabled={rejecting}
+        className="rounded-xl border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50/50 hover:bg-rose-100/70 transition-all active:scale-95 disabled:opacity-50"
+      >
+        ปฏิเสธการจอง
+      </button>
+    ) : null;
 
   const handleCheckin = (line: FlatLine) => {
     const outsideWindow = isOutsideCheckinWindow(line);
@@ -1175,6 +1209,7 @@ function AdminCheckinContent() {
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
+                        {renderRejectButton(line)}
                         {arrivalTime && (
                           <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-charcoal-500 font-mono">
                             <Clock size={10} className="text-charcoal-400" /> {arrivalTime} น.
@@ -1289,7 +1324,8 @@ function AdminCheckinContent() {
                       </div>
 
                       {/* Action CTA Button */}
-                      <div className="shrink-0 pt-1 sm:pt-0">
+                      <div className="flex flex-wrap items-center gap-2 shrink-0 pt-1 sm:pt-0">
+                        {renderRejectButton(line)}
                         {actionable ? (
                           <button
                             onClick={() => handleCheckin(line)}
@@ -1736,6 +1772,16 @@ function AdminCheckinContent() {
           </div>
         </div>
       </Modal>
+      {rejectLine && (
+        <RejectBookingDialog
+          key={rejectLine.room_booking_id}
+          title={`ปฏิเสธการจอง #${rejectLine.room_booking_id}`}
+          busy={rejecting}
+          onClose={() => setRejectLine(null)}
+          onSubmit={handleReject}
+          description="การดำเนินการนี้ปฏิเสธทั้งบิล รวมทุกห้องและรายการเรือเสริมที่ยังไม่ได้ใช้บริการ ทำได้เฉพาะเมื่อยังไม่มีห้องในบิลเช็คอิน ลูกค้าจะเห็นสถานะและเหตุผลในหน้าการจอง"
+        />
+      )}
     </div>
   );
 }
