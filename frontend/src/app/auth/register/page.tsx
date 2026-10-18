@@ -1,13 +1,13 @@
 'use client';
 
 import { getNewPasswordError, PASSWORD_HINT } from '@/lib/password-policy';
-
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
+  Camera,
   Eye,
   EyeOff,
   LoaderCircle,
@@ -15,7 +15,9 @@ import {
   Mail,
   MessageCircle,
   Phone,
-  User} from 'lucide-react';
+  User,
+  X,
+} from 'lucide-react';
 import { SiFacebook as Facebook } from '@icons-pack/react-simple-icons';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -52,11 +54,46 @@ export default function RegisterPage(): React.ReactElement | null {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!ready) return null;
 
   const updateField = (field: keyof typeof form, value: string): void => {
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('กรุณาเลือกไฟล์รูปภาพเท่านั้น (.jpg, .png, .webp)');
+      e.target.value = '';
+      return;
+    }
+
+    const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_AVATAR_SIZE) {
+      toast.error('ขนาดไฟล์รูปภาพต้องไม่เกิน 5MB');
+      e.target.value = '';
+      return;
+    }
+
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const handleRemoveAvatar = (): void => {
+    setAvatarFile(null);
+    if (avatarPreview) {
+      URL.revokeObjectURL(avatarPreview);
+      setAvatarPreview(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async (
@@ -77,14 +114,18 @@ export default function RegisterPage(): React.ReactElement | null {
     setLoading(true);
     setIsRedirecting(true);
     try {
-      const response = await api.post<RegisterResponse>('/auth/register', {
-        first_name: form.first_name,
-        last_name: form.last_name,
-        email: form.email,
-        password: form.password,
-        phone: form.phone,
-        line_id: form.line_id,
-        facebook: form.facebook,
+      const formData = new FormData();
+      formData.append('first_name', form.first_name);
+      formData.append('last_name', form.last_name);
+      formData.append('email', form.email);
+      formData.append('password', form.password);
+      if (form.phone) formData.append('phone', form.phone);
+      if (form.line_id) formData.append('line_id', form.line_id);
+      if (form.facebook) formData.append('facebook', form.facebook);
+      if (avatarFile) formData.append('avatar', avatarFile);
+
+      const response = await api.post<RegisterResponse>('/auth/register', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       await login(response.data.data.token);
       toast.success('สมัครสมาชิกสำเร็จ!');
@@ -145,6 +186,60 @@ export default function RegisterPage(): React.ReactElement | null {
                 className="space-y-5"
                 aria-busy={loading}
               >
+                {/* อัปโหลดรูปโปรไฟล์ */}
+                <div className="flex flex-col items-center justify-center pb-2">
+                  <div className="relative group">
+                    <div className="relative h-24 w-24 overflow-hidden rounded-full border-2 border-forest-200/80 bg-cream-50 shadow-sm ring-4 ring-forest-800/5 transition-all group-hover:border-forest-400">
+                      {avatarPreview ? (
+                        <img
+                          src={avatarPreview}
+                          alt="รูปโปรไฟล์"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center text-stone-400">
+                          <User size={34} className="text-forest-700/40" />
+                          <span className="mt-1 text-[11px] font-medium text-stone-500">เลือกรูป</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-0 right-0 grid h-8 w-8 place-items-center rounded-full bg-forest-800 text-cream-100 shadow-md transition-transform hover:scale-105 hover:bg-forest-900 focus:outline-none focus:ring-2 focus:ring-forest-800/30"
+                      title="อัปโหลดรูปโปรไฟล์"
+                      aria-label="อัปโหลดรูปโปรไฟล์"
+                    >
+                      <Camera size={15} />
+                    </button>
+
+                    {avatarPreview && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveAvatar}
+                        className="absolute -top-1 -right-1 grid h-6 w-6 place-items-center rounded-full bg-rose-600 text-white shadow-sm transition-transform hover:scale-105 hover:bg-rose-700"
+                        title="ลบรูปโปรไฟล์"
+                        aria-label="ลบรูปโปรไฟล์"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                    aria-label="อัปโหลดรูปโปรไฟล์"
+                  />
+                  <p className="mt-2 text-xs text-stone-500">
+                    รูปโปรไฟล์ (ไม่บังคับ, JPG/PNG ไม่เกิน 5MB)
+                  </p>
+                </div>
+
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
                     <label

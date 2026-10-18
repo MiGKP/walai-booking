@@ -1,7 +1,6 @@
 "use client";
 
-import { getNewPasswordError } from '@/lib/password-policy';
-
+import { getNewPasswordError } from "@/lib/password-policy";
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   UserPlus,

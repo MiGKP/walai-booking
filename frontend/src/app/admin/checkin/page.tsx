@@ -38,7 +38,7 @@ import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { Modal, CustomSelect } from "@/components/admin/ui";
-import RejectBookingDialog from '@/components/admin/RejectBookingDialog';
+import RejectBookingDialog from "@/components/admin/RejectBookingDialog";
 import {
   formatThaiDateShort as formatThaiDate,
   formatThaiDateLong,
@@ -448,10 +448,18 @@ function AdminCheckinContent() {
     }
   };
 
-  const renderRejectButton = (line: FlatLine): React.ReactNode => line.can_reject ? (
-    <button type="button" aria-label={`ปฏิเสธทั้งการจอง #${line.room_booking_id}`} onClick={() => setRejectLine(line)} disabled={rejecting}
-      className="rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">ปฏิเสธการจอง</button>
-  ) : null;
+  const renderRejectButton = (line: FlatLine): React.ReactNode =>
+    line.can_reject ? (
+      <button
+        type="button"
+        aria-label={`ปฏิเสธทั้งการจอง #${line.room_booking_id}`}
+        onClick={() => setRejectLine(line)}
+        disabled={rejecting}
+        className="rounded-xl border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50/50 hover:bg-rose-100/70 transition-all active:scale-95 disabled:opacity-50"
+      >
+        ปฏิเสธการจอง
+      </button>
+    ) : null;
 
   const handleCheckin = (line: FlatLine) => {
     const outsideWindow = isOutsideCheckinWindow(line);
@@ -1764,9 +1772,16 @@ function AdminCheckinContent() {
           </div>
         </div>
       </Modal>
-      {rejectLine && <RejectBookingDialog key={rejectLine.room_booking_id}
-        title={`ปฏิเสธการจอง #${rejectLine.room_booking_id}`} busy={rejecting} onClose={() => setRejectLine(null)} onSubmit={handleReject}
-        description="การดำเนินการนี้ปฏิเสธทั้งบิล รวมทุกห้องและรายการเรือเสริมที่ยังไม่ได้ใช้บริการ ทำได้เฉพาะเมื่อยังไม่มีห้องในบิลเช็คอิน ลูกค้าจะเห็นสถานะและเหตุผลในหน้าการจอง" />}
+      {rejectLine && (
+        <RejectBookingDialog
+          key={rejectLine.room_booking_id}
+          title={`ปฏิเสธการจอง #${rejectLine.room_booking_id}`}
+          busy={rejecting}
+          onClose={() => setRejectLine(null)}
+          onSubmit={handleReject}
+          description="การดำเนินการนี้ปฏิเสธทั้งบิล รวมทุกห้องและรายการเรือเสริมที่ยังไม่ได้ใช้บริการ ทำได้เฉพาะเมื่อยังไม่มีห้องในบิลเช็คอิน ลูกค้าจะเห็นสถานะและเหตุผลในหน้าการจอง"
+        />
+      )}
     </div>
   );
 }

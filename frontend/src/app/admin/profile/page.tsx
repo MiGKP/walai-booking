@@ -31,6 +31,7 @@ export default function AdminProfilePage() {
     address: "",
     email: "",
   });
+  const [emailPassword, setEmailPassword] = useState("");
 
   const [passwords, setPasswords] = useState({
     current_password: "",
@@ -38,7 +39,7 @@ export default function AdminProfilePage() {
     confirm: "",
   });
 
-  const [emailPassword, setEmailPassword] = useState("");
+
   const [saving, setSaving] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
 
@@ -175,7 +176,7 @@ export default function AdminProfilePage() {
                 <input
                   type="email"
                   required
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 bg-white text-charcoal text-sm font-mono"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 bg-white text-charcoal text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all"
                   aria-label="อีเมล"
                   value={profile.email}
                   onChange={(e) => setProfile({ ...profile, email: e.target.value })}
@@ -183,13 +184,20 @@ export default function AdminProfilePage() {
               </div>
             </div>
 
-            {profile.email.trim().toLowerCase() !== user.email.toLowerCase() && (
+            {profile.email.trim().toLowerCase() !== (user.email || "").toLowerCase() && (
               <label className="block text-sm text-charcoal-600">
                 รหัสผ่านปัจจุบันเพื่อยืนยันการเปลี่ยนอีเมล
-                <input type="password" required autoComplete="current-password" value={emailPassword}
-                  onChange={(e) => setEmailPassword(e.target.value)} className="input-field mt-1 w-full" />
+                <input
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={emailPassword}
+                  onChange={(e) => setEmailPassword(e.target.value)}
+                  className="input-field mt-1 w-full"
+                />
               </label>
             )}
+
             <div>
               <label className="block text-sm font-semibold text-stone-700 mb-1">
                 เบอร์โทรศัพท์

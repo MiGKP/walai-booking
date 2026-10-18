@@ -69,9 +69,11 @@ export default function AdminMembersPage() {
   // Server-side filters
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-
   const [bookingStatus, setBookingStatus] = useState("all");
   const [bookingService, setBookingService] = useState("all");
+
+
+
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -249,23 +251,47 @@ export default function AdminMembersPage() {
               )}
             </div>
 
-            <label className="text-xs text-charcoal-600">
-              การจอง
-              <select aria-label="สถานะการจองของสมาชิก" value={bookingStatus}
-                onChange={(e) => { setBookingStatus(e.target.value); setCurrentPage(1); }} className="input-field ml-1">
-                <option value="all">ทุกสถานะการจอง</option><option value="none">ยังไม่มีการจอง</option>
-                <option value="pending">รอชำระเงิน</option><option value="paid">รอตรวจสลิป</option>
-                <option value="approved">อนุมัติแล้ว</option><option value="checked_out">ใช้บริการแล้ว</option>
-                <option value="cancelled">ยกเลิก</option><option value="rejected">ปฏิเสธ</option>
+            {/* Booking Status Filter */}
+            <div className="flex items-center gap-1.5 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700 shadow-2xs">
+              <span className="font-medium text-charcoal-500 whitespace-nowrap">การจอง:</span>
+              <select
+                aria-label="สถานะการจองของสมาชิก"
+                value={bookingStatus}
+                onChange={(e) => {
+                  setBookingStatus(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent font-semibold text-charcoal-800 outline-hidden cursor-pointer"
+              >
+                <option value="all">ทุกสถานะการจอง</option>
+                <option value="none">ยังไม่มีการจอง</option>
+                <option value="pending">รอชำระเงิน</option>
+                <option value="paid">รอตรวจสลิป</option>
+                <option value="approved">อนุมัติแล้ว</option>
+                <option value="checked_out">ใช้บริการแล้ว</option>
+                <option value="cancelled">ยกเลิก</option>
+                <option value="rejected">ปฏิเสธ</option>
               </select>
-            </label>
-            <label className="text-xs text-charcoal-600">
-              บริการ
-              <select aria-label="บริการที่สมาชิกจอง" value={bookingService}
-                onChange={(e) => { setBookingService(e.target.value); setCurrentPage(1); }} className="input-field ml-1">
-                <option value="all">ห้องพักและเรือ</option><option value="room">ห้องพัก</option><option value="boat">เรือ</option>
+            </div>
+
+            {/* Service Filter */}
+            <div className="flex items-center gap-1.5 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700 shadow-2xs">
+              <span className="font-medium text-charcoal-500 whitespace-nowrap">บริการ:</span>
+              <select
+                aria-label="บริการที่สมาชิกจอง"
+                value={bookingService}
+                onChange={(e) => {
+                  setBookingService(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent font-semibold text-charcoal-800 outline-hidden cursor-pointer"
+              >
+                <option value="all">ห้องพักและเรือ</option>
+                <option value="room">ห้องพัก</option>
+                <option value="boat">เรือ</option>
               </select>
-            </label>
+            </div>
+
             {/* Status Filter Tabs */}
             <div className="flex items-center gap-1 p-1 bg-cream-100 rounded-2xl text-xs w-full sm:w-auto shrink-0 justify-between sm:justify-start">
               <button

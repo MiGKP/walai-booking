@@ -50,7 +50,21 @@ router.put('/staff/:id/status', authenticate, authorize('admin'), toggleStaffSta
 router.patch('/staff/:id/status', authenticate, authorize('admin'), toggleStaffStatus);
 router.delete('/staff/:id', authenticate, authorize('admin'), deleteStaff);
 
-router.post('/register', registerValidator, validate, register);
+const handleRegisterUpload = (req: Request, res: Response, next: NextFunction): void => {
+  uploadAvatar.fields([{ name: 'avatar', maxCount: 1 }, { name: 'image_profile', maxCount: 1 }])(req, res, (err) => {
+    if (err) {
+      res.status(400).json({ success: false, message: err.message || 'ไฟล์รูปภาพไม่ถูกต้อง' });
+      return;
+    }
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    if (files) {
+      req.file = files['avatar']?.[0] || files['image_profile']?.[0];
+    }
+    next();
+  });
+};
+
+router.post('/register', handleRegisterUpload, registerValidator, validate, register);
 router.post('/login', loginValidator, validate, login);
 router.post('/forgot-password', forgotPasswordValidator, validate, forgotPassword);
 router.post('/reset-password', resetPasswordValidator, validate, resetPassword);

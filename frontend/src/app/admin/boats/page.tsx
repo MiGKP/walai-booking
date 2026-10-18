@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -30,6 +30,9 @@ import {
   Ship,
   Timer,
   Layers,
+  ArrowUpDown,
+  Search,
+  RotateCcw,
   FileCheck,
   ShieldCheck,
 } from "lucide-react";
@@ -37,6 +40,8 @@ import {
   Modal,
   BookingStatusBadge,
   EmptyState,
+  CustomSelect,
+  CustomDatePicker,
 } from "@/components/admin/ui";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { pickResortInfo, type ResortInfoRecord } from "@/lib/resort-info";
@@ -44,10 +49,16 @@ import { toISODate } from "@/lib/date";
 import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
-
-import BookingListToolbar from "@/components/admin/BookingListToolbar";
-import { bookingListOrderParams, readBookingFilter, readBookingSort, readBookingPageSize, type BookingListFilter } from "@/lib/admin-booking-list";
+import {
+  bookingListOrderParams,
+  readBookingFilter,
+  readBookingSort,
+  readBookingPageSize,
+  type BookingListFilter,
+} from "@/lib/admin-booking-list";
 import { useVisiblePolling } from "@/hooks/useVisiblePolling";
+
+
 
 // ตัวเลือกเหตุผลในการปฏิเสธ
 const REJECT_REASONS = [
@@ -105,7 +116,6 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string }> =
 
 type FilterType = BookingListFilter;
 
-
 function BoatStaffDashboardContent() {
   const router = useRouter();
   const pathname = usePathname();
@@ -122,12 +132,12 @@ function BoatStaffDashboardContent() {
   const [catalogTypes, setCatalogTypes] = useState<string[]>([]);
   const requestId = useRef(0);
   const tableRef = useRef<HTMLDivElement>(null);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
 
   // อ่านค่า State จาก URL Query Parameters
   const filter = readBookingFilter(searchParams.get("filter"));
   const sort = readBookingSort(searchParams.get("sort"));
   const itemsPerPage = readBookingPageSize(searchParams.get("limit"));
-  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const boatType = searchParams.get("boatType") || "all";
   const dateFrom = searchParams.get("dateFrom") || "";
   const dateTo = searchParams.get("dateTo") || "";
@@ -195,6 +205,34 @@ function BoatStaffDashboardContent() {
     customReason: "",
   });
 
+  // ช่วงเวลาด่วน (วันนี้, สัปดาห์นี้, เดือนนี้)
+  const quickDateRanges = useMemo(() => {
+    const now = new Date();
+    const today = toISODate(now);
+
+    // สัปดาห์นี้ (จันทร์ ถึง อาทิตย์)
+    const dayOfWeek = now.getDay();
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const startOfWeek = toISODate(monday);
+    const endOfWeek = toISODate(sunday);
+
+    // เดือนนี้ (1 ถึง วันสุดท้ายของเดือน)
+    const startOfMonth = toISODate(new Date(now.getFullYear(), now.getMonth(), 1));
+    const endOfMonth = toISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+
+    return {
+      today: { label: "วันนี้", from: today, to: today },
+      thisWeek: { label: "สัปดาห์นี้", from: startOfWeek, to: endOfWeek },
+      thisMonth: { label: "เดือนนี้", from: startOfMonth, to: endOfMonth },
+    };
+  }, []);
+
   // ฟังก์ชันช่วยอัปเดต Query String ใน URL
   const updateQueryParams = useCallback(
     (paramsToUpdate: Record<string, string | number | null>) => {
@@ -237,38 +275,57 @@ function BoatStaffDashboardContent() {
     router.replace(pathname, { scroll: false });
   };
 
+  const boatTypeOptions = [{ value: "all", label: "ทั้งหมดทุกประเภท" }, ...catalogTypes.map(type => ({ value: type, label: type }))];
+  const handleDateChange = (from: string, to: string): void => {
+    updateQueryParams({ dateFrom: from, dateTo: to, page: 1 });
+  };
+
   const handlePageChange = (page: number) => {
     updateQueryParams({ page });
   };
 
-  const fetchBookings = useCallback(async (silent = false): Promise<void> => {
-    if (!ready) return;
-    const id = ++requestId.current;
-    if (!silent) setLoading(true);
-    try {
-      const res = await api.get("/kayaks/bookings/all", { params: { page: currentPage, limit: itemsPerPage,
-        ...bookingListOrderParams(filter, sort, "boat"), search: searchParam.trim() || undefined,
-        boat_type: boatType === "all" ? undefined : boatType,
-        date_from: dateFrom || undefined, date_to: dateTo || undefined,
-      } });
-      if (id !== requestId.current) return;
-      setBookings(res.data?.data || []);
-      setPagination(res.data.pagination);
-      setCounts(res.data.summary);
-      setUpdatedAt(Date.now());
-      if (currentPage > Math.max(1, res.data.pagination.totalPages)) updateQueryParams({ page: Math.max(1, res.data.pagination.totalPages) });
-    } catch {
-      if (!silent && id === requestId.current) notify.error("ไม่สามารถโหลดข้อมูลการจองได้");
-    } finally {
-      if (id === requestId.current) setLoading(false);
-    }
-  }, [ready, currentPage, filter, boatType, dateFrom, dateTo, searchParam, sort, itemsPerPage, updateQueryParams]);
+  const fetchBookings = useCallback(
+    async (silent = false): Promise<void> => {
+      if (!ready) return;
+      const id = ++requestId.current;
+      if (!silent) setLoading(true);
+      try {
+        const res = await api.get("/kayaks/bookings/all", {
+          params: {
+            page: currentPage,
+            limit: itemsPerPage,
+            ...bookingListOrderParams(filter, sort, "boat"),
+            search: searchParam.trim() || undefined,
+            boat_type: boatType === "all" ? undefined : boatType,
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+          },
+        });
+        if (id !== requestId.current) return;
+        setBookings(res.data?.data || []);
+        setPagination(res.data.pagination);
+        setCounts(res.data.summary);
+        setUpdatedAt(Date.now());
+        if (currentPage > Math.max(1, res.data.pagination.totalPages)) {
+          updateQueryParams({ page: Math.max(1, res.data.pagination.totalPages) });
+        }
+      } catch {
+        if (!silent && id === requestId.current) notify.error("ไม่สามารถโหลดข้อมูลการจองได้");
+      } finally {
+        if (id === requestId.current) setLoading(false);
+      }
+    },
+    [ready, currentPage, filter, boatType, dateFrom, dateTo, searchParam, sort, itemsPerPage, updateQueryParams],
+  );
 
   useEffect(() => {
-    void fetchBookings();
+    fetchBookings();
     tableRef.current?.scrollTo({ top: 0, left: 0 });
-    return () => { requestId.current++; };
+    return () => {
+      requestId.current++;
+    };
   }, [fetchBookings]);
+
   const refreshInBackground = useCallback(() => fetchBookings(true), [fetchBookings]);
   useVisiblePolling(refreshInBackground, ready);
   useEffect(() => {
@@ -424,8 +481,15 @@ function BoatStaffDashboardContent() {
     return range;
   };
 
-  const hasActiveFilters =
-    Boolean(filter !== "all" || boatType !== "all" || dateFrom || dateTo || searchParam || sort !== "newest" || itemsPerPage !== 10);
+  const hasActiveFilters = Boolean(
+    filter !== "all" ||
+      boatType !== "all" ||
+      dateFrom ||
+      dateTo ||
+      searchParam ||
+      sort !== "newest" ||
+      itemsPerPage !== 10
+  );
 
   if (!ready) return null;
 
@@ -530,14 +594,200 @@ function BoatStaffDashboardContent() {
         ))}
       </section>
 
-      <BookingListToolbar service="boat" compact filter={filter} search={searchInput}
-        type={boatType} types={catalogTypes} dateFrom={dateFrom} dateTo={dateTo}
-        sort={sort} limit={itemsPerPage} loading={loading} updatedAt={updatedAt} active={hasActiveFilters}
-        onSearch={setSearchInput} onQuery={updateQueryParams} onReset={handleClearFilters}
-        onRefresh={() => { void fetchBookings(); }} />
+      {/* Filter & Control Bar */}
+      <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-panel border border-cream-200/90 space-y-3.5 print:hidden">
+        {/* Row 1: Actions & Active Filter indicator */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-charcoal-500">ตัวกรอง:</span>
+            <span className="text-xs font-bold text-forest-900 bg-cream-100 px-3 py-1 rounded-xl border border-cream-200">
+              {filter === "all"
+                ? "ทั้งหมด"
+                : filter === "has_slip"
+                ? "รอตรวจสอบสลิป"
+                : filter === "pending"
+                ? "ยังไม่ชำระเงิน"
+                : filter === "approved"
+                ? "อนุมัติแล้ว"
+                : filter === "checked_out"
+                ? "คืนเรือแล้ว"
+                : filter === "cancelled"
+                ? "ยกเลิกแล้ว"
+                : "ถูกปฏิเสธ"}
+            </span>
+            <span className="text-[11px] text-charcoal-400 hidden sm:inline" aria-live="polite">
+              อัปเดตอัตโนมัติทุก 15 วินาที
+              {updatedAt
+                ? ` · ล่าสุด ${new Date(updatedAt).toLocaleTimeString("th-TH", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })}`
+                : ""}
+            </span>
+          </div>
 
-      {/* Bookings table and pagination. */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col print:hidden">
+          {/* Action Buttons (Right) */}
+          <div className="flex items-center gap-2 shrink-0">
+            {hasActiveFilters && (
+              <button
+                onClick={handleClearFilters}
+                className="flex items-center gap-1.5 text-xs text-charcoal-600 hover:text-charcoal-900 bg-cream-100 hover:bg-cream-200 px-3.5 py-2 rounded-2xl border border-cream-300/80 font-semibold transition-colors shadow-2xs"
+                title="ล้างการกรองทั้งหมด"
+              >
+                <RotateCcw size={13} />
+                <span>รีเซ็ตตัวกรอง</span>
+              </button>
+            )}
+            <button
+              onClick={() => void fetchBookings()}
+              className="px-3.5 py-2 text-charcoal-700 bg-white hover:bg-forest-50/50 hover:border-forest-200 rounded-2xl border border-cream-300 shadow-xs transition-all text-xs font-semibold flex items-center gap-2 active:scale-95"
+              title="รีเฟรชข้อมูล"
+            >
+              <RefreshCw
+                size={14}
+                className={loading ? "animate-spin text-forest-700" : "text-charcoal-500"}
+              />
+              <span>รีเฟรชข้อมูล</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2: Secondary Filter Controls (Search, Type, Date Range, Sort, Limit & Presets) */}
+        <div className="flex flex-wrap items-center gap-2.5 pt-2.5 border-t border-cream-100">
+          {/* Search Input */}
+          <div className="relative flex-1 sm:w-64 min-w-[200px]">
+            <Search
+              size={16}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-charcoal-400 pointer-events-none"
+            />
+            <input
+              type="text"
+              aria-label="ค้นหาการจอง"
+              placeholder="ค้นหาชื่อ, เบอร์โทร, ประเภทเรือ, ID..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full bg-cream-50/70 hover:bg-cream-50 focus:bg-white pl-10 pr-8 py-2 rounded-2xl border border-cream-300 focus:outline-hidden focus:ring-2 focus:ring-forest-500/20 text-xs font-medium text-charcoal-800 placeholder:text-charcoal-400 transition-all"
+            />
+            {searchInput && (
+              <button
+                onClick={() => {
+                  setSearchInput("");
+                  updateQueryParams({ search: null, page: 1 });
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-charcoal-400 hover:text-charcoal-600 p-0.5 rounded-full"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Boat Type Selector */}
+          <div className="flex items-center gap-2 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
+            <Ship size={14} className="text-forest-700" />
+            <span className="font-medium text-charcoal-500 whitespace-nowrap">
+              ประเภท:
+            </span>
+            <CustomSelect
+              options={boatTypeOptions}
+              value={boatType}
+              onChange={(val) =>
+                updateQueryParams({ boatType: val, page: 1 })
+              }
+              width="w-40"
+            />
+          </div>
+
+          {/* Date Range Selector */}
+          <div className="flex items-center gap-2 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
+            <CalendarDays size={14} className="text-forest-700 shrink-0" />
+            <span className="font-medium text-charcoal-500 whitespace-nowrap">
+              วันที่:
+            </span>
+            <CustomDatePicker
+              value={dateFrom}
+              onChange={(val) => handleDateChange(val, dateTo)}
+              placeholder="เริ่ม"
+            />
+            <span className="text-cream-400 font-bold">–</span>
+            <CustomDatePicker
+              value={dateTo}
+              onChange={(val) => handleDateChange(dateFrom, val)}
+              placeholder="สิ้นสุด"
+            />
+          </div>
+
+          {/* Sort Selector */}
+          <div className="flex items-center gap-1.5 bg-cream-50/80 px-3 py-2 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
+            <ArrowUpDown size={13} className="text-forest-700 shrink-0" />
+            <span className="font-medium text-charcoal-500 whitespace-nowrap">เรียง:</span>
+            <select
+              aria-label="เรียงลำดับการจอง"
+              value={sort}
+              onChange={(e) => updateQueryParams({ sort: e.target.value, page: 1 })}
+              className="bg-transparent font-semibold text-charcoal-800 outline-hidden cursor-pointer"
+            >
+              <option value="newest">จองล่าสุดก่อน</option>
+              <option value="oldest">จองเก่าก่อน</option>
+              <option value="service_asc">วันเวลาใช้บริการ (ก่อน → หลัง)</option>
+              <option value="price_desc">ยอดรวมมากที่สุดก่อน</option>
+            </select>
+          </div>
+
+          {/* Page Size Limit Selector */}
+          <div className="flex items-center gap-1.5 bg-cream-50/80 px-3 py-2 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
+            <span className="font-medium text-charcoal-500 whitespace-nowrap">แสดง:</span>
+            <select
+              aria-label="จำนวนรายการต่อหน้า"
+              value={itemsPerPage}
+              onChange={(e) => updateQueryParams({ limit: e.target.value, page: 1 })}
+              className="bg-transparent font-semibold text-charcoal-800 outline-hidden cursor-pointer"
+            >
+              {[10, 25, 50].map((l) => (
+                <option key={l} value={l}>
+                  {l} รายการ
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Quick Date Presets */}
+          <div className="flex items-center gap-1 bg-cream-100 p-1 rounded-2xl">
+            {(
+              [
+                ["today", quickDateRanges.today.label, quickDateRanges.today.from, quickDateRanges.today.to],
+                ["thisWeek", quickDateRanges.thisWeek.label, quickDateRanges.thisWeek.from, quickDateRanges.thisWeek.to],
+                ["thisMonth", quickDateRanges.thisMonth.label, quickDateRanges.thisMonth.from, quickDateRanges.thisMonth.to],
+              ] as const
+            ).map(([key, label, from, to]) => {
+              const isActive = dateFrom === from && dateTo === to;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    if (isActive) {
+                      handleDateChange("", "");
+                    } else {
+                      handleDateChange(from, to);
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                    isActive
+                      ? "bg-forest-800 text-white shadow-xs font-bold"
+                      : "text-charcoal-600 hover:text-charcoal-900 hover:bg-cream-200/60"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Bookings Table Panel (Fixed consistent height with min-h-[660px]) */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[660px] print:hidden">
         {/* Table Panel Header */}
         <div className="pb-4 mb-4 border-b border-cream-200/80 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
@@ -551,18 +801,18 @@ function BoatStaffDashboardContent() {
           </div>
         </div>
 
-        <div ref={tableRef} aria-label="รายการจองเรือ" tabIndex={0} className="overflow-x-auto border border-cream-200/90 rounded-xl shadow-2xs">
-          <table className="w-full min-w-[960px] text-left text-xs md:text-sm">
-            <thead className="sticky top-0 z-20 bg-cream-50">
+        {/* Table Container */}
+        <div ref={tableRef} className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
+          <table className="w-full text-left text-xs md:text-sm">
+            <thead>
               <tr className="border-b border-cream-200 bg-cream-50/80 text-charcoal-600 font-bold text-xs uppercase tracking-wider">
                 <th className="px-3.5 py-3.5 whitespace-nowrap">ลูกค้า / รหัสจอง</th>
                 <th className="px-3.5 py-3.5 min-w-[190px]">ประเภทเรือ</th>
                 <th className="px-3.5 py-3.5 whitespace-nowrap">วัน - รอบเวลา</th>
                 <th className="px-3 py-3.5 whitespace-nowrap">ยอดรวม</th>
                 <th className="px-3.5 py-3.5 whitespace-nowrap">สถานะ</th>
-
-                <th className="px-3.5 py-3.5 whitespace-nowrap">สลิปโอนเงิน</th>
-                <th className="px-4 py-3.5 text-right whitespace-nowrap lg:sticky lg:right-0 bg-cream-50 z-30">การจัดการ</th>
+                <th className="px-3 py-3.5 text-center whitespace-nowrap">สลิปโอนเงิน</th>
+                <th className="px-4 py-3.5 text-right whitespace-nowrap sticky right-0 bg-cream-50/95 backdrop-blur-xs shadow-[-6px_0_12px_-4px_rgba(0,0,0,0.06)] z-20">การจัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cream-100 bg-white">
@@ -836,27 +1086,30 @@ function BoatStaffDashboardContent() {
                 onClick={() => handlePageChange(1)}
                 disabled={loading || currentPage === 1}
                 className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
+                title="หน้าแรก"
               >
-                <ChevronsLeft size={16} />
+                <ChevronsLeft size={14} />
               </button>
               <button
                 aria-label="หน้าก่อนหน้า"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={loading || currentPage === 1}
                 className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
+                title="หน้าก่อนหน้า"
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={14} />
               </button>
 
               {getPaginationRange().map((page, idx) =>
                 typeof page === "number" ? (
                   <button
                     key={idx}
+                    aria-label={`หน้า ${page}`}
                     onClick={() => handlePageChange(page)}
-                    className={`px-3 py-1 rounded-xl text-xs font-semibold font-mono transition-all ${
+                    className={`min-w-[32px] h-8 px-2 rounded-xl text-xs font-bold font-mono transition-all ${
                       currentPage === page
-                        ? "bg-forest-800 text-white shadow-2xs"
-                        : "bg-white text-charcoal-600 border border-cream-300 hover:bg-cream-100"
+                        ? "bg-forest-800 text-white shadow-xs"
+                        : "bg-white text-charcoal-600 border border-cream-300 hover:bg-cream-100 shadow-2xs"
                     }`}
                   >
                     {page}
@@ -873,16 +1126,18 @@ function BoatStaffDashboardContent() {
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={loading || currentPage >= totalPages}
                 className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
+                title="หน้าถัดไป"
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={14} />
               </button>
               <button
                 aria-label="หน้าสุดท้าย"
                 onClick={() => handlePageChange(totalPages)}
                 disabled={loading || currentPage >= totalPages}
                 className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
+                title="หน้าสุดท้าย"
               >
-                <ChevronsRight size={16} />
+                <ChevronsRight size={14} />
               </button>
             </div>
           </div>

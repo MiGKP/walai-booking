@@ -13,7 +13,10 @@ test('staff recovery, complete profiles, role reports and member filters against
   const client = new Client({ connectionString: url }); await client.connect();
   const previousSecret = process.env.JWT_SECRET; process.env.JWT_SECRET = 'TEST-local-scope-only';
   const sent = [];
-  stub('config/database.ts', { __esModule: true, default: client });
+  stub('config/database.ts', { __esModule: true, default: {
+    query: (...args) => client.query(...args),
+    connect: async () => ({ query: (...args) => client.query(...args), release() {} }),
+  } });
   stub('services/mail.service.ts', { sendPasswordResetEmail: async value => sent.push(value) });
   stub('services/cloudinary.service.ts', { deleteCloudinaryImage: async () => {} });
   const auth = require('../../src/controllers/auth.controller.ts');
@@ -92,7 +95,7 @@ test('staff recovery, complete profiles, role reports and member filters against
     await t.test('profile fields survive reload; email changes require password and reject duplicates', async () => {
       for (const [id, role] of [[10, 'admin'], [11, 'room_staff'], [12, 'boat_staff']]) {
         const user = { id, role };
-        assert.equal((await call(auth.updateProfile, { user, body: { first_name: 'TEST', last_name: 'Profile', phone: '0812345678', address: 'TEST address', line_id: 'TEST-line', facebook: 'TEST-facebook' } })).code, 200);
+        assert.equal((await call(auth.updateProfile, { user, body: { first_name: 'TEST', last_name: 'Profile', phone: `08123456${id}`, address: 'TEST address', line_id: 'TEST-line', facebook: 'TEST-facebook' } })).code, 200);
         const read = await call(auth.getProfile, { user });
         assert.equal(read.body.data.address, 'TEST address'); assert.equal(read.body.data.line_id, 'TEST-line'); assert.equal(read.body.data.facebook, 'TEST-facebook');
         const session = await call(auth.login, { body: { email: read.body.data.email, password: 'TEST-new-password' } });
@@ -107,6 +110,19 @@ test('staff recovery, complete profiles, role reports and member filters against
         assert.equal(accepted, true);
         assert.equal(request.user.email, body.email, 'staff actions must use the saved email rather than the old JWT email');
       }
+    });
+    await t.test('profile phones reject cross-role duplicates, retain own numbers, and permit clearing', async () => {
+      const update = (id, role, phone) => call(auth.updateProfile, { user: { id, role }, body: { first_name: 'TEST', last_name: 'Phone', phone } });
+      await client.query("UPDATE staff SET phone='0812345611' WHERE staff_id=11");
+      assert.equal((await update(1, 'customer', '0812345601')).code, 200);
+      assert.equal((await update(1, 'customer', '0812345601')).code, 200);
+      assert.equal((await update(2, 'customer', '0812345601')).code, 409);
+      assert.equal((await update(11, 'room_staff', '0812345601')).code, 409);
+      assert.equal((await update(12, 'boat_staff', '0812345601')).code, 409);
+      assert.equal((await update(10, 'admin', '0812345601')).code, 409);
+      assert.equal((await update(2, 'customer', '0812345611')).code, 409);
+      assert.equal((await update(1, 'customer', '')).code, 200);
+      assert.equal((await update(2, 'customer', '0812345601')).code, 200);
     });
     await t.test('concurrent email edits cannot silently overwrite an already changed account', async () => {
       const edits = await Promise.all(['a', 'b'].map(suffix => call(auth.updateProfile, {
