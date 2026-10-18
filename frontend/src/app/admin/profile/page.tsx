@@ -12,6 +12,7 @@ import {
   MessageSquare,
   MapPin} from 'lucide-react';
 import { SiFacebook as Facebook } from '@icons-pack/react-simple-icons';
+import { getNewPasswordError } from "@/lib/password-policy";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -29,7 +30,9 @@ export default function AdminProfilePage() {
     line_id: "",
     facebook: "",
     address: "",
+    email: "",
   });
+  const [emailPassword, setEmailPassword] = useState("");
 
   const [passwords, setPasswords] = useState({
     current_password: "",
@@ -49,6 +52,7 @@ export default function AdminProfilePage() {
       line_id: user.line_id || "",
       facebook: user.facebook || "",
       address: user.address || "",
+      email: user.email || "",
     });
   }, [ready, user]);
 
@@ -56,8 +60,9 @@ export default function AdminProfilePage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await api.put("/auth/profile", profile);
+      const res = await api.put("/auth/profile", { ...profile, current_password: emailPassword || undefined });
       updateUser(res.data.data);
+      setEmailPassword("");
       notify.success("บันทึกข้อมูลสำเร็จ");
     } catch (err: unknown) {
       notify.error(getApiErrorMessage(err, "บันทึกไม่สำเร็จ"));
@@ -72,8 +77,9 @@ export default function AdminProfilePage() {
       notify.error("รหัสผ่านใหม่ไม่ตรงกัน");
       return;
     }
-    if (passwords.new_password.length < 6) {
-      notify.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+    const passwordError = getNewPasswordError(passwords.new_password);
+    if (passwordError) {
+      notify.error(passwordError);
       return;
     }
     setChangingPw(true);
@@ -107,7 +113,7 @@ export default function AdminProfilePage() {
               {user.first_name || "ผู้ใช้แอดมิน"} 
             </h1>
             <span className="bg-[#133E31] text-white text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wide">
-              ADMIN
+              {user.role === "room_staff" ? "พนักงานห้องพัก" : user.role === "boat_staff" ? "พนักงานเรือ" : "ผู้ดูแลระบบ"}
             </span>
           </div>
           <p className="text-xs text-stone-500 mt-0.5">{user.email}</p>
@@ -158,7 +164,7 @@ export default function AdminProfilePage() {
 
             <div>
               <label className="block text-sm font-semibold text-stone-700 mb-1">
-                อีเมลผู้ดูแลระบบ
+                อีเมล
               </label>
               <div className="relative">
                 <Mail
@@ -167,12 +173,28 @@ export default function AdminProfilePage() {
                 />
                 <input
                   type="email"
-                  disabled
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 bg-stone-100/70 text-stone-500 text-sm cursor-not-allowed font-mono"
-                  value={user.email}
+                  required
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 bg-white text-charcoal text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all"
+                  aria-label="อีเมล"
+                  value={profile.email}
+                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                 />
               </div>
             </div>
+
+            {profile.email.trim().toLowerCase() !== (user.email || "").toLowerCase() && (
+              <label className="block text-sm text-charcoal-600">
+                รหัสผ่านปัจจุบันเพื่อยืนยันการเปลี่ยนอีเมล
+                <input
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={emailPassword}
+                  onChange={(e) => setEmailPassword(e.target.value)}
+                  className="input-field mt-1 w-full"
+                />
+              </label>
+            )}
 
             <div>
               <label className="block text-sm font-semibold text-stone-700 mb-1">
@@ -307,7 +329,7 @@ export default function AdminProfilePage() {
               <input
                 type="password"
                 required
-                minLength={6}
+                minLength={8}
                 className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                 value={passwords.new_password}
                 onChange={(e) =>
@@ -323,7 +345,7 @@ export default function AdminProfilePage() {
               <input
                 type="password"
                 required
-                minLength={6}
+                minLength={8}
                 className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                 value={passwords.confirm}
                 onChange={(e) =>
