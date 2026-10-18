@@ -14,21 +14,13 @@ import {
   XCircle,
   Home,
   ChevronDown,
-  ChevronRight,
-  Layers,
   Table,
-  FileSpreadsheet,
 } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
-import { toISODate, formatThaiDate } from '@/lib/date';
+import { toISODate } from '@/lib/date';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { notify } from '@/lib/admin-notify';
 import {
-  PageHeader,
-  StatCard,
-  Panel,
-  Skeleton,
-  StatusBadge,
   CustomDatePicker,
   CustomSelect,
 } from '@/components/admin/ui';
@@ -121,36 +113,45 @@ function SideBreakdown({
   const cancelledCount = (stats?.cancelled_count || 0) + (stats?.rejected_count || 0);
 
   return (
-    <Panel
-      title={title}
-      actions={
-        <StatusBadge tone={tone === 'forest' ? 'success' : 'info'}>
+    <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 space-y-4">
+      <div className="flex items-center justify-between pb-3.5 border-b border-cream-200">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={`w-8 h-8 rounded-xl flex items-center justify-center border ${
+              tone === 'forest'
+                ? 'bg-forest-50 text-forest-800 border-forest-200/80'
+                : 'bg-lagoon-50 text-lagoon-800 border-lagoon-200/80'
+            }`}
+          >
+            {icon}
+          </div>
+          <h3 className="text-base font-bold text-forest-900">{title}</h3>
+        </div>
+        <span className="inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold bg-cream-100 text-forest-900 border border-cream-200/80">
           รวม {formatMoney(revenue)}
-        </StatusBadge>
-      }
-    >
-      <div className="mb-3 flex items-center gap-2 text-charcoal-400">{icon}</div>
-      <div className="space-y-3 text-sm">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2 text-charcoal-600">
-            <CheckCircle2 size={15} className="text-forest-600" /> อนุมัติแล้ว
+        </span>
+      </div>
+      <div className="space-y-2.5 text-xs sm:text-sm">
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-cream-50/60 border border-cream-100">
+          <span className="flex items-center gap-2 text-charcoal-700 font-medium">
+            <CheckCircle2 size={16} className="text-forest-700 shrink-0" /> อนุมัติแล้ว
           </span>
-          <span className="font-semibold text-forest-700">{stats?.approved_count || 0} รายการ</span>
+          <span className="font-bold text-forest-900">{stats?.approved_count || 0} รายการ</span>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2 text-charcoal-600">
-            <Clock size={15} className="text-bamboo-600" /> รอดำเนินการ / ตรวจสลิป
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-cream-50/60 border border-cream-100">
+          <span className="flex items-center gap-2 text-charcoal-700 font-medium">
+            <Clock size={16} className="text-bamboo-700 shrink-0" /> รอดำเนินการ / ตรวจสลิป
           </span>
-          <span className="font-semibold text-bamboo-700">{pendingCount} รายการ</span>
+          <span className="font-bold text-bamboo-900">{pendingCount} รายการ</span>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2 text-charcoal-600">
-            <XCircle size={15} className="text-rose-500" /> ยกเลิก / ปฏิเสธ
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-cream-50/60 border border-cream-100">
+          <span className="flex items-center gap-2 text-charcoal-700 font-medium">
+            <XCircle size={16} className="text-rose-600 shrink-0" /> ยกเลิก / ปฏิเสธ
           </span>
-          <span className="font-semibold text-rose-600">{cancelledCount} รายการ</span>
+          <span className="font-bold text-rose-700">{cancelledCount} รายการ</span>
         </div>
       </div>
-    </Panel>
+    </div>
   );
 }
 
@@ -169,23 +170,23 @@ function ReportTable({
   const currentPage = Math.min(page, totalPages);
 
   return (
-    <div className="rounded-2xl border border-cream-200/90 bg-white p-4 shadow-2xs">
-      <div className="mb-3 flex items-center justify-between gap-2 border-b border-cream-100 pb-2.5">
-        <h4 className="text-xs font-bold text-forest-900">{title}</h4>
-        <span className="text-[11px] text-charcoal-400 font-mono">
+    <div className="rounded-3xl border border-cream-200/90 bg-white p-5 shadow-2xs">
+      <div className="mb-3.5 flex items-center justify-between gap-2 border-b border-cream-200/80 pb-3">
+        <h4 className="text-xs sm:text-sm font-bold text-forest-900">{title}</h4>
+        <span className="text-[11px] text-charcoal-500 font-semibold bg-cream-100 px-2.5 py-0.5 rounded-lg border border-cream-200/60">
           {rows.length.toLocaleString()} รายการ
         </span>
       </div>
       {!rows.length ? (
-        <p className="py-6 text-center text-xs text-charcoal-400">ไม่มีข้อมูลในช่วงที่เลือก</p>
+        <p className="py-8 text-center text-xs text-charcoal-400">ไม่มีข้อมูลในช่วงที่เลือก</p>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-xl border border-cream-100">
+          <div className="overflow-x-auto rounded-2xl border border-cream-200/80">
             <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead className="bg-cream-100/80 text-forest-800">
+              <thead className="bg-cream-100/90 text-forest-900 border-b border-cream-200">
                 <tr>
                   {headers.map((h) => (
-                    <th key={h} className="p-2.5 font-semibold">
+                    <th key={h} className="p-3 font-bold">
                       {h}
                     </th>
                   ))}
@@ -195,7 +196,7 @@ function ReportTable({
                 {rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((row, i) => (
                   <tr key={i} className="hover:bg-cream-50/70 transition-colors">
                     {row.map((cell, j) => (
-                      <td key={j} className="p-2.5 text-charcoal-700">
+                      <td key={j} className="p-3 text-charcoal-700 font-medium">
                         {cell}
                       </td>
                     ))}
@@ -205,14 +206,14 @@ function ReportTable({
             </table>
           </div>
           {totalPages > 1 && (
-            <div className="mt-3 flex items-center justify-between gap-2 text-xs text-charcoal-500">
-              <span>
+            <div className="mt-3.5 flex items-center justify-between gap-2 text-xs text-charcoal-500">
+              <span className="font-medium">
                 หน้า {currentPage} จาก {totalPages}
               </span>
               <div className="flex gap-1.5">
                 <button
                   type="button"
-                  className="rounded-lg border border-cream-300 bg-white px-2.5 py-1 text-xs font-semibold text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors"
+                  className="rounded-xl border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-charcoal-700 disabled:opacity-40 hover:bg-cream-100 transition-colors cursor-pointer"
                   disabled={currentPage === 1}
                   onClick={() => setPage(currentPage - 1)}
                 >
@@ -220,7 +221,7 @@ function ReportTable({
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg border border-cream-300 bg-white px-2.5 py-1 text-xs font-semibold text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors"
+                  className="rounded-xl border border-cream-300 bg-white px-3 py-1.5 text-xs font-semibold text-charcoal-700 disabled:opacity-40 hover:bg-cream-100 transition-colors cursor-pointer"
                   disabled={currentPage === totalPages}
                   onClick={() => setPage(currentPage + 1)}
                 >
@@ -422,49 +423,68 @@ export default function StatsPage(): React.ReactElement | null {
 
   if (!ready) return null;
 
-  const periodBtn = (id: 'day' | 'month', label: string) => (
-    <button
-      type="button"
-      aria-pressed={period === id}
-      onClick={() => setPeriod(id)}
-      className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-        period === id ? 'bg-forest-800 text-cream-100 shadow-xs' : 'text-charcoal-500 hover:bg-charcoal-50'
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <div className="space-y-6 pb-12 min-w-0">
-      <PageHeader
-        title="รายงานสถิติ"
-        actions={
-          <button
-            type="button"
-            disabled={!data || loading}
-            onClick={handleExportCSV}
-            className="inline-flex items-center gap-2 rounded-xl bg-forest-800 px-4 py-2.5 text-xs font-semibold text-cream-100 transition-colors hover:bg-forest-900 disabled:opacity-40 shadow-xs"
-          >
-            <Download size={15} /> ส่งออก CSV
-          </button>
-        }
-      />
+      {/* Top Header Card (NO subtitle under Heading 1) */}
+      <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10">
+            <BarChart3 size={20} className="stroke-[2.2]" />
+          </div>
+          <div>
+            <h1 className="font-display text-2xl lg:text-3xl font-bold text-forest-900 tracking-tight">
+              รายงานสถิติ
+            </h1>
+          </div>
+        </div>
 
-      {/* Filter Bar */}
-      <Panel>
+        <button
+          type="button"
+          disabled={!data || loading}
+          onClick={handleExportCSV}
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-forest-800 hover:bg-forest-900 text-white font-bold text-xs rounded-2xl transition-all shadow-2xs shrink-0 cursor-pointer disabled:opacity-50 active:scale-95"
+        >
+          <Download size={15} />
+          <span>ส่งออก CSV</span>
+        </button>
+      </div>
+
+      {/* Filter Card */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90">
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="mb-2 block text-xs font-medium text-charcoal-400">ช่วงเวลา</label>
-            <div className="flex items-center gap-1 rounded-xl bg-cream-100 p-1">
-              {periodBtn('day', 'รายวัน')}
-              {periodBtn('month', 'รายเดือน')}
+            <label className="mb-2 block text-xs font-bold text-charcoal-700">ช่วงเวลา</label>
+            <div className="flex items-center gap-1 rounded-2xl bg-cream-100/90 p-1 border border-cream-200/80">
+              <button
+                type="button"
+                aria-pressed={period === 'day'}
+                onClick={() => setPeriod('day')}
+                className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  period === 'day'
+                    ? 'bg-forest-800 text-white shadow-2xs'
+                    : 'text-charcoal-600 hover:text-charcoal-900'
+                }`}
+              >
+                รายวัน
+              </button>
+              <button
+                type="button"
+                aria-pressed={period === 'month'}
+                onClick={() => setPeriod('month')}
+                className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  period === 'month'
+                    ? 'bg-forest-800 text-white shadow-2xs'
+                    : 'text-charcoal-600 hover:text-charcoal-900'
+                }`}
+              >
+                รายเดือน
+              </button>
             </div>
           </div>
 
           {period === 'day' ? (
             <div>
-              <label className="mb-2 block text-xs font-medium text-charcoal-400">เลือกวันที่</label>
+              <label className="mb-2 block text-xs font-bold text-charcoal-700">เลือกวันที่</label>
               <CustomDatePicker
                 value={date}
                 onChange={(val) => {
@@ -473,15 +493,15 @@ export default function StatsPage(): React.ReactElement | null {
                 placeholder="เลือกวันที่"
                 allowClear={false}
                 showCalendarIcon
-                buttonClassName="flex items-center justify-between gap-2.5 rounded-xl bg-cream-100 hover:bg-white px-3.5 py-2 text-xs font-semibold text-charcoal-700 border border-cream-300 hover:border-forest-300 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
+                buttonClassName="flex items-center justify-between gap-2.5 rounded-2xl bg-cream-50/80 hover:bg-white px-3.5 py-2 text-xs font-semibold text-charcoal-700 border border-cream-200 hover:border-forest-300 focus:outline-none focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
               />
             </div>
           ) : (
             <>
               <div>
-                <label className="mb-2 block text-xs font-medium text-charcoal-400">เดือน</label>
+                <label className="mb-2 block text-xs font-bold text-charcoal-700">เดือน</label>
                 <CustomSelect
-                  width="w-28"
+                  width="w-32"
                   value={month}
                   onChange={(val) => setMonth(String(val))}
                   options={MONTHS.map((m, i) => ({
@@ -491,9 +511,9 @@ export default function StatsPage(): React.ReactElement | null {
                 />
               </div>
               <div>
-                <label className="mb-2 block text-xs font-medium text-charcoal-400">ปี (พ.ศ.)</label>
+                <label className="mb-2 block text-xs font-bold text-charcoal-700">ปี (พ.ศ.)</label>
                 <CustomSelect
-                  width="w-28"
+                  width="w-32"
                   value={year}
                   onChange={(val) => setYear(String(val))}
                   options={YEARS.map((y) => ({
@@ -509,65 +529,106 @@ export default function StatsPage(): React.ReactElement | null {
             type="button"
             onClick={() => void fetchStats()}
             disabled={loading}
-            className="flex h-[36px] items-center gap-1.5 rounded-xl bg-forest-800 px-5 py-2 text-xs font-semibold text-cream-100 transition-colors hover:bg-forest-900 disabled:opacity-60 shadow-xs"
+            className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
           >
-            <Search size={14} /> ค้นหา
+            <Search size={14} className={loading ? 'animate-spin' : ''} />
+            <span>ค้นหา</span>
           </button>
         </div>
-      </Panel>
+      </div>
 
       {/* Main Content Area */}
       {loading ? (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-28 rounded-2xl" />
+              <div key={i} className="h-28 rounded-3xl bg-cream-100/70 border border-cream-200 animate-pulse" />
             ))}
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Skeleton className="h-44 rounded-2xl" />
-            <Skeleton className="h-44 rounded-2xl" />
+            <div className="h-48 rounded-3xl bg-cream-100/70 border border-cream-200 animate-pulse" />
+            <div className="h-48 rounded-3xl bg-cream-100/70 border border-cream-200 animate-pulse" />
           </div>
-          <Skeleton className="h-64 rounded-2xl" />
+          <div className="h-64 rounded-3xl bg-cream-100/70 border border-cream-200 animate-pulse" />
         </div>
       ) : (
         data && (
           <div className="space-y-6">
-            {/* KPI Cards */}
+            {/* KPI Cards (Clean matching /admin/checkin) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard
-                label="รายได้รวม"
-                value={formatMoney(totalRevenue)}
-                hint={isAdmin ? 'รวมห้องพักและเรือ' : showRoom ? 'เฉพาะห้องพัก' : 'เฉพาะเรือ'}
-                icon={<TrendingUp />}
-                tone="forest"
-              />
+              <div className="relative p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-forest-700 uppercase tracking-wider">รายได้รวม</p>
+                    <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-forest-950 tracking-tight">
+                      {formatMoney(totalRevenue)}
+                    </p>
+                    <p className="mt-1 text-[11px] text-charcoal-400">
+                      {isAdmin ? 'รวมห้องพักและเรือ' : showRoom ? 'เฉพาะห้องพัก' : 'เฉพาะเรือ'}
+                    </p>
+                  </div>
+                  <div className="w-11 h-11 rounded-2xl bg-forest-50 text-forest-800 border border-forest-100 flex items-center justify-center shrink-0">
+                    <TrendingUp size={20} className="stroke-[2.2]" />
+                  </div>
+                </div>
+              </div>
+
               {showRoom && (
-                <StatCard
-                  label="จองห้องพัก (อนุมัติ)"
-                  value={`${roomStats?.approved_count || 0} รายการ`}
-                  hint={`รอ ${(roomStats?.pending_count || 0) + (roomStats?.paid_count || 0)} | ยกเลิก ${(roomStats?.cancelled_count || 0) + (roomStats?.rejected_count || 0)}`}
-                  icon={<CalendarDays />}
-                  tone="forest"
-                />
+                <div className="relative p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-forest-700 uppercase tracking-wider">จองห้องพัก (อนุมัติ)</p>
+                      <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-forest-950 tracking-tight">
+                        {roomStats?.approved_count || 0}
+                        <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รายการ</span>
+                      </p>
+                      <p className="mt-1 text-[11px] text-charcoal-400">
+                        รอ {(roomStats?.pending_count || 0) + (roomStats?.paid_count || 0)} | ยกเลิก {(roomStats?.cancelled_count || 0) + (roomStats?.rejected_count || 0)}
+                      </p>
+                    </div>
+                    <div className="w-11 h-11 rounded-2xl bg-forest-50 text-forest-800 border border-forest-100 flex items-center justify-center shrink-0">
+                      <CalendarDays size={20} className="stroke-[2.2]" />
+                    </div>
+                  </div>
+                </div>
               )}
+
               {showBoat && (
-                <StatCard
-                  label="จองเรือ (อนุมัติ)"
-                  value={`${kayakStats?.approved_count || 0} รายการ`}
-                  hint={`รอ ${(kayakStats?.pending_count || 0) + (kayakStats?.paid_count || 0)} | ยกเลิก ${(kayakStats?.cancelled_count || 0) + (kayakStats?.rejected_count || 0)}`}
-                  icon={<Sailboat />}
-                  tone="lagoon"
-                />
+                <div className="relative p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-lagoon-800 uppercase tracking-wider">จองเรือ (อนุมัติ)</p>
+                      <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-forest-950 tracking-tight">
+                        {kayakStats?.approved_count || 0}
+                        <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">รายการ</span>
+                      </p>
+                      <p className="mt-1 text-[11px] text-charcoal-400">
+                        รอ {(kayakStats?.pending_count || 0) + (kayakStats?.paid_count || 0)} | ยกเลิก {(kayakStats?.cancelled_count || 0) + (kayakStats?.rejected_count || 0)}
+                      </p>
+                    </div>
+                    <div className="w-11 h-11 rounded-2xl bg-lagoon-50 text-lagoon-800 border border-lagoon-100 flex items-center justify-center shrink-0">
+                      <Sailboat size={20} className="stroke-[2.2]" />
+                    </div>
+                  </div>
+                </div>
               )}
+
               {isAdmin && (
-                <StatCard
-                  label="สมาชิกทั้งหมด"
-                  value={`${data.total_members || 0} คน`}
-                  hint="ผู้ใช้งานลงทะเบียนในระบบ"
-                  icon={<Users />}
-                  tone="bamboo"
-                />
+                <div className="relative p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-charcoal-700 uppercase tracking-wider">สมาชิกทั้งหมด</p>
+                      <p className="mt-1.5 font-display text-2xl sm:text-3xl font-bold text-forest-950 tracking-tight">
+                        {data.total_members || 0}
+                        <span className="text-xs sm:text-sm font-normal text-charcoal-400 ml-1.5 font-sans">คน</span>
+                      </p>
+                      <p className="mt-1 text-[11px] text-charcoal-400">ผู้ใช้งานลงทะเบียนในระบบ</p>
+                    </div>
+                    <div className="w-11 h-11 rounded-2xl bg-cream-100 text-charcoal-600 border border-cream-200 flex items-center justify-center shrink-0">
+                      <Users size={20} className="stroke-[2.2]" />
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -583,26 +644,32 @@ export default function StatsPage(): React.ReactElement | null {
 
             {/* Monthly Bar Chart */}
             {period === 'month' && (
-              <Panel
-                className="min-w-0"
-                title={`กราฟรายได้รายวัน (เดือน ${MONTHS[Number(month) - 1]} ${Number(year) + 543})`}
-                actions={
-                  <div className="flex items-center gap-4 text-xs font-medium text-charcoal-500">
+              <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-cream-200">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center">
+                      <BarChart3 size={17} />
+                    </div>
+                    <h2 className="text-base font-bold text-forest-900">
+                      กราฟรายได้รายวัน (เดือน {MONTHS[Number(month) - 1]} {Number(year) + 543})
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs font-semibold text-charcoal-600">
                     {showRoom && (
                       <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-3 w-3 rounded-xs bg-forest-800" /> ห้องพัก
+                        <span className="inline-block h-3 w-3 rounded-md bg-forest-800" /> ห้องพัก
                       </span>
                     )}
                     {showBoat && (
                       <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-3 w-3 rounded-xs bg-lagoon-500" /> เรือ
+                        <span className="inline-block h-3 w-3 rounded-md bg-lagoon-600" /> เรือ
                       </span>
                     )}
                   </div>
-                }
-              >
+                </div>
+
                 {allDays.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="flex flex-col items-center justify-center py-12 text-center bg-cream-50/50 rounded-2xl border border-cream-100">
                     <div className="w-12 h-12 rounded-2xl bg-cream-100 flex items-center justify-center text-charcoal-400 mb-2">
                       <BarChart3 size={24} />
                     </div>
@@ -627,7 +694,7 @@ export default function StatsPage(): React.ReactElement | null {
                         return (
                           <div key={dayStr} className="group relative flex w-8 flex-col items-center gap-1.5">
                             {/* Hover Tooltip */}
-                            <div className="pointer-events-none absolute bottom-10 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-xl bg-forest-950/95 px-3 py-2 text-xs font-semibold text-cream-100 opacity-0 shadow-lg transition-all group-hover:opacity-100 border border-forest-800/40">
+                            <div className="pointer-events-none absolute bottom-10 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-2xl bg-forest-950/95 px-3.5 py-2.5 text-xs font-semibold text-cream-100 opacity-0 shadow-lg transition-all group-hover:opacity-100 border border-forest-800/40">
                               <p className="font-bold border-b border-white/10 pb-1 mb-1">
                                 วันที่ {dayNum} {MONTHS[Number(month) - 1]}
                               </p>
@@ -650,7 +717,7 @@ export default function StatsPage(): React.ReactElement | null {
                             <div className="flex w-5 flex-col-reverse overflow-hidden rounded-t-md bg-cream-100/90 shadow-2xs">
                               {kH > 0 && (
                                 <div
-                                  className="w-full bg-lagoon-500 transition-all hover:brightness-110"
+                                  className="w-full bg-lagoon-600 transition-all hover:brightness-110"
                                   style={{ height: kH }}
                                 />
                               )}
@@ -671,7 +738,7 @@ export default function StatsPage(): React.ReactElement | null {
                     </div>
                   </div>
                 )}
-              </Panel>
+              </div>
             )}
 
             {/* Detailed Tables & Stock Section */}

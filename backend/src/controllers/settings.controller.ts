@@ -540,7 +540,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     const roomInventoryQuery = isDayPeriod ? `
       SELECT 
         $1::text AS date,
-        rt.name AS type_name,
+        COALESCE(rt.type_name, rt.room_name) AS type_name,
         COUNT(r.room_id)::int AS total,
         COALESCE((
           SELECT COUNT(DISTINCT br.room_id)
@@ -567,15 +567,15 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       FROM room_types rt
       LEFT JOIN rooms r ON r.room_type_id = rt.id AND r.status <> 'maintenance'
       WHERE rt.status = true
-      GROUP BY rt.id, rt.name
-      ORDER BY rt.name ASC` : null;
+      GROUP BY rt.id, rt.type_name, rt.room_name
+      ORDER BY type_name ASC` : null;
 
     const boatInventoryQuery = isDayPeriod ? `
       SELECT 
         $1::text AS date,
         r.start_time::text,
         r.end_time::text,
-        bt.name AS type_name,
+        bt.type_name AS type_name,
         COALESCE(rb_slot.quantity, bt.quantity, 0)::int AS total,
         COALESCE((
           SELECT SUM(bnb.boat_count)
@@ -599,7 +599,7 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
       CROSS JOIN boat_types bt
       LEFT JOIN round_boats rb_slot ON rb_slot.boat_round_id = r.boat_round_id AND rb_slot.boat_type_id = bt.boat_type_id
       WHERE r.is_active = true AND bt.is_active = true
-      ORDER BY r.start_time ASC, bt.name ASC` : null;
+      ORDER BY r.start_time ASC, bt.type_name ASC` : null;
 
     if (roomInventoryQuery) queries.push(pool.query(roomInventoryQuery, [date]));
     if (boatInventoryQuery) queries.push(pool.query(boatInventoryQuery, [date]));
