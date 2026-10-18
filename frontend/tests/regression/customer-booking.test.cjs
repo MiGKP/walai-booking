@@ -77,6 +77,40 @@ test('room check-in offers whole-booking rejection only before any room starts',
   }
 });
 
+test('room arrivals distinguish overdue, expired, today and future in both layouts using Bangkok dates', () => {
+  const OriginalDate = Date;
+  global.Date = class extends OriginalDate {
+    constructor(...args) { super(...(args.length ? args : ['2026-10-18T17:30:00Z'])); }
+    static now() { return OriginalDate.parse('2026-10-18T17:30:00Z'); }
+  };
+  try {
+    const fixtures = [
+      ['OLD_STAY', '2026-10-13', '2026-10-14'],
+      ['CHECKOUT_TODAY', '2026-10-18', '2026-10-19'],
+      ['LATE_STAY', '2026-10-18', '2026-10-20'],
+      ['TODAY_STAY', '2026-10-19', '2026-10-20'],
+      ['FUTURE_STAY', '2026-10-20', '2026-10-21'],
+    ].map(([user_name, check_in, check_out], index) => ({ id: index + 1, room_booking_id: index + 1, status: 'approved', user_name, check_in, check_out,
+      rooms: [{ booking_room_id: index + 1, room_number: `W${index + 1}`, status: 'approved' }] }));
+    for (const density of ['compact', 'detailed']) {
+      for (const filter of ['all', 'overdue', 'today', 'tomorrow']) {
+        const states = [fixtures, false, '', filter, 'all', 'arrivals', density, 'time', 1, 1, new Set(), '14:00', '23:00', false, {}, false, null, null];
+        const Page = load('src/app/admin/checkin/page.tsx', states, { '@/components/admin/ui': { Modal: () => null, CustomSelect: () => null } }).default;
+        const html = renderToStaticMarkup(React.createElement(Page));
+        if (filter === 'all') {
+          assert(html.includes('ตรวจสอบรายการค้าง'));
+          assert(html.includes('เช็คอินย้อนหลัง'));
+          assert(html.includes('ยังไม่ถึงวันเช็คอิน'));
+          assert(!html.includes('รอถึงวัน'));
+        }
+        if (filter === 'overdue') { assert(html.includes('OLD_STAY')); assert(html.includes('LATE_STAY')); assert(!html.includes('TODAY_STAY')); assert(!html.includes('FUTURE_STAY')); }
+        if (filter === 'today') { assert(html.includes('TODAY_STAY')); assert(!html.includes('OLD_STAY')); }
+        if (filter === 'tomorrow') { assert(html.includes('FUTURE_STAY')); assert(!html.includes('LATE_STAY')); }
+      }
+    }
+  } finally { global.Date = OriginalDate; }
+});
+
 test('rejected room and boat cards preserve reasons without offering payment again', () => {
   for (const type of ['room', 'kayak']) {
     const b = { id: 9, room_name: 'TEST', kayak_name: 'TEST', status: 'rejected', reject_reason: 'เหตุผลทดสอบ', payment_status: 'paid', created_at: '2026-10-17', check_in: '2026-11-01', check_out: '2026-11-02', booking_date: '2026-11-01', total_price: 100 };

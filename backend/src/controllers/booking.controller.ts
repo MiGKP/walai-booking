@@ -1188,7 +1188,9 @@ export const checkinBookingRoom = async (
       [bookingRoomId]
     );
     const lineRes = await client.query(
-      `SELECT br.booking_room_id, br.room_id, br.status AS line_status, rb.status AS header_status
+      `SELECT br.booking_room_id, br.room_id, br.status AS line_status, rb.status AS header_status,
+              to_char(rb.check_in, 'YYYY-MM-DD') AS check_in_date,
+              to_char(rb.check_out, 'YYYY-MM-DD') AS check_out_date
        FROM booking_room br
        JOIN room_bookings rb ON rb.room_booking_id = br.room_booking_id
        WHERE br.booking_room_id = $1
@@ -1217,6 +1219,20 @@ export const checkinBookingRoom = async (
         success: false,
         message: `Cannot check in line with status: ${line.line_status}`,
       });
+      return;
+    }
+
+    const today = bangkokToday();
+    if (!line.check_in_date || !line.check_out_date || line.check_in_date > today || line.check_out_date <= today) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: line.check_in_date > today
+        ? 'ยังไม่ถึงวันเช็คอิน'
+        : 'ถึงหรือเลยวันเช็คเอาต์แล้ว กรุณาตรวจสอบรายการค้างก่อนดำเนินการ' });
+      return;
+    }
+    if (line.check_in_date < today && req.body?.confirm_late_checkin !== true) {
+      await safeRollback(client);
+      res.status(400).json({ success: false, message: 'เลยวันเช็คอินแล้ว กรุณายืนยันการเช็คอินย้อนหลัง' });
       return;
     }
 

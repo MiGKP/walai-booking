@@ -53,9 +53,11 @@ test('room status transactions serialize on PostgreSQL', { skip: !url }, async t
     await admin.end();
   });
   await pool.query(`
-    CREATE TABLE room_bookings (room_booking_id int PRIMARY KEY, status text, updated_at timestamptz, approved_by_staff_id int, reject_reason text, total_price numeric DEFAULT 100, payment_slip text);
+    CREATE TABLE room_bookings (room_booking_id int PRIMARY KEY, status text, updated_at timestamptz, approved_by_staff_id int, checkout_by_staff_id int, reject_reason text, total_price numeric DEFAULT 100, payment_slip text,
+      check_in date DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bangkok')::date,
+      check_out date DEFAULT ((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bangkok')::date + 1));
     CREATE TABLE rooms (room_id int PRIMARY KEY, status text);
-    CREATE TABLE booking_room (booking_room_id int PRIMARY KEY, room_booking_id int REFERENCES room_bookings, room_id int REFERENCES rooms, status text, checkin_at timestamptz, checkout_at timestamptz, updated_at timestamptz);
+    CREATE TABLE booking_room (booking_room_id int PRIMARY KEY, room_booking_id int REFERENCES room_bookings, room_id int REFERENCES rooms, status text, checkin_at timestamptz, checkout_at timestamptz, checkin_by_staff_id int, checkout_by_staff_id int, updated_at timestamptz);
     CREATE TABLE boat_bookings (boat_booking_id int PRIMARY KEY, room_booking_id int, is_addon boolean, status text, updated_at timestamptz);
     CREATE TABLE member_boat_tickets (id int PRIMARY KEY, room_booking_id int, used_tickets int);
   `);
@@ -81,6 +83,26 @@ test('room status transactions serialize on PostgreSQL', { skip: !url }, async t
     assert.equal(cancelled.code, 400);
     const state = await pool.query('SELECT rb.status AS header, br.status AS line FROM room_bookings rb JOIN booking_room br USING (room_booking_id) WHERE booking_room_id=1');
     assert.deepEqual(state.rows[0], { header: 'approved', line: 'checked_in' });
+  });
+  await t.test('check-in dates and explicit late confirmation are enforced against PostgreSQL', async () => {
+    afterQuery = async () => {};
+    for (const [start, end, confirmation, expected] of [[0,1,false,200], [-1,1,false,400], [-1,1,true,200], [1,2,true,400], [-1,0,true,400], [-6,-5,true,400]]) {
+      await reset('approved');
+      await pool.query("UPDATE room_bookings SET check_in=(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bangkok')::date+$1::int, check_out=(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bangkok')::date+$2::int", [start, end]);
+      const res = response();
+      await booking.checkinBookingRoom(request(1, { confirm_late_checkin: confirmation }), res);
+      assert.equal(res.code, expected, JSON.stringify({ start, end, confirmation }));
+      const saved = (await pool.query("SELECT status, checkin_by_staff_id, checkin_at > NOW() - interval '1 minute' AS actual_time FROM booking_room WHERE booking_room_id=1")).rows[0];
+      assert.equal(saved.status, expected === 200 ? 'checked_in' : 'approved');
+      if (expected === 200) { assert.equal(saved.actual_time, true); assert.equal(saved.checkin_by_staff_id, 1); }
+    }
+  });
+  await t.test('concurrent late check-ins cannot stamp the same room twice', async () => {
+    await reset('approved');
+    await pool.query("UPDATE room_bookings SET check_in=check_in-1");
+    const responses = [response(), response()];
+    await Promise.all(responses.map(res => booking.checkinBookingRoom(request(1, { confirm_late_checkin: true }), res)));
+    assert.deepEqual(responses.map(res => res.code).sort(), [200, 400]);
   });
   await t.test('concurrent checkout of the last two rooms completes the header', async () => {
     await reset('checked_in');

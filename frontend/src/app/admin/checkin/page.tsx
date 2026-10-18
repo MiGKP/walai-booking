@@ -181,7 +181,7 @@ function AdminCheckinContent() {
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(searchParams.get("search") || "");
-  const [arrivalFilter, setArrivalFilter] = useState<"today" | "tomorrow" | "all">("today");
+  const [arrivalFilter, setArrivalFilter] = useState<"today" | "tomorrow" | "overdue" | "all">("today");
   const [inHouseFilter, setInHouseFilter] = useState<"all" | "today" | "staying">("all");
   const [mobileTab, setMobileTab] = useState<"arrivals" | "inhouse">("arrivals");
 
@@ -210,11 +210,13 @@ function AdminCheckinContent() {
     line: FlatLine;
     isCheckout?: boolean;
     outsideWindow?: boolean;
+    lateCheckin?: boolean;
     onConfirm: () => void;
   } | null>(null);
 
   const [rejectLine, setRejectLine] = useState<FlatLine | null>(null);
   const [rejecting, setRejecting] = useState(false);
+  const [reviewLine, setReviewLine] = useState<FlatLine | null>(null);
 
   const today = useMemo(() => toBangkokISODate(new Date()), [currentTime]);
   const tomorrow = useMemo(() => {
@@ -362,6 +364,7 @@ function AdminCheckinContent() {
       .filter((l) => {
         if (arrivalFilter === "today") return localDateStr(l.check_in) === today;
         if (arrivalFilter === "tomorrow") return localDateStr(l.check_in) === tomorrow;
+        if (arrivalFilter === "overdue") return localDateStr(l.check_in) < today;
         return true;
       })
       .filter(matchesSearch);
@@ -400,6 +403,7 @@ function AdminCheckinContent() {
       (l) => l.status === "approved" && localDateStr(l.check_in) === tomorrow,
     ).length;
     const arrivalsAll = rawArrivals.length;
+    const arrivalsOverdue = rawArrivals.filter((l) => localDateStr(l.check_in) < today).length;
 
     const inHouseAll = allLines.filter((l) => l.status === "checked_in");
     const departingToday = inHouseAll.filter((l) => localDateStr(l.check_out) <= today).length;
@@ -408,15 +412,16 @@ function AdminCheckinContent() {
       arrivalsToday,
       arrivalsTomorrow,
       arrivalsAll,
+      arrivalsOverdue,
       inHouse: inHouseAll.length,
       departingToday,
       staying,
     };
   }, [allLines, rawArrivals.length, today, tomorrow]);
 
-  const isCheckinActionable = (line: FlatLine) => {
+  const isCheckinActionable = (line: FlatLine): boolean => {
     const d = localDateStr(line.check_in);
-    return d === today || d === tomorrow;
+    return Boolean(d) && d <= today && localDateStr(line.check_out) > today;
   };
 
   const isOutsideCheckinWindow = (line: FlatLine): boolean => {
@@ -462,16 +467,19 @@ function AdminCheckinContent() {
     ) : null;
 
   const handleCheckin = (line: FlatLine) => {
+    if (!isCheckinActionable(line)) return;
+    const lateCheckin = localDateStr(line.check_in) < today;
     const outsideWindow = isOutsideCheckinWindow(line);
     setConfirmModal({
       open: true,
-      title: `ยืนยันการเช็คอินห้อง ${line.room_number}`,
+      title: `ยืนยันการเช็คอิน${lateCheckin ? "ย้อนหลัง" : ""}ห้อง ${line.room_number}`,
       line,
       outsideWindow,
+      lateCheckin,
       isCheckout: false,
       onConfirm: async () => {
         try {
-          await api.put(`/bookings/booking-rooms/${line.booking_room_id}/checkin`);
+          await api.put(`/bookings/booking-rooms/${line.booking_room_id}/checkin`, { confirm_late_checkin: lateCheckin });
           notify.success(`เช็คอินห้อง ${line.room_number} เรียบร้อยแล้ว`);
           fetchBookings();
         } catch (err: unknown) {
@@ -1137,11 +1145,12 @@ function AdminCheckinContent() {
             </div>
 
             {/* Date Filter Segmented Control */}
-            <div className="flex items-center gap-1 bg-cream-100 p-1 rounded-xl self-start sm:self-auto">
+            <div className="flex flex-wrap items-center gap-1 bg-cream-100 p-1 rounded-xl self-start sm:self-auto">
               {(
                 [
                   ["today", "วันนี้"],
                   ["tomorrow", "พรุ่งนี้"],
+                  ["overdue", `เลยวัน (${counts.arrivalsOverdue})`],
                   ["all", "ทั้งหมด"],
                 ] as const
               ).map(([key, label]) => (
@@ -1184,6 +1193,9 @@ function AdminCheckinContent() {
             ) : (
               paginatedArrivals.map((line) => {
                 const actionable = isCheckinActionable(line);
+                const overdue = localDateStr(line.check_in) < today;
+                const expired = localDateStr(line.check_out) <= today;
+                const lateCheckin = overdue && actionable;
                 const { arrivalTime, note } = parseSpecialRequest(line.special_request, line.arrival_time);
                 const nights = calculateNights(line.check_in, line.check_out);
 
@@ -1192,7 +1204,7 @@ function AdminCheckinContent() {
                   return (
                     <div
                       key={line.booking_room_id}
-                      className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl border bg-white border-cream-200/90 hover:border-forest-300 hover:shadow-xs transition-all duration-150"
+                      className={`flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-2xl border hover:shadow-xs transition-all duration-150 ${overdue ? "bg-amber-50/40 border-amber-200" : "bg-white border-cream-200/90 hover:border-forest-300"}`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="font-display font-bold text-xs text-charcoal-900 shrink-0">
@@ -1220,12 +1232,12 @@ function AdminCheckinContent() {
                             onClick={() => handleCheckin(line)}
                             className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-forest-800 hover:bg-forest-900 transition-all active:scale-95"
                           >
-                            เช็คอิน
+                            {lateCheckin ? "เช็คอินย้อนหลัง" : "เช็คอิน"}
                           </button>
                         ) : (
-                          <span className="text-[11px] text-charcoal-400 font-mono">
-                            รอถึงวัน
-                          </span>
+                          expired ? (
+                            <button type="button" onClick={() => setReviewLine(line)} className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">ตรวจสอบรายการค้าง</button>
+                          ) : <span className="text-[11px] text-charcoal-400">ยังไม่ถึงวันเช็คอิน {formatThaiDate(line.check_in)}</span>
                         )}
                       </div>
                     </div>
@@ -1237,7 +1249,7 @@ function AdminCheckinContent() {
                   <div
                     key={line.booking_room_id}
                     className={`group relative rounded-2xl border p-4 sm:p-5 transition-all duration-200 ${
-                      actionable
+                      overdue ? "bg-amber-50/40 border-amber-200" : actionable
                         ? "bg-white border-cream-200/90 hover:border-forest-200 hover:shadow-md"
                         : "bg-cream-50/40 border-cream-200/70 opacity-90"
                     }`}
@@ -1332,13 +1344,12 @@ function AdminCheckinContent() {
                             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-xs font-bold text-white px-5 py-2.5 rounded-2xl bg-forest-800 hover:bg-forest-900 shadow-xs shadow-forest-800/20 transition-all active:scale-95 group/btn"
                           >
                             <LogIn size={15} className="group-hover/btn:translate-x-0.5 transition-transform" />
-                            <span>เช็คอิน</span>
+                            <span>{lateCheckin ? "เช็คอินย้อนหลัง" : "เช็คอิน"}</span>
                           </button>
                         ) : (
-                          <div className="flex items-center gap-1 text-xs font-semibold text-charcoal-400 bg-cream-100 border border-cream-200 px-3 py-1.5 rounded-xl">
-                            <Clock size={12} />
-                            <span>รอถึงวัน {formatThaiDate(line.check_in)}</span>
-                          </div>
+                          expired ? (
+                            <button type="button" onClick={() => setReviewLine(line)} className="inline-flex items-center gap-1 rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800"><AlertTriangle size={12} />ตรวจสอบรายการค้าง</button>
+                          ) : <div className="flex items-center gap-1 text-xs font-semibold text-charcoal-400 bg-cream-100 border border-cream-200 px-3 py-1.5 rounded-xl"><Clock size={12} /><span>ยังไม่ถึงวันเช็คอิน {formatThaiDate(line.check_in)}</span></div>
                         )}
                       </div>
                     </div>
@@ -1644,6 +1655,20 @@ function AdminCheckinContent() {
         </div>
       </div>
 
+      {reviewLine && (
+        <Modal open title={`ตรวจสอบรายการค้าง ห้อง ${reviewLine.room_number}`} onClose={() => setReviewLine(null)}>
+          <div className="space-y-4">
+            <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">เลยวันเช็คอินแล้ว และถึงหรือเลยวันเช็คเอาต์ กรุณาตรวจสอบว่าลูกค้าได้เข้าพักจริงหรือไม่ รายการนี้ไม่สามารถเช็คอินตามขั้นตอนปกติได้แล้ว</p>
+            <p className="text-sm text-charcoal-700">{reviewLine.user_name || "-"} · {formatThaiDate(reviewLine.check_in)} – {formatThaiDate(reviewLine.check_out)}</p>
+            <p className="text-xs text-charcoal-500">หากลูกค้าไม่มา ให้ตรวจสอบการชำระเงินและการคืนเงินตามนโยบายก่อนปฏิเสธพร้อมระบุเหตุผล หากเข้าพักจริงแต่ลืมบันทึก ให้ตรวจสอบกับผู้รับผิดชอบก่อนปรับข้อมูล ระบบจะไม่เปลี่ยนสถานะอัตโนมัติ</p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={() => setReviewLine(null)} className="btn-secondary">ปิด</button>
+              {reviewLine.can_reject && <button type="button" onClick={() => { setRejectLine(reviewLine); setReviewLine(null); }} className="rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800">ปฏิเสธพร้อมระบุเหตุผล</button>}
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* Enhanced Confirmation Modal */}
       <Modal
         open={!!confirmModal?.open}
@@ -1669,20 +1694,25 @@ function AdminCheckinContent() {
               }`}
             >
               {confirmModal?.isCheckout ? <LogOut size={14} /> : <LogIn size={14} />}
-              <span>{confirmModal?.isCheckout ? "ยืนยันการเช็คเอาต์" : "ยืนยันการเช็คอิน"}</span>
+              <span>{confirmModal?.isCheckout ? "ยืนยันการเช็คเอาต์" : confirmModal?.lateCheckin ? "ยืนยันการเช็คอินย้อนหลัง" : "ยืนยันการเช็คอิน"}</span>
             </button>
           </div>
         }
       >
         {confirmModal && (
           <div className="space-y-4 py-1">
+            {confirmModal.lateCheckin && !confirmModal.isCheckout && (
+              <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                เลยวันเช็คอินแล้ว แต่ยังไม่ถึงวันเช็คเอาต์ โปรดยืนยันว่าลูกค้ามาถึงจริง ระบบจะบันทึกวันและเวลาที่เช็คอินเป็นเวลาปัจจุบัน ไม่ย้อนเวลาบันทึก
+              </div>
+            )}
             {confirmModal.outsideWindow && !confirmModal.isCheckout && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-start gap-2.5">
                 <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
                 <div className="text-xs text-amber-900 space-y-0.5">
                   <p className="font-bold">เช็คอินนอกเวลามาตรฐาน</p>
                   <p className="leading-relaxed">
-                    เวลาปัจจุบันอยู่นอกช่วงเวลาเช็คอินปกติ ({checkinFrom} - {checkinTo} น.) ยืนยันว่าอนุญาตให้เข้าพักก่อนเวลา
+                    เวลาปัจจุบันอยู่นอกช่วงเวลาเช็คอินปกติ ({checkinFrom} - {checkinTo} น.) โปรดยืนยันว่าอนุญาตให้เข้าพักนอกเวลา
                   </p>
                 </div>
               </div>

@@ -22,6 +22,12 @@ export const loginValidator = [
   body('password').isString().bail().notEmpty().withMessage('กรุณากรอกรหัสผ่าน'),
 ];
 
+export const checkinRoomValidator = [
+  param('bookingRoomId').isInt({ min: 1 }).withMessage('รหัสห้องที่จองไม่ถูกต้อง'),
+  body('confirm_late_checkin').optional().custom((value: unknown) => typeof value === 'boolean')
+    .withMessage('การยืนยันเช็คอินย้อนหลังต้องเป็น true หรือ false'),
+];
+
 export const forgotPasswordValidator = [
   body('account_type').optional().isIn(['customer', 'staff']).withMessage('ประเภทบัญชีไม่ถูกต้อง'),
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),

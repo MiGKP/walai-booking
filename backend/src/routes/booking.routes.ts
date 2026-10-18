@@ -12,7 +12,7 @@ import {
 } from '../controllers/booking.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { validate } from '../middleware/validate.middleware';
-import { createRoomBookingValidator, updateRoomBookingStatusValidator } from '../middleware/validators';
+import { createRoomBookingValidator, updateRoomBookingStatusValidator, checkinRoomValidator } from '../middleware/validators';
 
 import { bookingListValidator } from '../middleware/pagination-validator';
 
@@ -27,6 +27,8 @@ router.put(
   '/booking-rooms/:bookingRoomId/checkin',
   authenticate,
   authorize('admin', 'room_staff'),
+  checkinRoomValidator,
+  validate,
   checkinBookingRoom
 );
 router.put(
