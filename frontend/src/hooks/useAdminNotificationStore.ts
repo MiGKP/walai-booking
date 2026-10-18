@@ -25,9 +25,13 @@ interface AdminNotificationState {
   counts: NotificationCounts;
   recentItems: PendingNotificationItem[];
   isLoading: boolean;
+  isFetching: boolean;
   lastFetchedAt: number | null;
   fetchNotifications: (silent?: boolean) => Promise<void>;
 }
+
+// If a booking changes while a request is in flight, refresh once more afterwards.
+let refreshQueued = false;
 
 export const useAdminNotificationStore = create<AdminNotificationState>((set, get) => ({
   counts: {
@@ -40,9 +44,17 @@ export const useAdminNotificationStore = create<AdminNotificationState>((set, ge
   },
   recentItems: [],
   isLoading: false,
+  isFetching: false,
   lastFetchedAt: null,
 
   fetchNotifications: async (silent = false) => {
+    if (get().isFetching) {
+      refreshQueued = true;
+      return;
+    }
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+    set({ isFetching: true });
     if (!silent) {
       set({ isLoading: true });
     }
@@ -53,9 +65,9 @@ export const useAdminNotificationStore = create<AdminNotificationState>((set, ge
           counts: NotificationCounts;
           recent_items: PendingNotificationItem[];
         };
-      }>("/settings/notifications/pending");
+      }>("/settings/notifications/pending", { timeout: 10000 });
 
-      if (res.data?.success && res.data.data) {
+      if (res.data?.success && res.data.data && localStorage.getItem('token') === token) {
         set({
           counts: res.data.data.counts,
           recentItems: res.data.data.recent_items || [],
@@ -65,8 +77,10 @@ export const useAdminNotificationStore = create<AdminNotificationState>((set, ge
     } catch {
       // Ignore background fetch errors to prevent disrupting user UI
     } finally {
-      if (!silent) {
-        set({ isLoading: false });
+      set({ isLoading: false, isFetching: false });
+      if (refreshQueued) {
+        refreshQueued = false;
+        void get().fetchNotifications(true);
       }
     }
   },

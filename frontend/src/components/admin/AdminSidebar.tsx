@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,6 +45,7 @@ interface MenuGroup {
 
 // ปฏิทินการจองเป็นลิงก์ด้านบนของ sidebar อยู่แล้ว จึงไม่ต้องอยู่ในรายการนี้
 const roomStaffAllowedPaths = [
+  "/admin/stats",
   "/admin/policies",
   "/admin/rooms/location",
   "/admin/promotions",
@@ -56,6 +57,7 @@ const roomStaffAllowedPaths = [
 ];
 
 const boatStaffAllowedPaths = [
+  "/admin/stats",
   "/admin/policies",
   "/admin/boats/checkin",
   "/admin/boats",
@@ -69,6 +71,7 @@ const menuGroups: MenuGroup[] = [
     title: "ข้อมูลสวนและรายงาน",
     icon: <Building2 size={18} />,
     items: [
+      { label: "รายงานสถิติ", path: "/admin/stats", icon: <FileText size={16} /> },
       {
         label: "สถานที่หลัก & ชำระเงิน",
         path: "/admin/site-info",
@@ -266,6 +269,13 @@ export default function AdminSidebar() {
   };
 
   const [isCollapsed, setIsCollapsed] = useState(false);
+  useEffect(() => {
+    const narrowScreen = window.matchMedia('(max-width: 767px)');
+    const adaptSidebar = (): void => setIsCollapsed(narrowScreen.matches);
+    adaptSidebar();
+    narrowScreen.addEventListener('change', adaptSidebar);
+    return () => narrowScreen.removeEventListener('change', adaptSidebar);
+  }, []);
 
   const renderNavContent = (collapsed: boolean, isMobile: boolean = false) => (
     <div className={`flex flex-col h-full py-5 ${collapsed ? "px-2" : "px-3.5"}`}>

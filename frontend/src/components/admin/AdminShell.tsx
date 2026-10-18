@@ -65,10 +65,10 @@ export default function AdminShell({ children }: { children: ReactNode }): React
   }, [pathname]);
 
   return (
-    <div className="admin-theme flex min-h-screen min-w-[768px] bg-cream-100">
+    <div className="admin-theme flex min-h-screen min-w-0 bg-cream-100">
       <AdminSidebar />
       <div className="min-w-0 flex-1">
-        <div className="mx-auto w-full max-w-7xl space-y-5 px-6 py-6 lg:px-8">
+        <div className="mx-auto w-full max-w-7xl space-y-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
           <header className="flex items-center justify-between gap-4">
             <nav aria-label="breadcrumb" className="flex flex-wrap items-center gap-1 text-xs text-charcoal-400">
               {crumbs.map((c, i) => (
