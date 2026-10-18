@@ -58,12 +58,24 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    let avatarUrl: string | null = null;
+    if (req.file) {
+      try {
+        const uploadedAvatar = await uploadImage(req.file.buffer, {
+          folder: 'walai-booking/avatars',
+        });
+        avatarUrl = uploadedAvatar.url;
+      } catch (uploadError) {
+        console.error('Registration profile avatar upload error:', uploadError);
+      }
+    }
+
     const password_hash = await bcrypt.hash(password, 12);
     const result = await pool.query(
-      `INSERT INTO members (first_name, last_name, email, password, phone, line_id, facebook, auth_provider)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'email')
-       RETURNING member_id, first_name, last_name, email, phone, line_id, facebook`,
-      [first_name, last_name, email, password_hash, phone || null, line_id || null, facebook || null]
+      `INSERT INTO members (first_name, last_name, email, password, phone, line_id, facebook, auth_provider, image_profile, avatar_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'email', $8, $9)
+       RETURNING member_id, first_name, last_name, email, phone, line_id, facebook, image_profile, avatar_url`,
+      [first_name, last_name, email, password_hash, phone || null, line_id || null, facebook || null, avatarUrl, avatarUrl]
     );
     const token = generateToken({ id: result.rows[0].member_id, email, role: 'customer' });
     const { password: _, ...userSafe } = result.rows[0];
