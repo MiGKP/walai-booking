@@ -31,6 +31,7 @@ import {
   Check,
   Ban,
   Layers,
+  ArrowUpDown,
 } from "lucide-react";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { toISODate, formatThaiDate, formatThaiDateLong } from "@/lib/date";
@@ -38,6 +39,15 @@ import { resolveMediaUrl } from "@/lib/avatar";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { Modal, CustomDatePicker, CustomSelect } from "@/components/admin/ui";
+import {
+  bookingListOrderParams,
+  readBookingFilter,
+  readBookingSort,
+  readBookingPageSize,
+  type BookingListFilter,
+  type BookingListSort,
+} from "@/lib/admin-booking-list";
+import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 
 // ตัวเลือกเหตุผลในการปฏิเสธ
 const REJECT_REASONS = [
@@ -95,7 +105,7 @@ const STATUS_BADGE_STYLE: Record<string, { bg: string; text: string; border: str
   },
 };
 
-type FilterType = "all" | "has_slip" | "pending" | "approved" | "checked_out";
+type FilterType = BookingListFilter;
 
 // ฟังก์ชันช่วยคำนวณจำนวนคืนที่พัก
 const calculateNights = (checkIn?: string, checkOut?: string) => {
@@ -128,9 +138,13 @@ function RoomStaffDashboardContent() {
   });
   const [catalogTypes, setCatalogTypes] = useState<string[]>([]);
   const requestId = useRef(0);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
 
   // อ่านค่า State จาก URL Query Parameters
-  const filter = (searchParams.get("filter") as FilterType) || "all";
+  const filter = readBookingFilter(searchParams.get("filter"));
+  const sort = readBookingSort(searchParams.get("sort"));
+  const itemsPerPage = readBookingPageSize(searchParams.get("limit"));
   const roomType = searchParams.get("roomType") || "all";
   const dateFrom = searchParams.get("dateFrom") || "";
   const dateTo = searchParams.get("dateTo") || "";
@@ -184,8 +198,6 @@ function RoomStaffDashboardContent() {
     selectedReason: REJECT_REASONS[0],
     customReason: "",
   });
-
-  const itemsPerPage = 10;
 
   // ช่วงวันที่ด่วน (วันนี้ / สัปดาห์นี้ / เดือนนี้)
   const quickDateRanges = useMemo(() => {
@@ -263,39 +275,50 @@ function RoomStaffDashboardContent() {
     updateQueryParams({ page });
   };
 
-  const fetchBookings = useCallback(async (): Promise<void> => {
-    if (!ready) return;
-    const id = ++requestId.current;
-    setLoading(true);
-    try {
-      const res = await api.get("/bookings", {
-        params: {
-          page: currentPage,
-          limit: itemsPerPage,
-          filter,
-          search: searchParam.trim() || undefined,
-          room_type: roomType === "all" ? undefined : roomType,
-          date_from: dateFrom || undefined,
-          date_to: dateTo || undefined,
-        },
-      });
-      if (id !== requestId.current) return;
-      setBookings(res.data?.data || []);
-      setPagination(res.data.pagination);
-      setCounts(res.data.summary);
-      if (currentPage > Math.max(1, res.data.pagination.totalPages)) {
-        updateQueryParams({ page: Math.max(1, res.data.pagination.totalPages) });
+  const fetchBookings = useCallback(
+    async (silent = false): Promise<void> => {
+      if (!ready) return;
+      const id = ++requestId.current;
+      if (!silent) setLoading(true);
+      try {
+        const res = await api.get("/bookings", {
+          params: {
+            page: currentPage,
+            limit: itemsPerPage,
+            ...bookingListOrderParams(filter, sort, "room"),
+            search: searchParam.trim() || undefined,
+            room_type: roomType === "all" ? undefined : roomType,
+            date_from: dateFrom || undefined,
+            date_to: dateTo || undefined,
+          },
+        });
+        if (id !== requestId.current) return;
+        setBookings(res.data?.data || []);
+        setPagination(res.data.pagination);
+        setCounts(res.data.summary);
+        setUpdatedAt(Date.now());
+        if (currentPage > Math.max(1, res.data.pagination.totalPages)) {
+          updateQueryParams({ page: Math.max(1, res.data.pagination.totalPages) });
+        }
+      } catch {
+        if (!silent && id === requestId.current) notify.error("ไม่สามารถโหลดข้อมูลการจองได้");
+      } finally {
+        if (id === requestId.current) setLoading(false);
       }
-    } catch {
-      if (id === requestId.current) notify.error("ไม่สามารถโหลดข้อมูลการจองได้");
-    } finally {
-      if (id === requestId.current) setLoading(false);
-    }
-  }, [ready, currentPage, filter, roomType, dateFrom, dateTo, searchParam, updateQueryParams]);
+    },
+    [ready, currentPage, filter, roomType, dateFrom, dateTo, searchParam, sort, itemsPerPage, updateQueryParams],
+  );
 
   useEffect(() => {
     fetchBookings();
+    tableRef.current?.scrollTo({ top: 0, left: 0 });
+    return () => {
+      requestId.current++;
+    };
   }, [fetchBookings]);
+
+  const refreshInBackground = useCallback(() => fetchBookings(true), [fetchBookings]);
+  useVisiblePolling(refreshInBackground, ready);
 
   useEffect(() => {
     if (!ready) return;
@@ -424,8 +447,15 @@ function RoomStaffDashboardContent() {
     return range;
   };
 
-  const hasActiveFilters =
-    filter !== "all" || roomType !== "all" || dateFrom || dateTo || searchParam;
+  const hasActiveFilters = Boolean(
+    filter !== "all" ||
+      roomType !== "all" ||
+      dateFrom ||
+      dateTo ||
+      searchParam ||
+      sort !== "newest" ||
+      itemsPerPage !== 10
+  );
 
   if (!ready) return null;
 
@@ -609,7 +639,7 @@ function RoomStaffDashboardContent() {
       <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-panel border border-cream-200/90 space-y-3.5 print:hidden">
         {/* Row 1: Actions & Active Filter indicator */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-charcoal-500">ตัวกรอง:</span>
             <span className="text-xs font-bold text-forest-900 bg-cream-100 px-3 py-1 rounded-xl border border-cream-200">
               {filter === "all"
@@ -620,7 +650,21 @@ function RoomStaffDashboardContent() {
                 ? "ยังไม่ชำระเงิน"
                 : filter === "approved"
                 ? "อนุมัติแล้ว"
-                : "เช็คเอาต์แล้ว"}
+                : filter === "checked_out"
+                ? "เช็คเอาต์แล้ว"
+                : filter === "cancelled"
+                ? "ยกเลิกแล้ว"
+                : "ถูกปฏิเสธ"}
+            </span>
+            <span className="text-[11px] text-charcoal-400 hidden sm:inline" aria-live="polite">
+              อัปเดตอัตโนมัติทุก 15 วินาที
+              {updatedAt
+                ? ` · ล่าสุด ${new Date(updatedAt).toLocaleTimeString("th-TH", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })}`
+                : ""}
             </span>
           </div>
 
@@ -629,7 +673,7 @@ function RoomStaffDashboardContent() {
             {hasActiveFilters && (
               <button
                 onClick={handleClearFilters}
-                className="flex items-center gap-1.5 text-xs text-charcoal-600 hover:text-charcoal-900 bg-cream-100 hover:bg-cream-200 px-3.5 py-2 rounded-2xl border border-cream-300/80 font-semibold transition-colors"
+                className="flex items-center gap-1.5 text-xs text-charcoal-600 hover:text-charcoal-900 bg-cream-100 hover:bg-cream-200 px-3.5 py-2 rounded-2xl border border-cream-300/80 font-semibold transition-colors shadow-2xs"
                 title="ล้างการกรองทั้งหมด"
               >
                 <RotateCcw size={13} />
@@ -637,7 +681,7 @@ function RoomStaffDashboardContent() {
               </button>
             )}
             <button
-              onClick={fetchBookings}
+              onClick={() => void fetchBookings()}
               className="px-3.5 py-2 text-charcoal-700 bg-white hover:bg-forest-50/50 hover:border-forest-200 rounded-2xl border border-cream-300 shadow-xs transition-all text-xs font-semibold flex items-center gap-2 active:scale-95"
               title="รีเฟรชข้อมูล"
             >
@@ -650,7 +694,7 @@ function RoomStaffDashboardContent() {
           </div>
         </div>
 
-        {/* Row 2: Secondary Filter Controls (Search, Type, Date Range & Presets) */}
+        {/* Row 2: Secondary Filter Controls (Search, Type, Date Range, Sort, Limit & Presets) */}
         <div className="flex flex-wrap items-center gap-2.5 pt-2.5 border-t border-cream-100">
           {/* Search Input */}
           <div className="relative flex-1 sm:w-64 min-w-[200px]">
@@ -707,6 +751,40 @@ function RoomStaffDashboardContent() {
             />
           </div>
 
+          {/* Sort Selector */}
+          <div className="flex items-center gap-1.5 bg-cream-50/80 px-3 py-2 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
+            <ArrowUpDown size={13} className="text-forest-700 shrink-0" />
+            <span className="font-medium text-charcoal-500 whitespace-nowrap">เรียง:</span>
+            <select
+              aria-label="เรียงลำดับการจอง"
+              value={sort}
+              onChange={(e) => updateQueryParams({ sort: e.target.value, page: 1 })}
+              className="bg-transparent font-semibold text-charcoal-800 outline-hidden cursor-pointer"
+            >
+              <option value="newest">จองล่าสุดก่อน</option>
+              <option value="oldest">จองเก่าก่อน</option>
+              <option value="service_asc">วันเช็คอิน (ก่อน → หลัง)</option>
+              <option value="price_desc">ยอดรวมมากที่สุดก่อน</option>
+            </select>
+          </div>
+
+          {/* Page Size Limit Selector */}
+          <div className="flex items-center gap-1.5 bg-cream-50/80 px-3 py-2 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
+            <span className="font-medium text-charcoal-500 whitespace-nowrap">แสดง:</span>
+            <select
+              aria-label="จำนวนรายการต่อหน้า"
+              value={itemsPerPage}
+              onChange={(e) => updateQueryParams({ limit: e.target.value, page: 1 })}
+              className="bg-transparent font-semibold text-charcoal-800 outline-hidden cursor-pointer"
+            >
+              {[10, 25, 50].map((l) => (
+                <option key={l} value={l}>
+                  {l} รายการ
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Quick Date Presets */}
           <div className="flex items-center gap-1 bg-cream-100 p-1 rounded-2xl">
             {(
@@ -758,7 +836,7 @@ function RoomStaffDashboardContent() {
         </div>
 
         {/* Table Container */}
-        <div className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
+        <div ref={tableRef} className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
           <table className="w-full text-left text-xs md:text-sm">
             <thead>
               <tr className="border-b border-cream-200 bg-cream-50/80 text-charcoal-600 font-bold text-xs uppercase tracking-wider">
@@ -769,7 +847,7 @@ function RoomStaffDashboardContent() {
                 <th className="px-4 py-3.5 whitespace-nowrap">ยอดรวม</th>
                 <th className="px-4 py-3.5 whitespace-nowrap">สถานะ</th>
                 <th className="px-4 py-3.5 text-center whitespace-nowrap">สลิปโอนเงิน</th>
-                <th className="px-5 py-3.5 text-right whitespace-nowrap">การจัดการ</th>
+                <th className="px-5 py-3.5 text-right whitespace-nowrap lg:sticky lg:right-0 bg-cream-50/95 z-20 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]">การจัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cream-100 bg-white">
@@ -962,7 +1040,7 @@ function RoomStaffDashboardContent() {
                       </td>
 
                       {/* Action Buttons */}
-                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap lg:sticky lg:right-0 bg-white group-hover:bg-cream-50 transition-colors z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => setDetailsModal({ open: true, booking: b })}
@@ -1047,6 +1125,7 @@ function RoomStaffDashboardContent() {
 
             <div className="flex items-center gap-1">
               <button
+                aria-label="หน้าแรก"
                 onClick={() => handlePageChange(1)}
                 disabled={loading || currentPage === 1}
                 className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
@@ -1055,6 +1134,7 @@ function RoomStaffDashboardContent() {
                 <ChevronsLeft size={14} />
               </button>
               <button
+                aria-label="หน้าก่อนหน้า"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={loading || currentPage === 1}
                 className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
@@ -1067,6 +1147,7 @@ function RoomStaffDashboardContent() {
                 typeof page === "number" ? (
                   <button
                     key={idx}
+                    aria-label={`หน้า ${page}`}
                     onClick={() => handlePageChange(page)}
                     className={`min-w-[32px] h-8 px-2 rounded-xl text-xs font-bold font-mono transition-all ${
                       currentPage === page
@@ -1084,6 +1165,7 @@ function RoomStaffDashboardContent() {
               )}
 
               <button
+                aria-label="หน้าถัดไป"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={loading || currentPage >= totalPages}
                 className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
@@ -1092,6 +1174,7 @@ function RoomStaffDashboardContent() {
                 <ChevronRight size={14} />
               </button>
               <button
+                aria-label="หน้าสุดท้าย"
                 onClick={() => handlePageChange(totalPages)}
                 disabled={loading || currentPage >= totalPages}
                 className="p-1.5 rounded-xl border border-cream-300 bg-white text-charcoal-600 disabled:opacity-40 hover:bg-cream-100 transition-colors shadow-2xs"
