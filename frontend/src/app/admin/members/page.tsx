@@ -69,6 +69,8 @@ export default function AdminMembersPage() {
   // Server-side filters
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [bookingStatus, setBookingStatus] = useState("all");
+  const [bookingService, setBookingService] = useState("all");
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -103,6 +105,8 @@ export default function AdminMembersPage() {
           limit: itemsPerPage,
           search: search.trim() || undefined,
           status: statusFilter,
+          booking_status: bookingStatus,
+          booking_service: bookingService,
         },
       });
       if (id !== requestId.current) return;
@@ -125,7 +129,7 @@ export default function AdminMembersPage() {
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [ready, currentPage, search, statusFilter]);
+  }, [ready, currentPage, search, statusFilter, bookingStatus, bookingService]);
 
   useEffect(() => {
     fetchMembers();
@@ -212,7 +216,7 @@ export default function AdminMembersPage() {
           </div>
 
           {/* Filter & Search Bar */}
-          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row flex-wrap items-center gap-2.5 w-full sm:w-auto">
             {/* Search Input */}
             <div className="relative w-full sm:w-64">
               <Search
@@ -242,6 +246,47 @@ export default function AdminMembersPage() {
                   <X size={12} />
                 </button>
               )}
+            </div>
+
+            {/* Booking Status Filter */}
+            <div className="flex items-center gap-1.5 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700 shadow-2xs">
+              <span className="font-medium text-charcoal-500 whitespace-nowrap">การจอง:</span>
+              <select
+                aria-label="สถานะการจองของสมาชิก"
+                value={bookingStatus}
+                onChange={(e) => {
+                  setBookingStatus(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent font-semibold text-charcoal-800 outline-hidden cursor-pointer"
+              >
+                <option value="all">ทุกสถานะการจอง</option>
+                <option value="none">ยังไม่มีการจอง</option>
+                <option value="pending">รอชำระเงิน</option>
+                <option value="paid">รอตรวจสลิป</option>
+                <option value="approved">อนุมัติแล้ว</option>
+                <option value="checked_out">ใช้บริการแล้ว</option>
+                <option value="cancelled">ยกเลิก</option>
+                <option value="rejected">ปฏิเสธ</option>
+              </select>
+            </div>
+
+            {/* Service Filter */}
+            <div className="flex items-center gap-1.5 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700 shadow-2xs">
+              <span className="font-medium text-charcoal-500 whitespace-nowrap">บริการ:</span>
+              <select
+                aria-label="บริการที่สมาชิกจอง"
+                value={bookingService}
+                onChange={(e) => {
+                  setBookingService(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent font-semibold text-charcoal-800 outline-hidden cursor-pointer"
+              >
+                <option value="all">ห้องพักและเรือ</option>
+                <option value="room">ห้องพัก</option>
+                <option value="boat">เรือ</option>
+              </select>
             </div>
 
             {/* Status Filter Tabs */}
