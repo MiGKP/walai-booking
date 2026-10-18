@@ -431,7 +431,7 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
       code, name, description, discount_type, discount_value,
       min_nights, min_price, max_discount, start_date, end_date,
       usage_limit, is_active, room_type_id, room_count, boat_ticket_count,
-      usage_limit_per_member, is_collectible, stackable, applies_to,
+      usage_limit_per_member, stackable, applies_to,
       boat_addon_mode, boat_addon_price,
     } = req.body;
 
@@ -499,7 +499,7 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
         usage_limit || null, is_active !== false,
         resolvedRoomTypeId, room_count || 1, boat_ticket_count || 0,
         usage_limit_per_member || null,
-        is_collectible === true || is_collectible === 'true',
+        true,
         stackable === true,
         parseAppliesTo(applies_to),
         boat_addon_mode === 'paid' ? 'paid' : 'free',
@@ -643,7 +643,7 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
         numOrCurrent('room_count', 1),
         numOrCurrent('boat_ticket_count', 0),
         numOrCurrent('usage_limit_per_member'),
-        boolOrCurrent('is_collectible'),
+        true,
         boolOrCurrent('stackable'),
         appliesTo,
         boatAddonMode,

@@ -99,10 +99,16 @@ test('ten room promotion scenarios: persistence, validation, real booking and qu
       const created = response(); await promotions.createPromotion(req, created);
       assert.equal(created.code, 201, JSON.stringify(created.body));
       const promo = created.body.data;
+      assert.equal(promo.is_collectible, true);
+      if (index < 7) {
+        const uncollected = await validate(promo, { price: index === 3 ? 3000 : 2000 });
+        assert.equal(uncollected.code, 400);
+        assert.match(uncollected.body.message, /ต้องเก็บโค้ดนี้ก่อนใช้/);
+        await pool.query("INSERT INTO member_promotions(member_id,promotion_id,status) VALUES(1,$1,'saved'),(2,$1,'saved')", [promo.id]);
+      }
       assert.deepEqual(promo.room_type_ids, []);
       if (index < 7) assert.equal(promo.end_date, null);
       if (index === 6) {
-        await pool.query("INSERT INTO member_promotions(member_id,promotion_id,status) VALUES(1,$1,'saved')", [promo.id]);
         const checked = await validate(promo); assert.equal(checked.code, 200);
         assert.equal(checked.body.data.final_price, 2000);
         const booked = await book(promo, { quantity: 2 });
@@ -160,5 +166,14 @@ test('ten room promotion scenarios: persistence, validation, real booking and qu
       assert.equal(res.code, 400);
     }
     assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM promotions WHERE code LIKE 'TEST_INVALID_%'")).rows[0].n, 0);
+  });
+  await t.test('collection migration fixes legacy flags, defaults new rows to true, and is repeatable', async () => {
+    await pool.query('UPDATE promotions SET is_collectible=false');
+    const migration = require('node:fs').readFileSync(path.resolve(__dirname, '../../src/db/migrations/2026-10-19-promotions-require-collection.sql'), 'utf8');
+    await pool.query(migration);
+    await pool.query(migration);
+    assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM promotions WHERE is_collectible IS NOT TRUE')).rows[0].n, 0);
+    const column = await pool.query("SELECT column_default FROM information_schema.columns WHERE table_schema=$1 AND table_name='promotions' AND column_name='is_collectible'", [schema]);
+    assert.equal(column.rows[0].column_default, 'true');
   });
 });

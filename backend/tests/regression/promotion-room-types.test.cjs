@@ -4,6 +4,7 @@ const path = require('node:path');
 require('ts-node/register/transpile-only');
 let current;
 let saved;
+let savedCollectible;
 const databaseId = require.resolve('../../src/config/database.ts');
 require.cache[databaseId] = { id: databaseId, filename: databaseId, loaded: true, exports: { __esModule: true, default: {
   query: async (sql, values) => {
@@ -11,6 +12,7 @@ require.cache[databaseId] = { id: databaseId, filename: databaseId, loaded: true
     if (/FROM room_types/.test(sql)) return { rows: values[0].filter(id => [1, 2, 3].includes(id)).map(id => ({ id })) };
     if (/SELECT id FROM promotions/.test(sql)) return { rows: [] };
     if (/INSERT INTO promotions|UPDATE promotions SET/.test(sql)) {
+      savedCollectible = values[16];
       saved = { room_type_id: values[12], room_type_ids: values[21] };
       return { rows: [saved] };
     }
@@ -44,6 +46,16 @@ test('promotion create gives explicit array precedence over legacy restriction',
   assert.deepEqual(saved, { room_type_id: null, room_type_ids: [] });
 });
 for (const handler of [createPromotion, updatePromotion]) {
+  for (const flag of [undefined, false, 'false', true]) {
+    test(`${handler.name} always requires collection even when is_collectible=${flag}`, async () => {
+      current = { ...baseline(), is_collectible: false }; savedCollectible = undefined;
+      const res = response();
+      const body = { ...baseline(), ...(flag === undefined ? {} : { is_collectible: flag }) };
+      await handler({ params: { id: '1' }, body }, res);
+      assert.equal(res.code, handler === createPromotion ? 201 : 200);
+      assert.equal(savedCollectible, true);
+    });
+  }
   test(`${handler.name} rejects unknown room types before saving`, async () => {
     current = baseline(); saved = undefined;
     const res = response();

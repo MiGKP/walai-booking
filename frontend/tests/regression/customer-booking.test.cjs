@@ -47,6 +47,20 @@ function load(relative, states = [], overrides = {}) {
 
 const kayak = { boat_booking_id: 21, is_addon: true, room_booking_id: 9, kayak_name: 'เรือเสริม', status: 'pending', created_at: new Date().toISOString(), booking_date: '2026-11-02', total_price: 250 };
 
+test('promotion collection option is checked and disabled in the admin form', () => {
+  const Page = load('src/app/admin/promotions/page.tsx', [[], [], false, '', 'all', 1, true, null, 'room', false], {
+    '@/hooks/useAuthGuard': { useAuthGuard: () => ({ ready: true, user: { role: 'admin' } }) },
+    '@/hooks/useAuth': { useAuth: () => ({ user: { role: 'admin' } }) },
+    '@/components/admin/ui': { Modal: ({ children }) => React.createElement('section', null, children), CustomDatePicker: () => null, CustomSelect: () => null },
+    '@/lib/admin-notify': { notify: {} },
+  }).default;
+  const html = renderToStaticMarkup(React.createElement(Page));
+  const option = html.match(/<input[^>]*type="checkbox"[^>]*>/g)?.find(input => input.includes('aria-label="สมาชิกเก็บคูปองในกระเป๋าได้"'));
+  assert.ok(option, 'collection control must have an accessible name');
+  assert.match(option, /checked=""/);
+  assert.match(option, /disabled=""/);
+});
+
 test('new password policy matches UTF-8 bcrypt limits and rejects easy guesses', () => {
   const { getNewPasswordError } = load('src/lib/password-policy.ts');
   for (const value of ['Stay2026', 'a long quiet stay beside the river', 'พักริมแม่น้ำ2569', 'A7!'.repeat(24)]) assert.equal(getNewPasswordError(value), null);
@@ -190,7 +204,7 @@ test('kayak checkout removes discount entry and keeps room rights', () => {
   assert.match(source, /totalPrice.toLocaleString/);
 });
 
-test('admin edits apply to rooms and preserve wallet and stacking settings', async () => {
+test('admin edits apply to rooms, require collection, and preserve stacking settings', async () => {
   const source = fs.readFileSync(path.join(root, 'src/app/admin/promotions/page.tsx'), 'utf8');
   const extract = name => {
     const start = source.indexOf(`  const ${name} =`);
@@ -204,7 +218,7 @@ test('admin edits apply to rooms and preserve wallet and stacking settings', asy
   );
   edit({ id: 32, code: 'TESTBOTH', applies_to: 'both', discount_type: 'fixed', discount_value: 10, is_collectible: false, stackable: true });
   assert.equal(form.applies_to, 'room');
-  assert.equal(form.is_collectible, false);
+  assert.equal(form.is_collectible, true);
   assert.equal(form.stackable, true);
   let payload;
   const submit = new Function('setSaving', 'promoTab', 'form', 'hasBoatAddon', 'editingId', 'api', 'notify', 'setShowModal', 'fetchPromotions', 'getApiErrorMessage', 'parseAppliesTo', extract('handleSubmit'))(
@@ -212,7 +226,7 @@ test('admin edits apply to rooms and preserve wallet and stacking settings', asy
   );
   await submit({ preventDefault() {} });
   assert.equal(payload.applies_to, 'room');
-  assert.equal(payload.is_collectible, false);
+  assert.equal(payload.is_collectible, true);
   assert.equal(payload.stackable, true);
 });
 

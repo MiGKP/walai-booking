@@ -93,7 +93,7 @@ const defaultForm = {
   end_date: "",
   usage_limit: "",
   usage_limit_per_member: "",
-  is_collectible: false,
+  is_collectible: true,
   stackable: false,
   applies_to: "room" as PromoAppliesTo,
   is_active: true,
@@ -574,7 +574,7 @@ export default function PromotionsPage() {
       usage_limit_per_member: p.usage_limit_per_member
         ? String(p.usage_limit_per_member)
         : "",
-      is_collectible: Boolean(p.is_collectible),
+      is_collectible: true,
       stackable: Boolean(p.stackable),
       applies_to: "room",
       is_active: p.is_active,
@@ -604,7 +604,7 @@ export default function PromotionsPage() {
         usage_limit_per_member: form.usage_limit_per_member
           ? Number(form.usage_limit_per_member)
           : null,
-        is_collectible: form.is_collectible,
+        is_collectible: true,
         stackable: form.stackable,
         applies_to: "room",
         start_date: form.start_date || null,
@@ -1684,17 +1684,17 @@ export default function PromotionsPage() {
                   </div>
 
                   <div className="sm:col-span-2 pt-1 border-t border-cream-200/70">
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-charcoal-700 select-none">
+                    <label className="flex items-center gap-2 cursor-not-allowed text-xs font-semibold text-charcoal-400 select-none">
                       <input
                         type="checkbox"
-                        checked={form.is_collectible}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, is_collectible: e.target.checked }))
-                        }
-                        className="rounded border-cream-300 text-forest-800 focus:ring-forest-800/20"
+                        aria-label="สมาชิกเก็บคูปองในกระเป๋าได้"
+                        checked
+                        disabled
+                        className="rounded border-cream-300 accent-stone-400 opacity-60 cursor-not-allowed"
                       />
                       <span>สมาชิกเก็บคูปองในกระเป๋าได้</span>
                     </label>
+                    <p className="mt-1 text-xs text-charcoal-400">ทุกโปรโมชั่นต้องเก็บคูปองก่อนใช้ ไม่สามารถปิดเงื่อนไขนี้ได้</p>
                   </div>
 
                   {/* Add-on เสริมเรือ (ทางเลือก) - การ์ดคอนทราสต์ชัดเจน มองเห็นช่องกรอกชัดเจน ไม่กลืนกับพื้นหลัง */}
