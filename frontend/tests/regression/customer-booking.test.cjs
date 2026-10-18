@@ -47,6 +47,31 @@ function load(relative, states = [], overrides = {}) {
 
 const kayak = { boat_booking_id: 21, is_addon: true, room_booking_id: 9, kayak_name: 'เรือเสริม', status: 'pending', created_at: new Date().toISOString(), booking_date: '2026-11-02', total_price: 250 };
 
+test('new password policy matches UTF-8 bcrypt limits and rejects easy guesses', () => {
+  const { getNewPasswordError } = load('src/lib/password-policy.ts');
+  for (const value of ['Stay2026', 'a long quiet stay beside the river', 'พักริมแม่น้ำ2569', 'A7!'.repeat(24)]) assert.equal(getNewPasswordError(value), null);
+  for (const value of ['short', '12345678', 'PASSWORD', '        ', 'aaaaaaaa', 'A'.repeat(73), 'ก'.repeat(25)]) assert(getNewPasswordError(value));
+});
+
+test('room check-in offers whole-booking rejection only before any room starts', () => {
+  for (const started of [false, true]) {
+    const b = { id: 9, room_booking_id: 9, status: 'approved', user_name: 'TEST', check_in: '2099-01-01', check_out: '2099-01-02', rooms: [{ booking_room_id: 51, room_number: 'W1', status: 'approved' }, { booking_room_id: 52, room_number: 'W2', status: started ? 'checked_in' : 'approved' }] };
+    const states = [[b], false, '', 'all', 'all', 'arrivals', 'detailed', 'time', 1, 1, new Set(), '14:00', '23:00', false, {}, false, null, null];
+    const Page = load('src/app/admin/checkin/page.tsx', states, { '@/components/admin/ui': { Modal: () => null, CustomSelect: () => null } }).default;
+    const html = renderToStaticMarkup(React.createElement(Page));
+    assert.equal(html.includes('aria-label="ปฏิเสธทั้งการจอง #9"'), !started);
+  }
+});
+
+test('rejected room and boat cards preserve reasons without offering payment again', () => {
+  for (const type of ['room', 'kayak']) {
+    const b = { id: 9, room_name: 'TEST', kayak_name: 'TEST', status: 'rejected', reject_reason: 'เหตุผลทดสอบ', payment_status: 'paid', created_at: '2026-10-17', check_in: '2026-11-01', check_out: '2026-11-02', booking_date: '2026-11-01', total_price: 100 };
+    const Page = load('src/components/dashboard/MyBookingsPanel.tsx', ['all', type === 'room' ? [b] : [], type === 'kayak' ? [b] : [], 3, false, false, new Set([`${type}-9`]), new Map()], { '@/components/booking/BoatAddonSection': () => null, '@/components/booking/RoomBoatTicketSummary': () => null }).default;
+    const html = renderToStaticMarkup(React.createElement(Page, { ready: true }));
+    assert(html.includes('ถูกปฏิเสธ')); assert(html.includes('เหตุผลทดสอบ')); assert(!html.includes('href="/payment'));
+  }
+});
+
 test('guest age policy matches the booking API and handles missing settings', () => {
   const { parseGuestAgePolicy } = load('src/hooks/useInfantAgePolicy.ts');
   for (const value of [null, undefined, '']) assert.equal(parseGuestAgePolicy(null, value).infantAge, 6);
@@ -68,6 +93,48 @@ test('free-child policy text never creates an automatic extra charge', () => {
   const policy = parseGuestAgePolicy('เด็ก 6-11 ปี: เข้าพักฟรี ใช้เตียงเสริมฟรี', 6);
   assert.equal(policy.childChargeMinAge, null);
   assert.equal(policy.childChargePricePerNight, null);
+});
+
+function childBedCheckoutMarkup() {
+  const { parseGuestAgePolicy } = load('src/hooks/useInfantAgePolicy.ts');
+  const policy = parseGuestAgePolicy('เด็ก 0-5 ปี: เข้าพักฟรี\nเด็ก 6-17 ปี: มีค่าบริการเตียงเสริม 300 บาท/คืน (ชำระหน้าเคาน์เตอร์)\n18 ปีขึ้นไป: คิดราคาผู้ใหญ่', 6);
+  const cart = { check_in: '2099-01-01', check_out: '2099-01-03', adults: 1, children: 3, child_ages: [0, 6, 11], items: [{ room_id: 1, room_type_id: 1, capacity: 4, quantity: 1, room_name: 'TEST Room', price_per_night: 1000 }] };
+  const Page = load('src/app/booking/details/page.tsx', [], {
+    '@/lib/room-cart-store': { useRoomCart: () => cart },
+    '@/hooks/useInfantAgePolicy': { useGuestAgePolicy: () => policy },
+    '@/components/promotions/PromoNotice': { PromoNotice: () => null, usePromoNotice: () => ({ notice: null, showNotice() {} }) },
+  }).default;
+  return renderToStaticMarkup(React.createElement(Page));
+}
+
+test('checkout does not charge children for beds they have not selected', () => {
+  const html = childBedCheckoutMarkup();
+  assert(!html.includes('ชำระเพิ่มเติม ณ วันเข้าพัก'), 'Unselected child beds must not create an onsite charge');
+});
+
+test('checkout offers separate beds for ages 6 and 11 but not a baby', () => {
+  const html = childBedCheckoutMarkup();
+  assert(html.includes('เตียงเสริมสำหรับเด็กคนที่ 2'));
+  assert(html.includes('เตียงเสริมสำหรับเด็กคนที่ 3'));
+  assert(!html.includes('เตียงเสริมสำหรับเด็กคนที่ 1'));
+});
+
+test('child bed selection counts only eligible selected children and expires when their age changes', () => {
+  const { selectedChildExtraBeds } = load('src/lib/booking-checkout.ts');
+  assert.equal(typeof selectedChildExtraBeds, 'function');
+  const ages = [0, 5, 6, 11, 12, 17];
+  assert.deepEqual(selectedChildExtraBeds(ages, {}, 6, 11), []);
+  assert.deepEqual(selectedChildExtraBeds(ages, { 0: 0, 1: 5, 2: 6, 3: 11, 4: 12, 5: 17 }, 6, 11), [{ index: 2, age: 6 }, { index: 3, age: 11 }]);
+  assert.deepEqual(selectedChildExtraBeds([5, 11], { 0: 6, 1: 6 }, 6, 11), []);
+});
+
+test('customer policy copy uses the booking adult boundary and optional child beds', () => {
+  const { parseGuestAgePolicy } = load('src/hooks/useInfantAgePolicy.ts');
+  const policy = parseGuestAgePolicy('เด็ก 6-17 ปี: เตียงเสริม 300 บาท/คืน\n18 ปีขึ้นไป: คิดราคาผู้ใหญ่', 6);
+  assert.equal(policy.childChargePolicyTitle, 'เด็ก 6–11 ปี');
+  assert.match(policy.bookingPolicyText, /12 ปีขึ้นไป/);
+  assert.match(policy.bookingPolicyText, /เฉพาะ.*เลือก/);
+  assert(!policy.bookingPolicyText.includes('18 ปีขึ้นไป'));
 });
 
 test('cancelled bookings never display payment instructions despite stale payment status or an old slip', () => {
@@ -205,6 +272,36 @@ test('cart capacity uses the configured free-child boundary and counts missing a
   assert.equal(cartOccupyingGuestTotal(state, 0), 4);
 });
 
+test('family occupancy allows one extra age-6-to-11 child per room and preserves adult limits', () => {
+  const { roomOccupancy, minimumRoomsForGuests } = load('src/lib/room-cart.ts');
+  assert.equal(typeof roomOccupancy, 'function');
+  const guests = { adults: 2, children: 1, childAges: [6], infantAge: 6 };
+  assert.equal(roomOccupancy({ ...guests, capacity: 2, roomCount: 1 }).fits, true);
+  assert.equal(roomOccupancy({ ...guests, childAges: [11], capacity: 2, roomCount: 1 }).fits, true);
+  assert.equal(roomOccupancy({ ...guests, children: 2, childAges: [6, 11], capacity: 2, roomCount: 1 }).missingCapacity, 1);
+  assert.equal(roomOccupancy({ ...guests, adults: 3, capacity: 2, roomCount: 1 }).fits, false);
+  assert.equal(roomOccupancy({ ...guests, childAges: [12], capacity: 2, roomCount: 1 }).fits, false);
+  assert.equal(roomOccupancy({ ...guests, childAges: [], capacity: 2, roomCount: 1 }).fits, false);
+  assert.equal(roomOccupancy({ ...guests, childAges: [0], capacity: 2, roomCount: 1 }).fits, true);
+  assert.equal(roomOccupancy({ ...guests, adults: 4, children: 2, childAges: [6, 11], capacity: 4, roomCount: 2 }).fits, true);
+  assert.equal(minimumRoomsForGuests(guests, 2), 1);
+  assert.equal(minimumRoomsForGuests({ ...guests, adults: 3 }, 2), 2);
+  assert.equal(minimumRoomsForGuests({ ...guests, children: 2, childAges: [6, 11] }, 2), 2);
+});
+
+test('room summary lets two adults and one child reach the optional-bed checkout', () => {
+  const cart = { check_in: '2099-01-01', check_out: '2099-01-03', adults: 2, children: 1, child_ages: [6], items: [{ room_id: 1, room_type_id: 1, capacity: 2, quantity: 1, room_name: 'TEST Room', price_per_night: 1000 }] };
+  const Page = load('src/components/booking/BookingSummaryCard.tsx', [], {
+    '@/lib/room-cart-store': { useRoomCart: () => cart },
+    '@/hooks/useCartSync': { useCartSync: () => ({ commit() {}, clearAll() {} }) },
+  }).default;
+  const html = renderToStaticMarkup(React.createElement(Page));
+  assert(!html.includes('ห้องพักไม่เพียงพอ'));
+  const bookingButton = html.match(/<button[^>]*>จองรายการนี้<\/button>/)?.[0];
+  assert(bookingButton);
+  assert(!/\sdisabled(?:=|\s|>)/.test(bookingButton));
+});
+
 test('slip selection rejects missing, unsupported and oversized files and accepts the size boundary', () => {
   const { validateSlipFile } = load('src/lib/payment-slip.ts');
   assert.match(validateSlipFile(undefined), /เลือก/);
@@ -282,6 +379,41 @@ function bookingsMarkup(rooms, kayaks) {
   const Component = load('src/components/dashboard/MyBookingsPanel.tsx', ['all', rooms, kayaks, 3, false, false, new Set(), new Map()]).default;
   return renderToStaticMarkup(React.createElement(Component, { ready: true }));
 }
+
+function expandedReviewMarkup(status, lines, reviewedTypes = []) {
+  const room = { room_booking_id: 91, status, created_at: '2026-10-01', check_in: '2026-10-01', check_out: '2026-10-02', total_price: 1200, rooms: lines };
+  const Component = load('src/components/dashboard/MyBookingsPanel.tsx', ['all', [room], [], 3, false, false, new Set(['room-91']), new Map([[91, new Set(reviewedTypes)]])], {
+    '@/components/booking/BoatAddonSection': () => null,
+  }).default;
+  return renderToStaticMarkup(React.createElement(Component, { ready: true }));
+}
+
+test('approved and checked-out room cards link to the dashboard reviews tab', () => {
+  for (const status of ['approved', 'checked_out']) {
+    const html = expandedReviewMarkup(status, [{ booking_room_id: 1, room_name: 'Standard', room_number: 'TEST1', status: 'checked_out' }]);
+    assert(html.includes('href="/dashboard?tab=reviews"'));
+    assert(!html.includes('href="/reviews"'));
+  }
+  for (const status of ['pending', 'paid', 'cancelled', 'rejected']) {
+    assert(!expandedReviewMarkup(status, []).includes('href="/dashboard?tab=reviews"'));
+  }
+});
+
+test('cancelled room types do not prevent the already reviewed badge', () => {
+  const html = expandedReviewMarkup('checked_out', [
+    { booking_room_id: 1, room_name: 'Standard', room_number: 'TEST1', status: 'checked_out' },
+    { booking_room_id: 2, room_name: 'Deluxe', room_number: 'TEST2', status: 'cancelled' },
+  ], ['Standard']);
+  assert(html.includes('รีวิวการพักนี้แล้ว'));
+  assert(!html.includes('href="/dashboard?tab=reviews"'));
+});
+
+test('old review bookmarks permanently redirect to the dashboard reviews tab', async () => {
+  const config = require('../../next.config.js');
+  const redirect = (await config.redirects()).find(route => route.source === '/reviews');
+  assert.equal(redirect.destination, '/dashboard?tab=reviews');
+  assert.equal(redirect.statusCode, 301);
+});
 
 test('pending addons have no independent payment or cancellation action', () => {
   const html = bookingsMarkup([], [kayak]);

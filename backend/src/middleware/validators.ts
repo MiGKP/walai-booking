@@ -1,5 +1,6 @@
 import { normalizeAuthEmail } from '../services/auth-email';
 import { body, param, query } from 'express-validator';
+import { validateNewPassword } from '../services/password-policy';
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
@@ -7,9 +8,7 @@ export const registerValidator = [
   body('first_name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
   body('last_name').trim().notEmpty().withMessage('กรุณากรอกนามสกุล'),
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
-  body('password')
-    .isLength({ min: 8 })
-    .withMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'),
+  body('password').custom(validateNewPassword),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
@@ -20,47 +19,46 @@ export const registerValidator = [
 
 export const loginValidator = [
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
-  body('password').notEmpty().withMessage('กรุณากรอกรหัสผ่าน'),
+  body('password').isString().bail().notEmpty().withMessage('กรุณากรอกรหัสผ่าน'),
 ];
 
 export const forgotPasswordValidator = [
+  body('account_type').optional().isIn(['customer', 'staff']).withMessage('ประเภทบัญชีไม่ถูกต้อง'),
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
 ];
 
 export const resetPasswordValidator = [
+  body('account_type').optional().isIn(['customer', 'staff']).withMessage('ประเภทบัญชีไม่ถูกต้อง'),
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
   body('otp')
     .trim()
     .isLength({ min: 6, max: 6 })
     .isNumeric()
     .withMessage('รหัส OTP ต้องเป็นตัวเลข 6 หลัก'),
-  body('new_password')
-    .isLength({ min: 8 })
-    .withMessage('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร'),
+  body('new_password').custom(validateNewPassword),
 ];
 
 export const updateProfileValidator = [
-  body('first_name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
-  body('last_name').optional({ nullable: true }).trim(),
+  body('email').optional().isString().bail().trim().isEmail().isLength({ max: 100 }).customSanitizer(normalizeAuthEmail),
+  body('address').optional({ nullable: true }).isString().bail().trim().isLength({ max: 2000 }),
+  body('current_password').optional().isString().bail().isLength({ max: 200 }),
+  body('first_name').isString().bail().trim().notEmpty().withMessage('กรุณากรอกชื่อ').isLength({ max: 100 }),
+  body('last_name').optional({ nullable: true }).isString().bail().trim().isLength({ max: 100 }),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
     .withMessage('เบอร์โทรศัพท์ไม่ถูกต้อง'),
-  body('line_id').optional({ nullable: true, checkFalsy: true }).trim(),
-  body('facebook').optional({ nullable: true, checkFalsy: true }).trim(),
+  body('line_id').optional({ nullable: true, checkFalsy: true }).isString().bail().trim().isLength({ max: 100 }),
+  body('facebook').optional({ nullable: true, checkFalsy: true }).isString().bail().trim().isLength({ max: 255 }),
 ];
 
 export const changePasswordValidator = [
   body('current_password').notEmpty().withMessage('กรุณากรอกรหัสผ่านปัจจุบัน'),
-  body('new_password')
-    .isLength({ min: 8 })
-    .withMessage('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร'),
+  body('new_password').custom(validateNewPassword),
 ];
 
 export const setPasswordValidator = [
-  body('new_password')
-    .isLength({ min: 8 })
-    .withMessage('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร'),
+  body('new_password').custom(validateNewPassword),
 ];
 
 export const createStaffValidator = [
@@ -68,11 +66,8 @@ export const createStaffValidator = [
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
   body('password')
     .custom((val, { req }) => {
-      const pwd = (val && String(val).trim()) || (req.body.phone && String(req.body.phone).trim());
-      if (!pwd || pwd.length < 8) {
-        throw new Error('รหัสผ่านหรือเบอร์โทรศัพท์ต้องมีความยาวอย่างน้อย 8 ตัวอักษร');
-      }
-      return true;
+      const pwd = val === undefined || val === null || val === '' ? req.body.phone : val;
+      return validateNewPassword(pwd);
     }),
   body('role')
     .isIn(['admin', 'room_staff', 'boat_staff'])
@@ -85,9 +80,7 @@ export const createStaffValidator = [
 
 export const initAdminValidator = [
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
-  body('password')
-    .isLength({ min: 8 })
-    .withMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'),
+  body('password').custom(validateNewPassword),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
     .isMobilePhone('any')
@@ -164,6 +157,10 @@ export const updateRoomBookingStatusValidator = [
   body('status')
     .isIn(['approved', 'rejected', 'pending', 'cancelled'])
     .withMessage('สถานะต้องเป็น approved, rejected, pending หรือ cancelled'),
+  body('reject_reason').if(body('status').equals('rejected'))
+    .isString().withMessage('กรุณาระบุเหตุผลที่ปฏิเสธ').bail().trim()
+    .notEmpty().withMessage('กรุณาระบุเหตุผลที่ปฏิเสธ')
+    .isLength({ max: 500 }).withMessage('เหตุผลต้องไม่เกิน 500 ตัวอักษร'),
 ];
 
 // ─── Kayak Booking ────────────────────────────────────────────────────────────
@@ -212,6 +209,10 @@ export const updateKayakBookingStatusValidator = [
   body('status')
     .isIn(['approved', 'rejected', 'pending', 'checked_out'])
     .withMessage('สถานะต้องเป็น approved, rejected, pending หรือ checked_out'),
+  body('reject_reason').if(body('status').equals('rejected'))
+    .isString().withMessage('กรุณาระบุเหตุผลที่ปฏิเสธ').bail().trim()
+    .notEmpty().withMessage('กรุณาระบุเหตุผลที่ปฏิเสธ')
+    .isLength({ max: 500 }).withMessage('เหตุผลต้องไม่เกิน 500 ตัวอักษร'),
 ];
 
 export const kayakCheckinSessionsValidator = [
@@ -280,7 +281,7 @@ export const createPromotionValidator = [
     .withMessage('ประเภทส่วนลดต้องเป็น percent หรือ fixed'),
   body('discount_value')
     .isFloat({ min: 0 })
-    .withMessage('มูลค่าส่วนลดต้องเป็นตัวเลขที่มากกว่า 0'),
+    .withMessage('มูลค่าส่วนลดต้องเป็นตัวเลขที่ไม่ติดลบ'),
   body('min_nights').optional({ nullable: true }).isInt({ min: 1 }).withMessage('จำนวนคืนขั้นต่ำต้องเป็นจำนวนเต็มบวก'),
   body('min_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ราคาขั้นต่ำต้องเป็นตัวเลขที่ไม่ติดลบ'),
   body('max_discount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ส่วนลดสูงสุดต้องเป็นตัวเลขที่ไม่ติดลบ'),
@@ -304,7 +305,7 @@ export const updatePromotionValidator = [
   body('name').optional().trim().notEmpty().withMessage('ชื่อต้องไม่ว่าง'),
   body('description').optional({ nullable: true, checkFalsy: true }).trim(),
   body('discount_type').optional().isIn(['percent', 'fixed']).withMessage('ประเภทส่วนลดต้องเป็น percent หรือ fixed'),
-  body('discount_value').optional().isFloat({ min: 0 }).withMessage('มูลค่าส่วนลดต้องเป็นตัวเลขที่มากกว่า 0'),
+  body('discount_value').optional().isFloat({ min: 0 }).withMessage('มูลค่าส่วนลดต้องเป็นตัวเลขที่ไม่ติดลบ'),
   body('min_nights').optional({ nullable: true }).isInt({ min: 1 }).withMessage('จำนวนคืนขั้นต่ำต้องเป็นจำนวนเต็มบวก'),
   body('min_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ราคาขั้นต่ำต้องเป็นตัวเลขที่ไม่ติดลบ'),
   body('max_discount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ส่วนลดสูงสุดต้องเป็นตัวเลขที่ไม่ติดลบ'),

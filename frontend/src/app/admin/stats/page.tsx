@@ -486,6 +486,7 @@ export default function StatsPage(): React.ReactElement | null {
             <div>
               <label className="mb-2 block text-xs font-bold text-charcoal-700">เลือกวันที่</label>
               <CustomDatePicker
+                mobileCentered
                 value={date}
                 onChange={(val) => {
                   if (val) setDate(val);

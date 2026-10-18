@@ -1,5 +1,7 @@
 "use client";
 
+import { getNewPasswordError, PASSWORD_HINT } from '@/lib/password-policy';
+
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { User, Mail, Phone, Save, Lock, MessageCircle, CalendarDays, Camera, Eye, EyeOff, Star, Ticket, Trash2, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
@@ -52,6 +54,7 @@ function PasswordField({
     <div className="relative">
       <input
         type={visible ? "text" : "password"}
+        data-password-toggle
         required={required}
         minLength={minLength}
         className="input-field pr-11"
@@ -267,8 +270,9 @@ function DashboardContent() {
       toast.error("รหัสผ่านใหม่ไม่ตรงกัน");
       return;
     }
-    if (passwords.new_password.length < 6) {
-      toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+    const passwordError = getNewPasswordError(passwords.new_password);
+    if (passwordError) {
+      toast.error(passwordError);
       return;
     }
     setChangingPw(true);
@@ -293,8 +297,9 @@ function DashboardContent() {
       toast.error("รหัสผ่านไม่ตรงกัน");
       return;
     }
-    if (passwords.new_password.length < 6) {
-      toast.error("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+    const passwordError = getNewPasswordError(passwords.new_password);
+    if (passwordError) {
+      toast.error(passwordError);
       return;
     }
     setChangingPw(true);
@@ -663,9 +668,10 @@ function DashboardContent() {
                       <form onSubmit={handleSetPassword} className="space-y-5">
                         <div>
                           <FieldLabel>รหัสผ่านใหม่</FieldLabel>
+                        <p className="mb-2 text-xs text-charcoal-400">{PASSWORD_HINT}</p>
                           <PasswordField
                             required
-                            minLength={6}
+                            minLength={8}
                             value={passwords.new_password}
                             onChange={(v) => setPasswords({ ...passwords, new_password: v })}
                           />
@@ -674,7 +680,7 @@ function DashboardContent() {
                           <FieldLabel>ยืนยันรหัสผ่านใหม่</FieldLabel>
                           <PasswordField
                             required
-                            minLength={6}
+                            minLength={8}
                             value={passwords.confirm}
                             onChange={(v) => setPasswords({ ...passwords, confirm: v })}
                           />
@@ -704,9 +710,10 @@ function DashboardContent() {
                       <div className="pt-2 border-t border-stone-100"></div>
                       <div>
                         <FieldLabel>รหัสผ่านใหม่</FieldLabel>
+                        <p className="mb-2 text-xs text-charcoal-400">{PASSWORD_HINT}</p>
                         <PasswordField
                           required
-                          minLength={6}
+                          minLength={8}
                           value={passwords.new_password}
                           onChange={(v) => setPasswords({ ...passwords, new_password: v })}
                         />
@@ -715,7 +722,7 @@ function DashboardContent() {
                         <FieldLabel>ยืนยันรหัสผ่านใหม่</FieldLabel>
                         <PasswordField
                           required
-                          minLength={6}
+                          minLength={8}
                           value={passwords.confirm}
                           onChange={(v) => setPasswords({ ...passwords, confirm: v })}
                         />

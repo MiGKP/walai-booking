@@ -4,11 +4,12 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { QueryResult } from 'pg';
+import { QueryResult, type PoolClient } from 'pg';
 import pool from '../config/database';
 import { sendPasswordResetEmail } from '../services/mail.service';
 import { AuthPayload } from '../types';
 import { mapDbError } from '../utils/db-errors';
+import { safeRollback } from '../utils/safe-rollback';
 import {
   CloudinaryUploadResult,
   deleteCloudinaryImage,
@@ -579,6 +580,8 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
 };
 
 export const updateProfile = async (req: Request, res: Response): Promise<void> => {
+  let client: PoolClient | undefined;
+  let transactionOpen = false;
   try {
     const authUser = req.user as AuthPayload;
     const { first_name, last_name, phone, line_id, facebook } = req.body;
@@ -599,13 +602,38 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     const trimmedFirstName = first_name.trim();
     const trimmedLastName = last_name ? last_name.trim() : '';
 
+    // Serialize profile phone changes, including changes across account types.
+    // Do not reject the current account when saving its existing phone.
+    if (typeof phone === 'string' && phone.trim()) {
+      client = await pool.connect();
+      await client.query('BEGIN');
+      transactionOpen = true;
+      await client.query('SELECT pg_advisory_xact_lock(20261019, 1)');
+      const duplicate = await client.query(
+        `SELECT 1 FROM members
+         WHERE regexp_replace(phone, '[^0-9]', '', 'g') = regexp_replace($1::text, '[^0-9]', '', 'g')
+           AND NOT ($2::text = 'customer' AND member_id = $3)
+         UNION ALL
+         SELECT 1 FROM staff
+         WHERE regexp_replace(phone, '[^0-9]', '', 'g') = regexp_replace($1::text, '[^0-9]', '', 'g')
+           AND NOT ($2::text <> 'customer' AND staff_id = $3)
+         LIMIT 1`,
+        [phone, authUser.role, authUser.id]
+      );
+      if (duplicate.rows.length) {
+        res.status(409).json({ success: false, message: 'เบอร์โทรศัพท์นี้ถูกใช้งานแล้ว กรุณาใช้เบอร์อื่น' });
+        return;
+      }
+    }
+    const db = client ?? pool;
+
     if (authUser.role === 'customer') {
-      await pool.query(
+      await db.query(
         'UPDATE members SET first_name = $1, last_name = $2, phone = $3, line_id = $4, facebook = $5 WHERE member_id = $6',
         [trimmedFirstName, trimmedLastName, phone || null, line_id || null, facebook || null, authUser.id]
       );
     } else {
-      const current = await pool.query('SELECT email, password FROM staff WHERE staff_id = $1', [authUser.id]);
+      const current = await db.query('SELECT email, password FROM staff WHERE staff_id = $1', [authUser.id]);
       if (!current.rows[0]) {
         res.status(404).json({ success: false, message: 'ไม่พบบัญชีพนักงาน' });
         return;
@@ -617,7 +645,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
           res.status(400).json({ success: false, message: 'กรุณายืนยันรหัสผ่านปัจจุบันเพื่อเปลี่ยนอีเมล' });
           return;
         }
-        const duplicate = await pool.query(
+        const duplicate = await db.query(
           `SELECT 1 FROM staff WHERE staff_id <> $1 AND (LOWER(email) = $2 OR LOWER(email) = $3)
            UNION ALL SELECT 1 FROM members WHERE LOWER(email) = $2 OR LOWER(email) = $3 LIMIT 1`,
           [authUser.id, email, legacyAuthEmail(email)]
@@ -627,7 +655,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
           return;
         }
       }
-      const saved = await pool.query(
+      const saved = await db.query(
         `UPDATE staff SET first_name = $1, last_name = $2, phone = $3, email = $4,
           address = CASE WHEN $5::boolean THEN $6 ELSE address END,
           line_id = CASE WHEN $7::boolean THEN $8 ELSE line_id END,
@@ -645,10 +673,12 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         res.status(409).json({ success: false, message: 'ข้อมูลบัญชีเปลี่ยนแปลงแล้ว กรุณาโหลดหน้าใหม่และลองอีกครั้ง' });
         return;
       }
+      if (client) { await client.query('COMMIT'); transactionOpen = false; }
       res.json({ success: true, message: 'บันทึกข้อมูลสำเร็จ', data: saved.rows[0] });
       return;
     }
 
+    if (client) { await client.query('COMMIT'); transactionOpen = false; }
     res.json({
       success: true,
       message: 'Profile updated successfully',
@@ -666,6 +696,12 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     const mapped = mapDbError(error);
     if (mapped) { res.status(mapped.status).json({ success: false, message: mapped.message }); return; }
     res.status(500).json({ success: false, message: 'Internal server error' });
+  } finally {
+    if (client) {
+      try {
+        if (transactionOpen) await safeRollback(client);
+      } finally { client.release(); }
+    }
   }
 };
 

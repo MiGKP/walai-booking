@@ -268,6 +268,7 @@ function BoatCheckinContent(): React.ReactElement {
               วันนี้
             </button>
             <CustomDatePicker
+              className="static sm:relative"
               value={selectedDate}
               onChange={(val) => {
                 if (val) setSelectedDate(val);

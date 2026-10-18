@@ -14,11 +14,11 @@ test('reviews require completed owned stays and reject concurrent duplicates and
  try {
   await client.query(`CREATE TEMP TABLE room_bookings (room_booking_id int PRIMARY KEY, member_id int, status text);
    CREATE TEMP TABLE rooms (room_id int PRIMARY KEY, room_type_id int);
-   CREATE TEMP TABLE booking_room (room_booking_id int, room_id int);
+   CREATE TEMP TABLE booking_room (room_booking_id int, room_id int, status text);
    CREATE TEMP TABLE reviews (review_id serial PRIMARY KEY, member_id int, room_booking_id int, room_type_id int,
     rating int, comment text, review_date timestamptz, UNIQUE(room_booking_id,member_id,room_type_id));
    INSERT INTO room_bookings VALUES (1,1,'approved'),(2,1,'checked_out');
-   INSERT INTO rooms VALUES (10,3); INSERT INTO booking_room VALUES (1,10),(2,10);`);
+   INSERT INTO rooms VALUES (10,3); INSERT INTO booking_room VALUES (1,10,'approved'),(2,10,'checked_out');`);
   const create=async(id,owner=1,type=3)=>{const res=response();await review.createReview({user:{id:owner},body:{room_booking_id:id,room_type_id:type,rating:5,comment:'TEST-review'}},res);return res;};
   assert.equal((await create(1)).code,403);
   assert.equal((await create(2,2)).code,403);

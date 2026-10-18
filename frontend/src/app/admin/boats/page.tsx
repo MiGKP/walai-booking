@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -17,10 +17,6 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  ShieldCheck,
-  FileCheck2,
-  Search,
-  RotateCcw,
   Wallet,
   FileText,
   User,
@@ -35,13 +31,17 @@ import {
   Timer,
   Layers,
   ArrowUpDown,
+  Search,
+  RotateCcw,
+  FileCheck,
+  ShieldCheck,
 } from "lucide-react";
 import {
   Modal,
   BookingStatusBadge,
   EmptyState,
-  CustomDatePicker,
   CustomSelect,
+  CustomDatePicker,
 } from "@/components/admin/ui";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { pickResortInfo, type ResortInfoRecord } from "@/lib/resort-info";
@@ -55,9 +55,10 @@ import {
   readBookingSort,
   readBookingPageSize,
   type BookingListFilter,
-  type BookingListSort,
 } from "@/lib/admin-booking-list";
 import { useVisiblePolling } from "@/hooks/useVisiblePolling";
+
+
 
 // ตัวเลือกเหตุผลในการปฏิเสธ
 const REJECT_REASONS = [
@@ -269,13 +270,14 @@ function BoatStaffDashboardContent() {
     updateQueryParams({ filter: newFilter, page: 1 });
   };
 
-  const handleDateChange = (from: string, to: string) => {
-    updateQueryParams({ dateFrom: from, dateTo: to, page: 1 });
-  };
-
   const handleClearFilters = () => {
     setSearchInput("");
     router.replace(pathname, { scroll: false });
+  };
+
+  const boatTypeOptions = [{ value: "all", label: "ทั้งหมดทุกประเภท" }, ...catalogTypes.map(type => ({ value: type, label: type }))];
+  const handleDateChange = (from: string, to: string): void => {
+    updateQueryParams({ dateFrom: from, dateTo: to, page: 1 });
   };
 
   const handlePageChange = (page: number) => {
@@ -459,15 +461,6 @@ function BoatStaffDashboardContent() {
     window.print();
   };
 
-  const boatTypes = catalogTypes;
-
-  const boatTypeOptions = useMemo(() => {
-    return [
-      { value: "all", label: "ทั้งหมดทุกประเภท" },
-      ...boatTypes.map((t) => ({ value: t, label: t })),
-    ];
-  }, [boatTypes]);
-
   const totalPages = Math.max(1, pagination.totalPages);
   const paginatedBookings = bookings;
 
@@ -501,7 +494,7 @@ function BoatStaffDashboardContent() {
   if (!ready) return null;
 
   return (
-    <div className="space-y-6 pb-16 max-w-[1600px] mx-auto">
+    <div className="space-y-4 pb-8 max-w-[1600px] mx-auto">
       <style jsx global>{`
         @media print {
           body * {
@@ -579,106 +572,26 @@ function BoatStaffDashboardContent() {
         </div>
       </div>
 
-      {/* 5 Interactive Filter Cards */}
-      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-3.5 print:hidden">
-        {[
-          {
-            key: "all" as FilterType,
-            label: "ทั้งหมด",
-            count: counts.all,
-            icon: <Layers size={19} className="stroke-[2.2]" />,
-            activeBorder: "border-forest-800 ring-2 ring-forest-800/20 shadow-md",
-            activeBg: "bg-forest-900 text-white",
-            iconBg: "bg-forest-50 text-forest-800 border-forest-100",
-            activeIconBg: "bg-white/20 text-white border-white/20",
-          },
-          {
-            key: "has_slip" as FilterType,
-            label: "รอตรวจสอบสลิป",
-            count: counts.has_slip,
-            icon: <FileCheck2 size={19} className="stroke-[2.2]" />,
-            activeBorder: "border-lagoon-600 ring-2 ring-lagoon-600/20 shadow-md",
-            activeBg: "bg-lagoon-700 text-white",
-            iconBg: "bg-lagoon-50 text-lagoon-700 border-lagoon-200",
-            activeIconBg: "bg-white/20 text-white border-white/20",
-          },
-          {
-            key: "pending" as FilterType,
-            label: "ยังไม่ชำระเงิน",
-            count: counts.pending,
-            icon: <Clock size={19} className="stroke-[2.2]" />,
-            activeBorder: "border-amber-600 ring-2 ring-amber-600/20 shadow-md",
-            activeBg: "bg-amber-600 text-white",
-            iconBg: "bg-amber-50 text-amber-700 border-amber-200",
-            activeIconBg: "bg-white/20 text-white border-white/20",
-          },
-          {
-            key: "approved" as FilterType,
-            label: "อนุมัติแล้ว",
-            count: counts.approved,
-            icon: <ShieldCheck size={19} className="stroke-[2.2]" />,
-            activeBorder: "border-forest-700 ring-2 ring-forest-700/20 shadow-md",
-            activeBg: "bg-forest-800 text-white",
-            iconBg: "bg-forest-50 text-forest-800 border-forest-100",
-            activeIconBg: "bg-white/20 text-white border-white/20",
-          },
-          {
-            key: "checked_out" as FilterType,
-            label: "คืนเรือแล้ว",
-            count: counts.checked_out,
-            icon: <Anchor size={19} className="stroke-[2.2]" />,
-            activeBorder: "border-bamboo-800 ring-2 ring-bamboo-800/20 shadow-md",
-            activeBg: "bg-bamboo-800 text-white",
-            iconBg: "bg-bamboo-50 text-bamboo-800 border-bamboo-200",
-            activeIconBg: "bg-white/20 text-white border-white/20",
-          },
-        ].map((item) => {
-          const isActive = filter === item.key;
-          return (
-            <button
-              key={item.key}
-              onClick={() => handleFilterChange(item.key)}
-              className={`text-left relative p-4 sm:p-4.5 rounded-3xl transition-all duration-200 border cursor-pointer hover:shadow-md ${
-                isActive
-                  ? `${item.activeBorder} ${item.activeBg}`
-                  : "bg-white border-cream-200/90 shadow-panel hover:border-forest-300"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p
-                    className={`text-xs font-semibold uppercase tracking-wider ${
-                      isActive ? "text-white/80" : "text-charcoal-500"
-                    }`}
-                  >
-                    {item.label}
-                  </p>
-                  <p
-                    className={`mt-1 font-display text-2xl sm:text-3xl font-bold tracking-tight ${
-                      isActive ? "text-white" : "text-forest-950"
-                    }`}
-                  >
-                    {item.count}
-                    <span
-                      className={`text-xs sm:text-sm font-normal ml-1.5 font-sans ${
-                        isActive ? "text-white/80" : "text-charcoal-400"
-                      }`}
-                    >
-                      รายการ
-                    </span>
-                  </p>
-                </div>
-                <div
-                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl border flex items-center justify-center shrink-0 transition-colors ${
-                    isActive ? item.activeIconBg : item.iconBg
-                  }`}
-                >
-                  {item.icon}
-                </div>
-              </div>
-            </button>
-          );
-        })}
+      <section aria-label="ภาพรวมสถานะการจอง" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 print:hidden">
+        {([
+          ['all', 'ทั้งหมด', counts.all, Layers, 'bg-forest-50 text-forest-700 border-forest-200'],
+          ['has_slip', 'รอตรวจสอบสลิป', counts.has_slip, FileCheck, 'bg-lagoon-50 text-lagoon-700 border-lagoon-200'],
+          ['pending', 'ยังไม่ชำระเงิน', counts.pending, Clock, 'bg-amber-50 text-amber-700 border-amber-200'],
+          ['approved', 'อนุมัติแล้ว', counts.approved, ShieldCheck, 'bg-forest-50 text-forest-700 border-forest-200'],
+          ['checked_out', 'คืนเรือแล้ว', counts.checked_out, LogOut, 'bg-bamboo-50 text-bamboo-800 border-bamboo-200'],
+        ] as const).map(([key, label, count, Icon, iconStyle]) => (
+          <button key={key} type="button" aria-pressed={filter === key} onClick={() => handleFilterChange(key)}
+            className={`flex min-w-0 items-center justify-between gap-2 rounded-3xl border p-4 text-left shadow-panel transition-colors sm:px-5 ${filter === key ? 'border-forest-500 bg-forest-900 text-white' : 'border-cream-200 bg-white text-charcoal-600 hover:bg-forest-50'}`}>
+            <span className="min-w-0">
+              <span className={`block text-xs font-semibold ${filter === key ? 'text-white/80' : 'text-charcoal-500'}`}>{label}</span>
+              <span className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
+                <span className={`font-display text-3xl font-bold tabular-nums leading-tight ${filter === key ? 'text-white' : 'text-forest-950'}`}>{count.toLocaleString()}</span>
+                <span className="text-xs">รายการ</span>
+              </span>
+            </span>
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${filter === key ? 'border-white/20 bg-white/15 text-white' : iconStyle}`}><Icon size={20} /></span>
+          </button>
+        ))}
       </section>
 
       {/* Filter & Control Bar */}
@@ -750,6 +663,7 @@ function BoatStaffDashboardContent() {
             />
             <input
               type="text"
+              aria-label="ค้นหาการจอง"
               placeholder="ค้นหาชื่อ, เบอร์โทร, ประเภทเรือ, ID..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
@@ -879,7 +793,7 @@ function BoatStaffDashboardContent() {
           <div className="flex items-center gap-2.5">
             <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
             <h2 className="text-base font-bold text-forest-900">
-              รายการจองเรือทั้งหมด
+              รายการจองเรือ{filter === 'all' ? 'ทั้งหมด' : ''}
             </h2>
             <span className="px-2.5 py-0.5 bg-forest-50 text-forest-800 border border-forest-200 rounded-full text-xs font-bold font-mono">
               {pagination.total} รายการ
@@ -1049,8 +963,10 @@ function BoatStaffDashboardContent() {
                         </div>
                       </td>
 
-                      <td className="px-3 py-3.5 text-center whitespace-nowrap">
-                        {b.payment_slip ? (
+
+
+                      <td className="px-3.5 py-3.5 whitespace-nowrap">
+                          {b.payment_slip ? (
                           <button
                             onClick={() =>
                               setSlipModal({
@@ -1071,8 +987,8 @@ function BoatStaffDashboardContent() {
                         )}
                       </td>
 
-                      <td className="px-4 py-3.5 text-right whitespace-nowrap sticky right-0 bg-white/95 group-hover:bg-cream-50/95 backdrop-blur-xs shadow-[-6px_0_12px_-4px_rgba(0,0,0,0.06)] z-10 transition-colors">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap lg:sticky lg:right-0 bg-white group-hover:bg-cream-50 z-10 transition-colors">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
                           <button
                             onClick={() =>
                               setDetailsModal({ open: true, booking: b })
@@ -1227,7 +1143,7 @@ function BoatStaffDashboardContent() {
           </div>
         )}
       </div>
-      
+
 
       {/* Slip Modal */}
       <Modal 
@@ -1311,7 +1227,7 @@ function BoatStaffDashboardContent() {
                 )}
                 <p className="mt-2"><strong className="text-charcoal-700">วันที่จอง:</strong> {booking.booking_date ? new Date(booking.booking_date).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" }) : "-"}</p>
                 <p><strong className="text-charcoal-700">รอบเวลา:</strong> {booking.start_time && booking.end_time ? `${booking.start_time.slice(0, 5)} - ${booking.end_time.slice(0, 5)} น.` : "-"}</p>
-                
+
                 {booking.special_request && (
                   <div className="pt-2 mt-2 border-t border-cream-200">
                     <div className="flex items-center gap-1.5 text-charcoal-700 font-semibold mb-1">

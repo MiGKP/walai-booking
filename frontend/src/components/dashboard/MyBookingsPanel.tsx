@@ -346,10 +346,12 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
               </div>
             )}
 
-            {type === 'room' && (b.status === 'approved' || b.status === 'checked_out') && (() => {
+            {type === 'room' && ['approved', 'checked_out'].includes(b.status) && (() => {
               // จองหลายประเภทห้องในบิลเดียวได้ ต้องรีวิวครบทุกประเภทถึงจะถือว่า "รีวิวแล้ว"
               const distinctTypes = new Set(
-                (Array.isArray(b.rooms) ? b.rooms : []).map((line: { type_name?: string; room_name: string }) => line.type_name || line.room_name)
+                (Array.isArray(b.rooms) ? b.rooms : [])
+                  .filter((line) => !['cancelled', 'rejected'].includes(line.status))
+                  .map((line) => line.type_name || line.room_name)
               );
               const reviewedTypes = reviewedTypesByBooking.get(bid) ?? new Set<string>();
               const allTypesReviewed = distinctTypes.size > 0 && [...distinctTypes].every((t) => reviewedTypes.has(t as string));

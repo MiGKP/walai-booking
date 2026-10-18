@@ -90,7 +90,7 @@ export const sendPendingReviewReminders = async (): Promise<void> => {
             roomName: `${row.room_name} (${row.type_name})`,
             checkIn: new Date(row.check_in).toLocaleDateString('th-TH', { dateStyle: 'medium' }),
             checkOut: new Date(row.check_out).toLocaleDateString('th-TH', { dateStyle: 'medium' }),
-            reviewUrl: `${frontendUrl}/dashboard?tab=reviews`,
+            reviewUrl: `${frontendUrl.replace(/\/$/, '')}/dashboard?tab=reviews`,
           });
           console.log(`[Review Reminder] Sent to ${row.email} for booking #${row.room_booking_id}`);
         } catch (mailErr) {

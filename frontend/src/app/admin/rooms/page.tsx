@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   CalendarDays,
@@ -15,10 +15,6 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  ShieldCheck,
-  FileCheck2,
-  Search,
-  RotateCcw,
   Wallet,
   FileText,
   User,
@@ -32,6 +28,10 @@ import {
   Ban,
   Layers,
   ArrowUpDown,
+  Search,
+  RotateCcw,
+  FileCheck,
+  ShieldCheck,
 } from "lucide-react";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { toISODate, formatThaiDate, formatThaiDateLong } from "@/lib/date";
@@ -45,7 +45,6 @@ import {
   readBookingSort,
   readBookingPageSize,
   type BookingListFilter,
-  type BookingListSort,
 } from "@/lib/admin-booking-list";
 import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 
@@ -262,13 +261,14 @@ function RoomStaffDashboardContent() {
     updateQueryParams({ filter: newFilter, page: 1 });
   };
 
-  const handleDateChange = (from: string, to: string) => {
-    updateQueryParams({ dateFrom: from, dateTo: to, page: 1 });
-  };
-
   const handleClearFilters = () => {
     setSearchInput("");
     router.replace(pathname, { scroll: false });
+  };
+
+  const roomTypeOptions = [{ value: "all", label: "ทั้งหมดทุกประเภท" }, ...catalogTypes.map(type => ({ value: type, label: type }))];
+  const handleDateChange = (from: string, to: string): void => {
+    updateQueryParams({ dateFrom: from, dateTo: to, page: 1 });
   };
 
   const handlePageChange = (page: number) => {
@@ -418,15 +418,6 @@ function RoomStaffDashboardContent() {
     window.print();
   };
 
-  const roomTypes = catalogTypes;
-
-  const roomTypeOptions = useMemo(() => {
-    return [
-      { value: "all", label: "ทั้งหมดทุกประเภท" },
-      ...roomTypes.map((t) => ({ value: t, label: t })),
-    ];
-  }, [roomTypes]);
-
   const totalPages = Math.max(1, pagination.totalPages);
   const paginatedBookings = bookings;
 
@@ -460,7 +451,7 @@ function RoomStaffDashboardContent() {
   if (!ready) return null;
 
   return (
-    <div className="space-y-6 pb-16 max-w-[1600px] mx-auto">
+    <div className="min-w-0 space-y-6 pb-8">
       <style jsx global>{`
         @media print {
           body * {
@@ -498,7 +489,7 @@ function RoomStaffDashboardContent() {
       `}</style>
 
       {/* Top Header Card with Integrated Revenue */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/80 relative print:hidden">
+      <div className="bg-white rounded-3xl p-5 sm:p-6 sm:py-7 shadow-panel border border-cream-200/80 relative print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10 shrink-0">
@@ -533,106 +524,26 @@ function RoomStaffDashboardContent() {
         </div>
       </div>
 
-      {/* 5 Interactive Filter Cards */}
-      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-3.5 print:hidden">
-        {[
-          {
-            key: "all" as FilterType,
-            label: "ทั้งหมด",
-            count: counts.all,
-            icon: <Layers size={19} className="stroke-[2.2]" />,
-            activeBorder: "border-forest-800 ring-2 ring-forest-800/20 shadow-md",
-            activeBg: "bg-forest-900 text-white",
-            iconBg: "bg-forest-50 text-forest-800 border-forest-100",
-            activeIconBg: "bg-white/20 text-white border-white/20",
-          },
-          {
-            key: "has_slip" as FilterType,
-            label: "รอตรวจสอบสลิป",
-            count: counts.has_slip,
-            icon: <FileCheck2 size={19} className="stroke-[2.2]" />,
-            activeBorder: "border-lagoon-600 ring-2 ring-lagoon-600/20 shadow-md",
-            activeBg: "bg-lagoon-700 text-white",
-            iconBg: "bg-lagoon-50 text-lagoon-700 border-lagoon-200",
-            activeIconBg: "bg-white/20 text-white border-white/20",
-          },
-          {
-            key: "pending" as FilterType,
-            label: "ยังไม่ชำระเงิน",
-            count: counts.pending,
-            icon: <Clock size={19} className="stroke-[2.2]" />,
-            activeBorder: "border-amber-600 ring-2 ring-amber-600/20 shadow-md",
-            activeBg: "bg-amber-600 text-white",
-            iconBg: "bg-amber-50 text-amber-700 border-amber-200",
-            activeIconBg: "bg-white/20 text-white border-white/20",
-          },
-          {
-            key: "approved" as FilterType,
-            label: "อนุมัติแล้ว",
-            count: counts.approved,
-            icon: <ShieldCheck size={19} className="stroke-[2.2]" />,
-            activeBorder: "border-forest-700 ring-2 ring-forest-700/20 shadow-md",
-            activeBg: "bg-forest-800 text-white",
-            iconBg: "bg-forest-50 text-forest-800 border-forest-100",
-            activeIconBg: "bg-white/20 text-white border-white/20",
-          },
-          {
-            key: "checked_out" as FilterType,
-            label: "เช็คเอาต์แล้ว",
-            count: counts.checked_out,
-            icon: <LogOut size={19} className="stroke-[2.2]" />,
-            activeBorder: "border-bamboo-800 ring-2 ring-bamboo-800/20 shadow-md",
-            activeBg: "bg-bamboo-800 text-white",
-            iconBg: "bg-bamboo-50 text-bamboo-800 border-bamboo-200",
-            activeIconBg: "bg-white/20 text-white border-white/20",
-          },
-        ].map((item) => {
-          const isActive = filter === item.key;
-          return (
-            <button
-              key={item.key}
-              onClick={() => handleFilterChange(item.key)}
-              className={`text-left relative p-4 sm:p-4.5 rounded-3xl transition-all duration-200 border cursor-pointer hover:shadow-md ${
-                isActive
-                  ? `${item.activeBorder} ${item.activeBg}`
-                  : "bg-white border-cream-200/90 shadow-panel hover:border-forest-300"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p
-                    className={`text-xs font-semibold uppercase tracking-wider ${
-                      isActive ? "text-white/80" : "text-charcoal-500"
-                    }`}
-                  >
-                    {item.label}
-                  </p>
-                  <p
-                    className={`mt-1 font-display text-2xl sm:text-3xl font-bold tracking-tight ${
-                      isActive ? "text-white" : "text-forest-950"
-                    }`}
-                  >
-                    {item.count}
-                    <span
-                      className={`text-xs sm:text-sm font-normal ml-1.5 font-sans ${
-                        isActive ? "text-white/80" : "text-charcoal-400"
-                      }`}
-                    >
-                      รายการ
-                    </span>
-                  </p>
-                </div>
-                <div
-                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl border flex items-center justify-center shrink-0 transition-colors ${
-                    isActive ? item.activeIconBg : item.iconBg
-                  }`}
-                >
-                  {item.icon}
-                </div>
-              </div>
-            </button>
-          );
-        })}
+      <section aria-label="ภาพรวมสถานะการจอง" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 print:hidden">
+        {([
+          ['all', 'ทั้งหมด', counts.all, Layers, 'bg-forest-50 text-forest-700 border-forest-200'],
+          ['has_slip', 'รอตรวจสอบสลิป', counts.has_slip, FileCheck, 'bg-lagoon-50 text-lagoon-700 border-lagoon-200'],
+          ['pending', 'ยังไม่ชำระเงิน', counts.pending, Clock, 'bg-amber-50 text-amber-700 border-amber-200'],
+          ['approved', 'อนุมัติแล้ว', counts.approved, ShieldCheck, 'bg-forest-50 text-forest-700 border-forest-200'],
+          ['checked_out', 'เช็คเอาต์แล้ว', counts.checked_out, LogOut, 'bg-bamboo-50 text-bamboo-800 border-bamboo-200'],
+        ] as const).map(([key, label, count, Icon, iconStyle]) => (
+          <button key={key} type="button" aria-pressed={filter === key} onClick={() => handleFilterChange(key)}
+            className={`flex min-w-0 items-center justify-between gap-2 rounded-3xl border p-4 text-left shadow-panel transition-colors sm:px-5 ${filter === key ? 'border-forest-500 bg-forest-900 text-white' : 'border-cream-200 bg-white text-charcoal-600 hover:bg-forest-50'}`}>
+            <span className="min-w-0">
+              <span className={`block text-xs font-semibold ${filter === key ? 'text-white/80' : 'text-charcoal-500'}`}>{label}</span>
+              <span className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
+                <span className={`font-display text-3xl font-bold tabular-nums leading-tight ${filter === key ? 'text-white' : 'text-forest-950'}`}>{count.toLocaleString()}</span>
+                <span className="text-xs">รายการ</span>
+              </span>
+            </span>
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${filter === key ? 'border-white/20 bg-white/15 text-white' : iconStyle}`}><Icon size={20} /></span>
+          </button>
+        ))}
       </section>
 
       {/* Filter & Control Bar */}
@@ -704,6 +615,7 @@ function RoomStaffDashboardContent() {
             />
             <input
               type="text"
+              aria-label="ค้นหาการจอง"
               placeholder="ค้นหาชื่อ, เบอร์โทร, ห้อง, ID..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
@@ -827,7 +739,7 @@ function RoomStaffDashboardContent() {
           <div className="flex items-center gap-2.5">
             <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
             <h2 className="text-base font-bold text-forest-900">
-              รายการจองห้องพักทั้งหมด
+              รายการจองห้องพัก{filter === 'all' ? 'ทั้งหมด' : ''}
             </h2>
             <span className="px-2.5 py-0.5 bg-forest-50 text-forest-800 border border-forest-200 rounded-full text-xs font-bold font-mono">
               {pagination.total} รายการ
@@ -895,20 +807,16 @@ function RoomStaffDashboardContent() {
                       key={bookingId}
                       className="hover:bg-cream-50/60 border-b border-cream-100/80 last:border-0 transition-colors group"
                     >
-                      {/* Booking ID */}
-                      <td className="px-4 py-3.5 text-charcoal-400 font-mono text-xs font-semibold whitespace-nowrap">
-                        #{bookingId}
-                      </td>
-
+                      <td className="px-3 py-4 text-xs font-semibold text-charcoal-500 whitespace-nowrap">#{bookingId}</td>
                       {/* Customer */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-3 py-4">
                         <div className="flex items-center gap-2.5 min-w-[120px]">
                           <div className="w-8 h-8 rounded-2xl bg-cream-100 border border-cream-200/90 flex items-center justify-center text-forest-800 shrink-0 font-bold text-xs shadow-xs">
                             {(b.user_name || "U")[0].toUpperCase()}
                           </div>
                           <div className="min-w-0">
                             <p
-                              className="font-semibold text-charcoal-900 text-xs truncate max-w-[130px]"
+                              className="font-semibold text-charcoal-900 text-xs break-words"
                               title={b.user_name || "ไม่ระบุชื่อ"}
                             >
                               {b.user_name || "ไม่ระบุชื่อ"}
@@ -922,7 +830,7 @@ function RoomStaffDashboardContent() {
                       </td>
 
                       {/* Rooms */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-3 py-4">
                         <div className="flex items-start gap-2 min-w-[140px]">
                           <BedDouble size={15} className="text-forest-700 shrink-0 mt-0.5" />
                           <div className="space-y-1">
@@ -976,7 +884,7 @@ function RoomStaffDashboardContent() {
                       </td>
 
                       {/* Stay Duration */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
+                      <td className="px-3 py-4 whitespace-nowrap">
                         <div className="flex flex-col gap-0.5">
                           <div className="flex items-center gap-1.5 text-xs font-semibold text-charcoal-800">
                             <CalendarDays size={13} className="text-forest-700 shrink-0" />
@@ -994,12 +902,12 @@ function RoomStaffDashboardContent() {
                       </td>
 
                       {/* Total Price */}
-                      <td className="px-4 py-3.5 font-bold text-forest-900 font-mono text-sm whitespace-nowrap">
+                      <td className="px-3 py-4 font-bold text-forest-900 font-mono text-sm whitespace-nowrap">
                         ฿{Number(b.total_price || 0).toLocaleString()}
                       </td>
 
                       {/* Status Badge */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
+                      <td className="px-3 py-4 whitespace-nowrap">
                         <div className="flex flex-col items-start gap-1">
                           <span
                             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold border ${st.bg} ${st.text} ${st.border}`}
@@ -1016,9 +924,11 @@ function RoomStaffDashboardContent() {
                         </div>
                       </td>
 
-                      {/* Payment Slip Button */}
-                      <td className="px-4 py-3.5 text-center whitespace-nowrap">
-                        {b.payment_slip ? (
+
+
+                      {/* Payment slip */}
+                      <td className="px-3 py-4 whitespace-nowrap">
+                          {b.payment_slip ? (
                           <button
                             onClick={() =>
                               setSlipModal({
@@ -1038,7 +948,6 @@ function RoomStaffDashboardContent() {
                           </span>
                         )}
                       </td>
-
                       {/* Action Buttons */}
                       <td className="px-5 py-3.5 text-right whitespace-nowrap lg:sticky lg:right-0 bg-white group-hover:bg-cream-50 transition-colors z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]">
                         <div className="flex items-center justify-end gap-1.5">

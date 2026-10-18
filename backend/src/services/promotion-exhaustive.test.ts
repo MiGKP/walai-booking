@@ -307,13 +307,13 @@ describe('EXHAUSTIVE PROMOTION TEST SUITE', () => {
   });
 
   describe('6. Time Windows & Dates', () => {
-    it('Case 33: start_date in future throws promo expired/out of window', () => {
+    it('Case 33: future promotions report that they have not started', () => {
       const p = promo({ id: 1, start_date: '2026-10-25' });
       assert.throws(() => {
         applyPromotionList([p], {
           memberId: 1, nights: 1, basePrice: 500, now, memberUsedCountByPromoId: {}, walletsByPromoId: {}
         });
-      }, /โปรโมชั่นหมดอายุแล้ว/);
+      }, /โปรโมชั่นยังไม่เริ่มใช้งาน/);
     });
 
     it('Case 34: start_date today is valid and allowed', () => {
@@ -341,13 +341,13 @@ describe('EXHAUSTIVE PROMOTION TEST SUITE', () => {
       assert.equal(res.totalPrice, 450);
     });
 
-    it('Case 37: is_active=false throws promo expired', () => {
+    it('Case 37: inactive promotions report that they are disabled', () => {
       const p = promo({ id: 1, is_active: false });
       assert.throws(() => {
         applyPromotionList([p], {
           memberId: 1, nights: 1, basePrice: 500, now, memberUsedCountByPromoId: {}, walletsByPromoId: {}
         });
-      }, /โปรโมชั่นหมดอายุแล้ว/);
+      }, /โปรโมชั่นนี้ปิดใช้งานแล้ว/);
     });
 
     it('Case 38: null start_date and end_date are always in window', () => {

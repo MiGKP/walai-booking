@@ -86,11 +86,7 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
       const code = typeof body.code === 'string' ? body.code : '';
       const found = await pool.query(
         `SELECT id FROM promotions
-         WHERE UPPER(code) = UPPER($1)
-           AND is_active = true
-           AND (start_date IS NULL OR start_date <= (now() AT TIME ZONE 'Asia/Bangkok')::date)
-           AND (end_date IS NULL OR end_date >= (now() AT TIME ZONE 'Asia/Bangkok')::date)
-           AND (usage_limit IS NULL OR usage_count < usage_limit)`,
+         WHERE UPPER(code) = UPPER($1)`,
         [code]
       );
       if (found.rows.length === 0) {
@@ -424,6 +420,11 @@ function promoRuleError(rule: {
   return null;
 }
 
+function allowsZeroDiscount(discountType: string, ticketCount: number, appliesTo: unknown): boolean {
+  return discountType === 'fixed' && Number.isInteger(ticketCount) && ticketCount > 0
+    && parseAppliesTo(appliesTo) !== 'kayak';
+}
+
 export const createPromotion = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
@@ -443,8 +444,9 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
       res.status(400).json({ success: false, message: 'ประเภทส่วนลดต้องเป็น percent หรือ fixed' });
       return;
     }
-    if (!(discountValue > 0)) {
-      res.status(400).json({ success: false, message: 'ส่วนลดต้องเป็นตัวเลขมากกว่า 0' });
+    if (!Number.isFinite(discountValue) || discountValue < 0
+      || (discountValue === 0 && !allowsZeroDiscount(discount_type, Number(boat_ticket_count), applies_to))) {
+      res.status(400).json({ success: false, message: 'ส่วนลดต้องมากกว่า 0 หรือเป็นส่วนลดจำนวนเงิน 0 บาทพร้อมสิทธิ์เรือจากห้องพัก' });
       return;
     }
     if (discount_type === 'percent' && discountValue > 100) {
@@ -558,8 +560,10 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
       res.status(400).json({ success: false, message: 'ประเภทส่วนลดต้องเป็น percent หรือ fixed' });
       return;
     }
-    if (!(discountValue > 0)) {
-      res.status(400).json({ success: false, message: 'มูลค่าส่วนลดต้องเป็นตัวเลขที่มากกว่า 0' });
+    if (!Number.isFinite(discountValue) || discountValue < 0
+      || (discountValue === 0 && !allowsZeroDiscount(discountType, numOrCurrent('boat_ticket_count') ?? 0,
+        has('applies_to') ? body.applies_to : current.applies_to))) {
+      res.status(400).json({ success: false, message: 'ส่วนลดต้องมากกว่า 0 หรือเป็นส่วนลดจำนวนเงิน 0 บาทพร้อมสิทธิ์เรือจากห้องพัก' });
       return;
     }
     if (discountType === 'percent' && discountValue > 100) {

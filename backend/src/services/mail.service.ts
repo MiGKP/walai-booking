@@ -369,17 +369,17 @@ export const sendBookingConfirmationEmail = async (params: {
   try {
     await sendMailSafely({
       to: params.to,
-      subject: `[${appName}] สรุปการจอง${bookingTypeLabel} — รหัส #${params.bookingId}`,
+      subject: `[${appName}] รับคำขอจอง${bookingTypeLabel}แล้ว — รหัส #${params.bookingId}`,
       html: `
         <div style="font-family: Arial, sans-serif; background: #f5f7fb; padding: 24px; color: #1f2937;">
           <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 32px; border: 1px solid #e5e7eb;">
             <div style="margin-bottom: 24px;">
               <div style="display: inline-block; background: #ccfbf1; color: #0f766e; font-weight: 700; padding: 10px 14px; border-radius: 999px;">🌊 ${appName}</div>
             </div>
-            <h1 style="font-size: 22px; margin: 0 0 16px; color: #111827;">ขอบคุณสำหรับการจอง${bookingTypeLabel}!</h1>
+            <h1 style="font-size: 22px; margin: 0 0 16px; color: #111827;">ได้รับคำขอจอง${bookingTypeLabel}แล้ว</h1>
             <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
               สวัสดีคุณ <strong>${escapeHtml(params.customerName)}</strong><br />
-              ระบบได้รับคำขอจอง${bookingTypeLabel}ของคุณแล้ว รายละเอียดดังนี้:
+              ระบบได้รับคำขอจอง${bookingTypeLabel}ของคุณแล้ว อีเมลนี้ยังไม่ใช่การยืนยันการจอง กรุณาชำระเงินและแนบสลิป แล้วรอผลตรวจสอบจากพนักงาน รายละเอียดดังนี้:
             </p>
             <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 24px; font-size: 14px; line-height: 1.8;">
               <div>📋 <strong>รหัสการจอง:</strong> #${params.bookingId}</div>
@@ -390,7 +390,7 @@ export const sendBookingConfirmationEmail = async (params: {
             <p style="font-size: 14px; line-height: 1.7; margin: 0 0 20px; color: #4b5563;">
               กรุณาชำระเงินและแนบสลิปผ่านทางหน้าประวัติการจองในเว็บไซต์ เพื่อให้พนักงานดำเนินการยืนยันการเข้าพักครับ
             </p>
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/bookings" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 16px;">
+            <a href="${(process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '')}/dashboard?tab=bookings" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 16px;">
               ดูประวัติการจอง & แนบสลิป →
             </a>
             <p style="font-size: 13px; color: #9ca3af; margin: 16px 0 0;">อีเมลนี้ส่งโดยอัตโนมัติจากระบบ ${appName}</p>
@@ -411,6 +411,7 @@ export const sendBookingStatusEmail = async (params: {
   bookingId: number;
   status: 'approved' | 'rejected';
   details: string;
+  rejectReason?: string | null;
 }): Promise<void> => {
   const appName = process.env.APP_NAME || 'Walai Booking';
   const bookingTypeLabel = params.bookingType === 'room' ? 'ห้องพัก' : 'เรือคายัค';
@@ -437,14 +438,15 @@ export const sendBookingStatusEmail = async (params: {
             <h1 style="font-size: 22px; margin: 0 0 16px; color: #111827;">${titleText}</h1>
             <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
               สวัสดีคุณ <strong>${escapeHtml(params.customerName)}</strong><br />
-              ${isApproved ? 'พนักงานได้ตรวจสอบการชำระเงินและยืนยันการจองเรียบร้อยแล้ว ยินดีต้อนรับสู่สวนวลัยครับ 🌊' : 'สลิปการชำระเงินหรือรายการจองของคุณไม่ผ่านการตรวจสอบ กรุณาติดต่อพนักงานหรือแนบสลิปใหม่อีกครั้ง'}
+              ${isApproved ? 'พนักงานได้ตรวจสอบและยืนยันการจองเรียบร้อยแล้ว ยินดีต้อนรับสู่สวนวลัยครับ 🌊' : 'พนักงานปฏิเสธรายการจองนี้แล้ว ไม่สามารถชำระเงินหรือส่งสลิปซ้ำในรายการเดิมได้ กรุณาติดต่อพนักงานเพื่อสอบถามการดำเนินการต่อและการคืนเงิน หากได้โอนเงินแล้ว'}
             </p>
             <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 24px; font-size: 14px; line-height: 1.8;">
               <div>📋 <strong>รหัสการจอง:</strong> #${params.bookingId}</div>
               <div>🏠 <strong>รายการ:</strong> ${escapeHtml(params.details)}</div>
               <div>📌 <strong>สถานะปัจจุบัน:</strong> ${isApproved ? 'ยืนยันการจองแล้ว (Approved)' : 'ปฏิเสธ (Rejected)'}</div>
+              ${!isApproved ? `<div><strong>เหตุผลที่ถูกปฏิเสธ:</strong> ${escapeHtml(params.rejectReason?.trim() || 'กรุณาติดต่อพนักงานเพื่อสอบถามรายละเอียด')}</div>` : ''}
             </div>
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/bookings" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 16px;">
+            <a href="${(process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '')}/dashboard?tab=bookings" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 16px;">
               ดูรายละเอียดการจอง →
             </a>
             <p style="font-size: 13px; color: #9ca3af; margin: 16px 0 0;">อีเมลนี้ส่งโดยอัตโนมัติจากระบบ ${appName}</p>
