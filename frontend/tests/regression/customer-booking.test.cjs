@@ -8,6 +8,61 @@ const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
 
 const root = path.resolve(__dirname, '../..');
+
+test('room date defaults remain empty and a selected check-in has no invented checkout', () => {
+  const { roomDateSelection, roomDateSelectionLabel } = load('src/lib/room-date-selection.ts');
+  assert.equal(roomDateSelection(new URLSearchParams()), null);
+  const start = roomDateSelection(new URLSearchParams('check_in=2026-10-19'));
+  assert.deepEqual(start, { start: '2026-10-19', end: '' });
+  assert.match(roomDateSelectionLabel(start), /เลือกวันเช็คเอาต์/);
+  assert.deepEqual(roomDateSelection(new URLSearchParams('check_in=2026-10-19&check_out=2026-10-21')), { start: '2026-10-19', end: '2026-10-21' });
+});
+
+test('choosing only a new check-in never reuses the old cart checkout', () => {
+  const { resolveCheckoutDetails } = load('src/lib/booking-checkout.ts');
+  const actual = resolveCheckoutDetails(new URLSearchParams('check_in=2026-12-01'), {
+    check_in: '2026-11-01', check_out: '2026-11-03', adults: 2, children: 0,
+  });
+  assert.equal(actual.checkIn, '2026-12-01');
+  assert.equal(actual.checkOut, '');
+});
+
+test('amenity admin explains usage and disables deletion only for referenced items', () => {
+  const Page = load('src/app/admin/rooms/amenities/page.tsx', [[
+    { id: 7, name: 'แชมพู', status: true, usage_count: 1 },
+    { id: 8, name: 'TEST UNUSED', status: true, usage_count: 0 },
+  ], false, false, '', null, '', true, null, 'all', 1], {
+    '@/lib/admin-notify': { notify: {} },
+    '@/components/admin/ui': { EmptyState: () => null },
+  }).default;
+  const html = renderToStaticMarkup(React.createElement(Page));
+  assert.match(html, /ใช้งานใน 1 ประเภทห้อง/);
+  const used = html.match(/<button[^>]*aria-label="ลบแชมพู"[^>]*>/)?.[0];
+  const unused = html.match(/<button[^>]*aria-label="ลบTEST UNUSED"[^>]*>/)?.[0];
+  assert(used && /disabled=""/.test(used));
+  assert(unused && !/disabled=""/.test(unused));
+});
+
+for (const relative of ['src/app/rooms/page.tsx', 'src/app/rooms/[id]/page.tsx']) {
+  test(`${relative} keeps the picker open for check-in and clears both dates`, () => {
+    const source = fs.readFileSync(path.join(root, relative), 'utf8');
+    const start = source.indexOf('  const handleRangeSelect =');
+    const handler = source.slice(start, source.indexOf('  const handleGuestsChange =', start));
+    const js = ts.transpileModule(`${handler}\nreturn handleRangeSelect`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
+    const routes = [], panels = [];
+    const fn = new Function('setRange', 'searchParams', 'router', 'pathname', 'cart', 'setRoomCart', 'toast', 'nightsBetween', 'setOpenPanel', js)(
+      () => {}, new URLSearchParams('check_in=2026-10-20&check_out=2026-10-22'),
+      { replace: url => routes.push(url), push: url => routes.push(url) }, '/rooms', null, () => {}, () => {}, () => 2, panel => panels.push(panel),
+    );
+    fn({ start: '2026-10-19', end: '' });
+    assert.match(routes[0], /check_in=2026-10-19/);
+    assert(!routes[0].includes('check_out'));
+    assert.deepEqual(panels, []);
+    fn(null);
+    assert(!routes[1].includes('check_in') && !routes[1].includes('check_out'));
+  });
+}
+
 function load(relative, states = [], overrides = {}) {
   let cursor = 0;
   const modules = new Map();

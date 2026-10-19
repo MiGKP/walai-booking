@@ -197,6 +197,26 @@ function roomBody(items) {
   return { items, check_in_date: '2099-01-01', check_out_date: '2099-01-03', adults: 1, children: 0 };
 }
 
+test('same-day room booking accepts available stock using the Bangkok date', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-18T18:30:00Z').getTime() });
+  const queries = roomScenario({ capacity: 2 });
+  const res = response();
+  await booking.createRoomBooking(request({ ...roomBody([{ room_type_id: 1, quantity: 1 }]), check_in_date: '2026-10-19', check_out_date: '2026-10-20' }), res);
+  assert.equal(res.code, 201);
+  assert(queries.some(q => q.sql.includes('FOR UPDATE')));
+  assert(queries.some(q => q.sql === 'COMMIT'));
+});
+
+test('same-day booking still rejects occupied rooms and dates before today', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-18T18:30:00Z').getTime() });
+  roomScenario({ capacity: 2, busy: new Set([10]) });
+  const body = { ...roomBody([{ room_type_id: 1, quantity: 1 }]), check_in_date: '2026-10-19', check_out_date: '2026-10-20' };
+  const full = response(); await booking.createRoomBooking(request(body), full);
+  assert.equal(full.code, 409);
+  const past = response(); await booking.createRoomBooking(request({ ...body, check_in_date: '2026-10-18' }), past);
+  assert.equal(past.code, 400);
+});
+
 for (const [adults, ages, quantity, expected] of [
   [2, [6], 1, 201], [2, [11], 1, 201], [2, [0, 5, 6], 1, 201],
   [2, [6, 11], 1, 400], [3, [], 1, 400], [3, [6], 1, 400],

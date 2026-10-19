@@ -13,8 +13,7 @@ import {
 import { formatThaiDate, nightsBetween } from '@/lib/date';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { todayISO, addDaysISO } from '@/lib/date';
-import { useAuth } from "@/hooks/useAuth";
+import { todayISO } from '@/lib/date';
 import PromoPriceBreakdown from '@/components/booking/PromoPriceBreakdown';
 import BookingCalendar, { DateRange, DayStatus } from '@/components/booking/BookingCalendar';
 import { MonthCursor } from '@/lib/date';
@@ -68,8 +67,6 @@ export default function RoomCartPanel({
   const roomTypeIds = Array.from(new Set(cart.items.map(item => item.room_type_id)));
   const roomTypeKey = roomTypeIds.join(',');
 
-  const { user } = useAuth();
-  const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
   const [promoCode, setPromoCode] = useState('');
   const [promoLoading, setPromoLoading] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
@@ -208,7 +205,7 @@ export default function RoomCartPanel({
               onCursorChange={onCursorChange}
               dayStatus={dayStatus}
               loading={calendarLoading}
-              minISO={isAdminOrStaff ? todayISO() : addDaysISO(todayISO(), 1)} // today logic handled in page
+              minISO={todayISO()}
             />
           </div>
         )}

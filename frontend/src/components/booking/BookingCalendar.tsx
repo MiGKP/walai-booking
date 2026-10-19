@@ -25,6 +25,7 @@ export interface DayStatus {
 
 export interface DateRange {
   start: string;
+  /** Empty until the guest explicitly selects a check-out date. */
   end: string;
 }
 
@@ -73,7 +74,6 @@ interface MonthPanelProps {
   singleValue: string | null;
   isDisabled: (iso: string) => boolean;
   onFocusDay: (iso: string) => void;
-  onHoverDay: (iso: string | null) => void;
   onSelectDay: (iso: string) => void;
   hideTitle?: boolean;
 }
@@ -91,7 +91,6 @@ function MonthPanel({
   singleValue,
   isDisabled,
   onFocusDay,
-  onHoverDay,
   onSelectDay,
   hideTitle = false,
 }: MonthPanelProps): React.ReactElement {
@@ -120,7 +119,6 @@ function MonthPanel({
         role="grid"
         aria-label={`ปฏิทิน ${formatMonthLabel(cursor)}`}
         aria-busy={loading}
-        onMouseLeave={() => onHoverDay(null)}
         className={`grid grid-cols-7 gap-y-1 pt-1 transition-opacity ${loading ? "opacity-45" : "opacity-100"}`}
       >
         {cells.map((iso, index) => {
@@ -175,7 +173,6 @@ function MonthPanel({
                 aria-label={`${formatThaiDateLong(iso)}${status?.hint ? ` — ${status.hint}` : ""}`}
                 title={status?.hint}
                 onFocus={() => onFocusDay(iso)}
-                onMouseEnter={() => onHoverDay(iso)}
                 onClick={() => onSelectDay(iso)}
                 className={[
                   "relative z-10 mx-auto flex h-9 w-9 sm:h-10 sm:w-10 flex-col items-center justify-center rounded-full text-sm tabular-nums transition-all duration-150",
@@ -226,8 +223,6 @@ export default function BookingCalendar(
 
   const monthCount: 1 | 2 = visibleMonths === 1 ? 1 : 2;
 
-  const [pendingStart, setPendingStart] = useState<string | null>(null);
-  const [hoveredISO, setHoveredISO] = useState<string | null>(null);
   const [focusedISO, setFocusedISO] = useState<string>(() => {
     if (props.mode === "single") return props.value ?? minISO;
     return props.value?.start ?? minISO;
@@ -250,20 +245,12 @@ export default function BookingCalendar(
 
   const rangeValue: DateRange | null =
     props.mode === "range" ? props.value : null;
-
-  const previewRange = useMemo<DateRange | null>(() => {
-    if (!pendingStart) return rangeValue;
-    const other = hoveredISO ?? focusedISO;
-    if (!other || other <= pendingStart) {
-      return { start: pendingStart, end: addDaysISO(pendingStart, 1) };
-    }
-    return { start: pendingStart, end: other };
-  }, [rangeValue, pendingStart, hoveredISO, focusedISO]);
+  const pendingStart = rangeValue?.start && !rangeValue.end ? rangeValue.start : null;
 
   const rangeNights = useMemo<Set<string>>(() => {
-    if (!previewRange) return new Set();
-    return new Set(nightsInRange(previewRange.start, previewRange.end));
-  }, [previewRange]);
+    if (!rangeValue?.start || !rangeValue.end) return new Set();
+    return new Set(nightsInRange(rangeValue.start, rangeValue.end));
+  }, [rangeValue]);
 
   useEffect(() => {
     if (!shouldRestoreFocus.current) return;
@@ -277,7 +264,10 @@ export default function BookingCalendar(
   const isDisabled = (iso: string): boolean => {
     if (iso < minISO) return true;
     if (props.maxISO && iso > props.maxISO) return true;
-    if (props.mode === "range" && pendingStart) return false;
+    if (props.mode === "range" && pendingStart && iso > pendingStart) {
+      // Checkout is not an occupied night: a sold-out checkout day is valid.
+      return nightsInRange(pendingStart, iso).some(night => dayStatus?.[night]?.tone === "full");
+    }
     return dayStatus?.[iso]?.tone === "full";
   };
 
@@ -290,19 +280,16 @@ export default function BookingCalendar(
     }
 
     if (!pendingStart) {
-      setPendingStart(iso);
-      props.onSelect(null);
+      props.onSelect({ start: iso, end: "" });
       return;
     }
 
     if (iso <= pendingStart) {
-      setPendingStart(iso);
+      props.onSelect({ start: iso, end: "" });
       return;
     }
 
     props.onSelect({ start: pendingStart, end: iso });
-    setPendingStart(null);
-    setHoveredISO(null);
   };
 
   const moveFocus = (deltaDays: number): void => {
@@ -351,9 +338,9 @@ export default function BookingCalendar(
   };
 
   const selectedStart =
-    props.mode === "range" ? (previewRange?.start ?? null) : props.value;
+    props.mode === "range" ? (rangeValue?.start || null) : props.value;
   const selectedEnd =
-    props.mode === "range" ? (previewRange?.end ?? null) : null;
+    props.mode === "range" ? (rangeValue?.end || null) : null;
 
   return (
     <div
@@ -393,6 +380,19 @@ export default function BookingCalendar(
         </button>
       </div>
 
+      {props.mode === "range" && <div className="mb-4" aria-live="polite">
+        <div className="grid grid-cols-2 gap-2">
+          <div className={`rounded-xl border p-3 ${!selectedStart || selectedEnd ? 'border-stone-200 bg-stone-50' : 'border-forest-600 bg-forest-50'}`}>
+            <p className="text-xs font-bold text-forest-800">1. วันเช็คอิน</p>
+            <p className="mt-1 text-sm text-forest-900">{selectedStart ? formatThaiDateLong(selectedStart) : 'เลือกวันเข้าพัก'}</p>
+          </div>
+          <div className={`rounded-xl border p-3 ${pendingStart ? 'border-forest-600 bg-forest-50' : 'border-stone-200 bg-stone-50'}`}>
+            <p className="text-xs font-bold text-forest-800">2. วันเช็คเอาต์</p>
+            <p className="mt-1 text-sm text-forest-900">{selectedEnd ? formatThaiDateLong(selectedEnd) : 'ยังไม่ได้เลือกวันออก'}</p>
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-charcoal-500">{pendingStart ? 'เลือกวันเช็คเอาต์หลังวันเช็คอิน ห้องพักคิดเป็นรายคืน' : selectedEnd ? 'เลือกครบแล้ว · กดวันอื่นเพื่อเริ่มเลือกช่วงวันใหม่' : 'เริ่มจากเลือกวันเช็คอิน แล้วเลือกวันเช็คเอาต์'}</p>
+      </div>}
       <div
         className={
           monthCount === 2
@@ -422,7 +422,6 @@ export default function BookingCalendar(
               singleValue={props.mode === "single" ? props.value : null}
               isDisabled={isDisabled}
               onFocusDay={setFocusedISO}
-              onHoverDay={setHoveredISO}
               onSelectDay={handleSelect}
               hideTitle={false}
             />

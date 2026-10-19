@@ -23,6 +23,17 @@ const normalizeAmenityIds = (value: unknown): number[] => {
     .filter((item) => Number.isInteger(item) && item > 0);
 };
 
+// References live in an integer array, so coordinate writers with amenity deletion explicitly.
+const lockRoomAmenities = async (client: PoolClient, ids: number[]): Promise<boolean> => {
+  const uniqueIds = [...new Set(ids)].sort((a, b) => a - b);
+  if (uniqueIds.length === 0) return true;
+  const result = await client.query(
+    'SELECT id FROM room_amenities WHERE id = ANY($1::integer[]) ORDER BY id FOR SHARE',
+    [uniqueIds],
+  );
+  return result.rows.length === uniqueIds.length;
+};
+
 const normalizeImagePaths = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
     return [];
@@ -499,6 +510,11 @@ export const createRoom = async (
 
     client = await pool.connect();
     await client.query("BEGIN");
+    if (!await lockRoomAmenities(client, amenityIds)) {
+      await rollbackQuietly(client);
+      res.status(400).json({ success: false, message: "มีสิ่งอำนวยความสะดวกที่ถูกลบแล้ว กรุณาโหลดรายการใหม่" });
+      return;
+    }
     const result = await client.query(
       `INSERT INTO room_types (room_name, type_name, description, capacity, price, room_image, amenity_ids, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, true) RETURNING *`,
@@ -674,6 +690,11 @@ export const updateRoom = async (
       ? body.status === true || body.status === "true"
       : current.status;
 
+    if (!await lockRoomAmenities(client, amenityIds)) {
+      await rollbackQuietly(client);
+      res.status(400).json({ success: false, message: "มีสิ่งอำนวยความสะดวกที่ถูกลบแล้ว กรุณาโหลดรายการใหม่" });
+      return;
+    }
     const result = await client.query(
       `UPDATE room_types SET room_name=$1, type_name=$2, description=$3, capacity=$4, price=$5,
        room_image=$6, amenity_ids=$7, status=$8
@@ -763,7 +784,9 @@ export const getAmenities = async (
 ): Promise<void> => {
   try {
     const result = await pool.query(
-      "SELECT id, name, status FROM room_amenities ORDER BY id ASC",
+      `SELECT a.id, a.name, a.status,
+              (SELECT COUNT(*)::int FROM room_types rt WHERE a.id = ANY(rt.amenity_ids)) AS usage_count
+       FROM room_amenities a ORDER BY a.id ASC`,
     );
     res.json({ success: true, data: result.rows });
   } catch (error) {
@@ -875,7 +898,7 @@ export const updateAmenity = async (
   }
 };
 
-// ลบสิ่งอำนวยความสะดวกออกจากระบบ (และเอา ID ออกจาก amenity_ids ของห้องที่เกี่ยวข้องในรายการเดียวกัน)
+// ลบได้เฉพาะรายการที่ไม่มีประเภทห้องใช้งานอยู่ รวมถึงประเภทห้องที่ปิดใช้งาน
 export const deleteAmenity = async (
   req: Request,
   res: Response,
@@ -891,22 +914,33 @@ export const deleteAmenity = async (
     client = await pool.connect();
     await client.query("BEGIN");
 
-    // 1. ลบรายการออกจากตาราง room_amenities
-    const result = await client.query(
-      "DELETE FROM room_amenities WHERE id = $1 RETURNING *",
+    const amenity = await client.query(
+      "SELECT id FROM room_amenities WHERE id = $1 FOR UPDATE",
       [amenityId],
     );
 
-    if (result.rows.length === 0) {
+    if (amenity.rows.length === 0) {
       await rollbackQuietly(client);
       res.status(404).json({ success: false, message: "Amenity not found" });
       return;
     }
 
-    // 2. เคลียร์ ID นี้ออกจาก amenity_ids เฉพาะประเภทห้องที่มี ID นี้อยู่จริง
+    const usage = await client.query(
+      `SELECT id, COALESCE(type_name, room_name) AS name
+       FROM room_types WHERE $1::integer = ANY(amenity_ids) ORDER BY id`,
+      [amenityId],
+    );
+    if (usage.rows.length > 0) {
+      await rollbackQuietly(client);
+      res.status(409).json({
+        success: false,
+        message: "ไม่สามารถลบได้ เนื่องจากยังมีประเภทห้องใช้งานอยู่ กรุณานำออกจากประเภทห้องก่อน",
+        data: { used_by: usage.rows },
+      });
+      return;
+    }
     await client.query(
-      `UPDATE room_types SET amenity_ids = array_remove(amenity_ids, $1::integer)
-       WHERE $1::integer = ANY(amenity_ids)`,
+      "DELETE FROM room_amenities WHERE id = $1",
       [amenityId],
     );
     await client.query("COMMIT");

@@ -3,6 +3,7 @@
 import { eligibleRoomPromotion, roomPromotionDiscount, roomPromotionLabel, type CheckoutPromotion } from '@/lib/booking-checkout';
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import Link from "next/link";
+import { useAuth } from '@/hooks/useAuth';
 import Image from "next/image";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
@@ -21,7 +22,6 @@ import {
   CheckCircle2,
   Search, Loader2, Baby,
 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
 import { useGuestAgePolicy } from "@/hooks/useInfantAgePolicy";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { resolveMediaUrl } from "@/lib/avatar";
@@ -31,6 +31,7 @@ import BookingCalendar, {
   DateRange,
   DayStatus,
 } from "@/components/booking/BookingCalendar";
+import { roomDateSelectionLabel } from '@/lib/room-date-selection';
 import BookingSummaryCard from "@/components/booking/BookingSummaryCard";
 import ChildAgeSelect from "@/components/booking/ChildAgeSelect";
 import { useRoomCart, setRoomCart } from "@/lib/room-cart-store";
@@ -38,7 +39,6 @@ import { minimumRoomsForGuests, roomOccupancy } from "@/lib/room-cart";
 import { fetchRoomCalendar, toRoomDayStatus } from "@/lib/booking-calendar";
 import {
   MonthCursor,
-  addDaysISO,
   formatThaiDate,
   monthCursorFromISO,
   multiMonthRangeISO,
@@ -144,26 +144,24 @@ export default function RoomsPage() {
 
 function RoomsPageContent(): React.ReactElement {
   const { user } = useAuth();
-  const isAdminOrStaff = user?.role === "admin" || user?.role === "room_staff";
   const router = useRouter();
   const cart = useRoomCart();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const today = todayISO();
 
-  const defaultCheckIn = isAdminOrStaff ? today : addDaysISO(today, 1);
-  const checkIn = searchParams.get("check_in") || defaultCheckIn;
-  const checkOut = searchParams.get("check_out") || addDaysISO(checkIn, 1);
+  const checkIn = searchParams.get('check_in') || '';
+  const checkOut = searchParams.get('check_out') || '';
   const adults = parseInt(searchParams.get("adults") || "1", 10);
   const children = parseInt(searchParams.get("children") || "0", 10);
 
-  const [range, setRange] = useState<DateRange | null>({ start: checkIn, end: checkOut });
-  const [cursor, setCursor] = useState<MonthCursor>(() => monthCursorFromISO(checkIn));
+  const range = useMemo<DateRange | null>(() => checkIn ? { start: checkIn, end: checkOut } : null, [checkIn, checkOut]);
+  const [cursor, setCursor] = useState<MonthCursor>(() => monthCursorFromISO(checkIn || today));
   const [dayStatus, setDayStatus] = useState<Record<string, DayStatus>>({});
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [rooms, setRooms] = useState<RoomType[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchedRange, setSearchedRange] = useState<DateRange | null>({ start: checkIn, end: checkOut });
+  const [searchedRange, setSearchedRange] = useState<DateRange | null>(range?.end ? range : null);
   const [openPanel, setOpenPanel] = useState<"type" | "guests" | "calendar" | null>(null);
   const [guests, setGuests] = useState({ adults, children });
   const [typeFilter, setTypeFilter] = useState("all");
@@ -218,7 +216,14 @@ function RoomsPageContent(): React.ReactElement {
   }, [openPanel]);
 
   const handleRangeSelect = (next: DateRange | null): void => {
-    setRange(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (!next?.end) {
+      if (next?.start) params.set('check_in', next.start);
+      else params.delete('check_in');
+      params.delete('check_out');
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      return;
+    }
     if (next && nightsBetween(next.start, next.end) > 0) {
       if (cart && cart.items.length > 0 && (cart.check_in !== next.start || cart.check_out !== next.end)) {
         setRoomCart(null);
@@ -271,16 +276,12 @@ function RoomsPageContent(): React.ReactElement {
     setTypeFilter("all");
     setGuests({ adults: 1, children: 0 });
     const t = todayISO();
-    const tm = addDaysISO(t, 1);
-    setRange({ start: t, end: tm });
     setCursor(monthCursorFromISO(t));
     const params = new URLSearchParams();
-    params.set("check_in", t);
-    params.set("check_out", tm);
     if (selectedPromoCodes.length > 0) {
       params.set("promo_code", selectedPromoCodes.join(","));
     }
-    if (cart && cart.items.length > 0 && (cart.check_in !== t || cart.check_out !== tm)) {
+    if (cart && cart.items.length > 0) {
       setRoomCart(null);
         toast('เปลี่ยนวันที่แล้ว กรุณาเลือกห้องพักใหม่สำหรับวันที่ต้องการ');
     }
@@ -298,6 +299,11 @@ function RoomsPageContent(): React.ReactElement {
   };
 
   const handleSearchSubmit = () => {
+    if (!range?.end || nightsBetween(range.start, range.end) <= 0) {
+      setOpenPanel('calendar');
+      toast.error(range?.start ? 'กรุณาเลือกวันเช็คเอาต์' : 'กรุณาเลือกวันเช็คอินและเช็คเอาต์');
+      return;
+    }
     if (guests.children > 0 && childAges.some((age) => age === null)) {
       setChildAgeError(true);
       setOpenPanel("guests");
@@ -327,13 +333,12 @@ function RoomsPageContent(): React.ReactElement {
   }, [cursor]);
 
   useEffect(() => {
-    if (!range || nightsBetween(range.start, range.end) <= 0) return;
     let cancelled = false;
     setLoading(true);
-    api.get("/rooms", { params: { check_in: range.start, check_out: range.end } }).then((res) => {
+    api.get("/rooms", { params: range?.end ? { check_in: range.start, check_out: range.end } : {} }).then((res) => {
       if (cancelled) return;
       setRooms(Array.isArray(res.data?.data) ? res.data.data : []);
-      setSearchedRange(range);
+      setSearchedRange(range?.end ? range : null);
     }).catch(() => {
       if (!cancelled) toast.error("ไม่สามารถโหลดข้อมูลห้องพักได้");
     }).finally(() => {
@@ -473,7 +478,7 @@ function RoomsPageContent(): React.ReactElement {
                   <Calendar size={16} className="shrink-0 text-forest-700" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">วันเข้าพัก – วันออก</span>
-                    <span className="block truncate text-sm font-semibold text-forest-900">{range ? `${formatThaiDate(range.start)} – ${formatThaiDate(range.end)}` : "เลือกวันเข้าพัก"}</span>
+                    <span className="block truncate text-sm font-semibold text-forest-900">{roomDateSelectionLabel(range)}</span>
                   </span>
                   <div className="flex items-center gap-2">
                     {nights > 0 && <span className="rounded-full bg-forest-100 px-2 py-0.5 text-xs font-bold text-forest-800">{nights} คืน</span>}
@@ -521,7 +526,7 @@ function RoomsPageContent(): React.ReactElement {
                           onCursorChange={setCursor}
                           dayStatus={dayStatus}
                           loading={calendarLoading}
-                          minISO={isAdminOrStaff ? today : addDaysISO(today, 1)}
+                          minISO={today}
                           visibleMonths={2}
                         />
                       </div>
@@ -530,8 +535,7 @@ function RoomsPageContent(): React.ReactElement {
                         <button
                           type="button"
                           onClick={() => {
-                            const initial = { start: defaultCheckIn, end: addDaysISO(defaultCheckIn, 1) };
-                            handleRangeSelect(initial);
+                            handleRangeSelect(null);
                           }}
                           className="text-xs text-charcoal-500 hover:text-forest-800 underline font-medium px-2 py-2"
                         >
@@ -540,7 +544,8 @@ function RoomsPageContent(): React.ReactElement {
                         <button
                           type="button"
                           onClick={() => setOpenPanel(null)}
-                          className="btn-primary py-2.5 px-6 text-sm rounded-xl font-bold"
+                          disabled={nights <= 0}
+                          className="btn-primary py-2.5 px-6 text-sm rounded-xl font-bold disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           ตกลง {nights > 0 ? `(${nights} คืน)` : ""}
                         </button>
@@ -583,7 +588,7 @@ function RoomsPageContent(): React.ReactElement {
                   const availableCount = Number(room.available_count);
                   const minimumRooms = minimumRoomsForGuests(guestInput, Number(room.capacity));
                   const isCapacityEnough = availableCount >= minimumRooms;
-                  const isAvailable = availableCount > 0 && isCapacityEnough;
+                  const isAvailable = nights <= 0 || (availableCount > 0 && isCapacityEnough);
                   const unitPrice = Number(room.price_per_night);
                   const activePromotion = room.available_promotions?.find((p) => selectedPromoCodes.includes(p.code));
                   const discount = activePromotion
@@ -612,7 +617,7 @@ function RoomsPageContent(): React.ReactElement {
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${isAvailable ? "bg-forest-50 text-forest-700" : "bg-stone-200 text-stone-600"}`}>
-                              {isAvailable ? `ว่าง ${availableCount} ห้อง` : !isCapacityEnough ? "ความจุไม่พอ" : "เต็ม"}
+                              {nights <= 0 ? 'เลือกวันเพื่อดูห้องว่าง' : isAvailable ? `ว่าง ${availableCount} ห้อง` : !isCapacityEnough ? "ความจุไม่พอ" : "เต็ม"}
                             </span>
                             {isAvailable && minimumRooms > 1 && (
                               <span className="rounded-full px-2.5 py-0.5 text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200/80">

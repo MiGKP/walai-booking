@@ -23,6 +23,7 @@ export interface Amenity {
   id: number;
   name: string;
   status: boolean;
+  usage_count?: number;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -139,6 +140,10 @@ export default function AmenitiesPage() {
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
+    if (Number(deleteTarget.usage_count) > 0) {
+      notify.error("รายการนี้ยังมีประเภทห้องใช้งานอยู่ กรุณานำออกจากประเภทห้องก่อนลบ");
+      return;
+    }
     try {
       await api.delete(`/rooms/amenity/${deleteTarget.id}`);
       notify.success("ลบสิ่งอำนวยความสะดวกเรียบร้อยแล้ว");
@@ -150,6 +155,8 @@ export default function AmenitiesPage() {
       fetchAmenities();
     } catch (err: unknown) {
       notify.error(getApiErrorMessage(err, "ลบไม่สำเร็จ"));
+      setDeleteTarget(null);
+      void fetchAmenities();
     }
   };
 
@@ -465,9 +472,10 @@ export default function AmenitiesPage() {
                         <div className="w-8 h-8 rounded-xl bg-forest-50 border border-forest-100 flex items-center justify-center text-forest-800 shrink-0">
                           <Sparkles size={15} />
                         </div>
-                        <span className="font-bold text-charcoal-900 text-sm">
-                          {item.name}
-                        </span>
+                        <div>
+                          <span className="font-bold text-charcoal-900 text-sm">{item.name}</span>
+                          {Number(item.usage_count) > 0 && <p className="mt-1 text-xs text-charcoal-500">ใช้งานใน {item.usage_count} ประเภทห้อง · นำออกจากประเภทห้องก่อนลบ</p>}
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3.5 whitespace-nowrap">
@@ -501,9 +509,11 @@ export default function AmenitiesPage() {
                         </button>
                         <button
                           type="button"
+                          disabled={Number(item.usage_count) > 0}
                           onClick={() => setDeleteTarget(item)}
-                          className="p-1.5 text-charcoal-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
-                          title="ลบรายการ"
+                          className="p-1.5 text-charcoal-500 enabled:hover:text-rose-600 enabled:hover:bg-rose-50 rounded-xl transition-all enabled:cursor-pointer disabled:cursor-not-allowed disabled:opacity-35"
+                          aria-label={`ลบ${item.name}`}
+                          title={Number(item.usage_count) > 0 ? "ยังมีประเภทห้องใช้งานอยู่ กรุณานำออกก่อนลบ" : "ลบรายการ"}
                         >
                           <Trash2 size={16} />
                         </button>

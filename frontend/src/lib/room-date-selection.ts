@@ -1,0 +1,13 @@
+import type { DateRange } from '@/components/booking/BookingCalendar';
+import { formatThaiDate } from './date';
+
+export function roomDateSelection(params: URLSearchParams): DateRange | null {
+  const start = params.get('check_in') || '';
+  if (!start) return null;
+  return { start, end: params.get('check_out') || '' };
+}
+
+export function roomDateSelectionLabel(range: DateRange | null): string {
+  if (!range?.start) return 'เลือกวันเช็คอินและเช็คเอาต์';
+  return `${formatThaiDate(range.start)} – ${range.end ? formatThaiDate(range.end) : 'เลือกวันเช็คเอาต์'}`;
+}

@@ -53,9 +53,10 @@ export function selectedChildExtraBeds(
 
 export function resolveCheckoutDetails(params: URLSearchParams, cart: CheckoutCart | null): CheckoutDetails {
   const ages = params.get('child_ages');
+  const hasDateSelection = params.has('check_in') || params.has('check_out');
   return {
-    checkIn: params.get('check_in') || cart?.check_in || '',
-    checkOut: params.get('check_out') || cart?.check_out || '',
+    checkIn: hasDateSelection ? params.get('check_in') || '' : cart?.check_in || '',
+    checkOut: hasDateSelection ? params.get('check_out') || '' : cart?.check_out || '',
     adults: Number(params.get('adults') ?? cart?.adults ?? 1),
     children: Number(params.get('children') ?? cart?.children ?? 0),
     childAges: ages === null ? cart?.child_ages ?? [] : ages === '' ? []

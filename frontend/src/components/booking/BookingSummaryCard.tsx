@@ -3,7 +3,7 @@
 import React, { useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, Minus, Trash2 } from 'lucide-react';
-import { useRoomCart } from '@/lib/room-cart-store';
+import { useRoomCart, setRoomCart } from '@/lib/room-cart-store';
 import { useCartSync } from '@/hooks/useCartSync';
 import { useGuestAgePolicy } from '@/hooks/useInfantAgePolicy';
 import { RoomCartItem, roomOccupancy } from '@/lib/room-cart';
@@ -19,7 +19,7 @@ export default function BookingSummaryCard() {
 
   const { checkIn, checkOut, adults, children, childAges } = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
 
-  const { commit: commitCart, clearAll: clearCartEverywhere } = useCartSync({ 
+  const { clearAll: clearCartEverywhere } = useCartSync({
     checkIn, 
     checkOut, 
     adults, 
@@ -30,6 +30,7 @@ export default function BookingSummaryCard() {
   // Filter out any generic items just in case (roomId === null), though the UI should only add specific rooms now.
   const cartItems = (cart?.items ?? []).filter(item => item.room_id !== null);
   const hasDateMismatch = !!(cart && cart.items.length > 0 && checkIn && checkOut && (cart.check_in !== checkIn || cart.check_out !== checkOut));
+  const hasIncompleteDates = !checkIn || !checkOut || checkOut <= checkIn;
 
   // Capacity validation
   const totalCapacity = cartItems.reduce((sum, item) => sum + Number(item.capacity || 0), 0);
@@ -55,17 +56,17 @@ export default function BookingSummaryCard() {
 
   const handleRemoveType = (typeId: number) => {
     const nextItems = cart?.items.filter(item => item.room_type_id !== typeId) ?? [];
-    commitCart(nextItems);
+    if (cart) setRoomCart(nextItems.length ? { ...cart, items: nextItems } : null);
   };
 
   const handleRemoveRoom = (typeId: number, roomId: number | null) => {
     if (!roomId) return;
     const nextItems = cart?.items.filter(item => !(item.room_type_id === typeId && item.room_id === roomId)) ?? [];
-    commitCart(nextItems);
+    if (cart) setRoomCart(nextItems.length ? { ...cart, items: nextItems } : null);
   };
 
   const handleConfirmBooking = () => {
-    if (hasDateMismatch || isCapacityInsufficient) return;
+    if (hasIncompleteDates || hasDateMismatch || isCapacityInsufficient) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set('check_in', checkIn);
     params.set('check_out', checkOut);
@@ -150,10 +151,10 @@ export default function BookingSummaryCard() {
 
         <button 
           onClick={handleConfirmBooking} 
-          disabled={hasDateMismatch || isCapacityInsufficient}
+          disabled={hasIncompleteDates || hasDateMismatch || isCapacityInsufficient}
           className="relative w-full overflow-hidden rounded-xl bg-forest-900 py-4 text-sm font-bold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800 hover:shadow-xl hover:shadow-forest-900/30 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none cursor-pointer disabled:cursor-not-allowed"
         >
-          {isCapacityInsufficient ? `กรุณาเลือกห้องเพิ่ม (ขาดอีก ${missingCapacity} ท่าน)` : 'จองรายการนี้'}
+          {hasIncompleteDates ? 'กรุณาเลือกวันเช็คอินและเช็คเอาต์ให้ครบ' : isCapacityInsufficient ? `กรุณาเลือกห้องเพิ่ม (ขาดอีก ${missingCapacity} ท่าน)` : 'จองรายการนี้'}
         </button>
       </div>
     </div>
