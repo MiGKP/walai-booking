@@ -1,7 +1,8 @@
 "use client";
 
+import { getNewPasswordError } from '@/lib/password-policy';
+
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   User,
   Mail,
@@ -12,14 +13,12 @@ import {
   MessageSquare,
   MapPin} from 'lucide-react';
 import { SiFacebook as Facebook } from '@icons-pack/react-simple-icons';
-import { getNewPasswordError } from "@/lib/password-policy";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 
 export default function AdminProfilePage() {
-  const router = useRouter();
   const { ready, user } = useAuthGuard();
   const { updateUser } = useAuth();
 
@@ -39,6 +38,7 @@ export default function AdminProfilePage() {
     new_password: "",
     confirm: "",
   });
+
 
   const [saving, setSaving] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
@@ -141,6 +141,7 @@ export default function AdminProfilePage() {
                   type="text"
                   required
                   className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
+                  aria-label="ชื่อ"
                   value={profile.first_name}
                   onChange={(e) =>
                     setProfile({ ...profile, first_name: e.target.value })
@@ -154,6 +155,7 @@ export default function AdminProfilePage() {
                 <input
                   type="text"
                   className="w-full px-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
+                  aria-label="นามสกุล"
                   value={profile.last_name}
                   onChange={(e) =>
                     setProfile({ ...profile, last_name: e.target.value })
@@ -209,6 +211,7 @@ export default function AdminProfilePage() {
                   type="tel"
                   className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                   placeholder="08X-XXX-XXXX"
+                  aria-label="เบอร์โทรศัพท์"
                   value={profile.phone}
                   onChange={(e) =>
                     setProfile({ ...profile, phone: e.target.value })
@@ -231,7 +234,8 @@ export default function AdminProfilePage() {
                     type="text"
                     className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                     placeholder="line_admin"
-                    value={profile.line_id}
+                    aria-label="LINE ID"
+                  value={profile.line_id}
                     onChange={(e) =>
                       setProfile({ ...profile, line_id: e.target.value })
                     }
@@ -251,7 +255,8 @@ export default function AdminProfilePage() {
                     type="text"
                     className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                     placeholder="ชื่อ Facebook"
-                    value={profile.facebook}
+                    aria-label="Facebook"
+                  value={profile.facebook}
                     onChange={(e) =>
                       setProfile({ ...profile, facebook: e.target.value })
                     }
@@ -273,6 +278,7 @@ export default function AdminProfilePage() {
                   rows={2}
                   className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30 resize-none"
                   placeholder="กรอกที่อยู่ปัจจุบัน..."
+                  aria-label="ที่อยู่"
                   value={profile.address}
                   onChange={(e) =>
                     setProfile({ ...profile, address: e.target.value })

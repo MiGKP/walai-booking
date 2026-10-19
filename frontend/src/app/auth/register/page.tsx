@@ -1,5 +1,6 @@
 'use client';
 
+import { getNewPasswordError, PASSWORD_HINT } from '@/lib/password-policy';
 import { useState, useRef } from 'react';
 import type { FormEvent } from 'react';
 import Link from 'next/link';
@@ -100,8 +101,9 @@ export default function RegisterPage(): React.ReactElement | null {
   ): Promise<void> => {
     event.preventDefault();
 
-    if (form.password.length < MIN_PASSWORD_LENGTH) {
-      toast.error(`รหัสผ่านต้องมีอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`);
+    const passwordError = getNewPasswordError(form.password);
+    if (passwordError) {
+      toast.error(passwordError);
       return;
     }
     if (form.password !== form.confirmPassword) {
@@ -425,6 +427,7 @@ export default function RegisterPage(): React.ReactElement | null {
                     />
                     <input
                       id="register-password"
+                      data-password-toggle
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="new-password"
                       required
@@ -450,7 +453,7 @@ export default function RegisterPage(): React.ReactElement | null {
                     id="register-password-hint"
                     className="mt-2 text-xs text-stone-400"
                   >
-                    ใช้ตัวอักษรและตัวเลขผสมกันเพื่อความปลอดภัย
+                    {PASSWORD_HINT}
                   </p>
                 </div>
 
@@ -469,6 +472,7 @@ export default function RegisterPage(): React.ReactElement | null {
                     />
                     <input
                       id="register-confirm-password"
+                      data-password-toggle
                       type={showConfirmPassword ? 'text' : 'password'}
                       autoComplete="new-password"
                       required

@@ -1,3 +1,4 @@
+import { notifyBookingStatus } from '../services/booking-notifications';
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { PoolClient } from 'pg';
@@ -394,6 +395,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
       client.release();
     }
 
+    void notifyBookingStatus(bType, Number(bId), 'approved');
     res.json({ success: true, message: 'Payment confirmed and booking approved' });
   } catch (error) {
     console.error('Confirm payment error:', error);

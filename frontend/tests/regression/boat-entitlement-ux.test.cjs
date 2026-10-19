@@ -52,6 +52,39 @@ function load(relative, states = [], overrides = {}) {
 const summary = { total_tickets: 3, used_tickets: 1, remaining_tickets: 2, free_tickets: 2, paid_tickets: 1, valid_from: '2099-11-02', valid_to: '2099-11-03' };
 const room = { id: 9, status: 'approved', created_at: new Date().toISOString(), check_in_date: '2099-11-01', check_out_date: '2099-11-04', boat_ticket_summary: summary };
 
+test('boat check-in only offers rejection before handout, check-in and return', () => {
+  for (const state of [
+    { status: 'approved', checkin_at: null, handed_out_at: null, allowed: true },
+    { status: 'approved', checkin_at: '2026-10-10', allowed: false },
+    { status: 'approved', checkin_at: null, handed_out_at: '2026-10-10', allowed: false },
+    { status: 'checked_out', checkin_at: '2026-10-10', allowed: false },
+  ]) {
+    const b = { boat_booking_id: 7, booking_date: '2026-10-10', start_time: '12:00', end_time: '13:00', customer_name: 'TEST', boats: [], total_price: 100, ...state };
+    const Page = load('src/app/admin/boats/checkin/page.tsx', ['2026-10-10', '', 'all', [b], {}, false, null, Date.now()], { '@/components/admin/ui': { CustomDatePicker: () => null, Modal: () => null } }).TestContent;
+    const html = renderToStaticMarkup(React.createElement(Page));
+    assert.equal(html.includes('aria-label="ปฏิเสธการจองเรือ #7"'), state.allowed);
+  }
+});
+
+test('boat check-in rejection submits its selected booking and refreshes the list', async () => {
+  const requests = [];
+  const b = { boat_booking_id: 7 };
+  const { TestContent } = load('src/app/admin/boats/checkin/page.tsx', ['2026-10-10', '', 'all', [], {}, false, null, Date.now(), {}, b, false], {
+    '@/components/admin/ui': { CustomDatePicker: () => null, Modal: () => null },
+    '@/lib/admin-notify': { notify: { success() {}, error: message => assert.fail(message) } },
+    '@/lib/api': { put: async (url, body) => requests.push({ url, body }), get: async url => { requests.push({ url }); return { data: { success: true, data: { bookings: [], summary: {} } } }; } },
+  });
+  function find(node) {
+    if (!node || typeof node !== 'object') return null;
+    if (node.props?.title === 'ปฏิเสธการจองเรือ #7' && node.props?.onSubmit) return node;
+    return React.Children.toArray(node.props?.children).map(find).find(Boolean);
+  }
+  const dialog = find(TestContent()); assert(dialog);
+  await dialog.props.onSubmit('เหตุผลทดสอบ');
+  assert.deepEqual(requests[0], { url: '/kayaks/bookings/7/status', body: { status: 'rejected', reject_reason: 'เหตุผลทดสอบ' } });
+  assert.equal(requests[1].url, '/kayaks/checkin-sessions');
+});
+
 test('room rights can select the future 15:00 round with ten boats and adequate rights', () => {
   const info = { room_status: 'paid', room_line_status: 'paid', balance: 5, mode: 'free', unit_price: 0, valid_from: '2099-11-01', valid_to: '2099-11-02' };
   const round = { boat_round_id: 25, start_time: '15:00:00', end_time: '15:30:00', remaining: 10, available: true };
@@ -99,7 +132,7 @@ test('admin overview identifies normal and room-addon boats by their API booking
 test('room staff can approve zero-charge pending rooms but cannot approve unpaid positive amounts', () => {
   const Wrapper = ({ children }) => React.createElement('div', null, children);
   for (const [amount, slip, status, expected] of [[0, null, 'pending', true], [100, null, 'pending', false], [100, 'slip.png', 'pending', false], [100, 'slip.png', 'paid', true], [0, null, 'cancelled', false]]) {
-    const Page = load('src/app/admin/rooms/page.tsx', [[{ id: 7, room_booking_id: 7, status, total_price: amount, payment_slip: slip, rooms: [] }], false, { total: 1, totalPages: 1 }, { all: 1, totalRevenue: 0, pendingRevenue: 0 }, [], ''], {
+    const Page = load('src/app/admin/rooms/page.tsx', [[{ id: 7, room_booking_id: 7, status, total_price: amount, payment_slip: slip, rooms: [] }], false, { total: 1, totalPages: 1 }, { all: 1, has_slip: 0, pending: 0, approved: 0, checked_out: 0, totalRevenue: 0, pendingRevenue: 0 }, [], null, ''], {
       '@/components/admin/ui': { CustomDatePicker: Wrapper, CustomSelect: Wrapper, PageHeader: Wrapper, StatCard: Wrapper, Panel: Wrapper, Modal: () => null, EmptyState: Wrapper, BookingStatusBadge: Wrapper },
       '@/lib/admin-notify': { notify: {} }, '@/lib/avatar': { resolveMediaUrl: value => value },
     }).TestContent;
@@ -114,7 +147,7 @@ test('room detail and its printable document list every actual room, guests and 
     { booking_room_id: 1, room_number: 'TEST-W2', room_name: 'TEST Standard', subtotal: 2000 },
     { booking_room_id: 2, room_number: 'TEST-D3', room_name: 'TEST Deluxe', subtotal: 4000 },
   ] };
-  const Page = load('src/app/admin/rooms/page.tsx', [[], false, { total: 0, totalPages: 0 }, { totalRevenue: 0 }, [], '', { open: false }, { open: true, booking }], {
+  const Page = load('src/app/admin/rooms/page.tsx', [[], false, { total: 0, totalPages: 0 }, { all: 0, has_slip: 0, pending: 0, approved: 0, checked_out: 0, totalRevenue: 0, pendingRevenue: 0 }, [], null, '', { open: false }, { open: true, booking }], {
     '@/components/admin/ui': { CustomDatePicker: Wrapper, CustomSelect: Wrapper, PageHeader: Wrapper, StatCard: Wrapper, Panel: Wrapper, Modal: ({ open, children }) => open ? React.createElement('div', null, children) : null, EmptyState: Wrapper, BookingStatusBadge: Wrapper },
     '@/lib/avatar': { resolveMediaUrl: value => value },
   }).TestContent;
@@ -196,7 +229,7 @@ function details(overrides = {}) {
 }
 test('checkout keeps ineligible room offers visible with a disabled option and explanation', () => {
   const offer = { ...promo, name: 'ROOMANDBOAT', min_nights: 2, room_count: 5, is_collectible: true };
-  const Component = load('src/app/booking/details/page.tsx', ['First', 'Last', 'guest@example.test', '0800000000', '14:00', false, false, false, '', [offer], {}, null, false, true, true], { '@/lib/room-cart-store': { useRoomCart: () => cart, setRoomCart() {} } }).default;
+  const Component = load('src/app/booking/details/page.tsx', ['First', 'Last', 'guest@example.test', '0800000000', '14:00', false, false, false, '', [offer], {}, null, false, {}, true, true], { '@/lib/room-cart-store': { useRoomCart: () => cart, setRoomCart() {} } }).default;
   const html = renderToStaticMarkup(React.createElement(Component));
   assert.match(html, /<button[^>]*disabled[^>]*>[^]*?ROOMANDBOAT/);
   assert(html.includes('ต้องพักอย่างน้อย 2 คืน'));
@@ -265,7 +298,7 @@ test('ended parent remains readable from addon origin link and offers no booking
 test('boat staff row and details identify room promotion origin and parent booking', () => {
   const addon = { boat_booking_id: 21, room_booking_id: 9, is_addon: true, addon_mode: 'paid', status: 'approved', booking_date: '2099-11-02', total_price: 200, user_name: 'Guest', kayak_name: 'Kayak' };
   const Wrapper = ({ children }) => React.createElement('div', null, children);
-  const Page = load('src/app/admin/boats/page.tsx', [[addon], false, { total: 1, totalPages: 1 }, { all: 1, has_slip: 0, pending: 0, approved: 1, checked_out: 0, totalRevenue: 200, pendingRevenue: 0 }, [], '', { open: false }, { open: true, booking: addon }], {
+  const Page = load('src/app/admin/boats/page.tsx', [[addon], false, { total: 1, totalPages: 1 }, { all: 1, has_slip: 0, pending: 0, approved: 1, checked_out: 0, totalRevenue: 200, pendingRevenue: 0 }, [], null, '', { open: false }, { open: true, booking: addon }], {
     '@/components/admin/ui': { CustomDatePicker: Wrapper, CustomSelect: Wrapper, PageHeader: Wrapper, StatCard: Wrapper, Panel: Wrapper, Modal: ({ open, children }) => open ? React.createElement('div', null, children) : null, BookingStatusBadge: Wrapper, EmptyState: Wrapper },
     '@/lib/admin-notify': { notify: { success() {}, error() {} } },
     '@/lib/avatar': { resolveMediaUrl: value => value },

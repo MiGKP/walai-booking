@@ -18,6 +18,20 @@ const members = require('../../src/controllers/member.controller.ts');
 const reviews = require('../../src/controllers/review.controller.ts');
 const rows = data => ({ rows: data, rowCount: data.length });
 const response = () => ({ code: 200, status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } });
+test('boat list sorts the entire filtered result before applying pagination', async () => {
+  const calls = [];
+  queryHandler = async (sql, values) => {
+    calls.push({ sql, values });
+    if (sql.includes(' AS "totalRevenue"')) return rows([{ all: '30' }]);
+    if (sql.includes('COUNT(*) AS total')) return rows([{ total: '30' }]);
+    return rows([{ boat_booking_id: 9001 }]);
+  };
+  const res = response();
+  await kayak.getAllKayakBookings({ query: { page: '2', limit: '25', status: 'cancelled', sort: 'booking_date', sort_dir: 'asc' } }, res);
+  const bounded = calls.find(call => call.sql.includes('LIMIT'));
+  assert.match(bounded.sql, /ORDER BY bb.booking_date ASC, bb.start_time ASC, bb.boat_booking_id DESC/);
+  assert.deepEqual(bounded.values, ['cancelled', 25, 25]);
+});
 test('members return bounded rows, filtered count and global active totals', async () => {
   const calls = [];
   queryHandler = async (sql, values) => {
@@ -125,6 +139,7 @@ test('list query validators reject malformed paging and scalar filters before SQ
   assert.equal(await valid(paginationValidator,{page:'9007199254740991',limit:'100'}),false,'unsafe offsets rejected');
   assert.equal(await valid(bookingListValidator,{date_from:'2026-02-30'}),false);
   assert.equal(await valid(bookingListValidator,{sort:'total_price; DROP TABLE members'}),false);
+  assert.equal(await valid(bookingListValidator,{sort:'booking_date',sort_dir:'asc',status:'cancelled',page:'2',limit:'25'}),true);
   assert.equal(await valid(bookingListValidator,{filter:['pending','approved']}),false);
   assert.equal(await valid(reviewListValidator,{min_rating:['4','5']}),false);
   assert.equal(await valid(memberListValidator,{status:['active','inactive']}),false);

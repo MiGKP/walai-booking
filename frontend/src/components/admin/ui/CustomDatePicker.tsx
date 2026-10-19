@@ -16,6 +16,7 @@ export interface CustomDatePickerProps {
   max?: string;
   align?: "left" | "right";
   disabled?: boolean;
+  mobileCentered?: boolean;
 }
 
 const MONTH_NAMES = [
@@ -47,6 +48,7 @@ export function CustomDatePicker({
   max,
   align = "left",
   disabled = false,
+  mobileCentered = false,
 }: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const datePickerRef = useRef<HTMLDivElement>(null);
@@ -149,9 +151,10 @@ export function CustomDatePicker({
 
       {isOpen && !disabled && (
         <div
-          className={`absolute ${
-            align === "right" ? "right-0" : "left-0"
-          } top-full mt-2 w-64 bg-white border border-cream-200/90 rounded-2xl shadow-xl z-50 p-3.5 animate-in fade-in zoom-in-95 duration-150`}
+          className={`${mobileCentered
+            ? `fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:absolute sm:top-full sm:translate-x-0 sm:translate-y-0 ${align === "right" ? "sm:left-auto sm:right-0" : "sm:left-0"}`
+            : `absolute top-full ${align === "right" ? "right-0" : "left-0"}`
+          } mt-2 w-64 bg-white border border-cream-200/90 rounded-2xl shadow-xl z-50 p-3.5 animate-in fade-in zoom-in-95 duration-150`}
         >
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-cream-200">
             <button

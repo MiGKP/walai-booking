@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { query } from 'express-validator';
 import {
   getBankAccounts, createBankAccount, updateBankAccount, deleteBankAccount,
   getResortInfo, upsertResortInfo,
@@ -18,7 +19,11 @@ const router = Router();
 router.get('/notifications/pending', authenticate, authorize('admin', 'room_staff', 'boat_staff'), getNotificationSummary);
 
 // Stats — admin, room_staff, boat_staff
-router.get('/stats', authenticate, authorize('admin', 'room_staff', 'boat_staff'), getStats);
+router.get('/stats', authenticate, authorize('admin', 'room_staff', 'boat_staff'),
+  query('period').optional().isIn(['day', 'month']),
+  query('date').optional().isString().bail().matches(/^\d{4}-\d{2}-\d{2}$/),
+  query('year').optional().isInt({ min: 1970, max: 2100 }),
+  query('month').optional().isInt({ min: 1, max: 12 }), validate, getStats);
 
 // Bank accounts — admin only
 router.get('/bank-accounts', authenticate, authorize('admin'), getBankAccounts);

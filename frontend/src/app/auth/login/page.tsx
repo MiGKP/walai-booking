@@ -215,6 +215,7 @@ export default function LoginPage(): React.ReactElement | null {
                   />
                   <input
                     id="login-password"
+                    data-password-toggle
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required

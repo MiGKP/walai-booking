@@ -13,7 +13,7 @@ export interface AuthRequest extends Request {
 // token ที่ออกก่อนเวลาเปลี่ยนรหัสผ่านจะถูกปฏิเสธ (ยกเลิก session เดิมอัตโนมัติ)
 const resolveActiveAccount = async (
   payload: AuthPayload
-): Promise<{ role: string; passwordChangedAtMs: number | null } | null> => {
+): Promise<{ role: string; email?: string; passwordChangedAtMs: number | null } | null> => {
   if (payload.role === 'customer') {
     const r = await pool.query(
       'SELECT is_active, password_changed_at FROM members WHERE member_id = $1',
@@ -26,12 +26,13 @@ const resolveActiveAccount = async (
     };
   }
   const r = await pool.query(
-    'SELECT role, status, password_changed_at FROM staff WHERE staff_id = $1',
+    'SELECT role, status, password_changed_at, email FROM staff WHERE staff_id = $1',
     [payload.id]
   );
   if (r.rows.length === 0 || r.rows[0].status !== true) return null;
   return {
     role: String(r.rows[0].role),
+    email: r.rows[0].email,
     passwordChangedAtMs: r.rows[0].password_changed_at ? new Date(r.rows[0].password_changed_at).getTime() : null,
   };
 };
@@ -82,7 +83,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       res.status(401).json({ success: false, message: 'Session expired, please login again' });
       return;
     }
-    (req as AuthRequest).user = { ...decoded, role: account.role as AuthPayload['role'] };
+    (req as AuthRequest).user = { ...decoded, role: account.role as AuthPayload['role'], email: account.email ?? decoded.email };
     next();
   } catch (error) {
     console.error('Authenticate lookup error:', error);
