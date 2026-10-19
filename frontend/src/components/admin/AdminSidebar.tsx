@@ -188,10 +188,8 @@ export default function AdminSidebar() {
     return 0;
   };
 
-  const getGroupBadge = (title: string): number => {
-    if (title === "ห้องพัก") return counts.room_slips;
-    if (title === "เรือ") return counts.boat_slips;
-    return 0;
+  const getGroupBadge = (group: MenuGroup): number => {
+    return group.items.reduce((sum, item) => sum + getItemBadge(item.label), 0);
   };
 
   // ฟังก์ชันแปลง Path จาก /admin เป็น /staff/... ตาม Role
@@ -356,7 +354,7 @@ export default function AdminSidebar() {
           const hasActiveChild = group.items.some(
             (item) => item.path === pathname,
           );
-          const groupBadge = getGroupBadge(group.title);
+          const groupBadge = getGroupBadge(group);
 
           return (
             <div
