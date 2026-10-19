@@ -17,6 +17,11 @@ import { useGuestAgePolicy } from '@/hooks/useInfantAgePolicy';
 
 type Promotion = CheckoutPromotion;
 
+function extraBedRoomLabel(room: RoomCartItem): string {
+  const typeName = room.type_name || room.room_name;
+  return room.room_number ? `ห้อง ${room.room_number} (${typeName})` : typeName;
+}
+
 const ARRIVAL_TIME_OPTIONS = [
   { value: "14:00", label: "14:00 น. - 15:00 น." },
   { value: "15:00", label: "15:00 น. - 16:00 น." },
@@ -152,6 +157,8 @@ function BookingDetailsContent() {
   const [arrivalTime, setArrivalTime] = useState('14:00');
   
   const [extraBed, setExtraBed] = useState(false);
+  const [extraBedRoomIds, setExtraBedRoomIds] = useState<number[]>([]);
+  const [childBedRoomIds, setChildBedRoomIds] = useState<Record<number, number>>({});
   const [lowerFloor, setLowerFloor] = useState(false);
   const [withKids, setWithKids] = useState(false);
   const [otherRequest, setOtherRequest] = useState('');
@@ -172,7 +179,18 @@ function BookingDetailsContent() {
   const chargeableKidsCount = selectedBeds.length;
   const hasOnsiteCharges = extraBed || chargeableKidsCount > 0;
 
-  const cartItems = cart?.items.filter(item => item.room_id !== null) ?? [];
+  const cartItems = cart?.items.filter((item): item is RoomCartItem & { room_id: number } => typeof item.room_id === 'number') ?? [];
+  const selectedExtraBedRooms = extraBed
+    ? cartItems.filter(room => cartItems.length === 1 || extraBedRoomIds.includes(room.room_id))
+    : [];
+  const selectedBedsWithRooms = selectedBeds.map(bed => ({
+    ...bed,
+    room: cartItems.find(room => room.room_id === childBedRoomIds[bed.index])
+      ?? (cartItems.length === 1 ? cartItems[0] : undefined),
+  }));
+  const childBedDescription = selectedBedsWithRooms.map(bed =>
+    `คนที่ ${bed.index + 1} อายุ ${bed.age} ปี${bed.room ? ` — ${extraBedRoomLabel(bed.room)}` : ' — ยังไม่ได้เลือกห้อง'}`
+  ).join('; ');
 
   // Capacity validation
   const totalCapacity = cartItems.reduce((sum, item) => sum + Number(item.capacity || 0), 0);
@@ -290,18 +308,26 @@ function BookingDetailsContent() {
       toast.error('กรุณากรอกข้อมูลผู้ติดต่อให้ครบถ้วน');
       return;
     }
+    if (extraBed && selectedExtraBedRooms.length === 0) {
+      toast.error('กรุณาเลือกห้องที่ต้องการเตียงเสริมอย่างน้อย 1 ห้อง');
+      return;
+    }
+    if (selectedBedsWithRooms.some(bed => !bed.room)) {
+      toast.error('กรุณาเลือกห้องสำหรับเตียงเสริมเด็กที่เลือกให้ครบทุกคน');
+      return;
+    }
     
     setIsSubmitting(true);
     
     // Construct special request string
     const requests = [];
     if (extraBed) {
-      requests.push("ขอเตียงเสริม (ชำระหน้าเคาน์เตอร์)");
+      requests.push(`ขอเตียงเสริม: ${selectedExtraBedRooms.map(extraBedRoomLabel).join('; ')} (ชำระหน้าเคาน์เตอร์)`);
     }
     if (chargeableKidsCount > 0) {
       const chargeText = policy.childChargePricePerNight
-        ? `ขอเตียงเสริมสำหรับเด็ก ${chargeableKidsCount} คน (${selectedBeds.map(bed => `คนที่ ${bed.index + 1} อายุ ${bed.age} ปี`).join('; ')}) ฿${policy.childChargePricePerNight}/คน/คืน รวม ฿${policy.childChargePricePerNight * chargeableKidsCount * nights} (${nights} คืน ชำระหน้าเคาน์เตอร์)`
-        : `ขอเตียงเสริมสำหรับเด็ก ${chargeableKidsCount} คน (${selectedBeds.map(bed => `คนที่ ${bed.index + 1} อายุ ${bed.age} ปี`).join('; ')}) ชำระหน้าเคาน์เตอร์ตามนโยบายรีสอร์ต`;
+        ? `ขอเตียงเสริมสำหรับเด็ก ${chargeableKidsCount} คน (${childBedDescription}) ฿${policy.childChargePricePerNight}/คน/คืน รวม ฿${policy.childChargePricePerNight * chargeableKidsCount * nights} (${nights} คืน ชำระหน้าเคาน์เตอร์)`
+        : `ขอเตียงเสริมสำหรับเด็ก ${chargeableKidsCount} คน (${childBedDescription}) ชำระหน้าเคาน์เตอร์ตามนโยบายรีสอร์ต`;
       requests.push(chargeText);
     }
     if (lowerFloor) requests.push("ขอห้องพักชั้นล่าง");
@@ -421,7 +447,8 @@ function BookingDetailsContent() {
                 {eligibleChildBeds.length > 0 && <fieldset className="space-y-3">
                   <legend className="mb-2 text-sm font-bold text-forest-900">เตียงเสริมสำหรับเด็ก {policy.infantAge}–{policy.childMaxAge} ปี (เลือกได้รายคน)</legend>
                   <p className="text-xs text-stone-500">เด็ก 6–11 ปีพักเกินความจุหลักได้ไม่เกิน 1 คนต่อห้อง และใช้เตียงเดิมได้ คิดค่าเตียงเสริมเฉพาะคนที่ติ๊ก และชำระหน้าเคาน์เตอร์ อายุ 12 ปีขึ้นไปนับเป็นผู้ใหญ่ตามความจุหลัก</p>
-                  {eligibleChildBeds.map(({ index, age }) => <label key={`${index}-${age}`} className="flex items-start gap-3 rounded-2xl border border-stone-200 p-3.5 cursor-pointer hover:bg-stone-50">
+                  {eligibleChildBeds.map(({ index, age }) => <div key={`${index}-${age}`} className="rounded-2xl border border-stone-200 p-3.5">
+                    <label className="flex cursor-pointer items-start gap-3">
                     <input type="checkbox" checked={childBeds[index] === age} onChange={event => setChildBeds(current => {
                       const next = { ...current };
                       if (event.target.checked) next[index] = age;
@@ -431,10 +458,29 @@ function BookingDetailsContent() {
                     <span className="min-w-0 text-sm font-semibold text-forest-900">เตียงเสริมสำหรับเด็กคนที่ {index + 1} (อายุ {age} ปี)
                       <span className="mt-1 block text-xs font-normal text-stone-500">{policy.childChargePricePerNight != null ? `${policy.childChargePricePerNight.toLocaleString()} บาท/คืน · ${(policy.childChargePricePerNight * nights).toLocaleString()} บาทสำหรับ ${nights} คืน` : 'ค่าบริการตามนโยบายรีสอร์ต'} · ชำระหน้าเคาน์เตอร์</span>
                     </span>
-                  </label>)}
+                    </label>
+                    {childBeds[index] === age && <div className="mt-3 space-y-1.5 pl-8">
+                      <label htmlFor={`child-bed-room-${index}`} className="block text-xs font-bold text-forest-900">ห้องสำหรับเตียงเสริมเด็กคนที่ {index + 1}</label>
+                      <select
+                        id={`child-bed-room-${index}`}
+                        value={selectedBedsWithRooms.find(bed => bed.index === index)?.room?.room_id ?? ''}
+                        onChange={event => {
+                          const roomId = Number(event.target.value);
+                          setChildBedRoomIds(current => ({ ...current, [index]: roomId }));
+                        }}
+                        className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm text-forest-900 focus:border-forest-500 focus:ring-forest-500"
+                      >
+                        <option value="" disabled>เลือกห้องที่จะวางเตียงเสริม</option>
+                        {cartItems.map(room => <option key={room.room_id} value={room.room_id}>{extraBedRoomLabel(room)}</option>)}
+                      </select>
+                    </div>}
+                  </div>)}
                 </fieldset>}
                 <label className={`flex items-start gap-3 p-3.5 border rounded-2xl cursor-pointer transition-all ${extraBed ? 'border-forest-700 bg-forest-50/40 shadow-xs' : 'border-stone-200 hover:bg-stone-50'}`}>
-                  <input type="checkbox" checked={extraBed} onChange={e => setExtraBed(e.target.checked)} className="mt-0.5 w-5 h-5 text-forest-700 rounded border-stone-300 focus:ring-forest-500 cursor-pointer" />
+                  <input type="checkbox" checked={extraBed} onChange={e => {
+                    setExtraBed(e.target.checked);
+                    if (!e.target.checked) setExtraBedRoomIds([]);
+                  }} className="mt-0.5 w-5 h-5 text-forest-700 rounded border-stone-300 focus:ring-forest-500 cursor-pointer" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-bold text-stone-900">{eligibleChildBeds.length > 0 ? 'ขอเตียงเสริมอื่น ๆ (นอกเหนือจากเตียงเด็กที่เลือก)' : 'ขอเตียงเสริม'}</span>
@@ -443,6 +489,26 @@ function BookingDetailsContent() {
                     <p className="text-xs text-stone-500 mt-0.5">เหมาะสำหรับผู้เข้าพักเพิ่มเติมหรือผู้ที่ต้องการเตียงแยก (ชำระค่าบริการเพิ่มเติมตอนเช็คอิน)</p>
                   </div>
                 </label>
+                {extraBed && <fieldset className="space-y-2 rounded-2xl border border-forest-200 bg-forest-50/30 p-4">
+                  <legend className="px-1 text-sm font-bold text-forest-900">เลือกห้องที่ต้องการเตียงเสริม</legend>
+                  <p className="text-xs text-stone-500">เลือกได้มากกว่า 1 ห้อง คำขอขึ้นอยู่กับความพร้อมให้บริการ และชำระหน้าเคาน์เตอร์</p>
+                  {cartItems.map(room => <label key={room.room_id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-stone-200 bg-white p-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedExtraBedRooms.some(selected => selected.room_id === room.room_id)}
+                      disabled={cartItems.length === 1}
+                      onChange={event => {
+                        const checked = event.target.checked;
+                        setExtraBedRoomIds(current => checked
+                          ? [...current.filter(id => id !== room.room_id), room.room_id]
+                          : current.filter(id => id !== room.room_id));
+                      }}
+                      className="h-5 w-5 shrink-0 accent-forest-800"
+                    />
+                    <span className="min-w-0 text-sm font-medium text-forest-900">{extraBedRoomLabel(room)}</span>
+                  </label>)}
+                  {selectedExtraBedRooms.length === 0 && <p className="text-xs text-amber-800">กรุณาเลือกอย่างน้อย 1 ห้อง</p>}
+                </fieldset>}
                 <label className="flex items-center gap-3 p-3 border border-stone-200 rounded-xl cursor-pointer hover:bg-stone-50 transition-colors">
                   <input type="checkbox" checked={lowerFloor} onChange={e => setLowerFloor(e.target.checked)} className="w-5 h-5 text-forest-700 rounded border-stone-300 focus:ring-forest-500" />
                   <span className="text-sm font-medium text-stone-800">ขอห้องพักชั้นล่าง (หากมีห้องว่าง)</span>
@@ -617,7 +683,7 @@ function BookingDetailsContent() {
                               เตียงเสริมสำหรับเด็กที่เลือก ({chargeableKidsCount} คน)
                             </span>
                             <p className="text-[11px] text-amber-800">
-                              {selectedBeds.map(bed => `คนที่ ${bed.index + 1} อายุ ${bed.age} ปี`).join(' · ')} · ชำระหน้าเคาน์เตอร์
+                              {childBedDescription} · ชำระหน้าเคาน์เตอร์
                             </p>
                           </div>
                           {policy.childChargePricePerNight ? (
@@ -640,7 +706,7 @@ function BookingDetailsContent() {
                         <div className="flex justify-between items-start gap-2">
                           <div>
                             <span className="font-bold text-amber-950">ขอเตียงเสริม</span>
-                            <p className="text-[11px] text-amber-800">ชำระค่าบริการเพิ่มเติมตอนเช็คอิน</p>
+                            <p className="text-[11px] text-amber-800">{selectedExtraBedRooms.length > 0 ? selectedExtraBedRooms.map(extraBedRoomLabel).join(' · ') : 'ยังไม่ได้เลือกห้อง'} · ชำระค่าบริการเพิ่มเติมตอนเช็คอิน</p>
                           </div>
                           <span className="text-[11px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-md whitespace-nowrap">
                             ชำระวันเช็คอิน
