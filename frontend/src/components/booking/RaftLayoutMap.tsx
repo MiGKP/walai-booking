@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Check, Compass, Waves } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowLeftRight, Check, ChevronLeft, ChevronRight, Compass, Waves } from 'lucide-react';
 
 export interface MapRaftRoomItem {
   room_id: number;
@@ -25,9 +25,71 @@ export default function RaftLayoutMap({
   selectedRoomIds = [],
   onToggleRoom,
 }: RaftLayoutMapProps): React.ReactElement {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollPercent, setScrollPercent] = useState(0);
+  const [canScroll, setCanScroll] = useState(false);
+
   const midIndex = Math.ceil(rooms.length / 2);
   const leftWing = rooms.slice(0, midIndex);
   const rightWing = rooms.slice(midIndex);
+
+  const firstRoom = rooms[0]?.room_number;
+  const lastRoom = rooms[rooms.length - 1]?.room_number;
+  const roomRangeLabel = firstRoom && lastRoom ? ` (${firstRoom} – ${lastRoom})` : '';
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    if (maxScroll > 6) {
+      setCanScroll(true);
+      const pct = Math.min(100, Math.max(0, Math.round((el.scrollLeft / maxScroll) * 100)));
+      setScrollPercent(pct);
+    } else {
+      setCanScroll(false);
+      setScrollPercent(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    updateScrollState();
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver(() => {
+      updateScrollState();
+    });
+    observer.observe(el);
+
+    // เลื่อนไปยังห้องที่เลือกไว้ล่วงหน้าเพื่อให้ผู้ใช้เห็นทันที
+    const selectedEl = el.querySelector<HTMLElement>('[data-selected="true"]');
+    if (selectedEl) {
+      const elRect = el.getBoundingClientRect();
+      const selRect = selectedEl.getBoundingClientRect();
+      const targetScroll =
+        el.scrollLeft + (selRect.left - elRect.left) - el.clientWidth / 2 + selRect.width / 2;
+      el.scrollTo({ left: Math.max(0, targetScroll), behavior: 'smooth' });
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [updateScrollState, rooms.length]);
+
+  const handleSliderChange = (newPercent: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    if (maxScroll <= 0) return;
+    el.scrollLeft = (newPercent / 100) * maxScroll;
+    setScrollPercent(newPercent);
+  };
+
+  const handleScrollStep = (delta: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: delta, behavior: 'smooth' });
+  };
 
   const renderRoomPod = (room: MapRaftRoomItem) => {
     const isCurrent = room.is_current_type;
@@ -64,6 +126,7 @@ export default function RaftLayoutMap({
     return (
       <div
         key={room.room_id || room.room_number}
+        data-selected={isSelected}
         className="group flex flex-col items-center shrink-0 w-[72px] sm:w-[84px] transition-transform duration-200"
       >
         {/* ข้อต่อทางเดินไม้เชื่อมสู่ห้อง */}
@@ -125,6 +188,8 @@ export default function RaftLayoutMap({
     );
   };
 
+  const showSlideBar = canScroll || rooms.length > 5;
+
   return (
     <div className="relative overflow-hidden rounded-3xl border border-stone-200/80 bg-gradient-to-b from-[#FDFBF7] via-[#FAF7F2] to-[#F3F8F7] p-5 sm:p-6 shadow-xs">
       {/* Header & Minimal Legend */}
@@ -164,16 +229,20 @@ export default function RaftLayoutMap({
       </div>
 
       {/* สะพานทางเดินไม้และแถวห้องพัก (Scrollable on small screens) */}
-      <div className="overflow-x-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="min-w-fit mx-auto flex flex-col items-center px-4">
+      <div
+        ref={scrollRef}
+        onScroll={updateScrollState}
+        className="overflow-x-auto py-2 scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div className="w-max min-w-full flex flex-col items-center px-6">
           {/* สะพานไม้ทางเดินริมน้ำ (Timber Boardwalk) */}
-          <div className="w-full max-w-4xl flex items-center mb-1">
+          <div className="w-full flex items-center mb-1 px-2">
             <div className="h-2 flex-1 rounded-l-full bg-gradient-to-r from-[#DFD3BE] to-[#D5C7B0] shadow-2xs" />
             <div className="h-3.5 w-3.5 rounded-full bg-[#BFAEA0] mx-1 shrink-0 border border-white shadow-2xs" />
             <div className="h-2 flex-1 rounded-r-full bg-gradient-to-r from-[#D5C7B0] to-[#DFD3BE] shadow-2xs" />
           </div>
 
-          {/* แถวห้องพักลอยน้ำริมน้ำ W1 ➔ W10 */}
+          {/* แถวห้องพักลอยน้ำริมน้ำ W1 ➔ W11 */}
           <div className="flex items-start justify-center gap-2 sm:gap-3.5">
             {/* ซีกซ้าย */}
             <div className="flex items-start gap-2 sm:gap-3.5">
@@ -194,7 +263,7 @@ export default function RaftLayoutMap({
       </div>
 
       {/* แถบผืนน้ำแม่น้ำธรรมชาติ (Clean Serene Water Surface) */}
-      <div className="mt-5 pt-3.5 border-t border-stone-200/50 flex items-center justify-center gap-2.5 text-stone-400">
+      <div className="mt-4 pt-3 border-t border-stone-200/50 flex items-center justify-center gap-2.5 text-stone-400">
         <span className="h-px w-16 bg-gradient-to-r from-transparent via-teal-200 to-transparent" />
         <div className="flex items-center gap-1.5 text-teal-800/60 font-sans text-[11px] font-bold tracking-widest uppercase">
           <Waves size={13} className="text-teal-600/70" />
@@ -202,6 +271,50 @@ export default function RaftLayoutMap({
         </div>
         <span className="h-px w-16 bg-gradient-to-r from-transparent via-teal-200 to-transparent" />
       </div>
+
+      {/* Slide bar ด้านล่าง สำหรับเลื่อนดูห้องพัก */}
+      {showSlideBar && (
+        <div className="mt-3.5 pt-3 border-t border-stone-200/60 flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2.5 w-full max-w-xs sm:max-w-sm justify-center px-1">
+            <button
+              type="button"
+              onClick={() => handleScrollStep(-180)}
+              disabled={scrollPercent <= 0}
+              aria-label="เลื่อนซ้าย"
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-forest-900 shadow-2xs hover:bg-forest-50 hover:border-forest-300 disabled:opacity-25 disabled:pointer-events-none active:scale-95 transition-all"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            <div className="relative flex-1 flex items-center h-5">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={scrollPercent}
+                onChange={(e) => handleSliderChange(Number(e.target.value))}
+                aria-label="เลื่อนดูผังห้องพัก"
+                className="w-full h-2 bg-stone-200/90 rounded-full appearance-none cursor-pointer accent-forest-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-1"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleScrollStep(180)}
+              disabled={scrollPercent >= 100}
+              aria-label="เลื่อนขวา"
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-forest-900 shadow-2xs hover:bg-forest-50 hover:border-forest-300 disabled:opacity-25 disabled:pointer-events-none active:scale-95 transition-all"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-stone-500">
+            <ArrowLeftRight size={12} className="text-forest-700/70" />
+            <span>เลื่อนซ้าย – ขวา เพื่อดูห้องพักทั้งหมด{roomRangeLabel}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

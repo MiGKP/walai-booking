@@ -30,6 +30,18 @@ export default function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [subnavStuck, setSubnavStuck] = useState(false);
+
+  useEffect(() => {
+    const handleSubnavSticky = (e: Event) => {
+      const customEvent = e as CustomEvent<{ isStuck: boolean }>;
+      setSubnavStuck(Boolean(customEvent.detail?.isStuck));
+    };
+    window.addEventListener("room-subnav-sticky", handleSubnavSticky);
+    return () => {
+      window.removeEventListener("room-subnav-sticky", handleSubnavSticky);
+    };
+  }, []);
   const { user, isAuthenticated, logout, loading } = useAuth();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -67,8 +79,13 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [dropdownOpen]);
 
+  const [scrollY, setScrollY] = useState(0);
+
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
+    const onScroll = () => {
+      setScrollY(window.scrollY);
+      setScrolled(window.scrollY > 12);
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -84,16 +101,24 @@ export default function Navbar() {
   }
 
   const isHomePage = pathname === "/";
+  const isRoomDetailPage = /^\/rooms\/[^/]+$/.test(pathname);
   const showSolidNav = scrolled || !isHomePage;
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 ${
+        isRoomDetailPage
+          ? "will-change-transform"
+          : "transition-all duration-300"
+      } ${
         showSolidNav
           ? "bg-cream-100/95 backdrop-blur-md shadow-[0_2px_10px_rgba(18,60,48,0.08)]"
           : "bg-transparent"
       }`}
-      style={WAVE_BORDER}
+      style={{
+        ...WAVE_BORDER,
+        transform: isRoomDetailPage ? "translateY(var(--navbar-translate-y, 0px))" : undefined,
+      }}
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
