@@ -20,7 +20,7 @@ function load(relative, states = [], overrides = {}) {
     '@/lib/api': { get: async () => ({ data: { data: [] } }), getApiErrorMessage: () => 'Mock error' },
     '@/hooks/useAuthGuard': { useAuthGuard: () => ({ ready: true, user: { role: 'customer' } }) },
     '@/hooks/useAuth': { useAuth: () => ({ user: null }) },
-    '@/hooks/useInfantAgePolicy': { useGuestAgePolicy: () => ({ infantAge: 6, childMaxAge: 11, childChargeMinAge: null, childChargeMaxAge: null, childChargePricePerNight: null, kidsPolicyRaw: null }) },
+    '@/hooks/useInfantAgePolicy': { useGuestAgePolicy: () => ({ infantAge: 6, childMaxAge: 11, adultHint: 'อายุ 12 ปีขึ้นไป', childHint: 'อายุ 0–11 ปี', childChargeMinAge: null, childChargeMaxAge: null, childChargePricePerNight: null, kidsPolicyRaw: null }) },
     '@/hooks/useConfirmStore': { useConfirmStore: { getState: () => ({}) } },
     '@/lib/toastConfirm': { toastConfirm() {} },
     ...overrides,
@@ -225,11 +225,11 @@ test('physical room entitlement summary remains visible without addon rows or bo
 const promo = { id: 7, name: 'Room promo', code: 'ROOM', discount_type: 'fixed', discount_value: 0, boat_ticket_count: 2, boat_addon_mode: 'paid', boat_addon_price: 150 };
 const cart = { check_in: '2099-11-01', check_out: '2099-11-02', adults: 2, children: 0, child_ages: [], items: [{ room_id: 51, room_type_id: 2, room_name: 'Room', type_name: 'Standard', room_number: 'A1', price_per_night: 1000, quantity: 1, capacity: 2 }] };
 function details(overrides = {}, beds = {}) {
-  return load('src/app/booking/details/page.tsx', ['First', 'Last', 'guest@example.test', '0800000000', '14:00', beds.extraBed ?? false, beds.roomIds ?? [], beds.childRoomIds ?? {}, false, false, '', [promo], { 2: 7 }, null, false, beds.childBeds ?? {}], { '@/lib/room-cart-store': { useRoomCart: () => beds.cart ?? cart, setRoomCart() {} }, ...overrides });
+  return load('src/app/booking/details/page.tsx', ['First', 'Last', 'guest@example.test', '0800000000', '14:00', beds.extraBed ?? false, beds.roomIds ?? [], beds.childRoomIds ?? {}, false, false, '', [promo], { 2: 7 }, null, false, beds.childBeds ?? {}, beds.guests ?? null, false], { '@/lib/room-cart-store': { useRoomCart: () => beds.cart ?? cart, setRoomCart() {} }, ...overrides });
 }
 test('checkout keeps ineligible room offers visible with a disabled option and explanation', () => {
   const offer = { ...promo, name: 'ROOMANDBOAT', min_nights: 2, room_count: 5, is_collectible: true };
-  const Component = load('src/app/booking/details/page.tsx', ['First', 'Last', 'guest@example.test', '0800000000', '14:00', false, [], {}, false, false, '', [offer], {}, null, false, {}, true, true], { '@/lib/room-cart-store': { useRoomCart: () => cart, setRoomCart() {} } }).default;
+  const Component = load('src/app/booking/details/page.tsx', ['First', 'Last', 'guest@example.test', '0800000000', '14:00', false, [], {}, false, false, '', [offer], {}, null, false, {}, null, false, true, true], { '@/lib/room-cart-store': { useRoomCart: () => cart, setRoomCart() {} } }).default;
   const html = renderToStaticMarkup(React.createElement(Component));
   assert.match(html, /<button[^>]*disabled[^>]*>[^]*?ROOMANDBOAT/);
   assert(html.includes('ต้องพักอย่างน้อย 2 คืน'));
@@ -276,6 +276,38 @@ async function submitExtraBeds(beds) {
   await findClick(TestContent(), 'ชำระเงิน')();
   return { requests, errors };
 }
+
+test('checkout sends reviewed guest counts and ages instead of the earlier cart defaults', async () => {
+  const { requests, errors } = await submitExtraBeds({ guests: { adults: 2, childAges: [0, 6] } });
+  assert.deepEqual(errors, []);
+  assert.equal(requests[0].body.adults, 2);
+  assert.equal(requests[0].body.children, 2);
+  assert.deepEqual(requests[0].body.child_ages, [0, 6]);
+  assert(!requests[0].body.special_requests.includes('เตียงเสริม'));
+});
+
+test('editing guests at checkout cannot exceed the selected rooms adult capacity', () => {
+  const { TestContent } = details({}, { guests: { adults: 3, childAges: [] } });
+  const html = renderToStaticMarkup(React.createElement(TestContent));
+  assert.match(html, /<button[^>]*disabled[^>]*>[^]*?กรุณาเลือกห้องเพิ่ม/);
+  assert(html.includes('ยังไม่พอสำหรับ 3 ท่าน'));
+});
+
+test('checkout asks for missing child age before claiming that another room is needed', async () => {
+  const guests = { adults: 2, childAges: [null] };
+  const html = renderToStaticMarkup(React.createElement(details({}, { guests }).TestContent));
+  assert(!html.includes('กรุณาเลือกห้องเพิ่ม'));
+  const oldDocument = global.document;
+  global.document = { getElementById: () => ({ scrollIntoView() {} }) };
+  try {
+    const { requests, errors } = await submitExtraBeds({ guests });
+    assert.equal(requests.length, 0);
+    assert.match(errors[0], /กรุณาระบุอายุเด็กให้ครบ/);
+  } finally {
+    if (oldDocument === undefined) delete global.document;
+    else global.document = oldDocument;
+  }
+});
 
 test('extra-bed request records every selected physical room for staff', async () => {
   const { requests, errors } = await submitExtraBeds({ extraBed: true, roomIds: [51, 52], cart: twoRoomCart });

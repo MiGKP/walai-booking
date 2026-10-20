@@ -47,7 +47,7 @@ for (const relative of ['src/app/rooms/page.tsx', 'src/app/rooms/[id]/page.tsx']
   test(`${relative} keeps the picker open for check-in and clears both dates`, () => {
     const source = fs.readFileSync(path.join(root, relative), 'utf8');
     const start = source.indexOf('  const handleRangeSelect =');
-    const handler = source.slice(start, source.indexOf('  const handleGuestsChange =', start));
+    const handler = source.slice(start, source.indexOf(relative === 'src/app/rooms/page.tsx' ? '  const handleCollectPromo =' : '  const handleGuestsChange =', start));
     const js = ts.transpileModule(`${handler}\nreturn handleRangeSelect`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
     const routes = [], panels = [];
     const fn = new Function('setRange', 'searchParams', 'router', 'pathname', 'cart', 'setRoomCart', 'toast', 'nightsBetween', 'setOpenPanel', js)(

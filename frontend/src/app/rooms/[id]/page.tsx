@@ -48,7 +48,7 @@ import {
   todayISO,
 } from '@/lib/date';
 
-import { roomPromotionLabel, type CheckoutPromotion } from '@/lib/booking-checkout';
+import { resolveCheckoutDetails, roomPromotionLabel, type CheckoutPromotion } from '@/lib/booking-checkout';
 import { RoomCartItem, minimumRoomsForGuests, roomOccupancy } from '@/lib/room-cart';
 import { useRoomCart, setRoomCart } from '@/lib/room-cart-store';
 import { useCartSync } from '@/hooks/useCartSync';
@@ -207,18 +207,18 @@ export default function RoomDetailPage(): React.ReactElement {
   const policy = useGuestAgePolicy();
   const infantAge = policy.infantAge;
   const [childAgeError, setChildAgeError] = useState(false);
+  const cart = useRoomCart();
+  const guestDetails = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
+  const adultsCount = guestDetails.adults;
+  const childrenCount = guestDetails.children;
 
   const childAges: Array<number | null> = useMemo(() => {
-    const children = parseInt(searchParams.get('children') || '0', 10);
-    const raw = (searchParams.get('child_ages') || '').split(',').map((s) => {
-      const n = parseInt(s, 10);
-      return Number.isInteger(n) && n >= 0 && n <= policy.childMaxAge ? n : null;
+    const saved = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
+    return Array.from({ length: saved.children }, (_, index) => {
+      const age = saved.childAges[index];
+      return Number.isInteger(age) && age >= 0 && age <= policy.childMaxAge ? age : null;
     });
-    const normalized = raw.length && (searchParams.get('child_ages') ?? '') !== '' ? raw : [];
-    if (normalized.length === children) return normalized;
-    if (normalized.length > children) return normalized.slice(0, children);
-    return [...normalized, ...Array(children - normalized.length).fill(null)];
-  }, [searchParams, policy.childMaxAge]);
+  }, [searchParams, policy.childMaxAge, cart]);
 
   const handleChildAgeChange = (index: number, age: number) => {
     const nextChildAges = [...childAges];
@@ -233,9 +233,7 @@ export default function RoomDetailPage(): React.ReactElement {
   };
 
 
-  const cart = useRoomCart();
-  const adultsCount = parseInt(searchParams.get('adults') || '1', 10);
-  const guestInput = { adults: adultsCount, children: parseInt(searchParams.get('children') || '0', 10), childAges, infantAge };
+  const guestInput = { adults: adultsCount, children: childrenCount, childAges, infantAge };
   const totalGuests = roomOccupancy({ ...guestInput, capacity: 0, roomCount: 0 }).occupyingGuests;
   const minimumRooms = room ? minimumRoomsForGuests(guestInput, Number(room.capacity)) : 1;
   const [openPanel, setOpenPanel] = useState<"guests" | "calendar" | null>(null);
@@ -280,7 +278,7 @@ export default function RoomDetailPage(): React.ReactElement {
   };
 
   const handleConfirmGuests = () => {
-    const children = parseInt(searchParams.get('children') || '0', 10);
+    const children = childrenCount;
     if (children > 0 && childAges.some((age) => age === null)) {
       setChildAgeError(true);
       toast.error("กรุณาระบุอายุของเด็กให้ครบทุกท่าน เพื่อค้นหาห้องพักที่เหมาะสม");
@@ -304,8 +302,8 @@ export default function RoomDetailPage(): React.ReactElement {
   const { commit: commitCart } = useCartSync({
     checkIn: range.start,
     checkOut: range.end,
-    adults: parseInt(searchParams.get('adults') || '1', 10),
-    children: parseInt(searchParams.get('children') || '0', 10),
+    adults: adultsCount,
+    children: childrenCount,
     childAges: childAges.filter((age): age is number => age !== null),
   });
 
@@ -770,12 +768,13 @@ export default function RoomDetailPage(): React.ReactElement {
                     )}
                   </div>
 
+                  {(Number(room.capacity) > 2 || adultsCount > 2 || childrenCount > 0) ? (
                   <div className="relative flex-1">
                     <button type="button" onClick={() => setOpenPanel((v) => (v === "guests" ? null : "guests"))} className={`flex h-full w-full items-center gap-3 px-5 py-3 text-left transition-colors duration-200 lg:rounded-r-full ${openPanel === "guests" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
                       <Users size={16} className="shrink-0 text-forest-700" />
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">ผู้เข้าพัก</span>
-                        <span className="block truncate text-sm font-semibold text-forest-900">ผู้ใหญ่ {parseInt(searchParams.get('adults') || '1', 10)} • เด็ก {parseInt(searchParams.get('children') || '0', 10)}</span>
+                        <span className="block truncate text-sm font-semibold text-forest-900">ผู้ใหญ่ {adultsCount} • เด็ก {childrenCount}</span>
                       </span>
                       <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "guests" ? "rotate(180deg)" : "rotate(0deg)" }} />
                     </button>
@@ -795,9 +794,9 @@ export default function RoomDetailPage(): React.ReactElement {
                             </button>
                           </div>
 
-                          <GuestRow label="ผู้ใหญ่" hint={policy.adultHint} value={parseInt(searchParams.get('adults') || '1', 10)} min={1} onChange={(v) => handleGuestsChange({ adults: v, children: parseInt(searchParams.get('children') || '0', 10) })} />
-                          <GuestRow label="เด็ก" hint={policy.childHint} value={parseInt(searchParams.get('children') || '0', 10)} min={0} onChange={(v) => handleGuestsChange({ adults: parseInt(searchParams.get('adults') || '1', 10), children: v })} />
-                          {parseInt(searchParams.get('children') || '0', 10) > 0 && (
+                          <GuestRow label="ผู้ใหญ่" hint={policy.adultHint} value={adultsCount} min={1} onChange={(v) => handleGuestsChange({ adults: v, children: childrenCount })} />
+                          <GuestRow label="เด็ก" hint={policy.childHint} value={childrenCount} min={0} onChange={(v) => handleGuestsChange({ adults: adultsCount, children: v })} />
+                          {childrenCount > 0 && (
                             <div
                               className={`mx-2 my-2 rounded-xl border p-3 space-y-2 transition-all ${
                                 childAgeError && childAges.some((a) => a === null)
@@ -864,6 +863,15 @@ export default function RoomDetailPage(): React.ReactElement {
                       </div>
                     )}
                   </div>
+                  ) : (
+                    <div className="flex flex-1 items-center gap-3 px-5 py-3">
+                      <Users size={16} className="shrink-0 text-forest-700" />
+                      <div>
+                        <p className="text-sm font-semibold text-forest-900">พักได้ 1–{room.capacity} ท่านต่อห้อง</p>
+                        <p className="text-xs text-charcoal-500">ยืนยันผู้เข้าพักและเพิ่มเด็กในหน้าถัดไป</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

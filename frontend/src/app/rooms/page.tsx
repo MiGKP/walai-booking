@@ -1,6 +1,6 @@
 "use client";
 
-import { eligibleRoomPromotion, roomPromotionDiscount, roomPromotionLabel, type CheckoutPromotion } from '@/lib/booking-checkout';
+import { resolveCheckoutDetails, eligibleRoomPromotion, roomPromotionDiscount, roomPromotionLabel, type CheckoutPromotion } from '@/lib/booking-checkout';
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import Link from "next/link";
 import { useAuth } from '@/hooks/useAuth';
@@ -10,8 +10,6 @@ import {
   Users,
   Calendar,
   AlertCircle,
-  Plus,
-  Minus,
   ChevronDown,
   X,
   Star,
@@ -20,7 +18,7 @@ import {
   Sailboat,
   Tag,
   CheckCircle2,
-  Search, Loader2, Baby,
+  Search, Loader2,
 } from "lucide-react";
 import { useGuestAgePolicy } from "@/hooks/useInfantAgePolicy";
 import api, { getApiErrorMessage } from "@/lib/api";
@@ -33,7 +31,6 @@ import BookingCalendar, {
 } from "@/components/booking/BookingCalendar";
 import { roomDateSelectionLabel } from '@/lib/room-date-selection';
 import BookingSummaryCard from "@/components/booking/BookingSummaryCard";
-import ChildAgeSelect from "@/components/booking/ChildAgeSelect";
 import { useRoomCart, setRoomCart } from "@/lib/room-cart-store";
 import { minimumRoomsForGuests, roomOccupancy } from "@/lib/room-cart";
 import { fetchRoomCalendar, toRoomDayStatus } from "@/lib/booking-calendar";
@@ -75,61 +72,6 @@ interface RoomType {
   rooms?: PhysicalRoom[] | null;
 }
 
-function Stepper({
-  value,
-  min = 0,
-  max = 99,
-  editable = true,
-  onChange,
-  ariaLabel,
-}: {
-  value: number;
-  min?: number;
-  max?: number;
-  editable?: boolean;
-  onChange: (next: number) => void;
-  ariaLabel: string;
-}): React.ReactElement {
-  const [draft, setDraft] = useState(String(value));
-
-  useEffect(() => {
-    setDraft(String(value));
-  }, [value]);
-
-  const commit = (raw: string): void => {
-    const parsed = parseInt(raw, 10);
-    const safe = isNaN(parsed) ? min : Math.min(max, Math.max(min, parsed));
-    setDraft(String(safe));
-    onChange(safe);
-  };
-
-  const btn = "grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-forest-800 transition-colors hover:border-forest-300 hover:bg-forest-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-forest-300 disabled:border-stone-100 disabled:text-stone-300 disabled:hover:bg-white";
-
-  return (
-    <div className="flex items-center gap-2">
-      <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} aria-label={`ลด${ariaLabel}`} className={btn}><Minus size={13} /></button>
-      {editable ? (
-        <input type="text" inputMode="numeric" value={draft} onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ""))} onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} onFocus={(e) => e.currentTarget.select()} aria-label={ariaLabel} className="h-7 w-9 rounded-md border border-transparent bg-transparent text-center text-sm font-bold tabular-nums text-forest-900 transition-colors hover:border-stone-200 focus:border-forest-400 focus:bg-[#FFFFFF] focus:outline-hidden" />
-      ) : (
-        <span className="w-9 text-center text-sm font-bold tabular-nums text-forest-900">{value}</span>
-      )}
-      <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`เพิ่ม${ariaLabel}`} className={btn}><Plus size={13} /></button>
-    </div>
-  );
-}
-
-function GuestRow({ label, hint, value, min, max = 20, onChange }: { label: string; hint: string; value: number; min: number; max?: number; onChange: (next: number) => void; }): React.ReactElement {
-  return (
-    <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-charcoal-700">{label}</p>
-        <p className="text-xs text-stone-400">{hint}</p>
-      </div>
-      <Stepper value={value} min={min} max={max} ariaLabel={label} onChange={onChange} />
-    </div>
-  );
-}
-
 export default function RoomsPage() {
   return (
     <Suspense fallback={
@@ -152,8 +94,7 @@ function RoomsPageContent(): React.ReactElement {
 
   const checkIn = searchParams.get('check_in') || '';
   const checkOut = searchParams.get('check_out') || '';
-  const adults = parseInt(searchParams.get("adults") || "1", 10);
-  const children = parseInt(searchParams.get("children") || "0", 10);
+  const { adults, children } = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
 
   const range = useMemo<DateRange | null>(() => checkIn ? { start: checkIn, end: checkOut } : null, [checkIn, checkOut]);
   const [cursor, setCursor] = useState<MonthCursor>(() => monthCursorFromISO(checkIn || today));
@@ -162,8 +103,8 @@ function RoomsPageContent(): React.ReactElement {
   const [rooms, setRooms] = useState<RoomType[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchedRange, setSearchedRange] = useState<DateRange | null>(range?.end ? range : null);
-  const [openPanel, setOpenPanel] = useState<"type" | "guests" | "calendar" | null>(null);
-  const [guests, setGuests] = useState({ adults, children });
+  const [openPanel, setOpenPanel] = useState<"type" | "calendar" | null>(null);
+  const guests = useMemo(() => ({ adults, children }), [adults, children]);
   const [typeFilter, setTypeFilter] = useState("all");
   const selectedPromoCodes = (searchParams.get("promo_code") || "").split(",").map((c) => c.trim().toUpperCase()).filter(Boolean);
   
@@ -174,40 +115,14 @@ function RoomsPageContent(): React.ReactElement {
   const pickerRef = useRef<HTMLDivElement>(null);
   const nights = range ? nightsBetween(range.start, range.end) : 0;
   const policy = useGuestAgePolicy();
-  const [childAgeError, setChildAgeError] = useState(false);
 
   const childAges: Array<number | null> = useMemo(() => {
-    const children = parseInt(searchParams.get('children') || '0', 10);
-    const raw = (searchParams.get('child_ages') || '').split(',').map((s) => {
-      const n = parseInt(s, 10);
-      return Number.isInteger(n) && n >= 0 && n <= policy.childMaxAge ? n : null;
+    const saved = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
+    return Array.from({ length: saved.children }, (_, index) => {
+      const age = saved.childAges[index];
+      return Number.isInteger(age) && age >= 0 && age <= policy.childMaxAge ? age : null;
     });
-    const normalized = raw.length && (searchParams.get('child_ages') ?? '') !== '' ? raw : [];
-    if (normalized.length === children) return normalized;
-    if (normalized.length > children) return normalized.slice(0, children);
-    return [...normalized, ...Array(children - normalized.length).fill(null)];
-  }, [searchParams, policy.childMaxAge]);
-
-  useEffect(() => {
-    const adults = parseInt(searchParams.get("adults") || "1", 10);
-    const children = parseInt(searchParams.get("children") || "0", 10);
-    setGuests({ adults, children });
-    if (children === 0) {
-      setChildAgeError(false);
-    }
-  }, [searchParams]);
-
-  const handleChildAgeChange = (index: number, age: number) => {
-    const nextChildAges = [...childAges];
-    nextChildAges[index] = age;
-    if (nextChildAges.every((a) => a !== null)) {
-      setChildAgeError(false);
-    }
-    const serialized = nextChildAges.map((a) => (a === null ? '' : String(a))).join(',');
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('child_ages', serialized);
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
-  };
+  }, [searchParams, policy.childMaxAge, cart]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => { if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setOpenPanel(null); };
@@ -237,17 +152,6 @@ function RoomsPageContent(): React.ReactElement {
     }
   };
 
-  const handleGuestsChange = (next: { adults: number; children: number; }): void => {
-    setGuests(next);
-    if (next.children === 0) {
-      setChildAgeError(false);
-    }
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("adults", String(next.adults));
-    params.set("children", String(next.children));
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
-  };
-
   const handleCollectPromo = async (promoId: number): Promise<void> => {
     if (!user) {
       showPromoNotice('error', 'กรุณาเข้าสู่ระบบก่อนเก็บโปรโมชั่น');
@@ -274,7 +178,6 @@ function RoomsPageContent(): React.ReactElement {
 
   const handleClearFilters = () => {
     setTypeFilter("all");
-    setGuests({ adults: 1, children: 0 });
     const t = todayISO();
     setCursor(monthCursorFromISO(t));
     const params = new URLSearchParams();
@@ -288,29 +191,12 @@ function RoomsPageContent(): React.ReactElement {
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
-  const handleConfirmGuests = () => {
-    if (guests.children > 0 && childAges.some((age) => age === null)) {
-      setChildAgeError(true);
-      toast.error("กรุณาระบุอายุของเด็กให้ครบทุกท่าน เพื่อค้นหาห้องพักที่เหมาะสม");
-      return;
-    }
-    setChildAgeError(false);
-    setOpenPanel(null);
-  };
-
   const handleSearchSubmit = () => {
     if (!range?.end || nightsBetween(range.start, range.end) <= 0) {
       setOpenPanel('calendar');
       toast.error(range?.start ? 'กรุณาเลือกวันเช็คเอาต์' : 'กรุณาเลือกวันเช็คอินและเช็คเอาต์');
       return;
     }
-    if (guests.children > 0 && childAges.some((age) => age === null)) {
-      setChildAgeError(true);
-      setOpenPanel("guests");
-      toast.error("กรุณาระบุอายุของเด็กให้ครบทุกท่าน เพื่อค้นหาห้องพักที่เหมาะสม");
-      return;
-    }
-    setChildAgeError(false);
     setOpenPanel(null);
   };
 
@@ -376,100 +262,6 @@ function RoomsPageContent(): React.ReactElement {
                     {roomTypeOptions.map((type) => (
                       <button key={type} type="button" onClick={() => { setTypeFilter(type); setOpenPanel(null); }} className={`w-full rounded-xl px-4 py-2 text-left text-sm font-medium transition-colors ${typeFilter === type ? "bg-forest-800 text-white" : "text-charcoal-600 hover:bg-forest-50"}`}>{type}</button>
                     ))}
-                  </div>
-                )}
-              </div>
-              <div className="relative flex-1">
-                <button type="button" onClick={() => setOpenPanel((v) => (v === "guests" ? null : "guests"))} className={`flex h-full w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-200 ${openPanel === "guests" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
-                  <Users size={16} className="shrink-0 text-forest-700" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">ผู้เข้าพัก</span>
-                    <span className="block truncate text-sm font-semibold text-forest-900">ผู้ใหญ่ {guests.adults} • เด็ก {guests.children}</span>
-                  </span>
-                  <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "guests" ? "rotate(180deg)" : "rotate(0deg)" }} />
-                </button>
-                {openPanel === "guests" && (
-                  <div
-                    className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-forest-950/45 backdrop-blur-xs lg:static lg:bg-transparent lg:p-0 lg:block lg:backdrop-blur-none"
-                    onClick={() => setOpenPanel(null)}
-                  >
-                    <div
-                      className="w-full sm:max-w-[400px] bg-white rounded-t-3xl sm:rounded-2xl p-5 sm:p-4 shadow-2xl max-h-[85vh] overflow-y-auto lg:overflow-visible lg:max-h-none lg:absolute lg:left-0 lg:top-full lg:mt-2 lg:w-[340px] lg:rounded-2xl lg:p-3 lg:border lg:border-stone-200 lg:shadow-xl"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center justify-between pb-3 mb-3 border-b border-stone-100 lg:hidden">
-                        <h3 className="font-display text-base font-bold text-forest-900">ระบุจำนวนผู้เข้าพัก</h3>
-                        <button type="button" onClick={() => setOpenPanel(null)} aria-label="ปิด" className="p-1 rounded-full text-charcoal-400 hover:text-charcoal-600">
-                          <X size={20} />
-                        </button>
-                      </div>
-
-                      <GuestRow label="ผู้ใหญ่" hint={policy.adultHint} value={guests.adults} min={1} onChange={(v) => handleGuestsChange({ ...guests, adults: v })} />
-                      <GuestRow label="เด็ก" hint={policy.childHint} value={guests.children} min={0} onChange={(v) => handleGuestsChange({ ...guests, children: v })} />
-                      {guests.children > 0 && (
-                        <div
-                          className={`mx-2 my-2 rounded-xl border p-3 space-y-2 transition-all ${
-                            childAgeError && childAges.some((a) => a === null)
-                              ? "border-rose-300 bg-rose-50/40"
-                              : "border-forest-100 bg-forest-50/50"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                              <Baby
-                                size={13}
-                                className={
-                                  childAgeError && childAges.some((a) => a === null)
-                                    ? "text-rose-700 shrink-0"
-                                    : "text-forest-700 shrink-0"
-                                }
-                              />
-                              <p
-                                className={`text-xs font-bold uppercase tracking-wide ${
-                                  childAgeError && childAges.some((a) => a === null)
-                                    ? "text-rose-800"
-                                    : "text-forest-800"
-                                }`}
-                              >
-                                อายุของเด็กแต่ละคน ณ วันเข้าพัก
-                              </p>
-                            </div>
-                            <span className="text-[11px] font-semibold text-rose-600">
-                              * จำเป็น
-                            </span>
-                          </div>
-
-                          {childAgeError && childAges.some((a) => a === null) && (
-                            <div className="flex items-center gap-1.5 text-xs text-rose-600 bg-white/90 border border-rose-200 rounded-lg px-2.5 py-1.5 font-medium animate-in fade-in duration-150">
-                              <AlertCircle size={13} className="shrink-0 text-rose-500" />
-                              <span>กรุณาระบุอายุของเด็กให้ครบทุกท่าน</span>
-                            </div>
-                          )}
-
-                          <div className="space-y-1.5">
-                            {childAges.map((age, index) => (
-                              <ChildAgeSelect
-                                key={index}
-                                index={index}
-                                value={age}
-                                maxAge={policy.childMaxAge}
-                                hasError={childAgeError && age === null}
-                                onChange={(val) => handleChildAgeChange(index, val)}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      <div className="border-t border-stone-100 p-2 mt-2">
-                        <button
-                          type="button"
-                          onClick={handleConfirmGuests}
-                          className="w-full rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800 active:scale-[0.99] cursor-pointer"
-                        >
-                          ตกลง
-                        </button>
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
@@ -629,7 +421,7 @@ function RoomsPageContent(): React.ReactElement {
                           <div><h3 className="font-sans text-xl font-semibold leading-tight text-forest-900">{room.room_name}</h3><p className="mt-1 line-clamp-2 text-sm leading-relaxed text-charcoal-400">{room.description}</p></div>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-4 border-t border-stone-100 pt-3">
-                          <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><Users size={14} className="text-forest-400" /><span>ความจุหลัก {room.capacity} ท่าน · เด็ก 6–11 ปีเพิ่มได้ 1 คน/ห้อง</span></div>
+                          <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><Users size={14} className="text-forest-400" /><span>{Number(room.capacity) <= 2 ? `พักได้ 1–${room.capacity} ท่าน` : `ความจุหลัก ${room.capacity} ท่าน`} · เด็ก 6–11 ปีเพิ่มได้ 1 คน/ห้อง</span></div>
                           {room.air_conditioner && <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><Wind size={14} className="text-forest-400" /><span>เครื่องปรับอากาศ</span></div>}
                           {room.bed_size && <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><BedDouble size={14} className="text-forest-400" /><span>{room.bed_size}</span></div>}
                         </div>

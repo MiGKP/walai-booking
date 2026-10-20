@@ -14,6 +14,7 @@ import { chooseRoomPromotions, eligibleRoomPromotion, resolveCheckoutDetails, ro
 import type { CheckoutPromotion } from '@/lib/booking-checkout';
 import { roomOccupancy, type RoomCartItem } from '@/lib/room-cart';
 import { useGuestAgePolicy } from '@/hooks/useInfantAgePolicy';
+import BookingGuests, { type BookingGuestSelection } from '@/components/booking/BookingGuests';
 
 type Promotion = CheckoutPromotion;
 
@@ -169,10 +170,23 @@ function BookingDetailsContent() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [childBeds, setChildBeds] = useState<Record<number, number>>({});
+  const [guestSelection, setGuestSelection] = useState<BookingGuestSelection | null>(null);
+  const [showGuestErrors, setShowGuestErrors] = useState(false);
   const policy = useGuestAgePolicy();
 
-  const { checkIn, checkOut, adults, children: childrenCount, childAges } = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
-  const childAgesStr = childAges.join(',');
+  const initialDetails = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
+  const { checkIn, checkOut } = initialDetails;
+  const guests = guestSelection ?? {
+    adults: initialDetails.adults,
+    childAges: Array.from({ length: initialDetails.children }, (_, index) => {
+      const age = initialDetails.childAges[index];
+      return Number.isInteger(age) && age >= 0 && age <= policy.childMaxAge ? age : null;
+    }),
+  };
+  const adults = guests.adults;
+  const childrenCount = guests.childAges.length;
+  const childAges = guests.childAges.map(age => age ?? NaN);
+  const childAgesStr = guests.childAges.map(age => age ?? '').join(',');
   const nights = nightsBetween(checkIn, checkOut);
   const eligibleChildBeds = childAges.flatMap((age, index) => Number.isInteger(age) && age >= policy.infantAge && age <= policy.childMaxAge ? [{ index, age }] : []);
   const selectedBeds = selectedChildExtraBeds(childAges, childBeds, policy.infantAge, policy.childMaxAge);
@@ -196,8 +210,26 @@ function BookingDetailsContent() {
   const totalCapacity = cartItems.reduce((sum, item) => sum + Number(item.capacity || 0), 0);
   const occupancy = roomOccupancy({ adults, children: childrenCount, childAges, infantAge: policy.infantAge, capacity: totalCapacity, roomCount: cartItems.length });
   const totalGuests = occupancy.occupyingGuests;
-  const isCapacityInsufficient = cartItems.length > 0 && !occupancy.fits;
+  const hasIncompleteGuestAges = guests.childAges.some(age => age === null);
+  const isCapacityInsufficient = cartItems.length > 0 && !hasIncompleteGuestAges && !occupancy.fits;
   const missingCapacity = occupancy.missingCapacity;
+
+  const handleGuestSelection = (next: BookingGuestSelection): void => {
+    setGuestSelection(next);
+    setShowGuestErrors(false);
+    if (JSON.stringify(next.childAges) !== JSON.stringify(guests.childAges)) {
+      setChildBeds({});
+      setChildBedRoomIds({});
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('adults', String(next.adults));
+    params.set('children', String(next.childAges.length));
+    params.set('child_ages', next.childAges.map(age => age ?? '').join(','));
+    router.replace(`/booking/details?${params.toString()}`, { scroll: false });
+    if (cart && next.childAges.every((age): age is number => age !== null)) {
+      setRoomCart({ ...cart, adults: next.adults, children: next.childAges.length, child_ages: next.childAges });
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -289,6 +321,8 @@ function BookingDetailsContent() {
       return;
     }
     if (childAges.length !== childrenCount || childAges.some(age => !Number.isInteger(age) || age < 0 || age > policy.childMaxAge)) {
+      setShowGuestErrors(true);
+      document.getElementById('booking-guests-heading')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       toast.error(`กรุณาระบุอายุเด็กให้ครบ (${policy.childHint.replace('อายุ ', '')}) ${policy.adultHint}ให้เลือกเป็นผู้ใหญ่`);
       return;
     }
@@ -419,6 +453,16 @@ function BookingDetailsContent() {
               </div>
             </section>
             
+            <BookingGuests
+              adults={adults}
+              childAges={guests.childAges}
+              capacities={cartItems.map(item => Number(item.capacity))}
+              adultHint={policy.adultHint}
+              childMaxAge={policy.childMaxAge}
+              showAgeErrors={showGuestErrors}
+              onChange={handleGuestSelection}
+            />
+
             {/* Arrival Time */}
             <section className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/80 shadow-xs">
               <h2 className="text-lg font-bold text-forest-900 mb-2 flex items-center gap-2">
