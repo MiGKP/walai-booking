@@ -85,7 +85,7 @@ interface Review {
   review_id: number;
   first_name: string | null;
   last_name: string | null;
-  rating: number;
+  rating: number | null;
   comment: string | null;
   review_date: string;
 }
@@ -208,7 +208,7 @@ export default function RoomDetailPage(): React.ReactElement {
 
   const filteredReviews = useMemo(() => {
     if (selectedRatingFilter === null) return reviews;
-    return reviews.filter((r) => Math.round(r.rating) === selectedRatingFilter);
+    return reviews.filter((r) => r.rating != null && Math.round(r.rating) === selectedRatingFilter);
   }, [reviews, selectedRatingFilter]);
 
   const [reviewScrollProgress, setReviewScrollProgress] = useState(0);
@@ -241,7 +241,7 @@ export default function RoomDetailPage(): React.ReactElement {
       clearTimeout(timer);
       window.removeEventListener('resize', updateReviewScrollState);
     };
-  }, [updateReviewScrollState, filteredReviews]);
+  }, [updateReviewScrollState, filteredReviews, loading]);
 
   const handleSlidebarClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = reviewScrollRef.current;
@@ -502,6 +502,8 @@ export default function RoomDetailPage(): React.ReactElement {
 
   // ค่อยๆ ดัน Navbar ขึ้นเมื่อแท็บนี้เลื่อนขึ้นมาแทน และค่อยๆ เลื่อน Navbar ลงมาเมื่อแท็บนี้เลื่อนลง
   useEffect(() => {
+    if (loading) return;
+    let wasStuck: boolean | null = null;
     const updateNavbarPush = () => {
       const el = sentinelRef.current;
       if (!el) return;
@@ -518,6 +520,11 @@ export default function RoomDetailPage(): React.ReactElement {
       }
 
       document.documentElement.style.setProperty('--navbar-translate-y', `${translateY}px`);
+      const isStuck = top <= 0;
+      if (isStuck !== wasStuck) {
+        wasStuck = isStuck;
+        window.dispatchEvent(new CustomEvent('room-subnav-sticky', { detail: { isStuck } }));
+      }
     };
 
     window.addEventListener('scroll', updateNavbarPush, { passive: true });
@@ -528,8 +535,9 @@ export default function RoomDetailPage(): React.ReactElement {
       window.removeEventListener('scroll', updateNavbarPush);
       window.removeEventListener('resize', updateNavbarPush);
       document.documentElement.style.removeProperty('--navbar-translate-y');
+      window.dispatchEvent(new CustomEvent('room-subnav-sticky', { detail: { isStuck: false } }));
     };
-  }, []);
+  }, [loading, id]);
 
   useEffect(() => {
     if (loading) return;
@@ -564,7 +572,7 @@ export default function RoomDetailPage(): React.ReactElement {
       const threshold = 120;
       let current = '';
 
-      for (const id of navSections) {
+      for (const id of [...navSections].reverse()) {
         const el = document.getElementById(id);
         if (el) {
           const rect = el.getBoundingClientRect();
@@ -1282,7 +1290,7 @@ export default function RoomDetailPage(): React.ReactElement {
                       <button
                         type="button"
                         onClick={() => scrollReviews('left')}
-                        disabled={reviewScrollProgress <= 0.02}
+                        disabled={!canScrollReviews || reviewScrollProgress <= 0.02}
                         aria-label="รีวิวก่อนหน้า"
                         className="grid h-8 w-8 place-items-center rounded-full border border-stone-200 bg-white text-forest-800 shadow-2xs transition-colors hover:border-forest-300 hover:bg-forest-50 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                       >
@@ -1291,7 +1299,7 @@ export default function RoomDetailPage(): React.ReactElement {
                       <button
                         type="button"
                         onClick={() => scrollReviews('right')}
-                        disabled={reviewScrollProgress >= 0.98}
+                        disabled={!canScrollReviews || reviewScrollProgress >= 0.98}
                         aria-label="รีวิวถัดไป"
                         className="grid h-8 w-8 place-items-center rounded-full border border-stone-200 bg-white text-forest-800 shadow-2xs transition-colors hover:border-forest-300 hover:bg-forest-50 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                       >
@@ -1318,7 +1326,7 @@ export default function RoomDetailPage(): React.ReactElement {
                     ทั้งหมด ({reviews.length})
                   </button>
                   {[5, 4, 3, 2, 1].map((star) => {
-                    const count = reviews.filter((r) => Math.round(r.rating) === star).length;
+                    const count = reviews.filter((r) => r.rating != null && Math.round(r.rating) === star).length;
                     const isSelected = selectedRatingFilter === star;
                     return (
                       <button
@@ -1403,7 +1411,7 @@ export default function RoomDetailPage(): React.ReactElement {
                               <div className="flex shrink-0 items-center gap-1 rounded-lg bg-amber-50/80 border border-amber-200/60 px-2 py-1">
                                 <Star size={11} className="fill-amber-400 text-amber-500" />
                                 <span className="font-sans text-xs font-bold text-amber-900">
-                                  {review.rating.toFixed(1)}
+                                  {review.rating == null ? '—' : Number(review.rating).toFixed(1)}
                                 </span>
                               </div>
                             </div>

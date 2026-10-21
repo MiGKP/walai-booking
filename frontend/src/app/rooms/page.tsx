@@ -114,7 +114,7 @@ function RoomsPageContent(): React.ReactElement {
   const { notice: promoNotice, showNotice: showPromoNotice } = usePromoNotice();
 
   const pickerRef = useRef<HTMLDivElement>(null);
-  const activeRange = draftRange !== undefined && draftRange !== null ? draftRange : range;
+  const activeRange = draftRange;
   const nights = range ? nightsBetween(range.start, range.end) : 0;
   const activeNights = activeRange?.start && activeRange?.end ? nightsBetween(activeRange.start, activeRange.end) : 0;
   const policy = useGuestAgePolicy();
@@ -148,6 +148,15 @@ function RoomsPageContent(): React.ReactElement {
       params.delete('check_out');
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
       return;
+    }
+    if (nightsBetween(next.start, next.end) > 0) {
+      if (cart && cart.items.length > 0 && (cart.check_in !== next.start || cart.check_out !== next.end)) {
+        setRoomCart(null);
+        toast('เปลี่ยนวันที่แล้ว กรุณาเลือกห้องพักใหม่สำหรับวันที่ต้องการ');
+      }
+      params.set('check_in', next.start);
+      params.set('check_out', next.end);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     }
   };
 
@@ -192,7 +201,7 @@ function RoomsPageContent(): React.ReactElement {
   };
 
   const handleSearchSubmit = () => {
-    const targetRange = draftRange !== undefined && draftRange !== null ? draftRange : range;
+    const targetRange = draftRange;
     if (!targetRange?.end || nightsBetween(targetRange.start, targetRange.end) <= 0) {
       setOpenPanel('calendar');
       toast.error(targetRange?.start ? 'กรุณาเลือกวันเช็คเอาต์' : 'กรุณาเลือกวันเช็คอินและเช็คเอาต์');

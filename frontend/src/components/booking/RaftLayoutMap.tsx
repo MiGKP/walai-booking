@@ -279,7 +279,7 @@ export default function RaftLayoutMap({
             <button
               type="button"
               onClick={() => handleScrollStep(-180)}
-              disabled={scrollPercent <= 0}
+              disabled={!canScroll || scrollPercent <= 0}
               aria-label="เลื่อนซ้าย"
               className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-forest-900 shadow-2xs hover:bg-forest-50 hover:border-forest-300 disabled:opacity-25 disabled:pointer-events-none active:scale-95 transition-all"
             >
@@ -292,6 +292,7 @@ export default function RaftLayoutMap({
                 min={0}
                 max={100}
                 value={scrollPercent}
+                disabled={!canScroll}
                 onChange={(e) => handleSliderChange(Number(e.target.value))}
                 aria-label="เลื่อนดูผังห้องพัก"
                 className="w-full h-2 bg-stone-200/90 rounded-full appearance-none cursor-pointer accent-forest-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-600 focus-visible:ring-offset-1"
@@ -301,7 +302,7 @@ export default function RaftLayoutMap({
             <button
               type="button"
               onClick={() => handleScrollStep(180)}
-              disabled={scrollPercent >= 100}
+              disabled={!canScroll || scrollPercent >= 100}
               aria-label="เลื่อนขวา"
               className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-stone-200 bg-white text-forest-900 shadow-2xs hover:bg-forest-50 hover:border-forest-300 disabled:opacity-25 disabled:pointer-events-none active:scale-95 transition-all"
             >

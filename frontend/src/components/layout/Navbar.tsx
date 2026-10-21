@@ -36,6 +36,7 @@ export default function Navbar() {
     const handleSubnavSticky = (e: Event) => {
       const customEvent = e as CustomEvent<{ isStuck: boolean }>;
       setSubnavStuck(Boolean(customEvent.detail?.isStuck));
+      if (customEvent.detail?.isStuck) setDropdownOpen(false);
     };
     window.addEventListener("room-subnav-sticky", handleSubnavSticky);
     return () => {
@@ -105,7 +106,10 @@ export default function Navbar() {
   const showSolidNav = scrolled || !isHomePage;
 
   return (
+    <>
     <nav
+      aria-hidden={isRoomDetailPage && subnavStuck ? true : undefined}
+      inert={isRoomDetailPage && subnavStuck ? true : undefined}
       className={`fixed top-0 left-0 right-0 z-50 ${
         isRoomDetailPage
           ? "will-change-transform"
@@ -402,13 +406,14 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu Overlay / Focus Trap */}
+    </nav>
+      {/* Keep the mobile overlay outside the transformed navbar. */}
       {isOpen && (
         <div
           role="dialog"
           aria-modal="true"
           aria-label="เมนูหลัก"
-          className="fixed inset-0 z-40 md:hidden bg-forest-950/20 backdrop-blur-xs"
+          className="fixed inset-0 z-[49] md:hidden bg-forest-950/20 backdrop-blur-xs"
           onClick={() => setIsOpen(false)}
         >
           <div
@@ -491,6 +496,6 @@ export default function Navbar() {
           </div>
         </div>
       )}
-    </nav>
+    </>
   );
 }
