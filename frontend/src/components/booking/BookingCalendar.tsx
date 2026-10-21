@@ -8,6 +8,7 @@ import {
   addDaysISO,
   buildMonthGrid,
   formatMonthLabel,
+  formatThaiDate,
   formatThaiDateLong,
   monthCursorFromISO,
   nightsInRange,
@@ -69,13 +70,19 @@ interface MonthPanelProps {
   focusedISO: string;
   selectedStart: string | null;
   selectedEnd: string | null;
+  previewEnd?: string | null;
   rangeNights: Set<string>;
   mode: "single" | "range";
   singleValue: string | null;
   isDisabled: (iso: string) => boolean;
   onFocusDay: (iso: string) => void;
   onSelectDay: (iso: string) => void;
+  onHoverDay?: (iso: string | null) => void;
   hideTitle?: boolean;
+  onPrevMonth?: () => void;
+  onNextMonth?: () => void;
+  canGoPrev?: boolean;
+  canGoNext?: boolean;
 }
 
 function MonthPanel({
@@ -86,22 +93,57 @@ function MonthPanel({
   focusedISO,
   selectedStart,
   selectedEnd,
+  previewEnd = null,
   rangeNights,
   mode,
   singleValue,
   isDisabled,
   onFocusDay,
   onSelectDay,
+  onHoverDay,
   hideTitle = false,
+  onPrevMonth,
+  onNextMonth,
+  canGoPrev,
+  canGoNext,
 }: MonthPanelProps): React.ReactElement {
   const cells = useMemo(() => buildMonthGrid(cursor), [cursor]);
 
   return (
     <div className="min-w-0 flex-1">
       {!hideTitle && (
-        <p className="mb-3 text-center font-display text-base font-medium text-forest-900">
-          {formatMonthLabel(cursor)}
-        </p>
+        <div className="mb-2.5 flex items-center justify-between">
+          {onPrevMonth ? (
+            <button
+              type="button"
+              onClick={onPrevMonth}
+              disabled={!canGoPrev}
+              aria-label="เดือนก่อนหน้า"
+              className="w-8 h-8 grid place-items-center rounded-full text-forest-800 hover:bg-forest-50 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
+            >
+              <ChevronLeft size={18} />
+            </button>
+          ) : (
+            <div className="w-8 h-8 shrink-0" />
+          )}
+          <p className="font-display text-sm sm:text-base font-bold text-forest-900 text-center flex-1">
+            {formatMonthLabel(cursor)}
+          </p>
+  
+          {onNextMonth ? (
+            <button
+              type="button"
+              onClick={onNextMonth}
+              disabled={!canGoNext}
+              aria-label="เดือนถัดไป"
+              className="w-8 h-8 grid place-items-center rounded-full text-forest-800 hover:bg-forest-50 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
+            >
+              <ChevronRight size={18} />
+            </button>
+          ) : (
+            <div className="w-8 h-8 shrink-0" />
+          )}
+        </div>
       )}
 
       <div className="grid grid-cols-7 mb-1 border-b border-stone-100 pb-1.5">
@@ -119,6 +161,7 @@ function MonthPanel({
         role="grid"
         aria-label={`ปฏิทิน ${formatMonthLabel(cursor)}`}
         aria-busy={loading}
+        onMouseLeave={() => onHoverDay?.(null)}
         className={`grid grid-cols-7 gap-y-1 pt-1 transition-opacity ${loading ? "opacity-45" : "opacity-100"}`}
       >
         {cells.map((iso, index) => {
@@ -136,6 +179,8 @@ function MonthPanel({
           const isFull = status?.tone === "full";
           const isStart = iso === selectedStart;
           const isEnd = iso === selectedEnd;
+          const isHoverEnd = Boolean(!selectedEnd && previewEnd && iso === previewEnd);
+          const effectiveEnd = selectedEnd || previewEnd;
           const inRange = mode === "range" && rangeNights.has(iso) && !isStart;
           const isSelected =
             isStart ||
@@ -144,20 +189,29 @@ function MonthPanel({
           const isToday = iso === today;
 
           return (
-            <div key={iso} role="gridcell" className="relative py-0.5">
-              {inRange && !isEnd && (
+            <div
+              key={iso}
+              role="gridcell"
+              className="relative py-0.5"
+              onMouseEnter={() => {
+                if (!disabled && onHoverDay) {
+                  onHoverDay(iso);
+                }
+              }}
+            >
+              {inRange && !isEnd && !isHoverEnd && (
                 <span
                   aria-hidden="true"
                   className="absolute inset-y-1 left-0 right-0 bg-forest-50"
                 />
               )}
-              {isStart && mode === "range" && selectedEnd && selectedEnd > iso && (
+              {isStart && mode === "range" && effectiveEnd && effectiveEnd > iso && (
                 <span
                   aria-hidden="true"
-                  className="absolute inset-y-1 left-1/2 right-0 rounded-r-full bg-forest-50"
+                  className="absolute inset-y-1 left-1/2 right-0 bg-forest-50"
                 />
               )}
-              {isEnd && (
+              {(isEnd || isHoverEnd) && (
                 <span
                   aria-hidden="true"
                   className="absolute inset-y-1 left-0 right-1/2 rounded-l-full bg-forest-50"
@@ -171,7 +225,6 @@ function MonthPanel({
                 aria-current={isToday ? "date" : undefined}
                 aria-pressed={isSelected}
                 aria-label={`${formatThaiDateLong(iso)}${status?.hint ? ` — ${status.hint}` : ""}`}
-                title={status?.hint}
                 onFocus={() => onFocusDay(iso)}
                 onClick={() => onSelectDay(iso)}
                 className={[
@@ -179,19 +232,23 @@ function MonthPanel({
                   "focus:outline-hidden focus-visible:ring-2 focus-visible:ring-bamboo-400 focus-visible:ring-offset-1",
                   isSelected
                     ? "bg-forest-800 text-cream-100 font-semibold shadow-xs shadow-forest-800/30"
-                    : disabled
-                      ? "text-charcoal-300 cursor-not-allowed"
-                      : "text-charcoal-700 hover:bg-forest-100/70",
-                  isFull && !isSelected
+                    : isHoverEnd
+                      ? "bg-forest-700 text-cream-100 font-semibold ring-2 ring-forest-600/40 shadow-xs"
+                      : inRange
+                        ? "text-forest-900 font-medium hover:bg-forest-100/70"
+                        : disabled
+                          ? "text-charcoal-300 cursor-not-allowed"
+                          : "text-charcoal-700 hover:bg-forest-100/70",
+                  isFull && !isSelected && !isHoverEnd
                     ? "line-through decoration-charcoal-300"
                     : "",
-                  isToday && !isSelected
+                  isToday && !isSelected && !isHoverEnd
                     ? "ring-1 ring-inset ring-bamboo-400"
                     : "",
                 ].join(" ")}
               >
                 {Number(iso.slice(8, 10))}
-                {status?.tone === "low" && !isSelected && !disabled && (
+                {status?.tone === "low" && !isSelected && !isHoverEnd && !disabled && (
                   <span
                     aria-hidden="true"
                     className="absolute bottom-1 h-1 w-1 rounded-full bg-bamboo-400"
@@ -223,6 +280,8 @@ export default function BookingCalendar(
 
   const monthCount: 1 | 2 = visibleMonths === 1 ? 1 : 2;
 
+  const [hoveredISO, setHoveredISO] = useState<string | null>(null);
+
   const [focusedISO, setFocusedISO] = useState<string>(() => {
     if (props.mode === "single") return props.value ?? minISO;
     return props.value?.start ?? minISO;
@@ -240,17 +299,17 @@ export default function BookingCalendar(
   const currentCursor = monthCursorFromISO(today);
   const canGoPrev = monthIndex(cursor) > monthIndex(monthCursorFromISO(minISO));
   const canGoNext =
-    monthIndex(cursor) + (monthCount - 1) 
+    monthIndex(cursor) + (monthCount - 1) <
     monthIndex(currentCursor) + maxMonthsAhead;
 
   const rangeValue: DateRange | null =
     props.mode === "range" ? props.value : null;
   const pendingStart = rangeValue?.start && !rangeValue.end ? rangeValue.start : null;
 
-  const rangeNights = useMemo<Set<string>>(() => {
-    if (!rangeValue?.start || !rangeValue.end) return new Set();
-    return new Set(nightsInRange(rangeValue.start, rangeValue.end));
-  }, [rangeValue]);
+  const selectedStart =
+    props.mode === "range" ? (rangeValue?.start || null) : props.value;
+  const selectedEnd =
+    props.mode === "range" ? (rangeValue?.end || null) : null;
 
   useEffect(() => {
     if (!shouldRestoreFocus.current) return;
@@ -271,6 +330,21 @@ export default function BookingCalendar(
     return dayStatus?.[iso]?.tone === "full";
   };
 
+  const previewEnd =
+    props.mode === "range" &&
+    pendingStart &&
+    hoveredISO &&
+    hoveredISO > pendingStart &&
+    !isDisabled(hoveredISO)
+      ? hoveredISO
+      : null;
+
+  const rangeNights = useMemo<Set<string>>(() => {
+    const end = selectedEnd || previewEnd;
+    if (!selectedStart || !end) return new Set();
+    return new Set(nightsInRange(selectedStart, end));
+  }, [selectedStart, selectedEnd, previewEnd]);
+
   const handleSelect = (iso: string): void => {
     if (isDisabled(iso)) return;
 
@@ -278,6 +352,8 @@ export default function BookingCalendar(
       props.onSelect(iso);
       return;
     }
+
+    setHoveredISO(null);
 
     if (!pendingStart) {
       props.onSelect({ start: iso, end: "" });
@@ -337,61 +413,44 @@ export default function BookingCalendar(
     }
   };
 
-  const selectedStart =
-    props.mode === "range" ? (rangeValue?.start || null) : props.value;
-  const selectedEnd =
-    props.mode === "range" ? (rangeValue?.end || null) : null;
-
   return (
     <div
       ref={rootRef}
       className={`select-none ${className}`}
       onKeyDown={handleKeyDown}
+      onMouseLeave={() => setHoveredISO(null)}
     >
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => onCursorChange(shiftMonth(cursor, -1))}
-          disabled={!canGoPrev}
-          aria-label="เดือนก่อนหน้า"
-          className="w-9 h-9 grid place-items-center rounded-full text-forest-800 hover:bg-forest-50 disabled:opacity-25 disabled:hover:bg-transparent transition-colors"
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <p aria-live="polite" className="text-sm font-semibold text-forest-900 text-center font-display">
-          {monthCount === 2
-            ? (
-              <span className="inline-flex items-center gap-2">
-                {formatMonthLabel(months[0])}
-                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-bamboo-400" />
-                {formatMonthLabel(months[1])}
-              </span>
-            )
-            : formatMonthLabel(cursor)}
-        </p>
-        <button
-          type="button"
-          onClick={() => onCursorChange(shiftMonth(cursor, 1))}
-          disabled={!canGoNext}
-          aria-label="เดือนถัดไป"
-          className="w-9 h-9 grid place-items-center rounded-full text-forest-800 hover:bg-forest-50 disabled:opacity-25 disabled:hover:bg-transparent transition-colors"
-        >
-          <ChevronRight size={18} />
-        </button>
-      </div>
-
       {props.mode === "range" && <div className="mb-4" aria-live="polite">
         <div className="grid grid-cols-2 gap-2">
           <div className={`rounded-xl border p-3 ${!selectedStart || selectedEnd ? 'border-stone-200 bg-stone-50' : 'border-forest-600 bg-forest-50'}`}>
             <p className="text-xs font-bold text-forest-800">1. วันเช็คอิน</p>
-            <p className="mt-1 text-sm text-forest-900">{selectedStart ? formatThaiDateLong(selectedStart) : 'เลือกวันเข้าพัก'}</p>
+            <p className="mt-1 text-sm text-forest-900">{selectedStart ? formatThaiDate(selectedStart) : 'เลือกวันเข้าพัก'}</p>
           </div>
           <div className={`rounded-xl border p-3 ${pendingStart ? 'border-forest-600 bg-forest-50' : 'border-stone-200 bg-stone-50'}`}>
             <p className="text-xs font-bold text-forest-800">2. วันเช็คเอาต์</p>
-            <p className="mt-1 text-sm text-forest-900">{selectedEnd ? formatThaiDateLong(selectedEnd) : 'ยังไม่ได้เลือกวันออก'}</p>
+            <p className="mt-1 text-sm text-forest-900">
+              {selectedEnd ? (
+                formatThaiDate(selectedEnd)
+              ) : previewEnd ? (
+                <span className="text-forest-700 font-medium">
+                  {formatThaiDate(previewEnd)}{' '}
+                  <span className="text-xs text-forest-600 font-normal">({rangeNights.size} คืน)</span>
+                </span>
+              ) : (
+                'ยังไม่ได้เลือกวันออก'
+              )}
+            </p>
           </div>
         </div>
-        <p className="mt-2 text-xs text-charcoal-500">{pendingStart ? 'เลือกวันเช็คเอาต์หลังวันเช็คอิน ห้องพักคิดเป็นรายคืน' : selectedEnd ? 'เลือกครบแล้ว · กดวันอื่นเพื่อเริ่มเลือกช่วงวันใหม่' : 'เริ่มจากเลือกวันเช็คอิน แล้วเลือกวันเช็คเอาต์'}</p>
+        <p className="mt-2 text-xs text-charcoal-500">
+          {pendingStart
+            ? previewEnd
+              ? `คลิกเพื่อเลือกวันเช็คเอาต์ ${formatThaiDate(previewEnd)} (รวม ${rangeNights.size} คืน)`
+              : 'เลือกวันเช็คเอาต์หลังวันเช็คอิน ห้องพักคิดเป็นรายคืน'
+            : selectedEnd
+              ? 'เลือกครบแล้ว · กดวันอื่นเพื่อเริ่มเลือกช่วงวันใหม่'
+              : 'เริ่มจากเลือกวันเช็คอิน แล้วเลือกวันเช็คเอาต์'}
+        </p>
       </div>}
       <div
         className={
@@ -417,13 +476,19 @@ export default function BookingCalendar(
               focusedISO={focusedISO}
               selectedStart={selectedStart}
               selectedEnd={selectedEnd}
+              previewEnd={previewEnd}
               rangeNights={rangeNights}
               mode={props.mode}
               singleValue={props.mode === "single" ? props.value : null}
               isDisabled={isDisabled}
               onFocusDay={setFocusedISO}
               onSelectDay={handleSelect}
+              onHoverDay={setHoveredISO}
               hideTitle={false}
+              onPrevMonth={index === 0 ? () => onCursorChange(shiftMonth(cursor, -1)) : undefined}
+              onNextMonth={index === monthCount - 1 ? () => onCursorChange(shiftMonth(cursor, 1)) : undefined}
+              canGoPrev={index === 0 ? canGoPrev : undefined}
+              canGoNext={index === monthCount - 1 ? canGoNext : undefined}
             />
           </div>
         ))}

@@ -74,3 +74,16 @@ test('room calendar can include today but never a date before its minimum', () =
   assert.equal(c.panel().isDisabled('2099-01-18'), true);
   assert.equal(c.panel().isDisabled('2099-01-19'), false);
 });
+
+test('hover previews a stay without committing a checkout until the second click', () => {
+  const c = calendar();
+  c.select('2099-01-19');
+  c.panel().onHoverDay('2099-01-21');
+  assert.equal(c.panel().previewEnd, '2099-01-21');
+  assert.equal(c.panel().selectedEnd, null);
+  assert.deepEqual(c.changes, [{ start: '2099-01-19', end: '' }]);
+  c.panel().onHoverDay(null);
+  assert.equal(c.panel().rangeNights.size, 0);
+  c.select('2099-01-21');
+  assert.deepEqual(c.changes.at(-1), { start: '2099-01-19', end: '2099-01-21' });
+});

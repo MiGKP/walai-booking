@@ -30,6 +30,19 @@ export default function Navbar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [subnavStuck, setSubnavStuck] = useState(false);
+
+  useEffect(() => {
+    const handleSubnavSticky = (e: Event) => {
+      const customEvent = e as CustomEvent<{ isStuck: boolean }>;
+      setSubnavStuck(Boolean(customEvent.detail?.isStuck));
+      if (customEvent.detail?.isStuck) setDropdownOpen(false);
+    };
+    window.addEventListener("room-subnav-sticky", handleSubnavSticky);
+    return () => {
+      window.removeEventListener("room-subnav-sticky", handleSubnavSticky);
+    };
+  }, []);
   const { user, isAuthenticated, logout, loading } = useAuth();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -67,8 +80,13 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [dropdownOpen]);
 
+  const [scrollY, setScrollY] = useState(0);
+
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
+    const onScroll = () => {
+      setScrollY(window.scrollY);
+      setScrolled(window.scrollY > 12);
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -84,16 +102,27 @@ export default function Navbar() {
   }
 
   const isHomePage = pathname === "/";
+  const isRoomDetailPage = /^\/rooms\/[^/]+$/.test(pathname);
   const showSolidNav = scrolled || !isHomePage;
 
   return (
+    <>
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      aria-hidden={isRoomDetailPage && subnavStuck ? true : undefined}
+      inert={isRoomDetailPage && subnavStuck ? true : undefined}
+      className={`fixed top-0 left-0 right-0 z-50 ${
+        isRoomDetailPage
+          ? "will-change-transform"
+          : "transition-all duration-300"
+      } ${
         showSolidNav
           ? "bg-cream-100/95 backdrop-blur-md shadow-[0_2px_10px_rgba(18,60,48,0.08)]"
           : "bg-transparent"
       }`}
-      style={WAVE_BORDER}
+      style={{
+        ...WAVE_BORDER,
+        transform: isRoomDetailPage ? "translateY(var(--navbar-translate-y, 0px))" : undefined,
+      }}
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
@@ -377,13 +406,14 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Menu Overlay / Focus Trap */}
+    </nav>
+      {/* Keep the mobile overlay outside the transformed navbar. */}
       {isOpen && (
         <div
           role="dialog"
           aria-modal="true"
           aria-label="เมนูหลัก"
-          className="fixed inset-0 z-40 md:hidden bg-forest-950/20 backdrop-blur-xs"
+          className="fixed inset-0 z-[49] md:hidden bg-forest-950/20 backdrop-blur-xs"
           onClick={() => setIsOpen(false)}
         >
           <div
@@ -466,6 +496,6 @@ export default function Navbar() {
           </div>
         </div>
       )}
-    </nav>
+    </>
   );
 }

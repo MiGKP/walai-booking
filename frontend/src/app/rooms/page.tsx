@@ -97,6 +97,7 @@ function RoomsPageContent(): React.ReactElement {
   const { adults, children } = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
 
   const range = useMemo<DateRange | null>(() => checkIn ? { start: checkIn, end: checkOut } : null, [checkIn, checkOut]);
+  const [draftRange, setDraftRange] = useState<DateRange | null>(range);
   const [cursor, setCursor] = useState<MonthCursor>(() => monthCursorFromISO(checkIn || today));
   const [dayStatus, setDayStatus] = useState<Record<string, DayStatus>>({});
   const [calendarLoading, setCalendarLoading] = useState(true);
@@ -113,8 +114,14 @@ function RoomsPageContent(): React.ReactElement {
   const { notice: promoNotice, showNotice: showPromoNotice } = usePromoNotice();
 
   const pickerRef = useRef<HTMLDivElement>(null);
+  const activeRange = draftRange;
   const nights = range ? nightsBetween(range.start, range.end) : 0;
+  const activeNights = activeRange?.start && activeRange?.end ? nightsBetween(activeRange.start, activeRange.end) : 0;
   const policy = useGuestAgePolicy();
+
+  useEffect(() => {
+    setDraftRange(range);
+  }, [range]);
 
   const childAges: Array<number | null> = useMemo(() => {
     const saved = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
@@ -131,6 +138,9 @@ function RoomsPageContent(): React.ReactElement {
   }, [openPanel]);
 
   const handleRangeSelect = (next: DateRange | null): void => {
+    if (typeof setDraftRange === 'function') {
+      setDraftRange(next);
+    }
     const params = new URLSearchParams(searchParams.toString());
     if (!next?.end) {
       if (next?.start) params.set('check_in', next.start);
@@ -139,16 +149,14 @@ function RoomsPageContent(): React.ReactElement {
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
       return;
     }
-    if (next && nightsBetween(next.start, next.end) > 0) {
+    if (nightsBetween(next.start, next.end) > 0) {
       if (cart && cart.items.length > 0 && (cart.check_in !== next.start || cart.check_out !== next.end)) {
         setRoomCart(null);
         toast('เปลี่ยนวันที่แล้ว กรุณาเลือกห้องพักใหม่สำหรับวันที่ต้องการ');
       }
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("check_in", next.start);
-      params.set("check_out", next.end);
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
-      setOpenPanel(null);
+      params.set('check_in', next.start);
+      params.set('check_out', next.end);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     }
   };
 
@@ -178,6 +186,7 @@ function RoomsPageContent(): React.ReactElement {
 
   const handleClearFilters = () => {
     setTypeFilter("all");
+    setDraftRange(null);
     const t = todayISO();
     setCursor(monthCursorFromISO(t));
     const params = new URLSearchParams();
@@ -192,11 +201,20 @@ function RoomsPageContent(): React.ReactElement {
   };
 
   const handleSearchSubmit = () => {
-    if (!range?.end || nightsBetween(range.start, range.end) <= 0) {
+    const targetRange = draftRange;
+    if (!targetRange?.end || nightsBetween(targetRange.start, targetRange.end) <= 0) {
       setOpenPanel('calendar');
-      toast.error(range?.start ? 'กรุณาเลือกวันเช็คเอาต์' : 'กรุณาเลือกวันเช็คอินและเช็คเอาต์');
+      toast.error(targetRange?.start ? 'กรุณาเลือกวันเช็คเอาต์' : 'กรุณาเลือกวันเช็คอินและเช็คเอาต์');
       return;
     }
+    if (cart && cart.items.length > 0 && (cart.check_in !== targetRange.start || cart.check_out !== targetRange.end)) {
+      setRoomCart(null);
+      toast('เปลี่ยนวันที่แล้ว กรุณาเลือกห้องพักใหม่สำหรับวันที่ต้องการ');
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("check_in", targetRange.start);
+    params.set("check_out", targetRange.end);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
     setOpenPanel(null);
   };
 
@@ -248,7 +266,7 @@ function RoomsPageContent(): React.ReactElement {
           <div className="mx-auto w-full max-w-5xl pointer-events-auto" ref={pickerRef}>
             <div className="flex w-full flex-col divide-y divide-stone-100 rounded-3xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.1)] transition-all duration-500 hover:shadow-[0_1px_2px_rgba(18,60,48,0.02),0_12px_32px_-8px_rgba(18,60,48,0.15)] lg:flex-row lg:divide-x lg:divide-y-0 lg:rounded-full">
               <div className="relative flex-1">
-                <button type="button" onClick={() => setOpenPanel((v) => (v === "type" ? null : "type"))} className={`flex h-full w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-200 lg:rounded-l-full ${openPanel === "type" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
+                <button type="button" onClick={() => setOpenPanel((v) => (v === "type" ? null : "type"))} className={`flex h-full w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-200 lg:rounded-l-full outline-none focus:outline-none ${openPanel === "type" ? "bg-forest-50/50" : "hover:bg-forest-50/30"}`}>
                   <BedDouble size={16} className="shrink-0 text-forest-700" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">ประเภทที่พัก</span>
@@ -266,82 +284,75 @@ function RoomsPageContent(): React.ReactElement {
                 )}
               </div>
               <div className="relative flex-[1.4]">
-                <button type="button" onClick={() => setOpenPanel((v) => (v === "calendar" ? null : "calendar"))} className={`flex h-full w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-200 ${openPanel === "calendar" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
+                <button type="button" onClick={() => setOpenPanel((v) => (v === "calendar" ? null : "calendar"))} className={`flex h-full w-full items-center gap-3 px-6 py-3 text-left transition-colors duration-200 outline-none focus:outline-none ${openPanel === "calendar" ? "bg-forest-50/50" : "hover:bg-forest-50/30"}`}>
                   <Calendar size={16} className="shrink-0 text-forest-700" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">วันเข้าพัก – วันออก</span>
-                    <span className="block truncate text-sm font-semibold text-forest-900">{roomDateSelectionLabel(range)}</span>
+                    <span className="block truncate text-sm font-semibold text-forest-900">{roomDateSelectionLabel(activeRange)}</span>
                   </span>
                   <div className="flex items-center gap-2">
-                    {nights > 0 && <span className="rounded-full bg-forest-100 px-2 py-0.5 text-xs font-bold text-forest-800">{nights} คืน</span>}
+                    {activeNights > 0 && <span className="rounded-full bg-forest-100 px-2 py-0.5 text-xs font-bold text-forest-800">{activeNights} คืน</span>}
                     <ChevronDown size={12} className="shrink-0 text-charcoal-300 transition-transform duration-300" style={{ transform: openPanel === "calendar" ? "rotate(180deg)" : "rotate(0deg)" }} />
                   </div>
                 </button>
                 {openPanel === "calendar" && (
                   <div
-                    className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-forest-950/45 backdrop-blur-xs"
-                    onClick={() => setOpenPanel(null)}
+                    className="animate-dropdown absolute left-0 top-full z-40 mt-3 w-full sm:w-[620px] md:w-[640px] max-w-[calc(100vw-2rem)] rounded-3xl border border-stone-200 bg-white p-4 sm:p-6 shadow-[0_20px_50px_rgba(18,60,48,0.18)] flex flex-col"
                   >
-                    <div
-                      className="w-full sm:max-w-[660px] bg-white rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl max-h-[88vh] flex flex-col"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="mb-3 flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
-                        <div>
-                          <h3 className="font-display text-base sm:text-lg font-bold text-forest-900">เลือกช่วงวันเข้าพัก</h3>
-                          {range && nights > 0 ? (
-                            <p className="text-xs text-forest-700 mt-0.5 font-medium">
-                              {formatThaiDate(range.start)} – {formatThaiDate(range.end)} ({nights} คืน)
-                            </p>
-                          ) : (
-                            <p className="text-xs text-charcoal-400 mt-0.5">
-                              เลือกวันเช็คอินและวันเช็คเอาท์
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setOpenPanel(null)}
-                          aria-label="ปิดปฏิทิน"
-                          className="p-2 rounded-full text-charcoal-400 hover:text-charcoal-600 hover:bg-stone-100 transition-colors"
-                        >
-                          <X size={20} />
-                        </button>
+                    <div className="mb-3 flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
+                      <div>
+                        <h3 className="font-display text-base sm:text-lg font-bold text-forest-900">เลือกช่วงวันเข้าพัก</h3>
+                        {activeRange && activeNights > 0 ? (
+                          <p className="text-xs text-forest-700 mt-0.5 font-medium">
+                            {formatThaiDate(activeRange.start)} – {formatThaiDate(activeRange.end)} ({activeNights} คืน)
+                          </p>
+                        ) : activeRange?.start ? (
+                          <p className="text-xs text-forest-700 mt-0.5 font-medium">
+                            {formatThaiDate(activeRange.start)} – เลือกวันเช็คเอาต์
+                          </p>
+                        ) : (
+                          <p className="text-xs text-charcoal-400 mt-0.5">
+                            เลือกวันเช็คอินและวันเช็คเอาท์
+                          </p>
+                        )}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setOpenPanel(null)}
+                        aria-label="ปิดปฏิทิน"
+                        className="p-2 rounded-full text-charcoal-400 hover:text-charcoal-600 hover:bg-stone-100 transition-colors"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
 
-                      <div className="py-1 overflow-y-auto flex-1 pr-1 overscroll-contain">
-                        <BookingCalendar
-                          mode="range"
-                          value={range}
-                          onSelect={handleRangeSelect}
-                          cursor={cursor}
-                          onCursorChange={setCursor}
-                          dayStatus={dayStatus}
-                          loading={calendarLoading}
-                          minISO={today}
-                          visibleMonths={2}
-                        />
-                      </div>
+                    <div className="py-1 overflow-y-auto max-h-[75vh] sm:max-h-none sm:overflow-visible pr-1 sm:pr-0">
+                      <BookingCalendar
+                        mode="range"
+                        value={activeRange?.start ? activeRange : null}
+                        onSelect={handleRangeSelect}
+                        cursor={cursor}
+                        onCursorChange={setCursor}
+                        dayStatus={dayStatus}
+                        loading={calendarLoading}
+                        minISO={today}
+                        visibleMonths={2}
+                      />
+                    </div>
 
-                      <div className="pt-3 mt-2 border-t border-stone-100 flex items-center justify-between gap-3 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleRangeSelect(null);
-                          }}
-                          className="text-xs text-charcoal-500 hover:text-forest-800 underline font-medium px-2 py-2"
-                        >
-                          ล้างวันที่เลือก
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setOpenPanel(null)}
-                          disabled={nights <= 0}
-                          className="btn-primary py-2.5 px-6 text-sm rounded-xl font-bold disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          ตกลง {nights > 0 ? `(${nights} คืน)` : ""}
-                        </button>
-                      </div>
+                    <div className="pt-3 mt-2 border-t border-stone-100 flex items-center justify-between shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleRangeSelect(null)}
+                        className="text-xs text-charcoal-500 hover:text-rose-700 underline font-medium transition-colors py-1"
+                      >
+                        ล้างวันที่เลือก
+                      </button>
+                      {activeNights > 0 && (
+                        <span className="text-xs font-semibold text-forest-800">
+                          เข้าพัก {activeNights} คืน
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -421,7 +432,7 @@ function RoomsPageContent(): React.ReactElement {
                           <div><h3 className="font-sans text-xl font-semibold leading-tight text-forest-900">{room.room_name}</h3><p className="mt-1 line-clamp-2 text-sm leading-relaxed text-charcoal-400">{room.description}</p></div>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-4 border-t border-stone-100 pt-3">
-                          <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><Users size={14} className="text-forest-400" /><span>{Number(room.capacity) <= 2 ? `พักได้ 1–${room.capacity} ท่าน` : `ความจุหลัก ${room.capacity} ท่าน`} · เด็ก 6–11 ปีเพิ่มได้ 1 คน/ห้อง</span></div>
+                          <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><Users size={14} className="text-forest-400" /><span>พักได้ {room.capacity} ท่าน</span></div>
                           {room.air_conditioner && <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><Wind size={14} className="text-forest-400" /><span>เครื่องปรับอากาศ</span></div>}
                           {room.bed_size && <div className="flex items-center gap-1.5 text-sm text-charcoal-500"><BedDouble size={14} className="text-forest-400" /><span>{room.bed_size}</span></div>}
                         </div>

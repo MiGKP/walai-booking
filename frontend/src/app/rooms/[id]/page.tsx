@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
@@ -85,7 +85,7 @@ interface Review {
   review_id: number;
   first_name: string | null;
   last_name: string | null;
-  rating: number;
+  rating: number | null;
   comment: string | null;
   review_date: string;
 }
@@ -191,11 +191,67 @@ export default function RoomDetailPage(): React.ReactElement {
 
   const galleryScrollRef = useRef<HTMLDivElement>(null);
   const promoScrollRef = useRef<HTMLDivElement>(null);
+  const reviewScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollReviews = (direction: 'left' | 'right') => {
+    if (!reviewScrollRef.current) return;
+    const container = reviewScrollRef.current;
+    const cardWidth = container.clientWidth >= 640 ? (container.clientWidth - 16) / 2 + 16 : container.clientWidth * 0.88 + 16;
+    container.scrollBy({ left: direction === 'left' ? -cardWidth : cardWidth, behavior: 'smooth' });
+  };
   const [activeImage, setActiveImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [expandedPromoId, setExpandedPromoId] = useState<number | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [avgRating, setAvgRating] = useState<number | null>(null);
+  const [selectedRatingFilter, setSelectedRatingFilter] = useState<number | null>(null);
+
+  const filteredReviews = useMemo(() => {
+    if (selectedRatingFilter === null) return reviews;
+    return reviews.filter((r) => r.rating != null && Math.round(r.rating) === selectedRatingFilter);
+  }, [reviews, selectedRatingFilter]);
+
+  const [reviewScrollProgress, setReviewScrollProgress] = useState(0);
+  const [reviewThumbWidth, setReviewThumbWidth] = useState(35);
+  const [canScrollReviews, setCanScrollReviews] = useState(false);
+
+  const updateReviewScrollState = useCallback(() => {
+    const el = reviewScrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const maxScroll = scrollWidth - clientWidth;
+    if (maxScroll > 2) {
+      setCanScrollReviews(true);
+      const ratio = clientWidth / scrollWidth;
+      const thumbW = Math.max(18, Math.min(60, ratio * 100));
+      setReviewThumbWidth(thumbW);
+      const progress = Math.min(1, Math.max(0, scrollLeft / maxScroll));
+      setReviewScrollProgress(progress);
+    } else {
+      setCanScrollReviews(false);
+      setReviewScrollProgress(0);
+      setReviewThumbWidth(100);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(updateReviewScrollState, 60);
+    window.addEventListener('resize', updateReviewScrollState);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateReviewScrollState);
+    };
+  }, [updateReviewScrollState, filteredReviews, loading]);
+
+  const handleSlidebarClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = reviewScrollRef.current;
+    if (!el) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    el.scrollTo({ left: ratio * maxScroll, behavior: 'smooth' });
+  };
 
   const scrollPromos = (direction: 'left' | 'right') => {
     if (!promoScrollRef.current) return;
@@ -441,6 +497,122 @@ export default function RoomDetailPage(): React.ReactElement {
     return () => document.removeEventListener('keydown', onKey);
   }, [lightboxOpen, activeImage, galleryImages.length]);
 
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [activeSection, setActiveSection] = useState<string>('overview');
+
+  // ค่อยๆ ดัน Navbar ขึ้นเมื่อแท็บนี้เลื่อนขึ้นมาแทน และค่อยๆ เลื่อน Navbar ลงมาเมื่อแท็บนี้เลื่อนลง
+  useEffect(() => {
+    if (loading) return;
+    let wasStuck: boolean | null = null;
+    const updateNavbarPush = () => {
+      const el = sentinelRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      const NAVBAR_HEIGHT = 64;
+
+      let translateY = 0;
+      if (top <= 0) {
+        translateY = -NAVBAR_HEIGHT;
+      } else if (top < NAVBAR_HEIGHT) {
+        translateY = Math.round(top - NAVBAR_HEIGHT);
+      } else {
+        translateY = 0;
+      }
+
+      document.documentElement.style.setProperty('--navbar-translate-y', `${translateY}px`);
+      const isStuck = top <= 0;
+      if (isStuck !== wasStuck) {
+        wasStuck = isStuck;
+        window.dispatchEvent(new CustomEvent('room-subnav-sticky', { detail: { isStuck } }));
+      }
+    };
+
+    window.addEventListener('scroll', updateNavbarPush, { passive: true });
+    window.addEventListener('resize', updateNavbarPush, { passive: true });
+    updateNavbarPush();
+
+    return () => {
+      window.removeEventListener('scroll', updateNavbarPush);
+      window.removeEventListener('resize', updateNavbarPush);
+      document.documentElement.style.removeProperty('--navbar-translate-y');
+      window.dispatchEvent(new CustomEvent('room-subnav-sticky', { detail: { isStuck: false } }));
+    };
+  }, [loading, id]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    const navSections = [
+      'overview',
+      'amenities',
+      'room-picker',
+      'promotions',
+      'reviews',
+      'policies',
+    ];
+
+    const onScroll = () => {
+      // ลบ #hash ออกจาก URL เมื่อเลื่อนออกจาก section นั้น ๆ
+      const syncHashWithSection = (activeId: string) => {
+        if (typeof window === 'undefined' || !window.location.hash) return;
+        const currentHash = window.location.hash.replace('#', '');
+        // ถ้า hash ปัจจุบันไม่ตรงกับ section ที่กำลังดูอยู่ ให้ลบ hash ออกจาก URL ทันที
+        if (currentHash !== activeId) {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      };
+
+      if (typeof window !== 'undefined' && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 60) {
+        const lastSection = navSections[navSections.length - 1];
+        setActiveSection(lastSection);
+        syncHashWithSection(lastSection);
+        return;
+      }
+
+      const threshold = 120;
+      let current = '';
+
+      for (const id of [...navSections].reverse()) {
+        const el = document.getElementById(id);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= threshold && rect.bottom > threshold) {
+            current = id;
+            break;
+          }
+        }
+      }
+
+      const activeTarget = current || (window.scrollY < 200 ? 'overview' : '');
+      if (activeTarget) {
+        setActiveSection(activeTarget);
+        syncHashWithSection(activeTarget);
+      }
+    };
+
+    const rafId = requestAnimationFrame(() => {
+      if (window.location.hash) {
+        const hashId = window.location.hash.replace('#', '');
+        if (navSections.includes(hashId)) {
+          setActiveSection(hashId);
+          return;
+        }
+      }
+      onScroll();
+    });
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    window.addEventListener('hashchange', onScroll, { passive: true });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('hashchange', onScroll);
+    };
+  }, [loading, id]);
+
   const handleToggleRoom = (roomId: number) => {
     if (!room?.rooms) return;
     const physicalRooms = room.rooms;
@@ -571,25 +743,108 @@ export default function RoomDetailPage(): React.ReactElement {
       </div>
 
       
-      {/* Sticky Navigation Bar */}
-      <div className="hidden border-b border-stone-200 bg-white/90 shadow-xs sm:block">
+      {/* จุดตรวจสอบการเกาะขอบบนของแท็บเมนู */}
+      <div ref={sentinelRef} className="h-0 w-full pointer-events-none" aria-hidden="true" />
+
+      {/* Sticky Navigation Bar (แทนที่ Navbar เมื่อเลื่อนหน้าจอลง) */}
+      <div className="sticky top-0 z-40 border-b border-stone-200/80 bg-white/95 backdrop-blur-md shadow-xs transition-all duration-200">
         <div className="mx-auto max-w-7xl px-4">
-          <div className="flex h-16 items-center justify-between">
-            <nav className="flex items-center gap-6 overflow-x-auto text-sm font-bold text-stone-600 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
-              <a href="#overview" className="whitespace-nowrap py-4 hover:text-forest-700">ข้อมูลห้องพัก</a>
-              {room.amenities && room.amenities.length > 0 && <a href="#amenities" className="whitespace-nowrap py-4 hover:text-forest-700">สิ่งอำนวยความสะดวก</a>}
-              {room.available_promotions && room.available_promotions.length > 0 && <a href="#promotions" className="whitespace-nowrap py-4 hover:text-forest-700">โปรโมชั่น</a>}
-              <a href="#reviews" className="whitespace-nowrap py-4 hover:text-forest-700">รีวิว</a>
-              <a href="#policies" className="whitespace-nowrap py-4 hover:text-forest-700">นโยบาย</a>
+          <div className="flex h-14 sm:h-16 items-center justify-between">
+            <nav className="flex items-center gap-4 sm:gap-6 overflow-x-auto text-xs sm:text-sm font-semibold text-stone-600 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden py-1 sm:py-0">
+              <a
+                href="#overview"
+                onClick={() => setActiveSection('overview')}
+                className={`relative whitespace-nowrap py-3 sm:py-4 transition-colors ${
+                  activeSection === 'overview'
+                    ? 'text-forest-950 font-bold'
+                    : 'text-stone-500 hover:text-forest-700'
+                }`}
+              >
+                ข้อมูลห้องพัก
+                {activeSection === 'overview' && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-forest-800 rounded-full" />
+                )}
+              </a>
+              {room.amenities && room.amenities.length > 0 && (
+                <a
+                  href="#amenities"
+                  onClick={() => setActiveSection('amenities')}
+                  className={`relative whitespace-nowrap py-3 sm:py-4 transition-colors ${
+                    activeSection === 'amenities'
+                      ? 'text-forest-950 font-bold'
+                      : 'text-stone-500 hover:text-forest-700'
+                  }`}
+                >
+                  สิ่งอำนวยความสะดวก
+                  {activeSection === 'amenities' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-forest-800 rounded-full" />
+                  )}
+                </a>
+              )}
+              {room.available_promotions && room.available_promotions.length > 0 && (
+                <a
+                  href="#promotions"
+                  onClick={() => setActiveSection('promotions')}
+                  className={`relative whitespace-nowrap py-3 sm:py-4 transition-colors ${
+                    activeSection === 'promotions'
+                      ? 'text-forest-950 font-bold'
+                      : 'text-stone-500 hover:text-forest-700'
+                  }`}
+                >
+                  โปรโมชั่น
+                  {activeSection === 'promotions' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-forest-800 rounded-full" />
+                  )}
+                </a>
+              )}
+              <a
+                href="#reviews"
+                onClick={() => setActiveSection('reviews')}
+                className={`relative whitespace-nowrap py-3 sm:py-4 transition-colors ${
+                  activeSection === 'reviews'
+                    ? 'text-forest-950 font-bold'
+                    : 'text-stone-500 hover:text-forest-700'
+                }`}
+              >
+                รีวิว
+                {activeSection === 'reviews' && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-forest-800 rounded-full" />
+                )}
+              </a>
+              <a
+                href="#policies"
+                onClick={() => setActiveSection('policies')}
+                className={`relative whitespace-nowrap py-3 sm:py-4 transition-colors ${
+                  activeSection === 'policies'
+                    ? 'text-forest-950 font-bold'
+                    : 'text-stone-500 hover:text-forest-700'
+                }`}
+              >
+                นโยบาย
+                {activeSection === 'policies' && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-forest-800 rounded-full" />
+                )}
+              </a>
             </nav>
-            <div className="flex shrink-0 items-center gap-4 pl-4 lg:hidden">
-               <span className="hidden lg:inline-flex items-baseline gap-1">
-                 <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">เริ่มต้น</span>
-                 <span className="font-sans text-xl font-extrabold text-forest-900">฿{Number(room.price_per_night).toLocaleString()}</span>
-               </span>
-               <a href="#room-picker" className="rounded-full bg-forest-800 px-5 py-2 text-[13px] font-bold text-white shadow-xs transition-colors hover:bg-forest-900 active:scale-95">
-                 ดูห้องว่าง
-               </a>
+            <div className="flex shrink-0 items-center gap-3 pl-3 sm:pl-4">
+              <span className="hidden md:inline-flex items-baseline gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400">เริ่มต้น</span>
+                <span className="font-sans text-xl font-extrabold text-forest-900">
+                  ฿{Number(room.price_per_night).toLocaleString()}
+                </span>
+                <span className="text-xs text-stone-400">/ คืน</span>
+              </span>
+              <a
+                href="#room-picker"
+                onClick={() => setActiveSection('room-picker')}
+                className={`rounded-full px-4 sm:px-5 py-2 text-xs sm:text-[13px] font-bold shadow-xs transition-all active:scale-95 ${
+                  activeSection === 'room-picker'
+                    ? 'bg-forest-900 text-white ring-2 ring-forest-500/50 shadow-sm'
+                    : 'bg-forest-800 text-white hover:bg-forest-900'
+                }`}
+              >
+                ดูห้องว่าง
+              </a>
             </div>
           </div>
         </div>
@@ -619,7 +874,7 @@ export default function RoomDetailPage(): React.ReactElement {
                     )}
                     <div className="flex items-center gap-2 font-medium text-stone-700">
                       <Users size={18} className="text-stone-400" />
-                      <span>ความจุหลัก {room.capacity} ท่าน · เด็ก 6–11 ปีเพิ่มได้ 1 คน/ห้อง</span>
+                      <span>พักได้ {room.capacity} ท่าน</span>
                     </div>
                   </div>
 
@@ -682,12 +937,12 @@ export default function RoomDetailPage(): React.ReactElement {
 
             {/* Room Selection Grid */}
             <section id="room-picker" className={`${CARD} scroll-mt-24 p-5 sm:p-6`}>
-              {/* Sticky Dates & Guests Search Bar */}
-              <div className="sticky top-20 z-30 mb-8 w-full shadow-xs rounded-3xl" ref={pickerRef}>
+              {/* Dates & Guests Search Bar (อยู่กับที่ ไม่เลื่อนตาม) */}
+              <div className="mb-8 w-full shadow-xs rounded-3xl" ref={pickerRef}>
                 <div className="flex w-full flex-col divide-y divide-stone-100 rounded-3xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.1)] transition-all duration-500 lg:flex-row lg:divide-x lg:divide-y-0 lg:rounded-full">
                   
                   <div className="relative flex-[1.4]">
-                    <button type="button" onClick={() => setOpenPanel((v) => (v === "calendar" ? null : "calendar"))} className={`flex h-full w-full items-center gap-3 px-5 py-3 text-left transition-colors duration-200 lg:rounded-l-full ${openPanel === "calendar" ? "bg-forest-50/40" : "hover:bg-forest-50/30"}`}>
+                    <button type="button" onClick={() => setOpenPanel((v) => (v === "calendar" ? null : "calendar"))} className={`flex h-full w-full items-center gap-3 px-5 py-3 text-left transition-colors duration-200 lg:rounded-l-full outline-none focus:outline-none ${openPanel === "calendar" ? "bg-forest-50/50" : "hover:bg-forest-50/30"}`}>
                       <Calendar size={16} className="shrink-0 text-forest-700" />
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-bold uppercase tracking-wider text-charcoal-400">เข้าพัก – เช็คเอาต์</span>
@@ -700,69 +955,62 @@ export default function RoomDetailPage(): React.ReactElement {
                     </button>
                     {openPanel === "calendar" && (
                       <div
-                        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-forest-950/45 backdrop-blur-xs"
-                        onClick={() => setOpenPanel(null)}
+                        className="animate-dropdown absolute left-0 top-full z-40 mt-3 w-full sm:w-[620px] md:w-[640px] max-w-[calc(100vw-2rem)] rounded-3xl border border-stone-200 bg-white p-4 sm:p-6 shadow-[0_20px_50px_rgba(18,60,48,0.18)] flex flex-col"
                       >
-                        <div
-                          className="w-full sm:max-w-[660px] bg-white rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl max-h-[88vh] flex flex-col"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="mb-3 flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
-                            <div>
-                              <h3 className="font-display text-base sm:text-lg font-bold text-forest-900">เลือกช่วงวันเข้าพัก</h3>
-                              {range && nights > 0 ? (
-                                <p className="text-xs text-forest-700 mt-0.5 font-medium">
-                                  {formatThaiDate(range.start)} – {formatThaiDate(range.end)} ({nights} คืน)
-                                </p>
-                              ) : (
-                                <p className="text-xs text-charcoal-400 mt-0.5">
-                                  เลือกวันเช็คอินและวันเช็คเอาท์
-                                </p>
-                              )}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setOpenPanel(null)}
-                              aria-label="ปิดปฏิทิน"
-                              className="p-2 rounded-full text-charcoal-400 hover:text-charcoal-600 hover:bg-stone-100 transition-colors"
-                            >
-                              <X size={20} />
-                            </button>
+                        <div className="mb-3 flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
+                          <div>
+                            <h3 className="font-display text-base sm:text-lg font-bold text-forest-900">เลือกช่วงวันเข้าพัก</h3>
+                            {range && nights > 0 ? (
+                              <p className="text-xs text-forest-700 mt-0.5 font-medium">
+                                {formatThaiDate(range.start)} – {formatThaiDate(range.end)} ({nights} คืน)
+                              </p>
+                            ) : range?.start ? (
+                              <p className="text-xs text-forest-700 mt-0.5 font-medium">
+                                {formatThaiDate(range.start)} – เลือกวันเช็คเอาต์
+                              </p>
+                            ) : (
+                              <p className="text-xs text-charcoal-400 mt-0.5">
+                                เลือกวันเช็คอินและวันเช็คเอาท์
+                              </p>
+                            )}
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => setOpenPanel(null)}
+                            aria-label="ปิดปฏิทิน"
+                            className="p-2 rounded-full text-charcoal-400 hover:text-charcoal-600 hover:bg-stone-100 transition-colors"
+                          >
+                            <X size={20} />
+                          </button>
+                        </div>
 
-                          <div className="py-1 overflow-y-auto flex-1 pr-1 overscroll-contain">
-                            <BookingCalendar
-                              mode="range"
-                              value={range.start ? range : null}
-                              onSelect={handleRangeSelect}
-                              cursor={cursor}
-                              onCursorChange={setCursor}
-                              dayStatus={dayStatus}
-                              loading={calendarLoading}
-                              minISO={today}
-                              visibleMonths={2}
-                            />
-                          </div>
+                        <div className="py-1 overflow-y-auto max-h-[75vh] sm:max-h-none sm:overflow-visible pr-1 sm:pr-0">
+                          <BookingCalendar
+                            mode="range"
+                            value={range.start ? range : null}
+                            onSelect={handleRangeSelect}
+                            cursor={cursor}
+                            onCursorChange={setCursor}
+                            dayStatus={dayStatus}
+                            loading={calendarLoading}
+                            minISO={today}
+                            visibleMonths={2}
+                          />
+                        </div>
 
-                          <div className="pt-3 mt-2 border-t border-stone-100 flex items-center justify-between gap-3 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleRangeSelect(null);
-                              }}
-                              className="text-xs text-charcoal-500 hover:text-forest-800 underline font-medium px-2 py-2"
-                            >
-                              ล้างวันที่เลือก
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setOpenPanel(null)}
-                              disabled={nights <= 0}
-                              className="btn-primary py-2.5 px-6 text-sm rounded-xl font-bold disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              ตกลง {nights > 0 ? `(${nights} คืน)` : ""}
-                            </button>
-                          </div>
+                        <div className="pt-3 mt-2 border-t border-stone-100 flex items-center justify-between shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleRangeSelect(null)}
+                            className="text-xs text-charcoal-500 hover:text-rose-700 underline font-medium transition-colors py-1"
+                          >
+                            ล้างวันที่เลือก
+                          </button>
+                          {nights > 0 && (
+                            <span className="text-xs font-semibold text-forest-800">
+                              เข้าพัก {nights} คืน
+                            </span>
+                          )}
                         </div>
                       </div>
                     )}
@@ -867,8 +1115,7 @@ export default function RoomDetailPage(): React.ReactElement {
                     <div className="flex flex-1 items-center gap-3 px-5 py-3">
                       <Users size={16} className="shrink-0 text-forest-700" />
                       <div>
-                        <p className="text-sm font-semibold text-forest-900">พักได้ 1–{room.capacity} ท่านต่อห้อง</p>
-                        <p className="text-xs text-charcoal-500">ยืนยันผู้เข้าพักและเพิ่มเด็กในหน้าถัดไป</p>
+                        <p className="text-sm font-semibold text-forest-900">พักได้ {room.capacity} ท่านต่อห้อง</p>
                       </div>
                     </div>
                   )}
@@ -891,7 +1138,7 @@ export default function RoomDetailPage(): React.ReactElement {
                   <div className="flex items-center gap-2">
                     <Users size={16} className="text-amber-700 shrink-0" />
                     <span>
-                      ผู้เข้าพัก <strong>{totalGuests} ท่าน</strong> (ความจุหลัก <strong>{room.capacity} ท่าน/ห้อง</strong> และเด็ก 6–11 ปีเพิ่มได้ 1 คน/ห้อง) — ต้องเลือกอย่างน้อย <strong>{minimumRooms} ห้อง</strong>
+                      ผู้เข้าพัก <strong>{totalGuests} ท่าน</strong> (พักได้ <strong>{room.capacity} ท่าน/ห้อง</strong>) — ต้องเลือกอย่างน้อย <strong>{minimumRooms} ห้อง</strong>
                     </span>
                   </div>
                   <span className="shrink-0 rounded-full bg-amber-200/80 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
@@ -912,7 +1159,7 @@ export default function RoomDetailPage(): React.ReactElement {
 
             {/* Special Offers (Advertisement) */}
             {room.available_promotions && room.available_promotions.length > 0 && (
-              <div id="promotions" className="mt-4 scroll-mt-40 rounded-2xl bg-stone-50/50 border border-stone-100 p-4">
+              <div id="promotions" className="mt-4 scroll-mt-24 rounded-2xl bg-stone-50/50 border border-stone-100 p-4">
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2">
                     <div className="grid h-6 w-6 place-items-center rounded-md bg-forest-100/60 text-forest-700">
@@ -1018,29 +1265,193 @@ export default function RoomDetailPage(): React.ReactElement {
             )}
 
             {/* Reviews */}
-            <section id="reviews" className={`${CARD} p-5 sm:p-6 scroll-mt-24`}>
-              <SectionHeading icon={<Star size={16} />} title="รีวิวจากผู้เข้าพัก" />
-              <div className="mt-4 flex flex-col gap-6 sm:flex-row">
-                <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 sm:w-32 sm:border-r sm:border-stone-100">
-                  <span className="font-sans text-5xl font-extrabold leading-none text-forest-900">{avgRating !== null ? avgRating.toFixed(1) : '-'}</span>
-                  <Stars value={avgRating ?? 0} size={13} />
-                  <span className="text-xs text-stone-500">จาก {reviews.length} รีวิว</span>
+            <section id="reviews" className={`${CARD} p-5 sm:p-7 scroll-mt-24`}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-stone-100 pb-4">
+                <div>
+                  <SectionHeading icon={<Star size={16} />} title="รีวิวห้องพัก" />
+                  <p className="mt-1 text-xs text-stone-500">
+                    ความคิดเห็นและความพึงพอใจจากผู้เข้าพัก
+                  </p>
                 </div>
-                <ul className="flex-1 space-y-3">
-                  {reviews.map((review) => (
-                    <li key={review.review_id} className="rounded-xl bg-stone-50/60 p-4">
-                      <div className="flex items-center gap-3">
-                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-forest-900 text-sm font-bold text-cream-50">{review.first_name?.[0]?.toUpperCase() || 'U'}</span>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-forest-900">{maskReviewerName(review.first_name, review.last_name)}</p>
-                          <div className="mt-1 flex items-center gap-2"><Stars value={review.rating} size={11} /><span className="text-xs text-charcoal-400">{new Date(review.review_date).toLocaleDateString('th-TH')}</span></div>
-                        </div>
-                      </div>
-                      {review.comment && <p className="mt-2.5 pl-12 text-sm leading-relaxed text-charcoal-500">{review.comment}</p>}
-                    </li>
-                  ))}
-                </ul>
+                
+                <div className="flex items-center gap-3 self-start sm:self-auto">
+                  {avgRating !== null && (
+                    <div className="flex items-center gap-2 rounded-xl bg-forest-50/80 border border-forest-100/80 px-3 py-1.5 shadow-2xs">
+                      <span className="font-sans text-2xl font-extrabold text-forest-950 leading-none">
+                        {avgRating.toFixed(1)}
+                      </span>
+                      <Stars value={avgRating} size={13} />
+                    </div>
+                  )}
+
+                  {/* Navigation Arrows for Review Slider */}
+                  {filteredReviews.length > 2 && (
+                    <div className="flex items-center gap-1.5 pl-2 border-l border-stone-200">
+                      <button
+                        type="button"
+                        onClick={() => scrollReviews('left')}
+                        disabled={!canScrollReviews || reviewScrollProgress <= 0.02}
+                        aria-label="รีวิวก่อนหน้า"
+                        className="grid h-8 w-8 place-items-center rounded-full border border-stone-200 bg-white text-forest-800 shadow-2xs transition-colors hover:border-forest-300 hover:bg-forest-50 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => scrollReviews('right')}
+                        disabled={!canScrollReviews || reviewScrollProgress >= 0.98}
+                        aria-label="รีวิวถัดไป"
+                        className="grid h-8 w-8 place-items-center rounded-full border border-stone-200 bg-white text-forest-800 shadow-2xs transition-colors hover:border-forest-300 hover:bg-forest-50 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Rating Filter Pills */}
+              {reviews.length > 0 && (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-stone-500 mr-1">กรองรีวิว:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRatingFilter(null)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-all ${
+                      selectedRatingFilter === null
+                        ? 'bg-forest-900 text-white shadow-2xs'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
+                    }`}
+                  >
+                    ทั้งหมด ({reviews.length})
+                  </button>
+                  {[5, 4, 3, 2, 1].map((star) => {
+                    const count = reviews.filter((r) => r.rating != null && Math.round(r.rating) === star).length;
+                    const isSelected = selectedRatingFilter === star;
+                    return (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setSelectedRatingFilter(isSelected ? null : star)}
+                        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-all ${
+                          isSelected
+                            ? 'bg-forest-900 text-white shadow-2xs'
+                            : count === 0
+                            ? 'bg-stone-100/70 text-stone-400 hover:bg-stone-200/60 hover:text-stone-600'
+                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
+                        }`}
+                      >
+                        <Star size={11} className={isSelected ? 'fill-amber-300 text-amber-300' : count === 0 ? 'fill-stone-300 text-stone-300' : 'fill-amber-400 text-amber-500'} />
+                        <span>{star} ดาว ({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Reviews Horizontal Slidebar */}
+              {reviews.length === 0 ? (
+                <div className="mt-8 flex flex-col items-center justify-center py-10 text-center">
+                  <div className="grid h-12 w-12 place-items-center rounded-full bg-forest-50 text-forest-600 mb-3">
+                    <Sparkles size={22} />
+                  </div>
+                  <h3 className="font-sans text-base font-semibold text-forest-900">ยังไม่มีรีวิวสำหรับห้องพักประเภทนี้</h3>
+                  <p className="mt-1 max-w-sm text-xs text-stone-500">
+                    ร่วมเป็นคนแรกที่ได้สัมผัสบรรยากาศแพริมน้ำและแบ่งปันความประทับใจ
+                  </p>
+                </div>
+              ) : filteredReviews.length === 0 ? (
+                <div className="mt-8 py-10 text-center">
+                  <p className="text-sm text-stone-500">ยังไม่มีรีวิวระดับ {selectedRatingFilter} ดาว</p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRatingFilter(null)}
+                    className="mt-2 text-xs font-semibold text-forest-800 underline hover:text-forest-900 cursor-pointer"
+                  >
+                    ดูรีวิวทั้งหมด ({reviews.length})
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-4">
+                  <div
+                    ref={reviewScrollRef}
+                    onScroll={updateReviewScrollState}
+                    className="grid grid-rows-2 grid-flow-col auto-cols-[88%] sm:auto-cols-[calc(50%-7px)] gap-3.5 overflow-x-auto scroll-smooth pb-2 pt-1 snap-x snap-mandatory [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden"
+                  >
+                    {filteredReviews.map((review) => {
+                      const initial = review.first_name?.[0]?.toUpperCase() || 'U';
+                      return (
+                        <div
+                          key={review.review_id}
+                          className="w-full shrink-0 snap-start flex flex-col justify-between rounded-2xl border border-stone-200/80 bg-gradient-to-b from-stone-50/50 to-white p-4 shadow-2xs hover:border-forest-300 hover:shadow-xs transition-all h-[135px] sm:h-[145px]"
+                        >
+                          <div>
+                            {/* Card Header: Avatar, Name, Rating */}
+                            <div className="flex items-start justify-between gap-2.5">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-forest-100 text-xs font-bold text-forest-900 border border-forest-200/60 shadow-2xs">
+                                  {initial}
+                                </span>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    <p className="truncate text-sm font-bold text-forest-950">
+                                      {maskReviewerName(review.first_name, review.last_name)}
+                                    </p>
+                                    <span className="inline-flex items-center gap-0.5 rounded-full bg-forest-50 px-1.5 py-0.5 text-[10px] font-semibold text-forest-750 border border-forest-200/50">
+                                      <CheckCircle2 size={10} className="text-forest-600" />
+                                      เข้าพักจริง
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-stone-400 mt-0.5">
+                                    {formatThaiDate(review.review_date)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex shrink-0 items-center gap-1 rounded-lg bg-amber-50/80 border border-amber-200/60 px-2 py-1">
+                                <Star size={11} className="fill-amber-400 text-amber-500" />
+                                <span className="font-sans text-xs font-bold text-amber-900">
+                                  {review.rating == null ? '—' : Number(review.rating).toFixed(1)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Comment */}
+                            {review.comment && (
+                              <p className="mt-2 text-xs sm:text-[13px] leading-relaxed text-charcoal-700 italic font-normal line-clamp-2 sm:line-clamp-3">
+                                &ldquo;{review.comment}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Reviews Slidebar */}
+                  {filteredReviews.length > 2 && (
+                    <div className="mt-3.5 flex items-center justify-center">
+                      <div
+                        role="progressbar"
+                        aria-valuenow={Math.round(reviewScrollProgress * 100)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label="แถบเลื่อนดูรีวิว"
+                        onClick={handleSlidebarClick}
+                        className="group relative h-2.5 w-36 sm:w-52 rounded-full bg-stone-200 hover:bg-stone-300/80 cursor-pointer p-0.5 transition-colors shadow-inner"
+                      >
+                        <div
+                          className="h-full rounded-full bg-forest-800 shadow-2xs transition-[margin-left] duration-100 ease-out group-hover:bg-forest-900"
+                          style={{
+                            width: `${reviewThumbWidth}%`,
+                            marginLeft: `${reviewScrollProgress * (100 - reviewThumbWidth)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
 
             {/* Policies & Useful Info (Dynamic from Database) */}
