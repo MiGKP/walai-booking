@@ -28,6 +28,7 @@ export interface Amenity {
 
 const ITEMS_PER_PAGE = 10;
 
+// หน้าจัดการข้อมูลสิ่งอำนวยความสะดวกของห้องพักสำหรับผู้ดูแลระบบและพนักงานห้องพัก
 export default function AmenitiesPage() {
   const { ready } = useAuthGuard({ allowedRoles: ["admin", "room_staff"] });
 
@@ -52,11 +53,11 @@ export default function AmenitiesPage() {
     fetchAmenities();
   }, [ready]);
 
-  // เมื่อเปลี่ยน search หรือ statusFilter ให้รีเซ็ตกลับหน้าแรกเสมอ
   useEffect(() => {
     setCurrentPage(1);
   }, [search, statusFilter]);
 
+  // ดึงรายการสิ่งอำนวยความสะดวกทั้งหมดจากระบบ
   async function fetchAmenities() {
     setLoading(true);
     try {
@@ -69,12 +70,14 @@ export default function AmenitiesPage() {
     }
   }
 
+  // รีเซ็ตฟอร์มกลับเป็นโหมดเพิ่มรายการใหม่
   const handleResetForm = () => {
     setEditingAmenityId(null);
     setNameInput("");
     setStatusInput(true);
   };
 
+  // นำข้อมูลรายการที่เลือกมาแสดงในฟอร์มเพื่อแก้ไข
   const handleEditClick = (item: Amenity) => {
     setEditingAmenityId(item.id);
     setNameInput(item.name);
@@ -85,6 +88,7 @@ export default function AmenitiesPage() {
     }, 150);
   };
 
+  // บันทึกการเพิ่มหรือแก้ไขสิ่งอำนวยความสะดวกลงฐานข้อมูล
   const handleSubmitForm = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!nameInput.trim()) {
@@ -117,6 +121,7 @@ export default function AmenitiesPage() {
     }
   };
 
+  // สลับสถานะเปิดหรือปิดการใช้งานสิ่งอำนวยความสะดวก
   const handleToggleStatus = async (item: Amenity) => {
     try {
       const newStatus = !item.status;
@@ -138,6 +143,7 @@ export default function AmenitiesPage() {
     }
   };
 
+  // ยืนยันการลบสิ่งอำนวยความสะดวกออกจากระบบ
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     if (Number(deleteTarget.usage_count) > 0) {
@@ -147,7 +153,6 @@ export default function AmenitiesPage() {
     try {
       await api.delete(`/rooms/amenity/${deleteTarget.id}`);
       notify.success("ลบสิ่งอำนวยความสะดวกเรียบร้อยแล้ว");
-      // หากกำลังแก้ไขตัวที่ถูกลบอยู่ ให้รีเซ็ตฟอร์มด้วย
       if (editingAmenityId === deleteTarget.id) {
         handleResetForm();
       }
@@ -193,7 +198,6 @@ export default function AmenitiesPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Header Card */}
       <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 relative">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="space-y-1.5">
@@ -209,7 +213,6 @@ export default function AmenitiesPage() {
             </div>
           </div>
 
-          {/* Quick Info Badge */}
           <div className="flex items-center gap-2.5 flex-wrap">
             <div className="px-3.5 py-2 bg-cream-50/80 rounded-2xl border border-cream-300 shadow-2xs flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-forest-100 flex items-center justify-center text-forest-800">
@@ -228,9 +231,6 @@ export default function AmenitiesPage() {
         </div>
       </div>
 
-
-
-      {/* FORM: Card Form สำหรับเพิ่ม/แก้ไขสิ่งอำนวยความสะดวก (สไตล์เดียวกับ /admin/boats/rounds) */}
       <form
         ref={formRef}
         onSubmit={handleSubmitForm}
@@ -267,7 +267,6 @@ export default function AmenitiesPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
-          {/* 1. ชื่อสิ่งอำนวยความสะดวก */}
           <div className="md:col-span-7">
             <label className="block text-xs font-bold text-charcoal-700 mb-1">
               ชื่อสิ่งอำนวยความสะดวก <span className="text-rose-500">*</span>
@@ -283,7 +282,6 @@ export default function AmenitiesPage() {
             />
           </div>
 
-          {/* 2. สถานะการใช้งาน */}
           <div className="md:col-span-3">
             <label className="block text-xs font-bold text-charcoal-700 mb-1">
               สถานะการใช้งาน
@@ -303,7 +301,6 @@ export default function AmenitiesPage() {
             </div>
           </div>
 
-          {/* 3. ปุ่มบันทึก/เพิ่ม */}
           <div className="md:col-span-2">
             <button
               type="submit"
@@ -323,9 +320,7 @@ export default function AmenitiesPage() {
         </div>
       </form>
 
-      {/* Table & Filter Section */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[660px]">
-        {/* Header & Filter Controls */}
         <div className="pb-4 mb-4 border-b border-cream-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
@@ -338,7 +333,6 @@ export default function AmenitiesPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-            {/* Search */}
             <div className="relative w-full sm:w-64">
               <Search
                 size={16}
@@ -362,7 +356,6 @@ export default function AmenitiesPage() {
               )}
             </div>
 
-            {/* Status Filter Tabs */}
             <div className="flex items-center gap-1 rounded-2xl border border-cream-300 bg-cream-50/80 p-1 shrink-0">
               <button
                 type="button"
@@ -428,7 +421,6 @@ export default function AmenitiesPage() {
           </div>
         </div>
 
-        {/* Table Area (Flex-1 to fill space consistently) */}
         <div className="flex-1 overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="bg-cream-50/80 border-b border-cream-200 text-xs font-bold text-charcoal-600 uppercase tracking-wider">
@@ -526,7 +518,6 @@ export default function AmenitiesPage() {
           </table>
         </div>
 
-        {/* Pagination Footer */}
         {!loading && filteredAmenities.length > 0 && (
           <div className="mt-auto flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-cream-200/80 text-xs text-charcoal-500">
             <span>
@@ -574,7 +565,6 @@ export default function AmenitiesPage() {
         )}
       </div>
 
-      {/* Modal: Delete Confirmation */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal-900/50 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl border border-cream-200/90 p-6 text-center space-y-4">

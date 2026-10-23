@@ -28,12 +28,12 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { Modal, EmptyState } from "@/components/admin/ui";
 
-// Constants & Validation Rules
 const VALID_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_GALLERY_COUNT = 5;
 const ITEMS_PER_PAGE = 10;
 
+// หน้าจัดการข้อมูลประเภทเรือ ราคา จำนวนที่นั่ง และรูปภาพประกอบ
 export default function BoatTypesPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -42,15 +42,12 @@ export default function BoatTypesPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // Search & Pagination filter
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Modals Open/Close States
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  // Form State (Create)
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -62,14 +59,12 @@ export default function BoatTypesPage() {
     gallery_images: [] as string[],
   });
 
-  // Create Form - File States & Drag state
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   const [isDraggingCover, setIsDraggingCover] = useState(false);
 
-  // Edit Modal States
   const [editingBoat, setEditingBoat] = useState<any>(null);
   const [editCoverFile, setEditCoverFile] = useState<File | null>(null);
   const [editCoverPreview, setEditCoverPreview] = useState<string | null>(null);
@@ -77,7 +72,6 @@ export default function BoatTypesPage() {
   const [editGalleryPreviews, setEditGalleryPreviews] = useState<string[]>([]);
   const [editUploading, setEditUploading] = useState(false);
 
-  // Modals (Delete Confirm & Image Lightbox)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<{
     url: string;
@@ -93,7 +87,6 @@ export default function BoatTypesPage() {
     setCurrentPage(1);
   }, [searchQuery]);
 
-  // Clean up Object URLs to prevent memory leaks
   useEffect(() => {
     return () => {
       if (coverPreview) URL.revokeObjectURL(coverPreview);
@@ -103,6 +96,7 @@ export default function BoatTypesPage() {
     };
   }, [coverPreview, galleryPreviews, editCoverPreview, editGalleryPreviews]);
 
+  // ดึงรายการประเภทเรือทั้งหมดจากระบบ
   async function fetchData() {
     setLoading(true);
     try {
@@ -115,7 +109,7 @@ export default function BoatTypesPage() {
     }
   }
 
-  // Helper Validation
+  // ตรวจสอบชนิดและขนาดของไฟล์รูปภาพก่อนอัปโหลด
   const validateFile = (file: File) => {
     if (!VALID_IMAGE_TYPES.includes(file.type)) {
       notify.error(`ไฟล์ ${file.name} ต้องเป็น JPG, PNG หรือ WEBP เท่านั้น`);
@@ -128,7 +122,7 @@ export default function BoatTypesPage() {
     return true;
   };
 
-  // Handlers สำหรับรูปปก (สร้างใหม่)
+  // ตั้งค่ารูปภาพหลักและสร้าง URL ตัวอย่างสำหรับฟอร์มเพิ่มประเภทเรือ
   const processCoverFile = (file: File) => {
     if (validateFile(file)) {
       if (coverPreview) URL.revokeObjectURL(coverPreview);
@@ -137,21 +131,24 @@ export default function BoatTypesPage() {
     }
   };
 
+  // รับไฟล์รูปภาพหลักจากการเลือกไฟล์ในฟอร์มสร้างใหม่
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) processCoverFile(file);
   };
 
-  // Drag & Drop Handlers
+  // จัดการสถานะเมื่อลากไฟล์รูปภาพเข้ามาเหนือพื้นที่อัปโหลด
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingCover(true);
   };
 
+  // ยกเลิกสถานะเมื่อลากไฟล์รูปภาพออกจากพื้นที่อัปโหลด
   const handleDragLeave = () => {
     setIsDraggingCover(false);
   };
 
+  // รับไฟล์รูปภาพหลักเมื่อปล่อยไฟล์ลงในพื้นที่อัปโหลด
   const handleDropCover = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingCover(false);
@@ -159,7 +156,7 @@ export default function BoatTypesPage() {
     if (file) processCoverFile(file);
   };
 
-  // Handlers สำหรับรูป Gallery (สร้างใหม่)
+  // เพิ่มรูปภาพเพิ่มเติมในแกลเลอรีสำหรับฟอร์มสร้างประเภทเรือใหม่
   const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
 
@@ -179,6 +176,7 @@ export default function BoatTypesPage() {
     e.target.value = "";
   };
 
+  // ลบรูปภาพที่เลือกออกจากแกลเลอรีในฟอร์มสร้างใหม่
   const removeGalleryFile = (index: number) => {
     if (galleryPreviews[index]) {
       URL.revokeObjectURL(galleryPreviews[index]);
@@ -187,6 +185,7 @@ export default function BoatTypesPage() {
     setGalleryPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // อัปโหลดไฟล์รูปภาพไปยังเซิร์ฟเวอร์และคืนค่า URL ของรูปภาพ
   const uploadImage = async (file: File) => {
     const formData = new FormData();
     formData.append("image", file);
@@ -196,6 +195,7 @@ export default function BoatTypesPage() {
     return res.data.data.url as string;
   };
 
+  // ล้างข้อมูลในฟอร์มสร้างประเภทเรือใหม่กลับเป็นค่าเริ่มต้น
   const resetCreateForm = () => {
     if (coverPreview) URL.revokeObjectURL(coverPreview);
     galleryPreviews.forEach((url) => URL.revokeObjectURL(url));
@@ -216,6 +216,7 @@ export default function BoatTypesPage() {
     setGalleryPreviews([]);
   };
 
+  // บันทึกการสร้างประเภทเรือใหม่พร้อมอัปโหลดรูปภาพ
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -248,6 +249,7 @@ export default function BoatTypesPage() {
     }
   };
 
+  // สลับสถานะเปิดหรือปิดการใช้งานของประเภทเรือ
   const handleToggleStatus = async (boat: any) => {
     const boatId = boat.id || boat.boat_type_id;
     const currentStatus = boat.is_active !== false;
@@ -265,10 +267,12 @@ export default function BoatTypesPage() {
     }
   };
 
+  // เปิดหน้าต่างยืนยันการลบประเภทเรือที่เลือก
   const confirmDelete = (id: string) => {
     setDeleteTargetId(id);
   };
 
+  // ลบประเภทเรือที่ยืนยันแล้วออกจากระบบ
   const handleDelete = async () => {
     if (!deleteTargetId) return;
     try {
@@ -282,6 +286,7 @@ export default function BoatTypesPage() {
     }
   };
 
+  // เตรียมข้อมูลประเภทเรือและเปิดหน้าต่างแก้ไข
   const openEditBoat = (bt: any) => {
     const mainImg = bt.boat_image || bt.main_image || bt.image || "";
     const rawGallery = Array.isArray(bt.gallery_images)
@@ -308,6 +313,7 @@ export default function BoatTypesPage() {
     setShowEditModal(true);
   };
 
+  // เปลี่ยนไฟล์รูปภาพหลักในหน้าต่างแก้ไขประเภทเรือ
   const handleEditCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && validateFile(file)) {
@@ -317,6 +323,7 @@ export default function BoatTypesPage() {
     }
   };
 
+  // เพิ่มรูปภาพใหม่เข้าสู่แกลเลอรีในหน้าต่างแก้ไขประเภทเรือ
   const handleEditGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     const currentTotal =
@@ -340,6 +347,7 @@ export default function BoatTypesPage() {
     e.target.value = "";
   };
 
+  // ลบรูปภาพใหม่ออกจากรายการแกลเลอรีในหน้าต่างแก้ไข
   const removeEditGalleryFile = (index: number) => {
     if (editGalleryPreviews[index]) {
       URL.revokeObjectURL(editGalleryPreviews[index]);
@@ -348,6 +356,7 @@ export default function BoatTypesPage() {
     setEditGalleryPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // บันทึกการแก้ไขข้อมูลและรูปภาพของประเภทเรือลงระบบ
   const handleUpdateBoat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBoat) return;
@@ -419,7 +428,6 @@ export default function BoatTypesPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Header Card */}
       <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-900/10 shrink-0">
@@ -458,9 +466,7 @@ export default function BoatTypesPage() {
         </div>
       </div>
 
-      {/* Table List Section */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[600px]">
-        {/* Header & Search */}
         <div className="pb-4 mb-4 border-b border-cream-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
@@ -496,7 +502,6 @@ export default function BoatTypesPage() {
           </div>
         </div>
 
-        {/* Table Area */}
         <div className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
           <table className="w-full text-left border-collapse text-xs md:text-sm">
             <thead className="bg-cream-50/80 border-b border-cream-200 text-xs font-bold text-charcoal-600 uppercase tracking-wider select-none shadow-2xs">
@@ -646,7 +651,6 @@ export default function BoatTypesPage() {
           </table>
         </div>
 
-        {/* Pagination Footer */}
         {filteredBoatTypes.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-auto border-t border-cream-200 text-xs text-charcoal-500">
             <span>
@@ -659,7 +663,6 @@ export default function BoatTypesPage() {
               <strong className="text-forest-950 font-mono">{filteredBoatTypes.length}</strong> รายการ
             </span>
 
-            {/* Pagination Controls */}
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -733,7 +736,6 @@ export default function BoatTypesPage() {
         )}
       </div>
 
-      {/* MODAL: Create Boat Type */}
       <Modal
         open={showCreateModal}
         title="เพิ่มประเภทเรือใหม่"
@@ -774,7 +776,6 @@ export default function BoatTypesPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              {/* ที่นั่ง (คน) */}
               <div>
                 <label className="block text-xs font-bold text-charcoal-700 mb-1">
                   ที่นั่ง (คน) <span className="text-rose-500">*</span>
@@ -823,7 +824,6 @@ export default function BoatTypesPage() {
                 </div>
               </div>
 
-              {/* ราคา (บาท) */}
               <div>
                 <label className="block text-xs font-bold text-charcoal-700 mb-1">
                   ราคา (บาท) <span className="text-rose-500">*</span>
@@ -846,7 +846,6 @@ export default function BoatTypesPage() {
                 />
               </div>
 
-              {/* จำนวน (ลำ) */}
               <div>
                 <label className="block text-xs font-bold text-charcoal-700 mb-1">
                   จำนวน (ลำ) <span className="text-rose-500">*</span>
@@ -896,7 +895,6 @@ export default function BoatTypesPage() {
               </div>
             </div>
 
-            {/* Drag & Drop Cover Image Upload */}
             <div>
               <label className="block text-xs font-bold text-charcoal-700 mb-1.5">
                 รูปภาพเรือหลัก
@@ -953,7 +951,6 @@ export default function BoatTypesPage() {
               )}
             </div>
 
-            {/* Gallery Files Upload */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-bold text-charcoal-700">
@@ -1006,7 +1003,6 @@ export default function BoatTypesPage() {
             </div>
           </div>
 
-          {/* Submit / Cancel / Active Status Bar */}
           <div className="pt-4 border-t border-cream-200/80 flex items-center justify-between gap-2">
             <label
               htmlFor="create_is_active"
@@ -1052,7 +1048,6 @@ export default function BoatTypesPage() {
         </form>
       </Modal>
 
-      {/* MODAL: Edit Boat Type */}
       <Modal
         open={showEditModal && !!editingBoat}
         title="แก้ไขประเภทเรือ"
@@ -1062,7 +1057,6 @@ export default function BoatTypesPage() {
           onSubmit={handleUpdateBoat}
           className="space-y-3.5 text-xs"
         >
-          {/* ส่วนที่ 1: ข้อมูลทั่วไป */}
           <div className="bg-cream-50/40 p-3.5 rounded-2xl border border-cream-200/90 shadow-2xs space-y-2.5">
             <div>
               <label className="block font-bold text-charcoal-800 mb-1">
@@ -1099,7 +1093,6 @@ export default function BoatTypesPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-2.5">
-              {/* ที่นั่ง (คน) */}
               <div>
                 <label className="block text-xs font-bold text-charcoal-700 mb-1">
                   ที่นั่ง (คน)
@@ -1153,7 +1146,6 @@ export default function BoatTypesPage() {
                 </div>
               </div>
 
-              {/* ราคา(บาท) */}
               <div>
                 <label className="block text-xs font-bold text-charcoal-700 mb-1">
                   ราคา (บาท)
@@ -1178,7 +1170,6 @@ export default function BoatTypesPage() {
                 />
               </div>
 
-              {/* จำนวนเรือ (ลำ) */}
               <div>
                 <label className="block text-xs font-bold text-charcoal-700 mb-1">
                   จำนวนเรือ (ลำ)
@@ -1234,7 +1225,6 @@ export default function BoatTypesPage() {
             </div>
           </div>
 
-          {/* ส่วนที่ 2: จัดการรูปภาพ */}
           <div className="bg-cream-50/40 p-3.5 rounded-2xl border border-cream-200/90 shadow-2xs space-y-3">
             <div>
               <label className="block font-bold text-charcoal-800 mb-1.5">
@@ -1369,7 +1359,6 @@ export default function BoatTypesPage() {
             </div>
           </div>
 
-          {/* Submit / Cancel / Active Status Bar */}
           <div className="pt-2 flex items-center justify-between gap-2">
             <label
               htmlFor="edit_is_active"
@@ -1422,7 +1411,6 @@ export default function BoatTypesPage() {
         </form>
       </Modal>
 
-      {/* MODAL: Confirm Delete */}
       <Modal
         open={!!deleteTargetId}
         title="ยืนยันการลบประเภทเรือ"
@@ -1456,7 +1444,6 @@ export default function BoatTypesPage() {
         </div>
       </Modal>
 
-      {/* MODAL: Lightbox Viewer */}
       <Modal
         open={!!lightboxImage}
         title={lightboxImage?.title || ""}

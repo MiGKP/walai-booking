@@ -112,7 +112,7 @@ interface FlatLine extends RoomLine {
   boat_addons: BoatAddon[];
 }
 
-// แปลง ISO string จากฐานข้อมูล/API เป็นวันที่ YYYY-MM-DD ตามเวลาไทย
+// แปลง ISO string จากฐานข้อมูลเป็นวันที่ YYYY-MM-DD ตามเวลาไทย
 const localDateStr = (iso?: string | null): string => {
   if (!iso) return "";
   const d = new Date(iso);
@@ -132,7 +132,7 @@ const getBangkokCurrentMinutes = (d: Date = new Date()): number => {
   return h * 60 + m;
 };
 
-// สกัดเวลาที่คาดว่าจะถึง และคำขอพิเศษ (รองรับทั้ง arrival_time โดยตรง และรูปแบบเดิม [Arrival: HH:MM])
+// แยกเวลาที่คาดว่าจะมาถึงและคำขอพิเศษออกจากข้อความการจอง
 const parseSpecialRequest = (
   raw?: string | null,
   directArrival?: string | null,
@@ -154,6 +154,7 @@ const parseSpecialRequest = (
   };
 };
 
+// สรุปจำนวนผู้เข้าพักผู้ใหญ่และเด็กเป็นข้อความแสดงผล
 const formatGuestSummary = (line: FlatLine): string => {
   const adults = line.adults ?? 0;
   const children = line.children ?? 0;
@@ -168,12 +169,13 @@ const formatGuestSummary = (line: FlatLine): string => {
   return text;
 };
 
-// แปลงเวลา "HH:MM" เป็นนาทีในหนึ่งวัน
+// แปลงเวลา "HH:MM" เป็นจำนวนนาทีในหนึ่งวัน
 const timeToMinutes = (t: string): number => {
   const [h, m] = t.split(":").map(Number);
   return (h || 0) * 60 + (m || 0);
 };
 
+// เนื้อหาหลักหน้าจัดการเช็คอินและเช็คเอาต์ห้องพัก
 function AdminCheckinContent() {
   const { ready } = useAuthGuard({ allowedRoles: ["admin", "room_staff"] });
   const searchParams = useSearchParams();
@@ -185,11 +187,9 @@ function AdminCheckinContent() {
   const [inHouseFilter, setInHouseFilter] = useState<"all" | "today" | "staying">("all");
   const [mobileTab, setMobileTab] = useState<"arrivals" | "inhouse">("arrivals");
 
-  // Toggle Density View (Detailed vs Compact for handling 100+ rooms easily)
   const [densityView, setDensityView] = useState<"detailed" | "compact">("detailed");
   const [sortBy, setSortBy] = useState<"room" | "time" | "name">("time");
 
-  // Pagination (5 items per page)
   const ITEMS_PER_PAGE = 5;
   const [arrivalPage, setArrivalPage] = useState(1);
   const [inHousePage, setInHousePage] = useState(1);
@@ -201,7 +201,6 @@ function AdminCheckinContent() {
   const [settingsDraft, setSettingsDraft] = useState({ from: "14:00", to: "23:00" });
   const [savingSettings, setSavingSettings] = useState(false);
 
-  // Live time for header
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   const [confirmModal, setConfirmModal] = useState<{
@@ -231,6 +230,7 @@ function AdminCheckinContent() {
     return () => clearInterval(timer);
   }, []);
 
+  // ดึงข้อมูลรายการจองห้องพักทั้งหมดจากระบบ
   const fetchBookings = async () => {
     setLoading(true);
     try {
@@ -243,6 +243,7 @@ function AdminCheckinContent() {
     }
   };
 
+  // ดึงการตั้งค่าช่วงเวลาเช็คอินมาตรฐานของที่พัก
   const fetchSettings = async () => {
     try {
       const res = await api.get("/settings/resort", { params: { id: 4 } });
@@ -250,7 +251,7 @@ function AdminCheckinContent() {
       if (data?.checkin_time_from) setCheckinFrom(data.checkin_time_from.slice(0, 5));
       if (data?.checkin_time_to) setCheckinTo(data.checkin_time_to.slice(0, 5));
     } catch {
-      // ใช้ค่า default
+      // ใช้ค่าเริ่มต้นเมื่อโหลดการตั้งค่าไม่สำเร็จ
     }
   };
 
@@ -260,7 +261,6 @@ function AdminCheckinContent() {
     fetchSettings();
   }, [ready]);
 
-  // Reset page when search or filters change
   useEffect(() => {
     setArrivalPage(1);
   }, [search, arrivalFilter]);
@@ -269,6 +269,7 @@ function AdminCheckinContent() {
     setInHousePage(1);
   }, [search, inHouseFilter]);
 
+  // บันทึกการตั้งค่าช่วงเวลาเช็คอินมาตรฐานลงระบบ
   const handleSaveSettings = async () => {
     setSavingSettings(true);
     try {
@@ -288,14 +289,12 @@ function AdminCheckinContent() {
     }
   };
 
-  // ตรวจสอบว่าขณะนี้อยู่ในเวลาเช็คอินปกติหรือไม่ (อิงเวลาไทย Asia/Bangkok)
   const isCurrentlyInCheckinHours = useMemo(() => {
     if (!currentTime) return true;
     const nowMinutes = getBangkokCurrentMinutes(currentTime);
     return nowMinutes >= timeToMinutes(checkinFrom) && nowMinutes <= timeToMinutes(checkinTo);
   }, [currentTime, checkinFrom, checkinTo]);
 
-  // แตกรายการเป็นระดับ "ห้อง" (booking_room) จากข้อมูลจริงในฐานข้อมูล
   const allLines: FlatLine[] = useMemo(() => {
     const lines: FlatLine[] = [];
     bookings.forEach((b) => {
@@ -323,6 +322,7 @@ function AdminCheckinContent() {
     return lines;
   }, [bookings]);
 
+  // ตรวจสอบว่ารายการห้องพักตรงกับคำค้นหาหรือไม่
   const matchesSearch = (line: FlatLine) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase().trim();
@@ -337,6 +337,7 @@ function AdminCheckinContent() {
     );
   };
 
+  // เรียงลำดับรายการห้องพักตามตัวเลือกที่กำหนด
   const sortItems = (items: FlatLine[]) => {
     return [...items].sort((a, b) => {
       if (sortBy === "room") {
@@ -345,7 +346,6 @@ function AdminCheckinContent() {
       if (sortBy === "name") {
         return (a.user_name || "").localeCompare(b.user_name || "");
       }
-      // Sort by arrival time / date default
       const { arrivalTime: timeA } = parseSpecialRequest(a.special_request);
       const { arrivalTime: timeB } = parseSpecialRequest(b.special_request);
       if (timeA && timeB) {
@@ -419,11 +419,13 @@ function AdminCheckinContent() {
     };
   }, [allLines, rawArrivals.length, today, tomorrow]);
 
+  // ตรวจสอบว่ารายการห้องพักอยู่ในช่วงวันที่สามารถกดเช็คอินได้หรือไม่
   const isCheckinActionable = (line: FlatLine): boolean => {
     const d = localDateStr(line.check_in);
     return Boolean(d) && d <= today && localDateStr(line.check_out) > today;
   };
 
+  // ตรวจสอบว่าการเช็คอินวันนี้เกิดขึ้นนอกช่วงเวลาเช็คอินมาตรฐานหรือไม่
   const isOutsideCheckinWindow = (line: FlatLine): boolean => {
     if (localDateStr(line.check_in) !== today) return false;
     if (!currentTime) return false;
@@ -431,6 +433,7 @@ function AdminCheckinContent() {
     return nowMinutes < timeToMinutes(checkinFrom) || nowMinutes > timeToMinutes(checkinTo);
   };
 
+  // คัดลอกเบอร์โทรศัพท์ของลูกค้าลงคลิปบอร์ด
   const handleCopyPhone = (phone: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!phone) return;
@@ -438,6 +441,7 @@ function AdminCheckinContent() {
     notify.success(`คัดลอกเบอร์ ${phone} แล้ว`);
   };
 
+  // ปฏิเสธการจองห้องพักพร้อมบันทึกเหตุผล
   const handleReject = async (reason: string): Promise<void> => {
     if (!rejectLine || rejecting) return;
     setRejecting(true);
@@ -453,6 +457,7 @@ function AdminCheckinContent() {
     }
   };
 
+  // แสดงปุ่มปฏิเสธการจองเมื่อบิลยังไม่มีห้องที่เช็คอินแล้ว
   const renderRejectButton = (line: FlatLine): React.ReactNode =>
     line.can_reject ? (
       <button
@@ -466,6 +471,7 @@ function AdminCheckinContent() {
       </button>
     ) : null;
 
+  // เปิดหน้าต่างยืนยันการเช็คอินเข้าห้องพัก
   const handleCheckin = (line: FlatLine) => {
     if (!isCheckinActionable(line)) return;
     const lateCheckin = localDateStr(line.check_in) < today;
@@ -489,6 +495,7 @@ function AdminCheckinContent() {
     });
   };
 
+  // เปิดหน้าต่างยืนยันการเช็คเอาต์คืนห้องพัก
   const handleCheckout = (line: FlatLine) => {
     setConfirmModal({
       open: true,
@@ -507,6 +514,7 @@ function AdminCheckinContent() {
     });
   };
 
+  // สร้างหน้าต่างพิมพ์บัตรกิจกรรมเรือพายสำหรับลูกค้าห้องพัก
   const printAddonTicket = (addon: BoatAddon, line: FlatLine) => {
     const w = window.open("", "_blank", "width=680,height=480");
     if (!w) return;
@@ -546,7 +554,6 @@ function AdminCheckinContent() {
           box-shadow: 0 6px 20px rgba(18, 60, 48, 0.1);
           position: relative;
         }
-        /* ฝั่งซ้าย: บัตรหลัก (Main Pass ~68%) */
         .main-pass {
           width: 68%;
           display: flex;
@@ -642,7 +649,6 @@ function AdminCheckinContent() {
           color: #634E2A;
           line-height: 1.2;
         }
-        /* รอยบากตัดคูปอง */
         .notch-top, .notch-bottom {
           position: absolute;
           width: 14px;
@@ -655,7 +661,6 @@ function AdminCheckinContent() {
         }
         .notch-top { top: -8px; }
         .notch-bottom { bottom: -8px; }
-        /* ฝั่งขวา: หางบัตรสำหรับคืนท่าเรือ (Stub ~32%) */
         .stub-pass {
           width: 32%;
           background: #FAFCFB;
@@ -717,7 +722,7 @@ function AdminCheckinContent() {
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            padding-top: 25mm; /* ขยับบัตรลงมาจากขอบบนกระดาษ 2.5 ซม. */
+            padding-top: 25mm;
           }
           .ticket-wrapper {
             width: 10cm;
@@ -737,7 +742,6 @@ function AdminCheckinContent() {
       </style>
       </head><body>
         <div class="ticket-wrapper">
-          <!-- Main Pass (Left) -->
           <div class="main-pass">
             <div class="notch-top"></div>
             <div class="notch-bottom"></div>
@@ -768,7 +772,7 @@ function AdminCheckinContent() {
                 </div>
                 <div class="info-item">
                   <span class="info-label">สิทธิ์การใช้งาน</span>
-                  <span class="info-val" style="color: #0E5C49;">${addon.mode === "paid" ? `บริการเสริม (฿${Number(addon.price).toLocaleString()})` : "ฟรี (แพ็กเกจห้องพัก)"}</span>
+                  <span class="info-val" style="color: #0E5C49;">${addon.mode === "paid" ? `บริการเสริม (฿${Number(addon.price).toLocaleString()})` : "ฟรี (โปรโมชั่นห้องพัก)"}</span>
                 </div>
               </div>
               <div class="safety-strip">
@@ -777,7 +781,6 @@ function AdminCheckinContent() {
             </div>
           </div>
 
-          <!-- Stub (Right) -->
           <div class="stub-pass">
             <div class="stub-header">หางบัตร (ท่าเรือ)</div>
             <div class="stub-room">
@@ -799,11 +802,13 @@ function AdminCheckinContent() {
     w.print();
   };
 
+  // สั่งพิมพ์บัตรเรือเสริมและบันทึกสถานะการพิมพ์ลงระบบ
   const handlePrintOnly = (addon: BoatAddon, line: FlatLine) => {
     printAddonTicket(addon, line);
     api.put(`/kayaks/room-addon/${addon.boat_booking_id}/print`).catch(() => {});
   };
 
+  // บันทึกสถานะว่าได้มอบบัตรเรือเสริมให้ลูกค้าเรียบร้อยแล้ว
   const handleToggleHandout = async (addon: BoatAddon, line: FlatLine) => {
     const nextSet = new Set(handedOutAddonIds);
     const willHandOut = !addon.handed_out_at && !nextSet.has(addon.boat_booking_id);
@@ -821,6 +826,7 @@ function AdminCheckinContent() {
     }
   };
 
+  // แสดงรายการเรือเสริมที่ผูกกับห้องพักพร้อมปุ่มพิมพ์และมอบบัตร
   const renderBoatAddons = (line: FlatLine) => {
     if (!line.boat_addons || line.boat_addons.length === 0) return null;
     return (
@@ -847,7 +853,6 @@ function AdminCheckinContent() {
                 </div>
               </div>
 
-              {/* Actions: Print Button & Handout Button */}
               <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
                 <button
                   onClick={() => handlePrintOnly(addon, line)}
@@ -884,7 +889,6 @@ function AdminCheckinContent() {
 
   return (
     <div className="space-y-6 pb-16 max-w-[1600px] mx-auto">
-      {/* Top Header with Live Clock & Quick Actions */}
       <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 relative">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="space-y-1.5">
@@ -900,9 +904,7 @@ function AdminCheckinContent() {
             </div>
           </div>
 
-          {/* Live Status & Controls */}
           <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Live Clock & Shift Badge */}
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-cream-100/90 border border-cream-300/80 shadow-xs">
               <span className="relative flex h-2.5 w-2.5">
                 <span
@@ -926,7 +928,6 @@ function AdminCheckinContent() {
               </div>
             </div>
 
-            {/* Checkin Time Settings Modal Trigger Button */}
             <button
               onClick={() => {
                 setSettingsDraft({ from: checkinFrom, to: checkinTo });
@@ -940,7 +941,6 @@ function AdminCheckinContent() {
               <Settings size={13} className="text-charcoal-400" />
             </button>
 
-            {/* Refresh Button */}
             <button
               onClick={fetchBookings}
               className="px-3.5 py-2 text-charcoal-700 bg-white hover:bg-forest-50/50 hover:border-forest-200 rounded-2xl border border-charcoal-200/80 shadow-xs transition-all text-xs font-semibold flex items-center gap-2 active:scale-95"
@@ -952,9 +952,7 @@ function AdminCheckinContent() {
         </div>
       </div>
 
-      {/* Modern 4 Stat Overview Cards (Clean KPI Summary) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        {/* Card 1: Arrivals Today */}
         <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
           <div className="flex items-start justify-between">
             <div>
@@ -971,7 +969,6 @@ function AdminCheckinContent() {
           </div>
         </div>
 
-        {/* Card 2: In-House */}
         <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
           <div className="flex items-start justify-between">
             <div>
@@ -988,7 +985,6 @@ function AdminCheckinContent() {
           </div>
         </div>
 
-        {/* Card 3: Staying */}
         <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
           <div className="flex items-start justify-between">
             <div>
@@ -1005,7 +1001,6 @@ function AdminCheckinContent() {
           </div>
         </div>
 
-        {/* Card 4: Due Today Notification */}
         <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
           <div className="flex items-start justify-between">
             <div>
@@ -1029,9 +1024,7 @@ function AdminCheckinContent() {
         </div>
       </div>
 
-      {/* Unified Search & Control Bar (Density & Sorting Tools for 100+ Rooms) */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white p-3 rounded-2xl shadow-panel border border-cream-200">
-        {/* Search Input */}
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-charcoal-400 pointer-events-none" />
           <input
@@ -1051,9 +1044,7 @@ function AdminCheckinContent() {
           )}
         </div>
 
-        {/* Sorting and Layout Density Controls */}
         <div className="flex items-center gap-2 self-end md:self-auto flex-wrap">
-          {/* Sort Selector */}
           <CustomSelect
             width="w-44 sm:w-52"
             options={[
@@ -1071,7 +1062,6 @@ function AdminCheckinContent() {
             }
           />
 
-          {/* View Density Switcher */}
           <div className="flex items-center gap-1 bg-cream-100 p-1 rounded-xl">
             <button
               onClick={() => setDensityView("detailed")}
@@ -1096,7 +1086,6 @@ function AdminCheckinContent() {
           </div>
         </div>
 
-        {/* Mobile Tab Switcher (Visible on < xl) */}
         <div className="flex items-center gap-1 bg-cream-100 p-1 rounded-xl xl:hidden self-start md:self-auto w-full md:w-auto">
           <button
             onClick={() => setMobileTab("arrivals")}
@@ -1123,17 +1112,12 @@ function AdminCheckinContent() {
         </div>
       </div>
 
-      {/* Main Two-Column Split Layout */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-        {/* ========================================================= */}
-        {/* COLUMN 1: ARRIVALS (รอเช็คอิน) */}
-        {/* ========================================================= */}
         <div
           className={`bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 flex flex-col ${
             mobileTab === "arrivals" ? "flex" : "hidden xl:flex"
           }`}
         >
-          {/* Header & Date Filter Pills */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-cream-200">
             <div className="flex items-center gap-2">
               <h2 className="font-display font-bold text-lg text-forest-900 flex items-center gap-1.5">
@@ -1144,7 +1128,6 @@ function AdminCheckinContent() {
               </h2>
             </div>
 
-            {/* Date Filter Segmented Control */}
             <div className="flex flex-wrap items-center gap-1 bg-cream-100 p-1 rounded-xl self-start sm:self-auto">
               {(
                 [
@@ -1169,7 +1152,6 @@ function AdminCheckinContent() {
             </div>
           </div>
 
-          {/* List Content */}
           <div className="space-y-3">
             {loading ? (
               <div className="py-20 flex flex-col items-center justify-center gap-3">
@@ -1199,7 +1181,6 @@ function AdminCheckinContent() {
                 const { arrivalTime, note } = parseSpecialRequest(line.special_request, line.arrival_time);
                 const nights = calculateNights(line.check_in, line.check_out);
 
-                // --- COMPACT VIEW ROW ---
                 if (densityView === "compact") {
                   return (
                     <div
@@ -1244,7 +1225,6 @@ function AdminCheckinContent() {
                   );
                 }
 
-                // --- DETAILED CARD VIEW ---
                 return (
                   <div
                     key={line.booking_room_id}
@@ -1254,10 +1234,8 @@ function AdminCheckinContent() {
                         : "bg-cream-50/40 border-cream-200/70 opacity-90"
                     }`}
                   >
-                    {/* Top Row: Room Pill + Status Tag */}
                     <div className="flex items-center justify-between gap-2 flex-wrap pb-3 border-b border-cream-100">
                       <div className="flex items-center gap-2">
-                        {/* Room Number Badge (Soft & Calm) */}
                         <div className="px-3 py-1 rounded-xl bg-cream-100/90 border border-cream-300/70 font-display font-bold text-xs flex items-center gap-1.5 shadow-xs">
                           <BedDouble size={13} className="text-forest-700" />
                           <span className="text-forest-900">{line.room_number}</span>
@@ -1267,7 +1245,6 @@ function AdminCheckinContent() {
                         </div>
                       </div>
 
-                      {/* Date & Stay Duration Badge */}
                       <div className="flex items-center gap-1.5 text-xs text-charcoal-600 bg-cream-100/90 px-2.5 py-1 rounded-lg">
                         <Calendar size={12} className="text-forest-700" />
                         <span className="font-mono font-bold text-forest-950">
@@ -1283,15 +1260,12 @@ function AdminCheckinContent() {
                       </div>
                     </div>
 
-                    {/* Middle Row: Guest Details & Check-in CTA Button */}
                     <div className="pt-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="min-w-0 space-y-1.5 flex-1">
-                        {/* Guest Name */}
                         <div className="flex items-center gap-2.5 flex-wrap">
                           <h3 className="font-display font-bold text-sm sm:text-base text-forest-950 truncate">
                             {line.user_name || "ไม่ระบุชื่อ"}
                           </h3>
-                          {/* Phone with copy action */}
                           <div className="flex items-center gap-1.5 text-xs text-charcoal-500 font-mono">
                             <a
                               href={`tel:${line.user_phone}`}
@@ -1312,13 +1286,11 @@ function AdminCheckinContent() {
                           </div>
                         </div>
 
-                        {/* Guest Count */}
                         <div className="flex items-center gap-1.5 text-xs text-charcoal-500 pt-0.5">
                           <Users size={12} className="text-charcoal-400" />
                           <span>{formatGuestSummary(line)}</span>
                         </div>
 
-                        {/* Badges: Arrival Time */}
                         {arrivalTime && (
                           <div className="flex items-center gap-2 flex-wrap pt-0.5">
                             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-forest-800 bg-cream-100 border border-cream-200 px-2.5 py-0.5 rounded-lg">
@@ -1335,7 +1307,6 @@ function AdminCheckinContent() {
                         )}
                       </div>
 
-                      {/* Action CTA Button */}
                       <div className="flex flex-wrap items-center gap-2 shrink-0 pt-1 sm:pt-0">
                         {renderRejectButton(line)}
                         {actionable ? (
@@ -1354,7 +1325,6 @@ function AdminCheckinContent() {
                       </div>
                     </div>
 
-                    {/* Special Request Note (Full Width Framed Box) */}
                     {note && (
                       <div className="text-xs text-charcoal-700 bg-cream-100/70 border border-cream-200/90 rounded-xl px-3 py-2 mt-2.5 flex items-start gap-2">
                         <MessageSquare size={13} className="shrink-0 text-forest-700 mt-0.5" />
@@ -1362,7 +1332,6 @@ function AdminCheckinContent() {
                       </div>
                     )}
 
-                    {/* Boat Addons (Full Width) */}
                     {renderBoatAddons(line)}
                   </div>
                 );
@@ -1370,7 +1339,6 @@ function AdminCheckinContent() {
             )}
           </div>
 
-          {/* Arrivals Pagination Footer */}
           {arrivals.length > ITEMS_PER_PAGE && (
             <div className="flex items-center justify-between pt-4 mt-4 border-t border-cream-200 text-xs text-charcoal-500">
               <span>
@@ -1401,15 +1369,11 @@ function AdminCheckinContent() {
           )}
         </div>
 
-        {/* ========================================================= */}
-        {/* COLUMN 2: IN-HOUSE (กำลังพักอยู่ในรีสอร์ท) */}
-        {/* ========================================================= */}
         <div
           className={`bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 flex flex-col ${
             mobileTab === "inhouse" ? "flex" : "hidden xl:flex"
           }`}
         >
-          {/* Header & Filter Tabs */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-cream-200">
             <div className="flex items-center gap-2">
               <h2 className="font-display font-bold text-lg text-forest-900 flex items-center gap-1.5">
@@ -1420,7 +1384,6 @@ function AdminCheckinContent() {
               </h2>
             </div>
 
-            {/* In-House Filter Segmented Control */}
             <div className="flex items-center gap-1 bg-cream-100 p-1 rounded-xl self-start sm:self-auto">
               {(
                 [
@@ -1444,7 +1407,6 @@ function AdminCheckinContent() {
             </div>
           </div>
 
-          {/* List Content */}
           <div className="space-y-3">
             {loading ? (
               <div className="py-20 flex flex-col items-center justify-center gap-3">
@@ -1479,7 +1441,6 @@ function AdminCheckinContent() {
                 const { note } = parseSpecialRequest(line.special_request, line.arrival_time);
                 const nights = calculateNights(line.check_in, line.check_out);
 
-                // --- COMPACT VIEW ROW ---
                 if (densityView === "compact") {
                   return (
                     <div
@@ -1517,16 +1478,13 @@ function AdminCheckinContent() {
                   );
                 }
 
-                // --- DETAILED CARD VIEW ---
                 return (
                   <div
                     key={line.booking_room_id}
                     className="group relative rounded-2xl border p-4 sm:p-5 transition-all duration-200 bg-white border-cream-200/90 hover:border-forest-200 hover:shadow-md"
                   >
-                    {/* Top Row: Room Number & Checkout Date */}
                     <div className="flex items-center justify-between gap-2 flex-wrap pb-3 border-b border-cream-100">
                       <div className="flex items-center gap-2">
-                        {/* Room Badge (Soft & Calm) */}
                         <div className="px-3 py-1 rounded-xl bg-cream-100/90 border border-cream-300/70 font-display font-bold text-xs flex items-center gap-1.5 shadow-xs">
                           <BedDouble size={13} className="text-forest-700" />
                           <span className="text-forest-900">{line.room_number}</span>
@@ -1536,7 +1494,6 @@ function AdminCheckinContent() {
                         </div>
                       </div>
 
-                      {/* Checkout Status Tag */}
                       <div>
                         {isDueToday ? (
                           <span className="inline-flex items-center gap-1.5 text-xs text-charcoal-700 font-medium bg-cream-100/90 border border-cream-200 px-3 py-1 rounded-xl shadow-xs">
@@ -1550,7 +1507,6 @@ function AdminCheckinContent() {
                       </div>
                     </div>
 
-                    {/* Middle Row: Guest Info & Check-out CTA Button */}
                     <div className="pt-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="min-w-0 space-y-1.5 flex-1">
                         <div className="flex items-center gap-2.5 flex-wrap">
@@ -1577,13 +1533,11 @@ function AdminCheckinContent() {
                           </div>
                         </div>
 
-                        {/* Guest Count */}
                         <div className="flex items-center gap-1.5 text-xs text-charcoal-500 pt-0.5">
                           <Users size={12} className="text-charcoal-400" />
                           <span>{formatGuestSummary(line)}</span>
                         </div>
 
-                        {/* Check-in Details */}
                         {line.checkin_at && (
                           <div className="flex items-center gap-1.5 text-[11px] text-teal-800 pt-0.5">
                             <LogIn size={11} className="text-teal-600 shrink-0" />
@@ -1595,7 +1549,6 @@ function AdminCheckinContent() {
                         )}
                       </div>
 
-                      {/* Action CTA: Check-out Button */}
                       <div className="shrink-0 pt-1 sm:pt-0">
                         <button
                           onClick={() => handleCheckout(line)}
@@ -1607,7 +1560,6 @@ function AdminCheckinContent() {
                       </div>
                     </div>
 
-                    {/* Special Request Note (Full Width Framed Box) */}
                     {note && (
                       <div className="text-xs text-charcoal-700 bg-cream-100/70 border border-cream-200/90 rounded-xl px-3 py-2 mt-2.5 flex items-start gap-2">
                         <MessageSquare size={13} className="shrink-0 text-forest-700 mt-0.5" />
@@ -1615,7 +1567,6 @@ function AdminCheckinContent() {
                       </div>
                     )}
 
-                    {/* Boat Addons (Full Width) */}
                     {renderBoatAddons(line)}
                   </div>
                 );
@@ -1623,7 +1574,6 @@ function AdminCheckinContent() {
             )}
           </div>
 
-          {/* In-House Pagination Footer */}
           {inHouse.length > ITEMS_PER_PAGE && (
             <div className="flex items-center justify-between pt-4 mt-4 border-t border-cream-200 text-xs text-charcoal-500">
               <span>
@@ -1669,7 +1619,6 @@ function AdminCheckinContent() {
         </Modal>
       )}
 
-      {/* Enhanced Confirmation Modal */}
       <Modal
         open={!!confirmModal?.open}
         title={confirmModal?.title || ""}
@@ -1750,7 +1699,6 @@ function AdminCheckinContent() {
         )}
       </Modal>
 
-      {/* Checkin Time Settings Modal */}
       <Modal
         open={settingsOpen}
         title="ตั้งค่าช่วงเวลาเช็คอินมาตรฐาน"
@@ -1816,6 +1764,7 @@ function AdminCheckinContent() {
   );
 }
 
+// หน้าจัดการเช็คอินและเช็คเอาต์ห้องพักสำหรับผู้ดูแลระบบ
 export default function AdminCheckinPage() {
   return (
     <Suspense fallback={null}>

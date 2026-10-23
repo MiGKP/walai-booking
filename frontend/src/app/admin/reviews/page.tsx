@@ -25,8 +25,7 @@ import { notify } from "@/lib/admin-notify";
 import { Modal, CustomSelect, type CustomSelectOption } from "@/components/admin/ui";
 import { formatThaiDateShort, formatThaiDateLong } from "@/lib/date";
 
-
-// Soft Star Rating Display Component
+// คอมโพเนนต์แสดงไอคอนดาวตามคะแนนรีวิว
 function StarDisplay({
   rating,
   size = 14,
@@ -72,6 +71,7 @@ interface RoomTypeItem {
   type_name: string;
 }
 
+// หน้าจัดการรีวิวและความคิดเห็นของผู้เข้าพักสำหรับผู้ดูแลระบบและพนักงานห้องพัก
 export default function AdminReviewsPage() {
   const { ready } = useAuthGuard({ allowedRoles: ["admin", "room_staff"] });
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
@@ -79,12 +79,11 @@ export default function AdminReviewsPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
 
-  // Search state with debounce
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const [filterRoomType, setFilterRoomType] = useState<string | number>("");
-  const [starFilter, setStarFilter] = useState<string>("all"); // 'all' | '5' | '4' | '3' | '2' | '1'
+  const [starFilter, setStarFilter] = useState<string>("all");
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
@@ -92,11 +91,9 @@ export default function AdminReviewsPage() {
   const requestId = useRef(0);
   const [avgRating, setAvgRating] = useState<number | null>(null);
 
-  // State for Delete Confirmation Modal
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Debounce search input (300ms) to avoid lagging on keystrokes
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchInput.trim());
@@ -105,11 +102,11 @@ export default function AdminReviewsPage() {
     return () => clearTimeout(handler);
   }, [searchInput]);
 
-  // Initial load: Fetch Room Types & Overall Review Stats concurrently
   useEffect(() => {
     if (!ready) return;
     let isMounted = true;
 
+    // โหลดข้อมูลประเภทห้องพักและสถิติภาพรวมรีวิวเริ่มต้นพร้อมกัน
     const initData = async () => {
       try {
         const [roomsRes, summaryRes] = await Promise.all([
@@ -127,7 +124,7 @@ export default function AdminReviewsPage() {
           }
         }
       } catch {
-        // ignore
+        // ข้ามกรณีโหลดข้อมูลสรุปเริ่มต้นไม่สำเร็จ
       }
     };
 
@@ -137,7 +134,7 @@ export default function AdminReviewsPage() {
     };
   }, [ready]);
 
-  // Main Review List Fetcher
+  // ดึงรายการรีวิวจากฐานข้อมูลตามตัวกรองและการแบ่งหน้า
   const fetchReviews = useCallback(async (): Promise<void> => {
     if (!ready) return;
     const id = ++requestId.current;
@@ -186,6 +183,7 @@ export default function AdminReviewsPage() {
     fetchReviews();
   }, [fetchReviews]);
 
+  // ยืนยันการลบรีวิวที่เลือกออกจากระบบ
   const confirmDelete = async () => {
     if (!deleteTargetId) return;
     setIsDeleting(true);
@@ -221,7 +219,6 @@ export default function AdminReviewsPage() {
     (globalRatingTotals[2] || 0) +
     (globalRatingTotals[3] || 0);
 
-  // Pagination Number Buttons Helper
   const pageNumbers = useMemo(() => {
     const total = pagination.totalPages;
     const current = currentPage;
@@ -245,7 +242,6 @@ export default function AdminReviewsPage() {
 
   return (
     <div className="space-y-6 pb-16 max-w-[1600px] mx-auto">
-      {/* Top Header with Soft Cream / Forest Green Style */}
       <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80">
         <div className="flex items-center gap-3">
           <span className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10 shrink-0">
@@ -257,9 +253,7 @@ export default function AdminReviewsPage() {
         </div>
       </div>
 
-      {/* 4 Overview Stat Cards (KPI Summary) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        {/* Card 1: Average Score */}
         <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
           <div className="flex items-start justify-between">
             <div>
@@ -287,7 +281,6 @@ export default function AdminReviewsPage() {
           </div>
         </div>
 
-        {/* Card 2: Total Reviews */}
         <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
           <div className="flex items-start justify-between">
             <div>
@@ -310,7 +303,6 @@ export default function AdminReviewsPage() {
           </div>
         </div>
 
-        {/* Card 3: 5-Star Reviews */}
         <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
           <div className="flex items-start justify-between">
             <div>
@@ -337,7 +329,6 @@ export default function AdminReviewsPage() {
           </div>
         </div>
 
-        {/* Card 4: Feedback / Attention (1-3 Stars) */}
         <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
           <div className="flex items-start justify-between">
             <div>
@@ -369,9 +360,7 @@ export default function AdminReviewsPage() {
         </div>
       </div>
 
-      {/* Unified Search, Filter Pills & Pagination Control Bar */}
       <div className="bg-white rounded-3xl p-4 sm:p-5 shadow-panel border border-cream-200/90 space-y-3.5">
-        {/* Row 1: Star Rating Filter Pills (กดกรองระดับดาวได้ทันที) */}
         <div className="flex items-center justify-between gap-3 flex-wrap border-b border-cream-100 pb-3">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-xs font-semibold text-charcoal-500 mr-1 flex items-center gap-1">
@@ -379,7 +368,6 @@ export default function AdminReviewsPage() {
               <span>ระดับดาว:</span>
             </span>
 
-            {/* Pill: All */}
             <button
               onClick={() => {
                 setStarFilter("all");
@@ -403,7 +391,6 @@ export default function AdminReviewsPage() {
               </span>
             </button>
 
-            {/* Pills: 5 to 1 Star */}
             {[5, 4, 3, 2, 1].map((s) => {
               const count = globalRatingTotals[s] || 0;
               const isActive = starFilter === String(s);
@@ -443,7 +430,6 @@ export default function AdminReviewsPage() {
             })}
           </div>
 
-          {/* Active filter clear action */}
           {(searchInput || filterRoomType || starFilter !== "all") && (
             <button
               onClick={() => {
@@ -461,9 +447,7 @@ export default function AdminReviewsPage() {
           )}
         </div>
 
-        {/* Row 2: Search input, Room Select & Rows Per Page */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          {/* Search Input with Debounce */}
           <div className="relative flex-1 max-w-md">
             <Search
               size={15}
@@ -490,9 +474,7 @@ export default function AdminReviewsPage() {
             )}
           </div>
 
-          {/* Filters & Page Size Controls */}
           <div className="flex items-center gap-2.5 self-end md:self-auto flex-wrap">
-            {/* Room Filter Dropdown */}
             <div className="w-44 sm:w-48">
               <CustomSelect
                 options={roomTypeOptions}
@@ -505,7 +487,6 @@ export default function AdminReviewsPage() {
               />
             </div>
 
-            {/* Page Size Selector */}
             <CustomSelect
               width="w-32 sm:w-36"
               options={[
@@ -528,7 +509,6 @@ export default function AdminReviewsPage() {
               align="right"
             />
 
-            {/* Refresh Button */}
             <button
               type="button"
               onClick={() => fetchReviews()}
@@ -547,9 +527,7 @@ export default function AdminReviewsPage() {
         </div>
       </div>
 
-      {/* Main Reviews List Section */}
       <div className="bg-white rounded-3xl shadow-panel border border-cream-200/90 overflow-hidden relative">
-        {/* Loading overlay during background fetch */}
         {isFetching && !initialLoading && (
           <div className="absolute inset-0 bg-white/40 backdrop-blur-[0.5px] z-10 flex items-center justify-center transition-all">
             <div className="bg-white/90 border border-cream-200 px-3.5 py-2 rounded-2xl shadow-panel flex items-center gap-2 text-xs font-semibold text-forest-900">
@@ -559,7 +537,6 @@ export default function AdminReviewsPage() {
           </div>
         )}
 
-        {/* List Header */}
         <div className="px-5 py-4 border-b border-cream-200 bg-cream-50/40 flex items-center justify-between">
           <h2 className="font-display font-bold text-base sm:text-lg text-forest-900 flex items-center gap-2">
             <span>รายการความคิดเห็นจากผู้เข้าพัก</span>
@@ -569,7 +546,6 @@ export default function AdminReviewsPage() {
           </h2>
         </div>
 
-        {/* Reviews List */}
         <div className="divide-y divide-cream-100">
           {initialLoading ? (
             <div className="p-6 space-y-4">
@@ -599,7 +575,6 @@ export default function AdminReviewsPage() {
                 className="p-5 sm:p-6 hover:bg-cream-50/40 transition-colors"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  {/* Reviewer Profile & Stay Information */}
                   <div className="flex items-start gap-3.5 min-w-0">
                     {r.image_profile ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -623,7 +598,6 @@ export default function AdminReviewsPage() {
                         </span>
                       </div>
 
-                      {/* Stay dates and review date */}
                       <div className="flex items-center gap-3 mt-1 text-xs text-charcoal-500 flex-wrap">
                         {r.check_in && (
                           <div className="flex items-center gap-1">
@@ -642,7 +616,6 @@ export default function AdminReviewsPage() {
                     </div>
                   </div>
 
-                  {/* Room Tag & Rating Stars */}
                   <div className="flex items-start sm:items-end flex-col shrink-0 gap-1.5">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-cream-100/90 border border-cream-200/80 text-forest-900 font-semibold text-xs">
                       <BedDouble size={13} className="text-forest-700" />
@@ -660,7 +633,6 @@ export default function AdminReviewsPage() {
                   </div>
                 </div>
 
-                {/* Review Comment Box */}
                 {r.comment && (
                   <div className="mt-3.5 bg-cream-50/60 border border-cream-200/70 rounded-2xl p-3.5 sm:p-4 text-xs sm:text-sm text-charcoal-800 leading-relaxed">
                     <p className="whitespace-pre-line italic">
@@ -669,7 +641,6 @@ export default function AdminReviewsPage() {
                   </div>
                 )}
 
-                {/* Review Footer & Delete Action */}
                 <div className="mt-3.5 flex items-center justify-end">
                   <button
                     onClick={() => setDeleteTargetId(r.review_id)}
@@ -684,7 +655,6 @@ export default function AdminReviewsPage() {
           )}
         </div>
 
-        {/* Enhanced Full Table Pagination Bar (การแบ่งหน้าตาราง) */}
         <div className="px-5 py-4 bg-cream-50/50 border-t border-cream-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-charcoal-600">
           <div className="flex items-center gap-2">
             <span>
@@ -704,9 +674,7 @@ export default function AdminReviewsPage() {
             </span>
           </div>
 
-          {/* Numbered Page Buttons & Navigation */}
           <div className="flex items-center gap-1 flex-wrap">
-            {/* Prev Button */}
             <button
               type="button"
               className="px-3 py-1.5 text-charcoal-700 bg-white hover:bg-forest-50/50 hover:border-forest-200 rounded-xl border border-charcoal-200/80 shadow-2xs transition-all font-semibold flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
@@ -717,7 +685,6 @@ export default function AdminReviewsPage() {
               <span className="hidden sm:inline">ก่อนหน้า</span>
             </button>
 
-            {/* Page Number Buttons */}
             {pageNumbers.map((p, idx) => {
               if (p === "...") {
                 return (
@@ -747,7 +714,6 @@ export default function AdminReviewsPage() {
               );
             })}
 
-            {/* Next Button */}
             <button
               type="button"
               className="px-3 py-1.5 text-charcoal-700 bg-white hover:bg-forest-50/50 hover:border-forest-200 rounded-xl border border-charcoal-200/80 shadow-2xs transition-all font-semibold flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
@@ -765,7 +731,6 @@ export default function AdminReviewsPage() {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
       <Modal
         open={deleteTargetId !== null}
         title="ยืนยันการลบรีวิว"

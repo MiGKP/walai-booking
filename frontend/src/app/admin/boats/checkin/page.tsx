@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Ship,
   Calendar,
@@ -69,11 +70,9 @@ interface CheckinSummary {
   total_boats: number;
 }
 
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
-
 type TabFilter = "all" | "waiting" | "on_water" | "checked_out";
 
+// เนื้อหาหลักสำหรับจัดการเช็คอินปล่อยเรือลงน้ำและรับคืนเรือตามรอบเวลา
 function BoatCheckinContent(): React.ReactElement {
   useAuthGuard({ allowedRoles: ["admin", "boat_staff"] });
 
@@ -107,7 +106,6 @@ function BoatCheckinContent(): React.ReactElement {
     return () => clearInterval(timer);
   }, []);
 
-  // Confirm dialog state
   const [confirmModal, setConfirmModal] = useState<{
     open: boolean;
     type: "checkin" | "checkout";
@@ -125,6 +123,7 @@ function BoatCheckinContent(): React.ReactElement {
   const [rejectBooking, setRejectBooking] = useState<BoatCheckinBooking | null>(null);
   const [rejecting, setRejecting] = useState(false);
 
+  // ดึงข้อมูลรายการเช็คอินเรือและสถิติสรุปของวันที่เลือก
   const fetchCheckinSessions = useCallback(async () => {
     setLoading(true);
     try {
@@ -156,6 +155,7 @@ function BoatCheckinContent(): React.ReactElement {
     fetchCheckinSessions();
   }, [fetchCheckinSessions]);
 
+  // ปฏิเสธการจองเรือพร้อมบันทึกเหตุผล
   const handleReject = async (reason: string): Promise<void> => {
     if (!rejectBooking || rejecting || actionLoadingId !== null) return;
     setRejecting(true);
@@ -171,7 +171,7 @@ function BoatCheckinContent(): React.ReactElement {
     }
   };
 
-  // Handle Check-in (ปล่อยเรือลงน้ำ)
+  // บันทึกการเช็คอินปล่อยเรือลงน้ำ
   const handleCheckin = async (id: number) => {
     setActionLoadingId(id);
     try {
@@ -188,7 +188,7 @@ function BoatCheckinContent(): React.ReactElement {
     }
   };
 
-  // Handle Check-out (รับคืนเรือ)
+  // บันทึกการรับคืนเรือเมื่อลูกค้าพายเสร็จ
   const handleCheckout = async (id: number) => {
     setActionLoadingId(id);
     try {
@@ -205,7 +205,6 @@ function BoatCheckinContent(): React.ReactElement {
     }
   };
 
-  // Filter items based on activeTab
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
       if (activeTab === "waiting") {
@@ -221,7 +220,6 @@ function BoatCheckinContent(): React.ReactElement {
     });
   }, [bookings, activeTab]);
 
-  // Group by Time Round
   const roundsGroup = useMemo(() => {
     const map = new Map<string, BoatCheckinBooking[]>();
     for (const b of filteredBookings) {
@@ -239,7 +237,6 @@ function BoatCheckinContent(): React.ReactElement {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Banner / Title */}
       <div className="bg-linear-to-r from-teal-900 via-forest-800 to-forest-900 rounded-3xl p-4 sm:p-8 text-cream-100 shadow-lg relative z-20">
         <div aria-hidden="true" className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
           <div className="absolute right-0 top-0 bottom-0 opacity-10 flex items-center pr-10">
@@ -254,7 +251,6 @@ function BoatCheckinContent(): React.ReactElement {
             </h1>
           </div>
 
-          {/* Quick Date Switcher */}
           <div className="relative flex max-w-full flex-wrap items-center gap-2 bg-white/10 backdrop-blur-md p-1.5 rounded-2xl border border-white/20 shrink-0 sm:flex-nowrap">
             <button
               type="button"
@@ -292,7 +288,6 @@ function BoatCheckinContent(): React.ReactElement {
         </div>
       </div>
 
-      {/* KPI Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs flex items-center justify-between">
           <div>
@@ -345,9 +340,7 @@ function BoatCheckinContent(): React.ReactElement {
         </div>
       </div>
 
-      {/* Filter Tabs & Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-stone-200/80 shadow-xs">
-        {/* Tab Buttons */}
         <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
           <button
             type="button"
@@ -395,7 +388,6 @@ function BoatCheckinContent(): React.ReactElement {
           </button>
         </div>
 
-        {/* Search Input */}
         <div className="relative min-w-[240px]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-400" />
           <input
@@ -408,7 +400,6 @@ function BoatCheckinContent(): React.ReactElement {
         </div>
       </div>
 
-      {/* Main Content Grouped by Round */}
       {loading ? (
         <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center text-charcoal-400 shadow-xs">
           <RefreshCw size={28} className="animate-spin mx-auto text-forest-700 mb-3" />
@@ -438,7 +429,6 @@ function BoatCheckinContent(): React.ReactElement {
                 key={roundTime}
                 className="bg-white rounded-2xl border border-stone-200/90 shadow-xs overflow-hidden"
               >
-                {/* Round Header */}
                 <div className="bg-stone-50/80 px-5 py-3.5 border-b border-stone-200/80 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-xl bg-forest-800 text-cream-100 flex items-center justify-center shrink-0">
@@ -459,7 +449,6 @@ function BoatCheckinContent(): React.ReactElement {
                   </span>
                 </div>
 
-                {/* Bookings inside this round */}
                 <div className="divide-y divide-stone-100">
                   {items.map((b) => {
                     const isWaiting = b.status === "approved" && !b.checkin_at;
@@ -478,7 +467,6 @@ function BoatCheckinContent(): React.ReactElement {
                           isOnWater ? "bg-teal-50/20" : "hover:bg-stone-50/60"
                         }`}
                       >
-                        {/* Customer & Boat Info */}
                         <div className="flex items-start gap-3.5 min-w-0">
                           <div
                             className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
@@ -508,7 +496,6 @@ function BoatCheckinContent(): React.ReactElement {
                                 </span>
                               )}
 
-                              {/* Status Badge */}
                               {isWaiting && (
                                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200/80">
                                   ⏳ รอมารายงานตัว
@@ -527,7 +514,6 @@ function BoatCheckinContent(): React.ReactElement {
                               )}
                             </div>
 
-                            {/* Contact & Boat breakdown */}
                             <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-charcoal-500">
                               {b.customer_phone ? (
                                 <a
@@ -555,7 +541,6 @@ function BoatCheckinContent(): React.ReactElement {
                               </div>
                             </div>
 
-                            {/* Timestamp Details */}
                             <div className="text-[11px] text-charcoal-500 flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
                               {b.checkin_at && (
                                 <span className="text-teal-700 font-medium inline-flex items-center gap-1">
@@ -595,7 +580,6 @@ function BoatCheckinContent(): React.ReactElement {
                           </div>
                         </div>
 
-                        {/* Action Buttons */}
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-stone-100 justify-end">
                           {isWaiting && !b.handed_out_at && (
                             <button
@@ -666,7 +650,6 @@ function BoatCheckinContent(): React.ReactElement {
         </div>
       )}
 
-      {/* Confirmation Modal */}
       {confirmModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal-900/50 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4">
@@ -735,6 +718,7 @@ function BoatCheckinContent(): React.ReactElement {
   );
 }
 
+// หน้าเช็คอินท่าเรือพร้อม Suspense รองรับพารามิเตอร์จาก URL
 export default function BoatCheckinPage(): React.ReactElement {
   return (
     <Suspense fallback={<div className="p-8 text-center text-charcoal-400">กำลังโหลด...</div>}>

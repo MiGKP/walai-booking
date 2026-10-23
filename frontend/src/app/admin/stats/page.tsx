@@ -381,7 +381,7 @@ export default function StatsPage(): React.ReactElement | null {
 
     // Packages & Inventory if available from backend
     if (data.packages && data.packages.length > 0) {
-      rows.push([], ['=== สถิติการใช้แพ็คเกจ / โปรโมชั่น ==='], ['ชื่อโปรโมชั่น', 'โค้ด', 'จำนวนการจอง', 'รายรับ']);
+      rows.push([], ['=== สถิติการใช้โปรโมชั่น / คูปองส่วนลด ==='], ['ชื่อโปรโมชั่น', 'คูปอง', 'จำนวนการจอง', 'รายรับ']);
       data.packages.forEach((p) => {
         rows.push([p.name, p.code, p.booking_count, Number(p.revenue || 0)]);
       });
@@ -831,8 +831,8 @@ export default function StatsPage(): React.ReactElement | null {
                   {/* Packages / Promotions Table */}
                   {showRoom && data.packages && data.packages.length > 0 && (
                     <ReportTable
-                      title="การใช้แพ็คเกจและโปรโมชั่นห้องพัก"
-                      headers={['ชื่อแพ็คเกจ / โปรโมชั่น', 'โค้ด', 'จำนวนการจอง', 'รายรับห้องพัก', 'วันที่มีการจองมากที่สุด']}
+                      title="การใช้โปรโมชั่นและคูปองส่วนลดห้องพัก"
+                      headers={['ชื่อโปรโมชั่น', 'คูปอง', 'จำนวนการจอง', 'รายรับห้องพัก', 'วันที่มีการจองมากที่สุด']}
                       rows={data.packages.map((p) => [
                         p.name,
                         p.code,

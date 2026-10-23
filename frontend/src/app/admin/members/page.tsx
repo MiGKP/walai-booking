@@ -22,14 +22,14 @@ import {
   User as UserIcon,
   Clock,
   Globe,
-  MessageCircle} from 'lucide-react';
-import { SiFacebook as Facebook } from '@icons-pack/react-simple-icons';
+  MessageCircle,
+} from "lucide-react";
+import { SiFacebook as Facebook } from "@icons-pack/react-simple-icons";
 import api from "@/lib/api";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 import { Modal } from "@/components/admin/ui";
 
-// Type Interface
 interface Member {
   id: number | string;
   member_id?: number | string;
@@ -61,28 +61,23 @@ interface DetailModalState {
   data: Member | null;
 }
 
+// หน้าจัดการข้อมูลสมาชิกและควบคุมสิทธิ์การใช้งานสำหรับผู้ดูแลระบบ
 export default function AdminMembersPage() {
   const { ready } = useAuthGuard({ allowedRoles: ["admin"] });
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Server-side filters
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [bookingStatus, setBookingStatus] = useState("all");
   const [bookingService, setBookingService] = useState("all");
 
-
-
-
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [pagination, setPagination] = useState({ total: 0, totalPages: 0 });
   const [summary, setSummary] = useState({ total: 0, active: 0, inactive: 0 });
   const requestId = useRef(0);
 
-  // Modals
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
     isOpen: false,
     memberId: null,
@@ -95,7 +90,7 @@ export default function AdminMembersPage() {
     data: null,
   });
 
-  // Load the requested page and global member totals
+  // ดึงรายชื่อสมาชิกตามตัวกรองและเลขหน้าพร้อมสรุปจำนวนทั้งหมด
   const fetchMembers = useCallback(async (): Promise<void> => {
     if (!ready) return;
 
@@ -138,6 +133,7 @@ export default function AdminMembersPage() {
     fetchMembers();
   }, [fetchMembers]);
 
+  // สลับสถานะเปิดหรือระงับการใช้งานบัญชีสมาชิกที่เลือก
   const handleConfirmToggle = async () => {
     if (!confirmModal.memberId) return;
 
@@ -172,7 +168,6 @@ export default function AdminMembersPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Header Card */}
       <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-900/10">
@@ -204,9 +199,7 @@ export default function AdminMembersPage() {
         </div>
       </div>
 
-      {/* Main Table Panel (Fixed consistent height with min-h-[660px]) */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[660px]">
-        {/* Panel Header */}
         <div className="pb-4 mb-4 border-b border-cream-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
@@ -218,9 +211,7 @@ export default function AdminMembersPage() {
             </span>
           </div>
 
-          {/* Filter & Search Bar */}
           <div className="flex flex-col sm:flex-row flex-wrap items-center gap-2.5 w-full sm:w-auto">
-            {/* Search Input */}
             <div className="relative w-full sm:w-64">
               <Search
                 size={15}
@@ -251,7 +242,6 @@ export default function AdminMembersPage() {
               )}
             </div>
 
-            {/* Booking Status Filter */}
             <div className="flex items-center gap-1.5 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700 shadow-2xs">
               <span className="font-medium text-charcoal-500 whitespace-nowrap">การจอง:</span>
               <select
@@ -274,7 +264,6 @@ export default function AdminMembersPage() {
               </select>
             </div>
 
-            {/* Service Filter */}
             <div className="flex items-center gap-1.5 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700 shadow-2xs">
               <span className="font-medium text-charcoal-500 whitespace-nowrap">บริการ:</span>
               <select
@@ -292,7 +281,6 @@ export default function AdminMembersPage() {
               </select>
             </div>
 
-            {/* Status Filter Tabs */}
             <div className="flex items-center gap-1 p-1 bg-cream-100 rounded-2xl text-xs w-full sm:w-auto shrink-0 justify-between sm:justify-start">
               <button
                 type="button"
@@ -342,7 +330,6 @@ export default function AdminMembersPage() {
           </div>
         </div>
 
-        {/* Table Container */}
         <div className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
           <table className="w-full text-left border-collapse text-xs md:text-sm">
             <thead>
@@ -507,7 +494,6 @@ export default function AdminMembersPage() {
           </table>
         </div>
 
-        {/* Pagination Footer */}
         {pagination.total > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-auto border-t border-cream-200 text-xs text-charcoal-500">
             <span>
@@ -521,7 +507,6 @@ export default function AdminMembersPage() {
               <strong className="text-forest-950 font-mono">{pagination.total}</strong> รายการ
             </span>
 
-            {/* Pagination Controls */}
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -595,7 +580,6 @@ export default function AdminMembersPage() {
         )}
       </div>
 
-      {/* MODAL: Toggle Member Status */}
       <Modal
         open={confirmModal.isOpen}
         title="ยืนยันการเปลี่ยนสถานะ"
@@ -633,7 +617,6 @@ export default function AdminMembersPage() {
         </div>
       </Modal>
 
-      {/* MODAL: Member Details */}
       <Modal
         open={detailModal.isOpen}
         title="ข้อมูลสมาชิก"
