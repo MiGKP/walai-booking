@@ -3,13 +3,15 @@ import type { Transporter, SendMailOptions } from 'nodemailer';
 
 const requiredMailEnv = ['MAIL_HOST', 'MAIL_PORT', 'MAIL_USER', 'MAIL_PASS'] as const;
 
+// ตรวจสอบตัวแปรสภาพแวดล้อมที่จำเป็นสำหรับการส่งอีเมลผ่าน SMTP
 const getMissingMailEnv = (): string[] => {
   return requiredMailEnv.filter((key) => !process.env[key]);
 };
 
+// ตัดเครื่องหมายคำพูดที่ครอบข้อความและตัดช่องว่างหน้า-หลัง
 const stripQuotes = (value: string): string => value.replace(/^["']|["']$/g, '').trim();
 
-// escape ค่าที่มาจากผู้ใช้ก่อนแทรกลงใน HTML ของอีเมลเพื่อป้องกัน HTML injection
+// แปลงอักขระพิเศษเป็น HTML entities เพื่อป้องกัน HTML injection ในเนื้อหาอีเมล
 const escapeHtml = (value: unknown): string =>
   String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -18,6 +20,7 @@ const escapeHtml = (value: unknown): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+// ดึงชื่อและอีเมลผู้ส่งเริ่มต้นจากตัวแปรสภาพแวดล้อม
 const getMailFrom = (): string => {
   const raw =
     process.env.MAIL_FROM ||
@@ -25,11 +28,12 @@ const getMailFrom = (): string => {
   return stripQuotes(raw);
 };
 
+// ดึงรหัสผ่านอีเมลและลบช่องว่างทั้งหมดออก
 const getMailPass = (): string => {
-  // App Password บางทีมีช่องว่างตอน copy จาก Google
   return stripQuotes(String(process.env.MAIL_PASS || '')).replace(/\s+/g, '');
 };
 
+// ดึงชื่อผู้ใช้อีเมลสำหรับเชื่อมต่อ SMTP
 const getMailUser = (): string => stripQuotes(String(process.env.MAIL_USER || ''));
 
 interface MailPayload {
@@ -44,6 +48,7 @@ interface BrevoSender {
   name: string;
 }
 
+// แยกชื่อและอีเมลผู้ส่งสำหรับใช้งานกับ Brevo API
 const getBrevoSender = (): BrevoSender => {
   const mailFrom = getMailFrom();
   const namedAddress = mailFrom.match(/^\s*(.*?)\s*<([^<>]+)>\s*$/);
@@ -64,6 +69,7 @@ const getBrevoSender = (): BrevoSender => {
   return { email, name };
 };
 
+// ส่งอีเมลผ่าน Brevo HTTPS API
 const sendViaBrevo = async (payload: MailPayload): Promise<void> => {
   const apiKey = process.env.BREVO_API_KEY?.trim();
   if (!apiKey) {
@@ -84,7 +90,6 @@ const sendViaBrevo = async (payload: MailPayload): Promise<void> => {
       htmlContent: payload.html,
       textContent: payload.text,
     }),
-    // HTTPS avoids outbound SMTP port restrictions on Render.
     signal: AbortSignal.timeout(15_000),
   });
 
@@ -96,6 +101,7 @@ const sendViaBrevo = async (payload: MailPayload): Promise<void> => {
   console.log(`[mail] Sent via Brevo API to ${payload.to}`);
 };
 
+// ส่งอีเมลผ่าน Resend HTTPS API
 const sendViaResend = async (payload: MailPayload): Promise<boolean> => {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) return false;
@@ -107,7 +113,6 @@ const sendViaResend = async (payload: MailPayload): Promise<boolean> => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      // Free tier: ใช้ onboarding@resend.dev จนกว่าจะ verify domain
       from: process.env.RESEND_FROM?.trim() || 'Walai Booking <onboarding@resend.dev>',
       to: [payload.to],
       subject: payload.subject,
@@ -125,6 +130,7 @@ const sendViaResend = async (payload: MailPayload): Promise<boolean> => {
   return true;
 };
 
+// สร้าง Nodemailer transporter สำหรับ Gmail SMTP
 const createGmailTransporter = (secure: boolean): Transporter => {
   const port = secure ? 465 : 587;
   return nodemailer.createTransport({
@@ -144,6 +150,7 @@ const createGmailTransporter = (secure: boolean): Transporter => {
   });
 };
 
+// สร้าง Nodemailer transporter สำหรับเซิร์ฟเวอร์ SMTP ทั่วไป
 const createGenericTransporter = (): Transporter => {
   return nodemailer.createTransport({
     host: String(process.env.MAIL_HOST),
@@ -159,6 +166,7 @@ const createGenericTransporter = (): Transporter => {
   });
 };
 
+// ส่งอีเมลผ่าน SMTP โดยรองรับการสลับพอร์ตอัตโนมัติสำหรับ Gmail
 const sendViaSmtp = async (payload: MailPayload): Promise<void> => {
   const missingEnv = getMissingMailEnv();
   if (missingEnv.length > 0) {
@@ -181,7 +189,6 @@ const sendViaSmtp = async (payload: MailPayload): Promise<void> => {
     return;
   }
 
-  // Gmail จาก Render: ลอง 465 (SSL) ก่อน แล้วค่อย 587 (STARTTLS)
   const attempts = [true, false];
   let lastError: unknown;
 
@@ -199,6 +206,7 @@ const sendViaSmtp = async (payload: MailPayload): Promise<void> => {
   throw lastError instanceof Error ? lastError : new Error('Gmail SMTP send failed');
 };
 
+// เลือกผู้ให้บริการส่งอีเมลตามการตั้งค่าในตัวแปรสภาพแวดล้อม
 const getMailProvider = (): 'brevo' | 'resend' | 'smtp' => {
   const explicit = stripQuotes(String(process.env.MAIL_PROVIDER || '')).toLowerCase();
   if (explicit === 'brevo') return 'brevo';
@@ -210,6 +218,7 @@ const getMailProvider = (): 'brevo' | 'resend' | 'smtp' => {
   return 'smtp';
 };
 
+// ส่งอีเมลผ่านผู้ให้บริการที่เลือกไว้
 const sendMailSafely = async (options: SendMailOptions): Promise<void> => {
   const payload: MailPayload = {
     to: String(options.to),
@@ -237,6 +246,7 @@ const sendMailSafely = async (options: SendMailOptions): Promise<void> => {
   await sendViaSmtp(payload);
 };
 
+// ส่งอีเมลเชิญชวนให้ลูกค้ารีวิวหลังเช็คเอาท์
 export const sendReviewReminderEmail = async (params: {
   to: string;
   recipientName?: string;
@@ -277,6 +287,7 @@ export const sendReviewReminderEmail = async (params: {
   });
 };
 
+// ส่งอีเมลรหัส OTP สำหรับรีเซ็ตรหัสผ่าน
 export const sendPasswordResetEmail = async (params: {
   to: string;
   recipientName?: string;
@@ -311,6 +322,7 @@ export const sendPasswordResetEmail = async (params: {
   });
 };
 
+// ส่งอีเมลแจ้งเตือนพนักงานเมื่อลูกค้าอัปโหลดสลิปชำระเงินใหม่
 export const sendPaymentSlipNotificationEmail = async (params: {
   to: string;
   customerName: string;
@@ -354,6 +366,7 @@ export const sendPaymentSlipNotificationEmail = async (params: {
   }
 };
 
+// ส่งอีเมลแจ้งลูกค้าเมื่อบันทึกคำขอจองสำเร็จและรอการชำระเงิน
 export const sendBookingConfirmationEmail = async (params: {
   to: string;
   customerName: string;
@@ -369,29 +382,29 @@ export const sendBookingConfirmationEmail = async (params: {
   try {
     await sendMailSafely({
       to: params.to,
-      subject: `[${appName}] รับคำขอจอง${bookingTypeLabel}แล้ว — รหัส #${params.bookingId}`,
+      subject: `[${appName}] บันทึกคำขอจอง${bookingTypeLabel}แล้ว (รอชำระเงิน) — รหัส #${params.bookingId}`,
       html: `
         <div style="font-family: Arial, sans-serif; background: #f5f7fb; padding: 24px; color: #1f2937;">
           <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 32px; border: 1px solid #e5e7eb;">
             <div style="margin-bottom: 24px;">
-              <div style="display: inline-block; background: #ccfbf1; color: #0f766e; font-weight: 700; padding: 10px 14px; border-radius: 999px;">🌊 ${appName}</div>
+              <div style="display: inline-block; background: #fef3c7; color: #b45309; font-weight: 700; padding: 8px 14px; border-radius: 999px; font-size: 13px;">⏳ รอชำระเงิน (ยังไม่ใช่การยืนยันการจอง)</div>
             </div>
-            <h1 style="font-size: 22px; margin: 0 0 16px; color: #111827;">ได้รับคำขอจอง${bookingTypeLabel}แล้ว</h1>
+            <h1 style="font-size: 22px; margin: 0 0 16px; color: #111827;">บันทึกคำขอจอง${bookingTypeLabel}แล้ว — กรุณาดำเนินการชำระเงิน</h1>
             <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
               สวัสดีคุณ <strong>${escapeHtml(params.customerName)}</strong><br />
-              ระบบได้รับคำขอจอง${bookingTypeLabel}ของคุณแล้ว อีเมลนี้ยังไม่ใช่การยืนยันการจอง กรุณาชำระเงินและแนบสลิป แล้วรอผลตรวจสอบจากพนักงาน รายละเอียดดังนี้:
+              ระบบได้บันทึกคำขอจอง${bookingTypeLabel}ของคุณเรียบร้อยแล้ว <strong>(อีเมลนี้ยังไม่ใช่การยืนยันการจอง)</strong> กรุณาดำเนินการชำระเงินและแนบสลิปผ่านเว็บไซต์ เพื่อให้เจ้าหน้าที่ตรวจสอบและยืนยันการจอง รายละเอียดดังนี้:
             </p>
-            <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 24px; font-size: 14px; line-height: 1.8;">
+            <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 20px; font-size: 14px; line-height: 1.8;">
               <div>📋 <strong>รหัสการจอง:</strong> #${params.bookingId}</div>
               <div>🏠 <strong>รายการ:</strong> ${escapeHtml(params.details)}</div>
               <div>📅 <strong>วันที่:</strong> ${escapeHtml(params.dateInfo)}</div>
               <div>💰 <strong>ราคารวม:</strong> ฿${Number(params.totalPrice).toLocaleString()}</div>
             </div>
-            <p style="font-size: 14px; line-height: 1.7; margin: 0 0 20px; color: #4b5563;">
-              กรุณาชำระเงินและแนบสลิปผ่านทางหน้าประวัติการจองในเว็บไซต์ เพื่อให้พนักงานดำเนินการยืนยันการเข้าพักครับ
-            </p>
+            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-bottom: 24px; font-size: 13px; color: #92400e; line-height: 1.6;">
+              ⚠️ <strong>สำคัญ:</strong> รายการจองนี้จะเสร็จสมบูรณ์เมื่อท่านชำระเงิน แนบสลิป และได้รับการตรวจสอบอนุมัติจากเจ้าหน้าที่แล้วเท่านั้น
+            </div>
             <a href="${(process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '')}/dashboard?tab=bookings" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 16px;">
-              ดูประวัติการจอง & แนบสลิป →
+              ไปหน้าประวัติการจอง & แนบสลิป →
             </a>
             <p style="font-size: 13px; color: #9ca3af; margin: 16px 0 0;">อีเมลนี้ส่งโดยอัตโนมัติจากระบบ ${appName}</p>
           </div>
@@ -404,6 +417,7 @@ export const sendBookingConfirmationEmail = async (params: {
   }
 };
 
+// ส่งอีเมลแจ้งผลการอนุมัติหรือปฏิเสธการจองให้ลูกค้าทราบ
 export const sendBookingStatusEmail = async (params: {
   to: string;
   customerName: string;
@@ -460,7 +474,7 @@ export const sendBookingStatusEmail = async (params: {
   }
 };
 
-
+// ส่งอีเมลแจ้งเตือนลูกค้าเมื่อคูปองส่วนลดที่เก็บไว้ใกล้หมดอายุ
 export const sendPromotionExpiryEmail = async (params: {
   to: string;
   recipientName?: string;
@@ -477,7 +491,7 @@ export const sendPromotionExpiryEmail = async (params: {
   await sendMailSafely({
     from: getMailFrom(),
     to: params.to,
-    subject: `โค้ด ${params.code} ของคุณใกล้หมดอายุแล้ว — ${appName}`,
+    subject: `โปรโมชั่น ${params.code} ของคุณใกล้หมดอายุแล้ว — ${appName}`,
     html: `
       <div style="font-family: Arial, sans-serif; background: #f5f7fb; padding: 24px; color: #1f2937;">
         <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 32px; border: 1px solid #e5e7eb;">
@@ -487,7 +501,7 @@ export const sendPromotionExpiryEmail = async (params: {
           <h1 style="font-size: 22px; margin: 0 0 12px; color: #111827;">โปรโมชั่นของคุณใกล้หมดอายุ</h1>
           <p style="font-size: 15px; line-height: 1.7; margin: 0 0 8px;">สวัสดี ${escapeHtml(recipientName)}</p>
           <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
-            โค้ด <strong>${escapeHtml(params.code)}</strong> (${escapeHtml(params.promoName)}) ${when}<br />
+            โปรโมชั่น <strong>${escapeHtml(params.code)}</strong> (${escapeHtml(params.promoName)}) ${when}<br />
             วันสิ้นสุด <strong>${escapeHtml(params.endDate)}</strong>
           </p>
           <a href="${escapeHtml(params.promoUrl)}" style="display: inline-block; background: #0f766e; color: #ffffff; padding: 14px 28px; border-radius: 14px; font-size: 15px; font-weight: 700; text-decoration: none; margin-bottom: 24px;">

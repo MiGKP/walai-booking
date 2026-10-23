@@ -3,7 +3,7 @@ const COMMON_PASSWORDS = new Set([
   'qwerty123', 'qwertyuiop', 'abcdefgh', 'iloveyou', 'admin123', 'letmein123',
 ]);
 
-// Validate new passwords only. Existing credentials must still be usable at login.
+// ตรวจสอบความแข็งแรงและความยาวของรหัสผ่านใหม่ตามนโยบายความปลอดภัย
 export function getNewPasswordError(value: unknown): string | null {
   if (typeof value !== 'string') return 'กรุณากรอกรหัสผ่านเป็นข้อความ';
   if (Array.from(value).length < 8) return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
@@ -14,6 +14,7 @@ export function getNewPasswordError(value: unknown): string | null {
   return null;
 }
 
+// โยนข้อผิดพลาดหากรหัสผ่านใหม่ไม่ผ่านเกณฑ์ความปลอดภัย (ใช้กับ express-validator)
 export function validateNewPassword(value: unknown): boolean {
   const error = getNewPasswordError(value);
   if (error) throw new Error(error);

@@ -33,13 +33,11 @@ import { startAutoCancelJob } from './services/auto-cancel.service';
 import { preserveRequestQuery } from './middleware/request-query.middleware';
 
 const app = express();
-// Preserve Express 4 query parsing and sanitizer behavior for the existing API.
 app.set('query parser', 'extended');
 app.use(preserveRequestQuery);
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Render/Vercel sit behind a reverse proxy — needed for rate limiting and secure cookies
 app.set('trust proxy', 1);
 
 app.use(helmet({
@@ -50,6 +48,7 @@ app.use(helmet({
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
 
+// ตัดเครื่องหมายทับท้าย URL เพื่อใช้เปรียบเทียบ origin ของ CORS
 const normalizeOrigin = (value?: string): string => (value || '').replace(/\/$/, '');
 
 app.use(cors({
@@ -69,6 +68,7 @@ app.use(cors({
   credentials: true,
 }));
 
+// จำกัดจำนวนคำขอ API ทั่วไปต่อ IP
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5000,
@@ -76,6 +76,7 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// จำกัดจำนวนคำขอเข้าสู่ระบบและรีเซ็ตรหัสผ่านต่อ IP
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -112,6 +113,7 @@ app.use('/uploads', (req, res, next) => {
   next();
 }, express.static(path.join(__dirname, '../uploads')));
 
+// ลงทะเบียนเส้นทาง API ของแต่ละโมดูล
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
@@ -124,8 +126,8 @@ app.use('/api/promotions', promotionRoutes);
 app.use('/api/members', memberRoutes);
 app.use('/api/staff', staffRoutes);
 
+// เส้นทางตรวจสอบสถานะการทำงานของเซิร์ฟเวอร์ (Health check)
 app.get('/favicon.ico', (req, res) => res.status(204).end());
-// Render default health check hits `/` — keep a cheap 200 so deploys don't roll back
 app.get('/', (_req, res): void => {
   res.status(200).json({ status: 'ok', service: 'walai-booking-api' });
 });
@@ -133,6 +135,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Walai Booking API is running' });
 });
 
+// ดักจับและแปลงข้อผิดพลาดทั้งหมดให้อยู่ในรูปแบบ JSON มาตรฐาน
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err && err.name === 'MulterError') {
     res.status(400).json({ success: false, message: 'ไฟล์ไม่ถูกต้องหรือมีขนาดใหญ่เกินกำหนด' });
@@ -150,6 +153,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
+// เริ่มต้นเซิร์ฟเวอร์และงานเบื้องหลังตามเวลาที่กำหนด
 app.listen(PORT, () => {
   console.log(`🌊 Walai Booking API running on port ${PORT}`);
   startReviewReminderJob();

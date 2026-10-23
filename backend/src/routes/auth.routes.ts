@@ -40,8 +40,8 @@ import { createImageUpload } from '../middleware/image-upload.middleware';
 const router = Router();
 const uploadAvatar = createImageUpload(5 * 1024 * 1024);
 
-// Admin Staff Management
-router.post('/init-admin', initAdminValidator, validate, initAdmin); // No auth required, but checks if admin already exists
+// เส้นทางจัดการบัญชีพนักงานสำหรับผู้ดูแลระบบ
+router.post('/init-admin', initAdminValidator, validate, initAdmin);
 router.post('/staff', authenticate, authorize('admin'), createStaffValidator, validate, createStaff);
 router.get('/staff', authenticate, authorize('admin'), getAllStaff);
 router.get('/staff/:id', authenticate, authorize('admin'), getStaffById);
@@ -50,6 +50,7 @@ router.put('/staff/:id/status', authenticate, authorize('admin'), toggleStaffSta
 router.patch('/staff/:id/status', authenticate, authorize('admin'), toggleStaffStatus);
 router.delete('/staff/:id', authenticate, authorize('admin'), deleteStaff);
 
+// รับไฟล์รูปโปรไฟล์ตอนสมัครสมาชิกและแนบลงใน req.file
 const handleRegisterUpload = (req: Request, res: Response, next: NextFunction): void => {
   uploadAvatar.fields([{ name: 'avatar', maxCount: 1 }, { name: 'image_profile', maxCount: 1 }])(req, res, (err) => {
     if (err) {
@@ -64,16 +65,19 @@ const handleRegisterUpload = (req: Request, res: Response, next: NextFunction): 
   });
 };
 
+// เส้นทางสมัครสมาชิก เข้าสู่ระบบ และรีเซ็ตรหัสผ่าน
 router.post('/register', handleRegisterUpload, registerValidator, validate, register);
 router.post('/login', loginValidator, validate, login);
 router.post('/forgot-password', forgotPasswordValidator, validate, forgotPassword);
 router.post('/reset-password', resetPasswordValidator, validate, resetPassword);
 
+// เปลี่ยนเส้นทางกลับไปยังหน้าเข้าสู่ระบบพร้อมรหัสข้อผิดพลาดเมื่อ Google OAuth ล้มเหลว
 const redirectGoogleFailure = (res: Response, code: string): void => {
   const frontend = process.env.FRONTEND_URL || 'http://localhost:3000';
   res.redirect(`${frontend}/auth/login?error=${encodeURIComponent(code)}`);
 };
 
+// เส้นทางเข้าสู่ระบบผ่าน Google OAuth
 router.get(
   '/google',
   passport.authenticate('google', {
@@ -84,7 +88,6 @@ router.get(
 router.get(
   '/google/callback',
   (req: Request, res: Response, next: NextFunction): void => {
-    // Custom callback: Passport `done(err)` would otherwise dump JSON 500 on this URL.
     passport.authenticate(
       'google',
       { session: false },
@@ -117,10 +120,11 @@ router.get('/google/failed', (req, res) => {
   redirectGoogleFailure(res, error);
 });
 
-// Members management (admin only)
+// เส้นทางจัดการรายชื่อสมาชิกสำหรับผู้ดูแลระบบ
 router.get('/members', authenticate, authorize('admin'), getAllMembers);
 router.put('/members/:id/status', authenticate, authorize('admin'), toggleMemberStatus);
 
+// เส้นทางจัดการโปรไฟล์และรหัสผ่านของผู้ใช้ที่เข้าสู่ระบบแล้ว
 router.get('/profile', authenticate, getProfile);
 router.put('/profile', authenticate, updateProfileValidator, validate, updateProfile);
 router.post('/profile/avatar', authenticate, uploadAvatar.single('avatar'), uploadProfileAvatar);

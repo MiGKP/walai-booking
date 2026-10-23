@@ -6,6 +6,7 @@ import { uploadImage } from '../services/cloudinary.service';
 const router = Router();
 const upload = createImageUpload(10 * 1024 * 1024);
 
+// เส้นทางอัปโหลดรูปภาพแคตตาล็อกขึ้น Cloudinary สำหรับพนักงานและผู้ดูแลระบบ
 router.post(
   '/image',
   authenticate,

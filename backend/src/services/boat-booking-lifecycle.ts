@@ -3,6 +3,7 @@ import { restoreBookingPromotions } from './promotion-ledger';
 
 interface QueryClient { query: Pool['query']; }
 
+// คืนจำนวนสิทธิ์บัตรพายเรือฟรีที่ถูกใช้ในรายการจองเรือเมื่อมีการยกเลิกหรือปฏิเสธ
 export async function restoreBoatTicketRedemptions(client: QueryClient, boatBookingId: number): Promise<void> {
   const redemptions = await client.query(
     `DELETE FROM boat_ticket_redemptions WHERE boat_booking_id = $1 RETURNING member_boat_ticket_id, quantity`,
@@ -16,7 +17,7 @@ export async function restoreBoatTicketRedemptions(client: QueryClient, boatBook
   }
 }
 
-// Callers own the parent room lock before locking its addons.
+// ยกเลิกรายการเรือเสริมทั้งหมดที่ผูกกับบิลห้องพักเมื่อบิลห้องพักถูกยกเลิกหรือปฏิเสธ
 export async function cancelBoatAddonsForRoomBooking(
   client: QueryClient, roomBookingId: number, previousRoomStatus?: string,
 ): Promise<void> {
@@ -28,7 +29,6 @@ export async function cancelBoatAddonsForRoomBooking(
   );
   let unpaidCost = 0;
   for (const row of addons.rows) {
-    // A used addon keeps its consumed tickets and inventory even if its parent is cancelled.
     if (row.checkin_at || row.handed_out_at) continue;
     await restoreBookingPromotions(client, { previousStatus: String(row.status), boatBookingId: Number(row.boat_booking_id) });
     await restoreBoatTicketRedemptions(client, Number(row.boat_booking_id));
@@ -51,6 +51,7 @@ export async function cancelBoatAddonsForRoomBooking(
   }
 }
 
+// อนุมัติรายการเรือเสริมทั้งหมดที่ผูกกับบิลห้องพักเมื่อบิลห้องพักได้รับการอนุมัติ
 export async function approveBoatAddonsForRoomBooking(client: QueryClient, roomBookingId: number): Promise<void> {
   const addons = await client.query(
     `SELECT boat_booking_id FROM boat_bookings

@@ -16,7 +16,7 @@ import {
   deleteSingleRoom,
   updateAmenity,
   deleteAmenity,
-  toggleRoomTypeStatus, 
+  toggleRoomTypeStatus,
   toggleAmenityStatus,
   getNextRoomNumber,
 } from '../controllers/room.controller';
@@ -24,38 +24,32 @@ import { authenticate, authorize, optionalAuthenticate } from '../middleware/aut
 
 const router = Router();
 
-// Static routes (must come before dynamic /:id)
+// เส้นทางดูข้อมูลประเภทห้องพักและปฏิทินห้องว่าง
 router.get('/', optionalAuthenticate, getAllRooms);
 router.get('/types', optionalAuthenticate, getAllRooms);
 router.get('/availability', checkRoomAvailability);
 router.get('/calendar', getRoomCalendar);
 
-
+// เส้นทางจัดการห้องพักรายห้องสำหรับผู้ดูแลระบบและพนักงานห้องพัก
 router.get('/amenities/all', authenticate, authorize('admin', 'room_staff'), getAmenities);
 router.get('/single/all', authenticate, authorize('admin', 'room_staff'), getAllSingleRooms);
-// ดึงลำดับห้องถัดไปอัตโนมัติ
 router.get('/single/next-number', authenticate, authorize('admin', 'room_staff'), getNextRoomNumber);
-
-// Single room routes (เปิดสิทธิ์ให้ room_staff)
 router.post('/single/batch', authenticate, authorize('admin', 'room_staff'), createBatchSingleRooms);
 router.post('/single', authenticate, authorize('admin', 'room_staff'), createSingleRoom);
 router.put('/single/:id', authenticate, authorize('admin', 'room_staff'), updateSingleRoom);
 router.delete('/single/:id', authenticate, authorize('admin', 'room_staff'), deleteSingleRoom);
 
-// Amenity routes (เปิดสิทธิ์ให้ room_staff)
+// เส้นทางจัดการสิ่งอำนวยความสะดวกของห้องพัก
 router.post('/amenity', authenticate, authorize('admin', 'room_staff'), createRoomAmenity);
 router.put('/amenity/:id', authenticate, authorize('admin', 'room_staff'), updateAmenity);
-router.patch('/amenity/:id/status', authenticate, authorize('admin', 'room_staff'), toggleAmenityStatus); 
+router.patch('/amenity/:id/status', authenticate, authorize('admin', 'room_staff'), toggleAmenityStatus);
 router.delete('/amenity/:id', authenticate, authorize('admin', 'room_staff'), deleteAmenity);
 
-// Room type routes (dynamic - must come last)
+// เส้นทางสร้าง แก้ไข และลบประเภทห้องพัก
 router.post('/type', authenticate, authorize('admin', 'room_staff'), createRoom);
 router.get('/:id', optionalAuthenticate, getRoomById);
 router.put('/:id', authenticate, authorize('admin', 'room_staff'), updateRoom);
-
-// Route PATCH สำหรับอัปเดตสถานะ
 router.patch('/:id/status', authenticate, authorize('admin', 'room_staff'), toggleRoomTypeStatus);
-
 router.delete('/:id', authenticate, authorize('admin', 'room_staff'), deleteRoom);
 
 export default router;

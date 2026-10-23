@@ -10,6 +10,7 @@ const allowedMimeTypes = new Set([
   'image/webp',
 ]);
 
+// ตรวจสอบนามสกุลและชนิดไฟล์รูปภาพที่อนุญาตให้อัปโหลด
 const imageFileFilter = (
   _req: Request,
   file: Express.Multer.File,
@@ -28,6 +29,7 @@ const imageFileFilter = (
   callback(null, true);
 };
 
+// สร้าง Multer middleware สำหรับรับไฟล์รูปภาพในหน่วยความจำพร้อมจำกัดขนาดไฟล์
 export const createImageUpload = (maxFileSizeBytes: number): Multer => {
   return multer({
     storage: multer.memoryStorage(),

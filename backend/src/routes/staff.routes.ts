@@ -13,6 +13,7 @@ import { createStaffValidator } from '../middleware/validators';
 
 const router = Router();
 
+// เส้นทางจัดการข้อมูลพนักงานสำหรับผู้ดูแลระบบ
 router.post('/', authenticate, authorize('admin'), createStaffValidator, validate, createStaff);
 router.get('/', authenticate, authorize('admin'), getAllStaff);
 router.get('/:id', authenticate, authorize('admin'), getStaffById);

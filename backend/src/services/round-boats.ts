@@ -16,13 +16,14 @@ export interface RemainingBoatsInput {
   poolBooked: number;
 }
 
+// แปลงค่าเป็นจำนวนเต็มหรือคืนค่าเริ่มต้นหากไม่สามารถแปลงได้
 function toPositiveInt(value: unknown, fallback: number): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.floor(n);
 }
 
-/** Physical fleet vs boats allocated to this round; never exceed either. */
+// คำนวณจำนวนเรือสูงสุดของแต่ละประเภทในรอบเวลาโดยไม่เกินจำนวนเรือจริงในคลัง
 export function typeCapacity(
   fleetQuantity: number,
   roundQuantity: number | null
@@ -35,6 +36,7 @@ export function typeCapacity(
   return Math.min(fleet, roundCap);
 }
 
+// คำนวณจำนวนเรือที่ว่างให้จองได้โดยคิดจากโควตาประเภทเรือและโควตารวมของรอบเวลา
 export function remainingBoats(input: RemainingBoatsInput): number {
   const cap = typeCapacity(input.fleetQuantity, input.roundQuantity);
   const remainingType = Math.max(0, cap - Math.max(0, input.typeBooked));
@@ -48,6 +50,7 @@ export function remainingBoats(input: RemainingBoatsInput): number {
   return Math.min(remainingType, remainingPool);
 }
 
+// แปลงข้อมูลรายการเรือและจำนวนลำที่ผูกกับรอบเวลาจาก request body
 export function parseRoundBoats(body: Record<string, unknown>): RoundBoatInput[] {
   if (Array.isArray(body.boats) && body.boats.length > 0) {
     const parsed: RoundBoatInput[] = [];
@@ -67,6 +70,7 @@ export function parseRoundBoats(body: Record<string, unknown>): RoundBoatInput[]
   return [{ boat_type_id: legacyId, quantity: 1 }];
 }
 
+// เรียงลำดับรอบเรือโดยให้ความสำคัญกับรอบที่รองรับประเภทเรือหลากหลายกว่าก่อน
 function sortPreferShared(
   a: RoundCandidate,
   b: RoundCandidate
@@ -77,7 +81,7 @@ function sortPreferShared(
   return a.boat_round_id - b.boat_round_id;
 }
 
-/** Prefer one shared M2M round that lists every type in the cart. */
+// เลือกรหัสรอบเรือหลักที่ครอบคลุมทุกประเภทเรือในรายการจอง
 export function pickCanonicalRoundId(
   rounds: RoundCandidate[],
   requestedTypeIds: number[]
@@ -92,6 +96,7 @@ export function pickCanonicalRoundId(
   return covering[0].boat_round_id;
 }
 
+// เลือกรหัสรอบเรือที่รองรับประเภทเรือที่ระบุ
 export function pickRoundForType(
   rounds: RoundCandidate[],
   typeId: number
@@ -102,6 +107,7 @@ export function pickRoundForType(
   return matches[0].boat_round_id;
 }
 
+// ดึงรายการรหัสประเภทเรือทั้งหมดที่ผูกกับแถวข้อมูลรอบเรือ
 export function memberTypeIdsFromRow(row: {
   boat_type_id?: unknown;
   member_type_ids?: unknown;
@@ -121,14 +127,14 @@ export function memberTypeIdsFromRow(row: {
           .filter((id) => id > 0);
       }
     } catch {
-      // fall through to legacy column
+      // ใช้ค่าจากคอลัมน์ boat_type_id แบบเดิมแทนหากแปลง JSON ไม่สำเร็จ
     }
   }
   const legacy = toPositiveInt(row.boat_type_id, 0);
   return legacy > 0 ? [legacy] : [];
 }
 
-/** SQL: round `alias` includes boat type param (round_boats, else legacy boat_type_id). */
+// สร้างนิพจน์ SQL ตรวจสอบว่ารอบเรือนั้นรองรับประเภทเรือที่ระบุหรือไม่
 export function roundIncludesTypeSql(
   roundAlias: string,
   typeExpr: string
@@ -149,12 +155,11 @@ export function roundIncludesTypeSql(
   )`;
 }
 
+// สร้างนิพจน์ SQL ดึงจำนวนเรือสูงสุดของประเภทเรือในรอบเวลานั้น
 export function roundTypeQuantitySql(
   roundAlias: string,
   typeExpr: string
 ): string {
-  // Legacy 1:1 rounds keep fleet size. Shared M2M rounds (boat_type_id NULL)
-  // use round_boats.quantity as the per-type cap for that slot.
   return `CASE
     WHEN ${roundAlias}.boat_type_id IS NOT NULL THEN (
       SELECT COALESCE(bt_q.quantity, 0) FROM boat_types bt_q
@@ -175,6 +180,7 @@ export function roundTypeQuantitySql(
   END`;
 }
 
+// นิพจน์ SQL ดึงรายการรหัสประเภทเรือทั้งหมดของรอบเรือในรูปแบบ JSON array
 export const MEMBER_TYPE_IDS_SQL = `COALESCE(
   (
     SELECT json_agg(rb.boat_type_id ORDER BY rb.boat_type_id)

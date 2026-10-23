@@ -2,8 +2,11 @@ import { normalizeAuthEmail } from '../services/auth-email';
 import { body, param, query } from 'express-validator';
 import { validateNewPassword } from '../services/password-policy';
 
-// ─── Auth ────────────────────────────────────────────────────────────────────
+// ตัดช่องว่างและเครื่องหมายขีดออกจากเบอร์โทรศัพท์
+const normalizePhone = (value: unknown): unknown =>
+  typeof value === 'string' ? value.trim().replace(/[\s-]/g, '') : value;
 
+// ตรวจสอบข้อมูลการสมัครสมาชิก
 export const registerValidator = [
   body('first_name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
   body('last_name').trim().notEmpty().withMessage('กรุณากรอกนามสกุล'),
@@ -11,28 +14,33 @@ export const registerValidator = [
   body('password').custom(validateNewPassword),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
+    .customSanitizer(normalizePhone)
     .isMobilePhone('any')
     .withMessage('เบอร์โทรศัพท์ไม่ถูกต้อง'),
   body('line_id').optional({ nullable: true, checkFalsy: true }).trim(),
   body('facebook').optional({ nullable: true, checkFalsy: true }).trim(),
 ];
 
+// ตรวจสอบข้อมูลการเข้าสู่ระบบ
 export const loginValidator = [
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
   body('password').isString().bail().notEmpty().withMessage('กรุณากรอกรหัสผ่าน'),
 ];
 
+// ตรวจสอบข้อมูลการเช็คอินห้องพักรายห้อง
 export const checkinRoomValidator = [
   param('bookingRoomId').isInt({ min: 1 }).withMessage('รหัสห้องที่จองไม่ถูกต้อง'),
   body('confirm_late_checkin').optional().custom((value: unknown) => typeof value === 'boolean')
     .withMessage('การยืนยันเช็คอินย้อนหลังต้องเป็น true หรือ false'),
 ];
 
+// ตรวจสอบข้อมูลการขอรีเซ็ตรหัสผ่าน
 export const forgotPasswordValidator = [
   body('account_type').optional().isIn(['customer', 'staff']).withMessage('ประเภทบัญชีไม่ถูกต้อง'),
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
 ];
 
+// ตรวจสอบข้อมูลการตั้งรหัสผ่านใหม่ด้วย OTP
 export const resetPasswordValidator = [
   body('account_type').optional().isIn(['customer', 'staff']).withMessage('ประเภทบัญชีไม่ถูกต้อง'),
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
@@ -44,29 +52,34 @@ export const resetPasswordValidator = [
   body('new_password').custom(validateNewPassword),
 ];
 
+// ตรวจสอบข้อมูลการแก้ไขโปรไฟล์ผู้ใช้
 export const updateProfileValidator = [
-  body('email').optional().isString().bail().trim().isEmail().isLength({ max: 100 }).customSanitizer(normalizeAuthEmail),
+  body('email').optional().isString().bail().trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').isLength({ max: 100 }).customSanitizer(normalizeAuthEmail),
   body('address').optional({ nullable: true }).isString().bail().trim().isLength({ max: 2000 }),
   body('current_password').optional().isString().bail().isLength({ max: 200 }),
   body('first_name').isString().bail().trim().notEmpty().withMessage('กรุณากรอกชื่อ').isLength({ max: 100 }),
   body('last_name').optional({ nullable: true }).isString().bail().trim().isLength({ max: 100 }),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
+    .customSanitizer(normalizePhone)
     .isMobilePhone('any')
     .withMessage('เบอร์โทรศัพท์ไม่ถูกต้อง'),
   body('line_id').optional({ nullable: true, checkFalsy: true }).isString().bail().trim().isLength({ max: 100 }),
   body('facebook').optional({ nullable: true, checkFalsy: true }).isString().bail().trim().isLength({ max: 255 }),
 ];
 
+// ตรวจสอบข้อมูลการเปลี่ยนรหัสผ่าน
 export const changePasswordValidator = [
   body('current_password').notEmpty().withMessage('กรุณากรอกรหัสผ่านปัจจุบัน'),
   body('new_password').custom(validateNewPassword),
 ];
 
+// ตรวจสอบข้อมูลการตั้งรหัสผ่านครั้งแรก
 export const setPasswordValidator = [
   body('new_password').custom(validateNewPassword),
 ];
 
+// ตรวจสอบข้อมูลการสร้างบัญชีพนักงาน
 export const createStaffValidator = [
   body('name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
@@ -80,27 +93,40 @@ export const createStaffValidator = [
     .withMessage('Role must be admin, room_staff, or boat_staff'),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
+    .customSanitizer(normalizePhone)
     .isMobilePhone('any')
     .withMessage('เบอร์โทรศัพท์ไม่ถูกต้อง'),
 ];
 
+// ตรวจสอบข้อมูลการสร้างผู้ดูแลระบบคนแรก
 export const initAdminValidator = [
   body('email').trim().isEmail().withMessage('กรุณากรอกอีเมลให้ถูกต้อง').customSanitizer(normalizeAuthEmail),
   body('password').custom(validateNewPassword),
   body('phone')
     .optional({ nullable: true, checkFalsy: true })
+    .customSanitizer(normalizePhone)
     .isMobilePhone('any')
     .withMessage('เบอร์โทรศัพท์ไม่ถูกต้อง'),
 ];
 
-// ─── Room Booking ─────────────────────────────────────────────────────────────
-
 const MAX_ROOM_NIGHTS = 30;
 
+// ตรวจสอบข้อมูลการสร้างรายการจองห้องพัก
 export const createRoomBookingValidator = [
   body('guest_name').optional({ nullable: true, checkFalsy: true }).trim().isLength({ min: 1, max: 200 }),
-  body('guest_phone').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 30 }).isMobilePhone('any'),
-  body('guest_email').optional({ nullable: true, checkFalsy: true }).trim().isEmail().isLength({ max: 254 }),
+  body('guest_phone')
+    .optional({ nullable: true, checkFalsy: true })
+    .customSanitizer(normalizePhone)
+    .isLength({ max: 30 })
+    .isMobilePhone('any')
+    .withMessage('เบอร์โทรศัพท์ไม่ถูกต้อง'),
+  body('guest_email')
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isEmail()
+    .withMessage('กรุณากรอกอีเมลให้ถูกต้อง')
+    .isLength({ max: 254 })
+    .customSanitizer(normalizeAuthEmail),
   body('check_in_date').isISO8601().withMessage('กรุณาเลือกวันเช็คอินให้ถูกต้อง'),
   body('check_out_date')
     .isISO8601()
@@ -144,6 +170,7 @@ export const createRoomBookingValidator = [
   }),
 ];
 
+// ตรวจสอบข้อมูลการตั้งค่ารีสอร์ทและเงื่อนไขการจอง
 export const resortInfoValidator = [
   body('id').optional().isInt({ min: 3, max: 5 }).withMessage('Invalid resort id'),
   body('infant_max_age_exclusive').optional().isInt({ min: 0, max: 18 })
@@ -158,6 +185,7 @@ export const resortInfoValidator = [
     .withMessage('จองเรือล่วงหน้าต้องเป็นจำนวนเต็ม 1-365 วัน'),
 ];
 
+// ตรวจสอบข้อมูลการอัปเดตสถานะการจองห้องพัก
 export const updateRoomBookingStatusValidator = [
   param('id').isInt({ min: 1 }).withMessage('รหัสรายการจองไม่ถูกต้อง'),
   body('status')
@@ -169,8 +197,7 @@ export const updateRoomBookingStatusValidator = [
     .isLength({ max: 500 }).withMessage('เหตุผลต้องไม่เกิน 500 ตัวอักษร'),
 ];
 
-// ─── Kayak Booking ────────────────────────────────────────────────────────────
-
+// ตรวจสอบข้อมูลการสร้างรายการจองเรือคายัค
 export const createKayakBookingValidator = [
   body('booking_date').isISO8601().withMessage('กรุณาเลือกวันที่จองให้ถูกต้อง'),
   body('items').optional().isArray({ min: 1 }).withMessage('กรุณาเลือกห้องอย่างน้อย 1 รายการ'),
@@ -210,6 +237,7 @@ export const createKayakBookingValidator = [
   }),
 ];
 
+// ตรวจสอบข้อมูลการอัปเดตสถานะการจองเรือคายัค
 export const updateKayakBookingStatusValidator = [
   param('id').isInt({ min: 1 }).withMessage('รหัสรายการจองไม่ถูกต้อง'),
   body('status')
@@ -221,15 +249,18 @@ export const updateKayakBookingStatusValidator = [
     .isLength({ max: 500 }).withMessage('เหตุผลต้องไม่เกิน 500 ตัวอักษร'),
 ];
 
+// ตรวจสอบพารามิเตอร์ค้นหารอบเช็คอินเรือคายัค
 export const kayakCheckinSessionsValidator = [
   query('date').optional().isString().bail().isISO8601({ strict: true }).matches(/^\d{4}-\d{2}-\d{2}$/),
   query('search').optional().isString().trim().isLength({ max: 100 }),
 ];
 
+// ตรวจสอบรหัสรายการจองเรือสำหรับเช็คอิน
 export const checkinKayakBookingValidator = [
   param('id').isInt({ min: 1 }).withMessage('รหัสรายการจองไม่ถูกต้อง'),
 ];
 
+// ตรวจสอบข้อมูลการสร้างประเภทเรือคายัค
 export const createKayakValidator = [
   body('name').trim().notEmpty().withMessage('กรุณากรอกชื่อ'),
   body('capacity').isInt({ min: 1, max: 10 }).withMessage('จำนวนที่นั่งต้องอยู่ระหว่าง 1-10'),
@@ -238,6 +269,7 @@ export const createKayakValidator = [
   body('description').optional({ nullable: true, checkFalsy: true }).trim(),
 ];
 
+// ตรวจสอบข้อมูลการแก้ไขประเภทเรือคายัค
 export const updateKayakValidator = [
   body('name').optional().trim().notEmpty().withMessage('ชื่อต้องไม่ว่าง'),
   body('capacity').optional().isInt({ min: 1, max: 10 }).withMessage('จำนวนที่นั่งต้องอยู่ระหว่าง 1-10'),
@@ -247,6 +279,7 @@ export const updateKayakValidator = [
   body('quantity').optional().isInt({ min: 1 }).withMessage('จำนวนต้องไม่น้อยกว่า 1'),
 ];
 
+// ตรวจสอบข้อมูลการสร้างรอบเวลาเรือคายัค
 export const createBoatRoundValidator = [
   body('start_time').matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage('เวลาเริ่มต้องอยู่ในรูปแบบ HH:MM'),
   body('end_time').matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage('เวลาสิ้นสุดต้องอยู่ในรูปแบบ HH:MM'),
@@ -266,8 +299,7 @@ export const createBoatRoundValidator = [
   }),
 ];
 
-// ─── Payment ──────────────────────────────────────────────────────────────────
-
+// ตรวจสอบข้อมูลการสร้างรายการชำระเงิน
 export const createPaymentValidator = [
   body('booking_type')
     .isIn(['room', 'kayak'])
@@ -275,10 +307,9 @@ export const createPaymentValidator = [
   body('booking_id').isInt({ min: 1 }).withMessage('รหัสรายการจองไม่ถูกต้อง'),
 ];
 
-// ─── Promotion ────────────────────────────────────────────────────────────────
-
+// ตรวจสอบข้อมูลการสร้างโปรโมชั่น
 export const createPromotionValidator = [
-  body('code').trim().notEmpty().withMessage('กรุณากรอกโค้ดโปรโมชั่น')
+  body('code').trim().notEmpty().withMessage('กรุณากรอกคูปองส่วนลด')
     .isLength({ min: 2, max: 50 }).withMessage('Code must be 2–50 characters'),
   body('name').trim().notEmpty().withMessage('กรุณากรอกชื่อโปรโมชั่น'),
   body('description').optional({ nullable: true, checkFalsy: true }).trim(),
@@ -306,6 +337,7 @@ export const createPromotionValidator = [
   body('boat_addon_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ราคาเรือเสริมต้องไม่น้อยกว่า 0'),
 ];
 
+// ตรวจสอบข้อมูลการแก้ไขโปรโมชั่น
 export const updatePromotionValidator = [
   body('code').optional().trim().isLength({ min: 2, max: 50 }).withMessage('Code must be 2–50 characters'),
   body('name').optional().trim().notEmpty().withMessage('ชื่อต้องไม่ว่าง'),
@@ -330,10 +362,12 @@ export const updatePromotionValidator = [
   body('boat_addon_price').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('ราคาเรือเสริมต้องไม่น้อยกว่า 0'),
 ];
 
+// ตรวจสอบรหัสโปรโมชั่นจากพารามิเตอร์ URL
 export const promotionIdParamValidator = [
-  param('id').isInt({ min: 1 }).withMessage('รหัสโปรโมชั่นไม่ถูกต้อง'),
+  param('id').isInt({ min: 1 }).withMessage('ข้อมูลโปรโมชั่นไม่ถูกต้อง'),
 ];
 
+// ตรวจสอบข้อมูลการทดลองใช้โค้ดส่วนลด
 export const validatePromoCodeValidator = [
   body('code').optional({ checkFalsy: true }).trim(),
   body('promotion_ids').optional().isArray(),
@@ -349,14 +383,13 @@ export const validatePromoCodeValidator = [
     const hasCode = typeof code === 'string' && code.trim().length > 0;
     const hasIds = Array.isArray(req.body.promotion_ids) && req.body.promotion_ids.length > 0;
     if (!hasCode && !hasIds) {
-      throw new Error('กรุณากรอกโค้ดโปรโมชั่น');
+      throw new Error('กรุณากรอกคูปองส่วนลด');
     }
     return true;
   }),
 ];
 
-// ─── Cancellation policy ──────────────────────────────────────────────────────
-
+// ตรวจสอบข้อมูลการตั้งค่านโยบายการยกเลิกและคืนเงิน
 export const cancellationPolicyValidator = [
   body('full_refund_hours').optional().isInt({ min: 0, max: 8760 }).withMessage('full_refund_hours must be 0 to 8760'),
   body('late_refund_percent').optional().isFloat({ min: 0, max: 100 }).withMessage('late_refund_percent must be 0 to 100'),

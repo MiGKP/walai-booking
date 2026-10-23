@@ -15,11 +15,7 @@ interface ExpiryRow {
   raw_end: string | null;
 }
 
-// แจ้งเตือนโปรที่ลูกค้าเก็บไว้ (status = saved) ที่จะหมดอายุภายใน 3 วันตามเวลาไทย
-// - รอบที่ 1: เหลือ 2–3 วัน / รอบที่ 2: เหลือ 0–1 วัน (ส่งได้รอบละครั้ง)
-// - ถ้าแอดมินเปลี่ยนวันสิ้นสุด รอบจะเริ่มใหม่ (เทียบกับ expiry_reminder_end)
-// - ข้ามลูกค้าที่ปิดการรับอีเมลโปรโมชั่น (members.promo_email_opt_out)
-// - claim ก่อนส่ง และคืนค่าเดิมถ้าส่งไม่สำเร็จ เพื่อให้รอบถัดไปลองใหม่
+// ค้นหาและส่งอีเมลแจ้งเตือนคูปองในกระเป๋าที่กำลังจะหมดอายุภายใน 3 วัน
 export const sendPendingPromotionExpiryReminders = async (): Promise<void> => {
   try {
     const result = await pool.query(
@@ -34,12 +30,12 @@ export const sendPendingPromotionExpiryReminders = async (): Promise<void> => {
        JOIN promotions p ON p.id = mp.promotion_id
        JOIN members m ON m.member_id = mp.member_id
        WHERE mp.status = 'saved'
-         AND m.promo_email_opt_out = false
-         AND p.is_active = true
-         AND p.end_date IS NOT NULL
-         AND (p.end_date - (NOW() AT TIME ZONE 'Asia/Bangkok')::date) BETWEEN 0 AND 3
-         AND (CASE WHEN mp.expiry_reminder_end = p.end_date THEN mp.expiry_reminder_stage ELSE 0 END)
-             < (CASE WHEN (p.end_date - (NOW() AT TIME ZONE 'Asia/Bangkok')::date) <= 1 THEN 2 ELSE 1 END)`
+          AND m.promo_email_opt_out = false
+          AND p.is_active = true
+          AND p.end_date IS NOT NULL
+          AND (p.end_date - (NOW() AT TIME ZONE 'Asia/Bangkok')::date) BETWEEN 0 AND 3
+          AND (CASE WHEN mp.expiry_reminder_end = p.end_date THEN mp.expiry_reminder_stage ELSE 0 END)
+              < (CASE WHEN (p.end_date - (NOW() AT TIME ZONE 'Asia/Bangkok')::date) <= 1 THEN 2 ELSE 1 END)`
     );
 
     const rows = result.rows as ExpiryRow[];
@@ -89,7 +85,7 @@ export const sendPendingPromotionExpiryReminders = async (): Promise<void> => {
   }
 };
 
-// เริ่ม interval ตรวจโปรใกล้หมดอายุทุก 1 ชั่วโมง
+// เริ่มต้นงานเบื้องหลังตรวจสอบโปรโมชั่นใกล้หมดอายุทุก 1 ชั่วโมง
 export const startPromotionExpiryReminderJob = (): void => {
   const INTERVAL_MS = 60 * 60 * 1000;
   console.log('[Promo Expiry] Job started — runs every 1 hour');

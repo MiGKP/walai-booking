@@ -11,6 +11,7 @@ export interface PaginationMeta {
   totalPages: number;
 }
 
+// ตรวจสอบและแปลงค่าพารามิเตอร์ query ให้เป็นจำนวนเต็มบวกที่ปลอดภัย
 export function positiveQueryInteger(value: unknown): number {
   if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value))) {
     throw new Error('Query value must be a positive integer');
@@ -18,7 +19,7 @@ export function positiveQueryInteger(value: unknown): number {
   return Number(value);
 }
 
-/** Opt in to pagination so existing customer/calendar callers retain their arrays. */
+// คำนวณค่า page, limit และ offset จาก query string เมื่อมีการระบุพารามิเตอร์แบ่งหน้า
 export function parsePagination(query: Record<string, unknown>): Pagination | null {
   if (query.page === undefined && query.limit === undefined) return null;
   const page = query.page === undefined ? 1 : positiveQueryInteger(query.page);
@@ -28,6 +29,7 @@ export function parsePagination(query: Record<string, unknown>): Pagination | nu
   return { page, limit, offset };
 }
 
+// สร้างข้อมูลสรุปการแบ่งหน้าสำหรับแนบไปกับผลลัพธ์ API
 export function paginationMeta(pagination: Pagination, total: number): PaginationMeta {
   return { page: pagination.page, limit: pagination.limit, total, totalPages: Math.ceil(total / pagination.limit) };
 }

@@ -3,6 +3,7 @@ export interface BoatCheckinWindow {
   closesAt: string;
 }
 
+// คำนวณช่วงเวลาเปิดและปิดรับเช็คอินของรอบเรือคายัค
 export function boatCheckinWindow(date: string, start: string, end: string, advanceMinutes: number): BoatCheckinWindow | null {
   const begins = new Date(`${date}T${start}+07:00`).getTime();
   const ends = new Date(`${date}T${end}+07:00`).getTime();
@@ -11,6 +12,7 @@ export function boatCheckinWindow(date: string, start: string, end: string, adva
   return { opensAt: new Date(begins - advanceMinutes * 60_000).toISOString(), closesAt: new Date(ends).toISOString() };
 }
 
+// ตรวจสอบว่าเวลาปัจจุบันอยู่ในช่วงที่อนุญาตให้เช็คอินรอบเรือหรือไม่
 export function boatCheckinError(window: BoatCheckinWindow | null, now: Date): string | null {
   if (!window || !Number.isFinite(now.getTime())) return 'วันที่หรือรอบเวลาเช็คอินไม่ถูกต้อง';
   if (now.getTime() < new Date(window.opensAt).getTime()) return 'ยังไม่ถึงเวลาเปิดเช็คอินของรอบเรือที่จอง';

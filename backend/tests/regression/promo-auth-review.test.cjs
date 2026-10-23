@@ -35,7 +35,7 @@ test('retired kayak discount validation returns 400 before looking up a coupon',
   await controller.validatePromoCode({ body: { scope: 'kayak', code: 'TESTBOAT' } }, res);
   assert.equal(res.code, 400);
   assert.equal(res.body.success, false);
-  assert.match(res.body.message, /ไม่สามารถใช้โค้ดโปรโมชั่น/);
+  assert.match(res.body.message, /ไม่สามารถใช้คูปองส่วนลด/);
 });
 test('admin listing preserves paid addon metadata',async()=>{query=async sql=>{const source=promo({boat_addon_mode:'paid',boat_addon_price:250});const fields=sql.split('FROM')[0];return rows([Object.fromEntries(Object.entries(source).filter(([key])=>fields.includes(key)))]);};const res=response();await controller.getAllPromotions({},res);assert.equal(res.body.data[0].boat_addon_mode,'paid');assert.equal(res.body.data[0].boat_addon_price,250);});
 test('room promotion validates actual types',()=>{assert.throws(()=>applyPromotionList([promo({room_type_id:99})],ctx({roomTypeIds:[2]})),/ประเภทห้อง/);assert.equal(applyPromotionList([promo({room_type_id:99})],ctx({roomTypeIds:[99]})).totalPrice,100);assert.throws(()=>applyPromotionList([promo({room_type_id:99})],ctx({roomTypeIds:[99,2]})),/ประเภทห้อง/);});
@@ -68,7 +68,7 @@ test('room restriction cannot apply without actual room context',()=>{
 });
 test('expired and missing wallets never reopen with increased cap',()=>{
  for(const walletsByPromoId of [{},{1:{member_promotion_id:4,status:'expired'}}]){
-  assert.throws(()=>applyPromotionList([promo({is_collectible:true})],ctx({walletsByPromoId})),/เก็บโค้ด/);
+  assert.throws(()=>applyPromotionList([promo({is_collectible:true})],ctx({walletsByPromoId})),/เก็บคูปอง/);
  }
 });
 test('exact Gmail identity takes priority over a distinct legacy row',async()=>{

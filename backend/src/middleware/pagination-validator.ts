@@ -1,12 +1,16 @@
 import { query, ValidationChain } from 'express-validator';
 import { parsePagination, positiveQueryInteger } from '../utils/pagination';
 
+// ตรวจสอบพารามิเตอร์ query ให้เป็นจำนวนเต็มบวก
 const integer = (name: string): ValidationChain => query(name).optional().custom((value: unknown) => {
   positiveQueryInteger(value);
   return true;
 });
+
+// ตรวจสอบพารามิเตอร์ query ที่เป็นข้อความค้นหา
 const text = (name: string): ValidationChain => query(name).optional().isString().bail().isLength({ max: 200 }).trim();
 
+// ตรวจสอบพารามิเตอร์การแบ่งหน้า (page และ limit)
 export const paginationValidator = [
   integer('page'),
   integer('limit'),
@@ -15,6 +19,8 @@ export const paginationValidator = [
     return true;
   }),
 ];
+
+// ตรวจสอบพารามิเตอร์กรองรายการสมาชิก
 export const memberListValidator = [
   query('booking_status').optional().isString().bail().isIn(['all', 'none', 'pending', 'paid', 'approved', 'checked_out', 'cancelled', 'rejected']),
   query('booking_service').optional().isString().bail().isIn(['all', 'room', 'boat']),
@@ -22,6 +28,8 @@ export const memberListValidator = [
   text('search'),
   query('status').optional().isString().bail().isIn(['all', 'active', 'inactive']),
 ];
+
+// ตรวจสอบพารามิเตอร์กรองรายการรีวิว
 export const reviewListValidator = [
   ...paginationValidator,
   text('search'),
@@ -29,6 +37,8 @@ export const reviewListValidator = [
   integer('min_rating').bail().isInt({ min: 1, max: 5 }),
   integer('max_rating').bail().isInt({ min: 1, max: 5 }),
 ];
+
+// ตรวจสอบพารามิเตอร์กรองและเรียงลำดับรายการจอง
 export const bookingListValidator = [
   ...paginationValidator,
   text('search'), text('room_type'), text('boat_type'),

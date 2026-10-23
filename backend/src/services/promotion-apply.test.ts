@@ -102,7 +102,7 @@ describe('applyPromotionList', () => {
         ),
       (err: unknown) =>
         err instanceof PromoApplyError &&
-        err.message === 'โค้ดนี้ใช้ร่วมกับโปรโมชั่นอื่นไม่ได้'
+        err.message === 'คูปองส่วนลดนี้ใช้ร่วมกับโปรโมชั่นอื่นไม่ได้'
     );
   });
 
@@ -159,7 +159,7 @@ describe('applyPromotionList', () => {
         ),
       (err: unknown) =>
         err instanceof PromoApplyError &&
-        err.message === 'ต้องเก็บโค้ดนี้ก่อนใช้'
+        err.message === 'ต้องเก็บคูปองนี้ก่อนใช้'
     );
   });
 
@@ -177,7 +177,7 @@ describe('applyPromotionList', () => {
         }),
       (err: unknown) =>
         err instanceof PromoApplyError &&
-        err.message === 'โค้ดนี้ใช้กับห้องพักเท่านั้น'
+        err.message === 'คูปองนี้ใช้กับห้องพักเท่านั้น'
     );
   });
 
@@ -195,7 +195,7 @@ describe('applyPromotionList', () => {
         }),
       (err: unknown) =>
         err instanceof PromoApplyError &&
-        err.message === 'โค้ดนี้ใช้กับเรือคายัคเท่านั้น'
+        err.message === 'คูปองนี้ใช้กับเรือคายัคเท่านั้น'
     );
   });
 
@@ -318,7 +318,7 @@ describe('applyPromotionList', () => {
         ),
       (err: unknown) =>
         err instanceof PromoApplyError &&
-        err.message === 'ใช้โค้ดนี้ครบจำนวนครั้งแล้ว'
+        err.message === 'ใช้คูปองนี้ครบจำนวนครั้งแล้ว'
     );
   });
 });

@@ -25,6 +25,7 @@ const requiredCloudinaryEnv = [
   'CLOUDINARY_API_SECRET',
 ] as const;
 
+// ตรวจสอบและตั้งค่าการเชื่อมต่อ Cloudinary จากตัวแปรสภาพแวดล้อม
 const configureCloudinary = (): void => {
   const missing = requiredCloudinaryEnv.filter((key) => !process.env[key]?.trim());
   if (missing.length > 0) {
@@ -39,6 +40,7 @@ const configureCloudinary = (): void => {
   });
 };
 
+// แยกค่า public_id ของรูปภาพออกจาก URL ของ Cloudinary
 export const extractCloudinaryPublicId = (url: string): string | null => {
   try {
     const parsedUrl = new URL(url);
@@ -61,6 +63,7 @@ export const extractCloudinaryPublicId = (url: string): string | null => {
   }
 };
 
+// อัปโหลดไฟล์รูปภาพจาก Buffer ขึ้นไปยังโฟลเดอร์ที่กำหนดบน Cloudinary
 export const uploadImage = async (
   buffer: Buffer,
   options: CloudinaryUploadOptions
@@ -100,6 +103,7 @@ export const uploadImage = async (
   });
 };
 
+// ลบรูปภาพออกจาก Cloudinary โดยอ้างอิงจาก URL
 export const deleteCloudinaryImage = async (
   url?: string | null
 ): Promise<void> => {

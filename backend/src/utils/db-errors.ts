@@ -1,9 +1,9 @@
-// แปลง error ของ PostgreSQL เป็นคำตอบ HTTP ที่เหมาะสม แทนการตอบ 500 กับข้อผิดพลาดที่เกิดจากข้อมูลของผู้ใช้
 export interface DbErrorResponse {
   status: number;
   message: string;
 }
 
+// แปลงรหัสข้อผิดพลาดของ PostgreSQL เป็นสถานะและข้อความตอบกลับ HTTP ที่เหมาะสม
 export function mapDbError(error: unknown): DbErrorResponse | null {
   const code = (error as { code?: string } | null)?.code;
   if (code === '23505') return { status: 409, message: 'ข้อมูลนี้มีอยู่ในระบบแล้ว' };

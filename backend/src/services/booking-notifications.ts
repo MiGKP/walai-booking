@@ -1,7 +1,7 @@
 import pool from '../config/database';
 import { sendBookingStatusEmail } from './mail.service';
 
-// Called after COMMIT. Mail or lookup failures must not undo a saved booking.
+// ดึงข้อมูลลูกค้าและส่งอีเมลแจ้งผลการอนุมัติหรือปฏิเสธการจองหลังบันทึกฐานข้อมูลสำเร็จ
 export async function notifyBookingStatus(
   bookingType: 'room' | 'kayak',
   bookingId: number,

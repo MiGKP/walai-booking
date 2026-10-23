@@ -27,6 +27,7 @@ import {
 
 const router = Router();
 
+// เส้นทางดูโปรโมชั่นที่ใช้งานได้และตรวจสอบโค้ดส่วนลด
 router.get('/active', optionalAuthenticate, getActivePromotions);
 router.post(
   '/validate',
@@ -36,6 +37,7 @@ router.post(
   validatePromoCode
 );
 
+// เส้นทางจัดการกระเป๋าคูปอง สิทธิ์พายเรือฟรี และการตั้งค่ารับอีเมลโปรโมชั่นของสมาชิก
 router.get('/mine', authenticate, getMyPromotions);
 router.get('/email-preference', authenticate, getPromoEmailPreference);
 router.put('/email-preference', authenticate, body('opt_out').isBoolean().withMessage('opt_out must be a boolean'), validate, setPromoEmailPreference);
@@ -63,6 +65,7 @@ router.delete(
   uncollectPromotion
 );
 
+// เส้นทางจัดการโปรโมชั่นสำหรับผู้ดูแลระบบและพนักงานห้องพัก
 router.get('/', authenticate, authorize('admin', 'room_staff'), getAllPromotions);
 router.post('/', authenticate, authorize('admin'), createPromotionValidator, validate, createPromotion);
 router.put('/:id', authenticate, authorize('admin'), updatePromotionValidator, validate, updatePromotion);
