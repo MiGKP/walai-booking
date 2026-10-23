@@ -1,12 +1,18 @@
-import { reportRange, packageReport, roomReportAmountSql, roomInventoryReport, boatInventoryReport } from '../services/scope-reports';
 import { Request, Response } from 'express';
-import { safeRollback } from '../utils/safe-rollback';
+import type { PoolClient } from 'pg';
 import pool from '../config/database';
 import { AuthRequest } from '../middleware/auth.middleware';
-import type { PoolClient } from 'pg';
+import {
+  boatInventoryReport,
+  packageReport,
+  reportRange,
+  roomInventoryReport,
+  roomReportAmountSql,
+} from '../services/scope-reports';
 import { parsePositiveInt } from '../utils/ids';
+import { safeRollback } from '../utils/safe-rollback';
 
-// คืนค่า rollback แบบเงียบ เพื่อไม่ให้ error ของ ROLLBACK บดบัง error เดิม
+// ยกเลิก transaction ที่ค้างอยู่โดยไม่ให้ error ของการ rollback บดบัง error หลัก
 const rollbackQuietly = async (client: PoolClient): Promise<void> => {
   try {
     await safeRollback(client);
@@ -16,13 +22,15 @@ const rollbackQuietly = async (client: PoolClient): Promise<void> => {
 };
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+// ตรวจสอบว่าสตริงวันที่อยู่ในรูปแบบ YYYY-MM-DD ที่ถูกต้องตามปฏิทิน
 const isValidIsoDate = (value: string): boolean => {
   if (!ISO_DATE_PATTERN.test(value)) return false;
   const d = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
 };
 
-// คืน undefined ถ้าไม่ได้ส่งค่ามา, คืน null ถ้าไม่ใช่จำนวนเต็มในช่วงที่กำหนด
+// แปลงค่าจาก query string เป็นจำนวนเต็มในช่วงที่กำหนด
 const parseQueryInt = (value: unknown, min: number, max: number): number | null | undefined => {
   if (value === undefined || value === '') return undefined;
   if (typeof value !== 'string' || !/^\d+$/.test(value)) return null;
@@ -30,11 +38,9 @@ const parseQueryInt = (value: unknown, min: number, max: number): number | null 
   return n >= min && n <= max ? n : null;
 };
 
-// ฟิลด์การชำระเงินที่ใช้เป็นปลายทางโอนเงิน แก้ไขได้เฉพาะ admin
 const ADMIN_ONLY_RESORT_FIELDS = ['promptpay_id', 'bank_account_no', 'bank_account_name'];
 
-// ─── Bank Accounts ─────────────────────────────────────────────────────────────
-
+// ดึงรายการบัญชีธนาคารทั้งหมดโดยเรียงบัญชีหลักขึ้นก่อน
 export const getBankAccounts = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(`SELECT * FROM bank_accounts ORDER BY is_primary DESC, created_at ASC`);
@@ -45,6 +51,7 @@ export const getBankAccounts = async (req: Request, res: Response): Promise<void
   }
 };
 
+// สร้างบัญชีธนาคารใหม่และสลับสถานะบัญชีหลักหากระบุเป็น is_primary
 export const createBankAccount = async (req: Request, res: Response): Promise<void> => {
   let client: PoolClient | null = null;
   try {
@@ -70,6 +77,7 @@ export const createBankAccount = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// อัปเดตข้อมูลบัญชีธนาคารตามรหัสและจัดการสถานะบัญชีหลัก
 export const updateBankAccount = async (req: Request, res: Response): Promise<void> => {
   let client: PoolClient | null = null;
   try {
@@ -78,7 +86,6 @@ export const updateBankAccount = async (req: Request, res: Response): Promise<vo
     const { bank_name, account_number, account_name, promptpay_id, is_primary } = req.body;
     await client.query('BEGIN');
 
-    // ยืนยันว่ามีรายการที่จะแก้ไขจริงก่อน จึงค่อยล้างค่าหลักของรายการอื่น
     const target = await client.query(
       `SELECT bank_account_id FROM bank_accounts WHERE bank_account_id=$1 FOR UPDATE`,
       [id]
@@ -107,6 +114,7 @@ export const updateBankAccount = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// ลบบัญชีธนาคารตามรหัสที่ระบุ
 export const deleteBankAccount = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -125,26 +133,20 @@ export const deleteBankAccount = async (req: Request, res: Response): Promise<vo
   }
 };
 
-// คอลัมน์ของ resort_info ที่ endpoint สาธารณะส่งออกได้ (ไม่ใช้ SELECT * เพื่อไม่ให้ข้อมูลอื่นรั่ว)
 const RESORT_PUBLIC_COLUMNS =
   'id, name, address, coordinates, phone, email, facebook, line_id, operating_days, operating_hours, additional_terms, payment_due_days, bank_account_no, bank_account_name, promptpay_id, facilities, checkin_time_from, checkin_time_to, checkout_time, important_info, kids_policy, parking_info, infant_max_age_exclusive, boat_advance_booking_minutes, boat_checkin_advance_minutes, room_max_advance_days, boat_max_advance_days';
 
-// ─── Resort Info (รวม contact + site info ใน table resort_info) ────────────────
-
-// ─── Resort Info (รวม contact + site info ใน table resort_info) ────────────────
-
+// ดึงข้อมูลสถานที่และจุดบริการของรีสอร์ทตามรหัส ชื่อ หรือทั้งหมด
 export const getResortInfo = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id, name } = req.query;
 
-    // 1. ถ้าส่ง ?id=4 หรือ ?id=5 มา
     if (id) {
       const result = await pool.query(`SELECT ${RESORT_PUBLIC_COLUMNS} FROM resort_info WHERE id = $1 LIMIT 1`, [id]);
       res.json({ success: true, data: result.rows[0] || null });
       return;
     }
 
-    // 2. ถ้าส่ง ?name=ห้องพัก มา
     if (name) {
       const result = await pool.query(
         `SELECT ${RESORT_PUBLIC_COLUMNS} FROM resort_info WHERE name LIKE $1 LIMIT 1`,
@@ -154,7 +156,6 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // 3. ถ้าไม่ระบุ ให้คืนค่าทุกแถว (สถานที่หลัก=3, ห้องพัก=4, เรือ=5)
     const result = await pool.query(`SELECT ${RESORT_PUBLIC_COLUMNS} FROM resort_info ORDER BY id ASC`);
     res.json({ success: true, data: result.rows });
   } catch (error) {
@@ -163,6 +164,7 @@ export const getResortInfo = async (req: Request, res: Response): Promise<void> 
   }
 };
 
+// สร้างหรืออัปเดตข้อมูลสถานที่และจุดบริการตามสิทธิ์ของผู้ใช้
 export const upsertResortInfo = async (req: Request, res: Response): Promise<void> => {
   try {
     const role = (req as AuthRequest).user?.role;
@@ -183,7 +185,6 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
     }
     const targetName = typeof req.body.name === 'string' ? req.body.name : '';
 
-    // Staff are scoped by role; editable names never select another resort row.
     if (!isAdmin) {
       if (targetId !== null && targetId !== staffTargetId) {
         res.status(403).json({ success: false, message: 'ไม่มีสิทธิ์แก้ไขจุดบริการนี้' });
@@ -192,16 +193,15 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       targetId = staffTargetId;
     }
 
-    // Preserve legacy admin name mapping when no explicit row was supplied.
     if (!targetId) {
       if (!targetName) {
         targetId = 3;
       } else if (targetName.includes('ห้อง') || targetName.includes('room')) {
-        targetId = 4; // ID จุดบริการห้องพัก
+        targetId = 4;
       } else if (targetName.includes('เรือ') || targetName.includes('boat')) {
-        targetId = 5; // ID จุดบริการเรือ
+        targetId = 5;
       } else {
-        targetId = 3; // ID สถานที่หลัก
+        targetId = 3;
       }
     }
 
@@ -216,21 +216,43 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
         return;
       }
       const rawAge = req.body.infant_max_age_exclusive;
-      const age = typeof rawAge === 'number' || (typeof rawAge === 'string' && /^\d+$/.test(rawAge))
-        ? Number(rawAge) : NaN;
+      const age =
+        typeof rawAge === 'number' || (typeof rawAge === 'string' && /^\d+$/.test(rawAge)) ? Number(rawAge) : NaN;
       if (targetId !== 3 || !Number.isInteger(age) || age < 0 || age > 18) {
-        res.status(400).json({ success: false, message: 'เกณฑ์อายุเด็กเล็กต้องเป็นจำนวนเต็ม 0–18 และกำหนดที่สถานที่หลักเท่านั้น' });
+        res.status(400).json({
+          success: false,
+          message: 'เกณฑ์อายุเด็กเล็กต้องเป็นจำนวนเต็ม 0–18 และกำหนดที่สถานที่หลักเท่านั้น',
+        });
         return;
       }
     }
 
     const allowed = [
-      'name', 'address', 'coordinates', 'phone', 'email', 'facebook', 'line_id',
-      'operating_days', 'operating_hours', 'additional_terms', 'payment_due_days',
-      'promptpay_id', 'bank_account_no', 'bank_account_name',
-      'checkin_time_from', 'checkin_time_to', 'checkout_time', 'important_info', 'kids_policy', 'parking_info',
-      'boat_advance_booking_minutes', 'boat_checkin_advance_minutes', 'infant_max_age_exclusive',
-      'room_max_advance_days', 'boat_max_advance_days',
+      'name',
+      'address',
+      'coordinates',
+      'phone',
+      'email',
+      'facebook',
+      'line_id',
+      'operating_days',
+      'operating_hours',
+      'additional_terms',
+      'payment_due_days',
+      'promptpay_id',
+      'bank_account_no',
+      'bank_account_name',
+      'checkin_time_from',
+      'checkin_time_to',
+      'checkout_time',
+      'important_info',
+      'kids_policy',
+      'parking_info',
+      'boat_advance_booking_minutes',
+      'boat_checkin_advance_minutes',
+      'infant_max_age_exclusive',
+      'room_max_advance_days',
+      'boat_max_advance_days',
     ];
 
     const maxAdvanceRules: { col: string; id: number; max: number; label: string }[] = [
@@ -242,27 +264,40 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       if (raw === undefined) continue;
       const days = typeof raw === 'number' || (typeof raw === 'string' && /^\d+$/.test(raw)) ? Number(raw) : NaN;
       if (targetId !== rule.id || !Number.isInteger(days) || days < 1 || days > rule.max) {
-        res.status(400).json({ success: false, message: `${rule.label}ต้องเป็นจำนวนเต็มระหว่าง 1 ถึง ${rule.max} วัน` });
+        res.status(400).json({
+          success: false,
+          message: `${rule.label}ต้องเป็นจำนวนเต็มระหว่าง 1 ถึง ${rule.max} วัน`,
+        });
         return;
       }
     }
 
     if (req.body.boat_advance_booking_minutes !== undefined) {
       const rawMinutes = req.body.boat_advance_booking_minutes;
-      const minutes = typeof rawMinutes === 'number' || (typeof rawMinutes === 'string' && /^\d+$/.test(rawMinutes))
-        ? Number(rawMinutes) : NaN;
+      const minutes =
+        typeof rawMinutes === 'number' || (typeof rawMinutes === 'string' && /^\d+$/.test(rawMinutes))
+          ? Number(rawMinutes)
+          : NaN;
       if (targetId !== 5 || !Number.isInteger(minutes) || minutes < 0 || minutes > 10080) {
-        res.status(400).json({ success: false, message: 'จองล่วงหน้าขั้นต่ำต้องเป็นจำนวนเต็มระหว่าง 0 ถึง 10080 นาที' });
+        res.status(400).json({
+          success: false,
+          message: 'จองล่วงหน้าขั้นต่ำต้องเป็นจำนวนเต็มระหว่าง 0 ถึง 10080 นาที',
+        });
         return;
       }
     }
 
     if (req.body.boat_checkin_advance_minutes !== undefined) {
       const rawMinutes = req.body.boat_checkin_advance_minutes;
-      const minutes = typeof rawMinutes === 'number' || (typeof rawMinutes === 'string' && /^\d+$/.test(rawMinutes))
-        ? Number(rawMinutes) : NaN;
+      const minutes =
+        typeof rawMinutes === 'number' || (typeof rawMinutes === 'string' && /^\d+$/.test(rawMinutes))
+          ? Number(rawMinutes)
+          : NaN;
       if (targetId !== 5 || !Number.isInteger(minutes) || minutes < 0 || minutes > 1440) {
-        res.status(400).json({ success: false, message: 'เวลาเช็คอินล่วงหน้าต้องเป็นจำนวนเต็มระหว่าง 0 ถึง 1440 นาที และกำหนดที่จุดบริการเรือเท่านั้น' });
+        res.status(400).json({
+          success: false,
+          message: 'เวลาเช็คอินล่วงหน้าต้องเป็นจำนวนเต็มระหว่าง 0 ถึง 1440 นาที และกำหนดที่จุดบริการเรือเท่านั้น',
+        });
         return;
       }
     }
@@ -271,9 +306,21 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
     for (const col of allowed) {
       if (req.body[col] === undefined) continue;
       if (!isAdmin && ADMIN_ONLY_RESORT_FIELDS.includes(col)) continue;
-      // ค่าว่างเป็น NULL ตามเดิม แต่ค่าตัวเลข 0 และ false ต้องคงไว้
       const raw = req.body[col];
-      updates.push({ col, val: ['infant_max_age_exclusive', 'boat_advance_booking_minutes', 'boat_checkin_advance_minutes', 'room_max_advance_days', 'boat_max_advance_days'].includes(col) ? Number(raw) : raw === '' ? null : (raw ?? null) });
+      updates.push({
+        col,
+        val: [
+          'infant_max_age_exclusive',
+          'boat_advance_booking_minutes',
+          'boat_checkin_advance_minutes',
+          'room_max_advance_days',
+          'boat_max_advance_days',
+        ].includes(col)
+          ? Number(raw)
+          : raw === ''
+            ? null
+            : (raw ?? null),
+      });
     }
 
     if (updates.length === 0) {
@@ -281,32 +328,28 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    // ค้นหาแถวในตารางตาม targetId
     let existing;
     if (targetId) {
       existing = await pool.query(`SELECT id FROM resort_info WHERE id = $1 LIMIT 1`, [targetId]);
     }
 
     let result;
-
     if (existing && existing.rows.length > 0) {
-      // 🟢 มีข้อมูลเดิม -> อัปเดตเฉพาะแถว ID ที่ระบุเท่านั้น (3, 4, หรือ 5)
       const setClauses = updates.map((u, i) => `${u.col}=$${i + 1}`).join(', ');
-      const values = [...updates.map(u => u.val), targetId];
+      const values = [...updates.map((u) => u.val), targetId];
       result = await pool.query(
         `UPDATE resort_info SET ${setClauses} WHERE id=$${updates.length + 1} RETURNING *`,
         values
       );
     } else {
-      // 🟡 กรณีหา ID ไม่เจอ -> INSERT ใหม่โดยกำหนด ID หากระบุมา
       if (targetId) {
         updates.push({ col: 'id', val: targetId });
       }
-      const cols = updates.map(u => u.col).join(', ');
+      const cols = updates.map((u) => u.col).join(', ');
       const placeholders = updates.map((_, i) => `$${i + 1}`).join(', ');
       result = await pool.query(
         `INSERT INTO resort_info (${cols}) VALUES (${placeholders}) RETURNING *`,
-        updates.map(u => u.val)
+        updates.map((u) => u.val)
       );
     }
 
@@ -317,8 +360,7 @@ export const upsertResortInfo = async (req: Request, res: Response): Promise<voi
   }
 };
 
-// ─── Boat Operating Hours ───────────────────────────────────────────────────────
-
+// ดึงเวลาเปิด-ปิดบริการเรือของแต่ละวันในสัปดาห์
 export const getBoatHours = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(
@@ -333,12 +375,11 @@ export const getBoatHours = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+// บันทึกหรืออัปเดตเวลาเปิด-ปิดบริการเรือตามวันในสัปดาห์
 export const upsertBoatHours = async (req: Request, res: Response): Promise<void> => {
   try {
     const { day_of_week, open_time, close_time, is_open } = req.body;
-    const existing = await pool.query(
-      `SELECT id FROM boat_operating_hours WHERE day_of_week = $1`, [day_of_week]
-    );
+    const existing = await pool.query(`SELECT id FROM boat_operating_hours WHERE day_of_week = $1`, [day_of_week]);
     let result;
     if (existing.rows.length > 0) {
       result = await pool.query(
@@ -361,7 +402,7 @@ export const upsertBoatHours = async (req: Request, res: Response): Promise<void
   }
 };
 
-// สถิติสรุปสำหรับหน้าแรก (public)
+// ดึงสถิติภาพรวมสำหรับแสดงผลบนหน้าแรกของเว็บไซต์
 export const getLandingStats = async (req: Request, res: Response): Promise<void> => {
   try {
     const [roomTypesRes, boatTypesRes, guestsRes, reviewsRes] = await Promise.all([
@@ -396,8 +437,7 @@ export const getLandingStats = async (req: Request, res: Response): Promise<void
   }
 };
 
-// ─── Statistics ─────────────────────────────────────────────────────────────────
-
+// ดึงรายงานสถิติรายได้และจำนวนการจองตามช่วงเวลาและบทบาทของเจ้าหน้าที่
 export const getStats = async (req: Request, res: Response): Promise<void> => {
   const role = (req as AuthRequest).user?.role;
   if (!role || !['admin', 'room_staff', 'boat_staff'].includes(role)) {
@@ -405,57 +445,78 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
     return;
   }
   let range;
-  try { range = reportRange(req.query); } catch {
+  try {
+    range = reportRange(req.query);
+  } catch {
     res.status(400).json({ success: false, message: 'กรุณาเลือกวันที่ เดือน และปีให้ถูกต้อง' });
     return;
   }
   const showRoom = role === 'admin' || role === 'room_staff';
   const showBoat = role === 'admin' || role === 'boat_staff';
   const values = [range.start, range.end];
+
+  // สรุปยอดรวมและจำนวนรายการจองตามสถานะของตารางที่ระบุ
   const summary = async (table: 'room_bookings' | 'boat_bookings'): Promise<Record<string, unknown>> => {
     const amount = table === 'room_bookings' ? roomReportAmountSql('b') : 'b.total_price';
-    const result = await pool.query(`SELECT COUNT(*)::int AS total_count,
-      COUNT(*) FILTER (WHERE status IN ('approved', 'checked_out'))::int AS approved_count,
-      COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count,
-      COUNT(*) FILTER (WHERE status = 'paid')::int AS paid_count,
-      COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled_count,
-      COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected_count,
-      COALESCE(SUM(${amount}) FILTER (WHERE status IN ('approved', 'checked_out')), 0)::numeric AS revenue,
-      COALESCE(SUM(total_price) FILTER (WHERE status = 'paid'), 0)::numeric AS awaiting_approval_amount
-      FROM ${table} b WHERE created_at::date BETWEEN $1::date AND $2::date`, values);
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS total_count,
+        COUNT(*) FILTER (WHERE status IN ('approved', 'checked_out'))::int AS approved_count,
+        COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count,
+        COUNT(*) FILTER (WHERE status = 'paid')::int AS paid_count,
+        COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled_count,
+        COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected_count,
+        COALESCE(SUM(${amount}) FILTER (WHERE status IN ('approved', 'checked_out')), 0)::numeric AS revenue,
+        COALESCE(SUM(total_price) FILTER (WHERE status = 'paid'), 0)::numeric AS awaiting_approval_amount
+       FROM ${table} b WHERE created_at::date BETWEEN $1::date AND $2::date`,
+      values
+    );
     return result.rows[0];
   };
+
+  // ดึงข้อมูลรายได้รายวันสำหรับแสดงกราฟของตารางที่ระบุ
   const chart = async (table: 'room_bookings' | 'boat_bookings'): Promise<Record<string, unknown>[]> => {
     const amount = table === 'room_bookings' ? roomReportAmountSql('b') : 'b.total_price';
-    const result = await pool.query(`SELECT to_char(created_at::date, 'YYYY-MM-DD') AS day,
-      COALESCE(SUM(${amount}) FILTER (WHERE status IN ('approved', 'checked_out')), 0)::numeric AS revenue
-      FROM ${table} b WHERE created_at::date BETWEEN $1::date AND $2::date GROUP BY created_at::date ORDER BY day`, values);
+    const result = await pool.query(
+      `SELECT to_char(created_at::date, 'YYYY-MM-DD') AS day,
+        COALESCE(SUM(${amount}) FILTER (WHERE status IN ('approved', 'checked_out')), 0)::numeric AS revenue
+       FROM ${table} b WHERE created_at::date BETWEEN $1::date AND $2::date GROUP BY created_at::date ORDER BY day`,
+      values
+    );
     return result.rows;
   };
+
   try {
-    const [roomSummary, boatSummary, roomChart, boatChart, packages, roomInventory, boatInventory, members] = await Promise.all([
-      showRoom ? summary('room_bookings') : undefined,
-      showBoat ? summary('boat_bookings') : undefined,
-      showRoom ? chart('room_bookings') : undefined,
-      showBoat ? chart('boat_bookings') : undefined,
-      showRoom ? packageReport(range) : undefined,
-      showRoom ? roomInventoryReport(range) : undefined,
-      showBoat ? boatInventoryReport(range) : undefined,
-      role === 'admin' ? pool.query('SELECT COUNT(*)::int AS total FROM members') : undefined,
-    ]);
-    res.json({ success: true, data: {
-      ...(showRoom ? { room_summary: roomSummary, room_chart: roomChart, packages, room_inventory: roomInventory } : {}),
-      ...(showBoat ? { kayak_summary: boatSummary, kayak_chart: boatChart, boat_inventory: boatInventory } : {}),
-      ...(role === 'admin' ? { total_members: Number(members?.rows[0].total ?? 0) } : {}),
-      period: req.query.period ?? 'month', start: range.start, end: range.end,
-    } });
+    const [roomSummary, boatSummary, roomChart, boatChart, packages, roomInventory, boatInventory, members] =
+      await Promise.all([
+        showRoom ? summary('room_bookings') : undefined,
+        showBoat ? summary('boat_bookings') : undefined,
+        showRoom ? chart('room_bookings') : undefined,
+        showBoat ? chart('boat_bookings') : undefined,
+        showRoom ? packageReport(range) : undefined,
+        showRoom ? roomInventoryReport(range) : undefined,
+        showBoat ? boatInventoryReport(range) : undefined,
+        role === 'admin' ? pool.query('SELECT COUNT(*)::int AS total FROM members') : undefined,
+      ]);
+    res.json({
+      success: true,
+      data: {
+        ...(showRoom
+          ? { room_summary: roomSummary, room_chart: roomChart, packages, room_inventory: roomInventory }
+          : {}),
+        ...(showBoat ? { kayak_summary: boatSummary, kayak_chart: boatChart, boat_inventory: boatInventory } : {}),
+        ...(role === 'admin' ? { total_members: Number(members?.rows[0].total ?? 0) } : {}),
+        period: req.query.period ?? 'month',
+        start: range.start,
+        end: range.end,
+      },
+    });
   } catch (error) {
     console.error('Get stats error:', error);
     res.status(500).json({ success: false, message: 'ไม่สามารถโหลดรายงานได้' });
   }
 };
 
-// ─── Cancellation policy ─────────────────────────────────────────────────────
+// ดึงนโยบายการยกเลิกและการคืนเงินของระบบ
 export const getCancellationPolicy = async (req: Request, res: Response): Promise<void> => {
   try {
     let row;
@@ -474,11 +535,13 @@ export const getCancellationPolicy = async (req: Request, res: Response): Promis
         const fallback = await pool.query(
           `SELECT full_refund_hours, late_refund_percent, updated_at FROM cancellation_policies WHERE id = 1`
         );
-        row = fallback.rows[0] ? {
-          ...fallback.rows[0],
-          room_full_refund_days: 3,
-          room_late_refund_percent: 0,
-        } : undefined;
+        row = fallback.rows[0]
+          ? {
+              ...fallback.rows[0],
+              room_full_refund_days: 3,
+              room_late_refund_percent: 0,
+            }
+          : undefined;
       } else {
         throw err;
       }
@@ -490,11 +553,11 @@ export const getCancellationPolicy = async (req: Request, res: Response): Promis
   }
 };
 
+// บันทึกหรืออัปเดตนโยบายการยกเลิกและการคืนเงิน
 export const upsertCancellationPolicy = async (req: Request, res: Response): Promise<void> => {
   try {
     const body = req.body as Record<string, unknown>;
 
-    // ดึงค่าปัจจุบันในฐานข้อมูลก่อน เพื่อไม่ให้การอัปเดตเฉพาะส่วน (partial update) ไปเขียนทับค่าเดิม
     let current: Record<string, unknown> = {};
     try {
       const existing = await pool.query(
@@ -516,18 +579,30 @@ export const upsertCancellationPolicy = async (req: Request, res: Response): Pro
       }
     }
 
-    const fullRefundHours = body.full_refund_hours !== undefined
-      ? Number(body.full_refund_hours)
-      : (current.full_refund_hours !== undefined ? Number(current.full_refund_hours) : 48);
-    const lateRefundPercent = body.late_refund_percent !== undefined
-      ? Number(body.late_refund_percent)
-      : (current.late_refund_percent !== undefined ? Number(current.late_refund_percent) : 0);
-    const roomRefundDays = body.room_full_refund_days !== undefined
-      ? Number(body.room_full_refund_days)
-      : (current.room_full_refund_days !== undefined ? Number(current.room_full_refund_days) : 3);
-    const roomLatePercent = body.room_late_refund_percent !== undefined
-      ? Number(body.room_late_refund_percent)
-      : (current.room_late_refund_percent !== undefined ? Number(current.room_late_refund_percent) : 0);
+    const fullRefundHours =
+      body.full_refund_hours !== undefined
+        ? Number(body.full_refund_hours)
+        : current.full_refund_hours !== undefined
+          ? Number(current.full_refund_hours)
+          : 48;
+    const lateRefundPercent =
+      body.late_refund_percent !== undefined
+        ? Number(body.late_refund_percent)
+        : current.late_refund_percent !== undefined
+          ? Number(current.late_refund_percent)
+          : 0;
+    const roomRefundDays =
+      body.room_full_refund_days !== undefined
+        ? Number(body.room_full_refund_days)
+        : current.room_full_refund_days !== undefined
+          ? Number(current.room_full_refund_days)
+          : 3;
+    const roomLatePercent =
+      body.room_late_refund_percent !== undefined
+        ? Number(body.room_late_refund_percent)
+        : current.room_late_refund_percent !== undefined
+          ? Number(current.room_late_refund_percent)
+          : 0;
 
     let row;
     try {
@@ -576,8 +651,7 @@ export const upsertCancellationPolicy = async (req: Request, res: Response): Pro
   }
 };
 
-// ─── Pending Notifications for Admin & Staff ─────────────────────────────────
-
+// ดึงสรุปจำนวนแจ้งเตือนงานค้างและสลิปรอตรวจสอบสำหรับแอดมินและพนักงาน
 export const getNotificationSummary = async (req: Request, res: Response): Promise<void> => {
   try {
     const authReq = req as AuthRequest;
@@ -585,13 +659,20 @@ export const getNotificationSummary = async (req: Request, res: Response): Promi
     const pendingRoomSlipFilter = `(rb.status = 'paid' OR (NULLIF(rb.payment_slip, '') IS NOT NULL AND rb.status NOT IN ('approved', 'checked_out', 'rejected', 'cancelled')))`;
     const pendingBoatSlipFilter = `(bb.status = 'paid' OR (NULLIF(bb.payment_slip, '') IS NOT NULL AND bb.status NOT IN ('approved', 'checked_out', 'rejected', 'cancelled')))`;
 
-    const [roomSlipsCountRes, boatSlipsCountRes, todayCheckinsRes, todayCheckoutsRes, todayBoatCheckinsRes] = await Promise.all([
-      pool.query(`SELECT COUNT(*)::int AS count FROM room_bookings rb WHERE ${pendingRoomSlipFilter}`),
-      pool.query(`SELECT COUNT(*)::int AS count FROM boat_bookings bb WHERE ${pendingBoatSlipFilter}`),
-      pool.query(`SELECT COUNT(*)::int AS count FROM room_bookings rb WHERE rb.check_in::date = CURRENT_DATE AND rb.status = 'approved'`),
-      pool.query(`SELECT COUNT(*)::int AS count FROM room_bookings rb WHERE rb.check_out::date = CURRENT_DATE AND rb.status = 'approved'`),
-      pool.query(`SELECT COUNT(*)::int AS count FROM boat_bookings bb WHERE bb.booking_date::date = CURRENT_DATE AND bb.status = 'approved' AND bb.checkin_at IS NULL`),
-    ]);
+    const [roomSlipsCountRes, boatSlipsCountRes, todayCheckinsRes, todayCheckoutsRes, todayBoatCheckinsRes] =
+      await Promise.all([
+        pool.query(`SELECT COUNT(*)::int AS count FROM room_bookings rb WHERE ${pendingRoomSlipFilter}`),
+        pool.query(`SELECT COUNT(*)::int AS count FROM boat_bookings bb WHERE ${pendingBoatSlipFilter}`),
+        pool.query(
+          `SELECT COUNT(*)::int AS count FROM room_bookings rb WHERE rb.check_in::date = CURRENT_DATE AND rb.status = 'approved'`
+        ),
+        pool.query(
+          `SELECT COUNT(*)::int AS count FROM room_bookings rb WHERE rb.check_out::date = CURRENT_DATE AND rb.status = 'approved'`
+        ),
+        pool.query(
+          `SELECT COUNT(*)::int AS count FROM boat_bookings bb WHERE bb.booking_date::date = CURRENT_DATE AND bb.status = 'approved' AND bb.checkin_at IS NULL`
+        ),
+      ]);
 
     const roomSlips = Number(roomSlipsCountRes.rows[0]?.count || 0);
     const boatSlips = Number(boatSlipsCountRes.rows[0]?.count || 0);
@@ -699,4 +780,3 @@ export const getNotificationSummary = async (req: Request, res: Response): Promi
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
-

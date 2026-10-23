@@ -1,22 +1,14 @@
+import { Request, Response } from "express";
+import { PoolClient } from "pg";
+import pool from "../config/database";
+import { AuthPayload } from "../types";
 import { notifyBookingStatus } from '../services/booking-notifications';
 import { restoreBoatTicketRedemptions } from '../services/boat-booking-lifecycle';
 import { validateBoatBookingTime } from '../services/boat-booking-time';
 import { boatCheckinWindow, boatCheckinError } from '../services/boat-checkin-time';
-export { restoreBoatTicketRedemptions } from '../services/boat-booking-lifecycle';
-import { parsePagination, paginationMeta } from '../utils/pagination';
-import { Request, Response } from "express";
-import { safeRollback } from '../utils/safe-rollback';
-import { bangkokToday } from "../utils/bangkok-date";
 import { assertStatusTransition } from '../services/booking-status';
-import { PoolClient } from "pg";
-import pool from "../config/database";
-import { AuthPayload } from "../types";
-import {
-  sendBookingConfirmationEmail,
-} from "../services/mail.service";
+import { sendBookingConfirmationEmail } from "../services/mail.service";
 import { deleteCloudinaryImage } from "../services/cloudinary.service";
-import { mapDbError } from "../utils/db-errors";
-import { parsePositiveInt } from "../utils/ids";
 import {
   boatsNeeded,
   lineSubtotal,
@@ -47,13 +39,18 @@ import {
   persistBookingPromotions,
   restoreBookingPromotions,
 } from "../services/promotion-ledger";
+import { parsePagination, paginationMeta } from '../utils/pagination';
+import { safeRollback } from '../utils/safe-rollback';
+import { bangkokToday } from "../utils/bangkok-date";
+import { mapDbError } from "../utils/db-errors";
+import { parsePositiveInt } from "../utils/ids";
+
+export { restoreBoatTicketRedemptions } from '../services/boat-booking-lifecycle';
 
 interface KayakItemInput {
   boat_type_id: number;
   num_passengers: number;
-  /** ผู้ใช้เลือกจำนวนเรือเองได้ (ค่าเริ่มต้นคำนวณจากจำนวนผู้โดยสาร) — ต้องไม่น้อยกว่าที่คำนวณได้ */
   boat_count?: number;
-  /** จำนวนบัตรพายเรือฟรีที่จะใช้กับบรรทัดนี้ (จากกระเป๋า member_boat_tickets) */
   free_tickets_used?: number;
 }
 
@@ -77,6 +74,7 @@ const BOATS_JSON_SQL = `COALESCE((
   WHERE bnb.boat_booking_id = bb.boat_booking_id
 ), '[]'::json)`;
 
+// แปลงข้อมูลรายการเรือจาก request body ให้เป็นรูปแบบมาตรฐาน
 function normalizeKayakItems(body: Record<string, unknown>): KayakItemInput[] {
   if (Array.isArray(body.items) && body.items.length > 0) {
     return body.items.map((raw) => {
@@ -98,9 +96,9 @@ function normalizeKayakItems(body: Record<string, unknown>): KayakItemInput[] {
   ];
 }
 
+// แปลงสตริงเวลาให้อยู่ในรูปแบบ HH:MM:SS
 function normalizeTimePart(value: unknown): string {
   const raw = String(value ?? "").trim();
-  // Accept "15:00", "15:00:00", or Date/ISO fragments that start with HH:MM:SS
   const hhmm = raw.match(/^(\d{2}:\d{2})(?::(\d{2}))?/);
   if (hhmm) {
     return `${hhmm[1]}:${hhmm[2] ?? "00"}`;
@@ -108,9 +106,7 @@ function normalizeTimePart(value: unknown): string {
   return raw;
 }
 
-// Inventory is reused on different dates and after each time window ends.
-// Group simultaneous event deltas before the running sum so adjacent bookings
-// do not temporarily count the ending reservation and its replacement together.
+// คำนวณจำนวนเรือที่ถูกจองพร้อมกันสูงสุดในช่วงเวลาเดียวกัน
 async function peakReservedBoats(
   client: PoolClient,
   boatTypeId: number,
@@ -283,7 +279,7 @@ export async function redeemRoomBoatTickets(
   }
 }
 
-// คืนบัตรพายเรือ (ฟรีหรือเสริม) ที่เคยใช้กับการจองนี้ (เรียกตอนยกเลิก/ปฏิเสธการจอง)
+// แทนที่รายการโควตาประเภทเรือทั้งหมดในรอบเวลาที่ระบุ
 async function replaceRoundBoats(
   client: PoolClient,
   roundId: number,
@@ -301,6 +297,7 @@ async function replaceRoundBoats(
   }
 }
 
+// ตรวจสอบว่ารหัสประเภทเรือทั้งหมดมีอยู่ในฐานข้อมูลจริง
 async function boatTypesExist(
   client: PoolClient,
   typeIds: number[]
@@ -314,12 +311,13 @@ async function boatTypesExist(
   return Number(result.rows[0].count) === unique.length;
 }
 
+// แปลงค่าเวลาหรือ ISO string ให้เป็นเวลารูปแบบ SQL
 function toTimeSql(value: unknown): string {
   const raw = String(value ?? "");
   return raw.includes("T") ? raw.split("T")[1].slice(0, 8) : raw;
 }
 
-// แปลงเวลารูปแบบ HH:MM หรือ HH:MM:SS เป็นนาทีนับจากเที่ยงคืน; คืน null ถ้ารูปแบบไม่ถูกต้อง
+// แปลงสตริงเวลาเป็นจำนวนนาทีนับจากเที่ยงคืน
 function timeToMinutes(value: string): number | null {
   const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(value.trim());
   if (!match) return null;
@@ -345,7 +343,6 @@ export const getAllKayaks = async (
       ORDER BY bt.price ASC
     `);
 
-    // Map to expected frontend structure temporarily
     const mapped = result.rows.map((row) => ({
       ...row,
       type:
@@ -450,7 +447,6 @@ export const checkKayakAvailability = async (
     const total = typeCapacity(fleet, roundQuantity);
     const total_slots = roundRes.rows[0]?.total_slots ?? null;
     const pool_booked = Number(poolRes.rows[0].total_booked);
-    // รอบที่จองไม่ได้ตามนโยบายล่วงหน้า (เช่น เริ่มไปแล้วหรือเหลือเวลาน้อยกว่าที่กำหนด) ให้ถือว่าเหลือ 0
     const bookableRes = roundRes.rows[0]?.start_time
       ? await pool.query(`SELECT ${bookableSql("$1::date", "$2::time")} AS bookable`, [booking_date, roundRes.rows[0].start_time])
       : null;
@@ -482,9 +478,9 @@ export const checkKayakAvailability = async (
 
 const MAX_CALENDAR_DAYS = 62;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-// นโยบายจองเรือล่วงหน้า (resort_info id = 5) — รอบของวันนี้ที่เหลือเวลาน้อยกว่าที่กำหนดหรือเริ่มไปแล้วจะจองไม่ได้
 const ADVANCE_MINUTES_SQL = `COALESCE((SELECT boat_advance_booking_minutes FROM resort_info WHERE id = 5), 60)`;
+
+// สร้างนิพจน์ SQL ตรวจสอบว่ารอบเรือนั้นยังเปิดให้จองได้ตามเวลาจองล่วงหน้าหรือไม่
 function bookableSql(dayExpr: string, timeExpr: string): string {
   return `NOT (${dayExpr} = (NOW() AT TIME ZONE 'Asia/Bangkok')::date
     AND EXTRACT(EPOCH FROM ((${dayExpr} + ${timeExpr}) AT TIME ZONE 'Asia/Bangkok') - NOW()) / 60 < ${ADVANCE_MINUTES_SQL})`;
@@ -951,8 +947,6 @@ export const createKayakBooking = async (
       return;
     }
     let poolSlots: number | null = null;
-
-    // Lock types in ascending id order to reduce deadlock risk
     const sortedItems = [...items].sort((a, b) => a.boat_type_id - b.boat_type_id);
 
     const candidateRes = await client.query(
@@ -1071,8 +1065,6 @@ export const createKayakBooking = async (
         return;
       }
 
-      // Passenger cap stays per-type only on leftover 1:1 rounds.
-      // Shared M2M rounds use round_boats.quantity + total_slots instead.
       const maxBooking = coveringRoundId != null ? null : round.max_booking;
       if (maxBooking != null && totalPassengers + item.num_passengers > maxBooking) {
         await safeRollback(client);
@@ -1123,7 +1115,6 @@ export const createKayakBooking = async (
       }
     }
 
-    // ใช้บัตรพายเรือฟรี (ถ้ามี) — หักราคาบรรทัดนั้นตามจำนวนบัตรที่ใช้ ไม่เกินจำนวนเรือของบรรทัดนั้นและยอดคงเหลือของสมาชิก
     const freeTicketsByType = new Map<number, number>();
     for (const item of items) {
       if (item.free_tickets_used) freeTicketsByType.set(item.boat_type_id, item.free_tickets_used);
@@ -1142,7 +1133,6 @@ export const createKayakBooking = async (
         totalFreeTicketsApplied += applied;
       }
       if (totalFreeTicketsApplied < totalFreeTicketsRequested) {
-        // ขอใช้มากกว่าที่มีจริง (หรือมากกว่าจำนวนเรือของบรรทัดนั้น) — แจ้งเตือนแทนที่จะเงียบๆ ใช้แค่บางส่วน
         await safeRollback(client);
         res.status(400).json({ success: false, message: "บัตรพายเรือไม่พอ หรือจำนวนที่ขอใช้เกินจำนวนเรือของบรรทัดนั้น" });
         return;
@@ -1161,7 +1151,7 @@ export const createKayakBooking = async (
       await safeRollback(client);
       res.status(400).json({
         success: false,
-        message: "กิจกรรมพายเรือไม่สามารถใช้โค้ดโปรโมชั่นได้",
+        message: "กิจกรรมพายเรือไม่สามารถใช้คูปองส่วนลดได้",
       });
       return;
     }
@@ -1291,8 +1281,7 @@ export const createKayakBooking = async (
   }
 };
 
-// ข้อมูลบัตรเสริมของห้องพักจริงห้องหนึ่ง (ยอดคงเหลือ, โหมด, ราคา, ช่วงวันที่ใช้ได้, รายการที่จองไปแล้ว)
-// ใช้แสดงหน้าเลือกประเภทเรือ/เวลา ตอนลูกค้ากดชำระเงินห้องพัก
+// ดึงข้อมูลบัตรพายเรือเสริมที่ผูกกับห้องพักและรายการที่จองไปแล้ว
 export const getBoatAddonInfo = async (
   req: Request,
   res: Response,
@@ -1330,9 +1319,8 @@ export const getBoatAddonInfo = async (
       [bookingRoomId],
     );
 
-    // ใช้สิทธิ์ได้รวมวันเช็คอินและวันเช็คเอาต์ ตามรอบเรือที่เปิดให้จอง
-    const validFrom = addDaysToDateStr(room.check_in, 0);
-    const validTo = addDaysToDateStr(room.check_out, 0);
+    const validFrom = addDaysToDateStr(room.check_in, 1);
+    const validTo = addDaysToDateStr(room.check_out, -1);
 
     const existingRes = await pool.query(
       `SELECT bb.boat_booking_id, bb.booking_date, bb.start_time, bb.end_time, bb.status,
@@ -1397,9 +1385,6 @@ export const createBoatAddon = async (
 
     await client.query("BEGIN");
 
-    // Slip submission and room status actions lock the header before its lines.
-    // Match that order, and keep the header locked while checking paid addons so
-    // a slip cannot be accepted against an amount that changes underneath it.
     const roomHeader = await client.query(
       `SELECT rb.room_booking_id
        FROM room_bookings rb
@@ -1445,7 +1430,6 @@ export const createBoatAddon = async (
       return;
     }
 
-    // รวมวันเช็คอินและวันเช็คเอาต์ แต่ยังตรวจรอบ เวลาเผื่อจอง และโควตาเรือ
     const validFrom = addDaysToDateStr(room.check_in, 0);
     const validTo = addDaysToDateStr(room.check_out, 0);
     if (validFrom > validTo || bookingDate < validFrom || bookingDate > validTo) {
@@ -1464,9 +1448,6 @@ export const createBoatAddon = async (
       return;
     }
 
-    // Use the same shared-window lock set and order as normal kayak bookings.
-    // Never lock the selected round first: distinct selected IDs could deadlock
-    // while each request subsequently waits for the other round in this pool.
     const roundLookup = await client.query(
       `SELECT br.boat_round_id, br.start_time, br.end_time, br.total_slots
        FROM boat_rounds br
@@ -1517,7 +1498,6 @@ export const createBoatAddon = async (
     }
     const boatType = btRes.rows[0];
 
-    // ประเภทเรือต้องอยู่ในรอบเวลาที่เลือก (เหมือนการจองเรือปกติใน createKayakBooking)
     const memberRes = await client.query(
       `SELECT 1 FROM boat_rounds br
        WHERE br.boat_round_id = $1 AND ${roundIncludesTypeSql("br", "$2::int")}`,
@@ -1579,7 +1559,6 @@ export const createBoatAddon = async (
       return;
     }
 
-    // ท่าเรือรวมทุกประเภทในช่วงเวลาเดียวกัน (total_slots) ต้องไม่เกินความจุ
     const poolSlots = round.total_slots == null ? null : Number(round.total_slots);
     if (poolSlots != null) {
       const poolRes = await client.query(
@@ -1605,14 +1584,12 @@ export const createBoatAddon = async (
       }
     }
 
-    // บัตรเสริมแบบชำระเงินเพิ่มได้เฉพาะก่อนชำระค่าห้อง เพื่อไม่ให้ยอดไม่ตรงกับสลิปที่ลูกค้าโอนแล้ว
     if (ticketInfo.mode === "paid" && (room.room_status === "paid" || room.room_status === "approved")) {
       await safeRollback(client);
       res.status(400).json({ success: false, message: "ไม่สามารถเพิ่มบัตรเสริมแบบชำระเงินหลังชำระค่าห้องแล้ว" });
       return;
     }
     const priceCharged = ticketInfo.mode === "paid" ? ticketInfo.unitPrice * boatCount : 0;
-    // ราคาต่อหน่วยในบรรทัดต้องตรงกับ subtotal: โหมดขายใช้ราคาบัตรเสริม, โหมดฟรีคงราคาเรือปกติไว้อ้างอิง
     const lineUnitPrice = ticketInfo.mode === "paid" ? ticketInfo.unitPrice : Number(boatType.price);
     const initialStatus = room.room_status === "approved" ? "approved" : "pending";
 
@@ -1688,10 +1665,9 @@ export const createBoatAddon = async (
   }
 };
 
-// พนักงานกดมอบบัตรเสริม (พิมพ์+มอบให้ลูกค้าพร้อมกุญแจห้องตอนเช็คอิน)
 const CANCELLED_ADDON_MESSAGE = "บัตรเสริมนี้ถูกยกเลิกหรือปฏิเสธแล้ว";
 
-// ตรวจว่าบัตรเสริมมีอยู่และยังใช้งานได้ — คืนข้อความตอบกลับ 404/400 หรือ null เมื่อผ่าน
+// ตรวจสอบว่าบัตรพายเรือเสริมมีอยู่และยังใช้งานได้
 async function findActiveAddonError(boatBookingId: number): Promise<{ status: number; message: string } | null> {
   const found = await pool.query(
     `SELECT status FROM boat_bookings WHERE boat_booking_id = $1 AND is_addon = true`,
@@ -1704,6 +1680,7 @@ async function findActiveAddonError(boatBookingId: number): Promise<{ status: nu
   return null;
 }
 
+// บันทึกสถานะการพิมพ์บัตรพายเรือเสริม
 export const printBoatAddon = async (
   req: Request,
   res: Response,
@@ -1732,6 +1709,7 @@ export const printBoatAddon = async (
   }
 };
 
+// บันทึกการส่งมอบบัตรพายเรือเสริมให้ลูกค้า
 export const handOutBoatAddon = async (
   req: Request,
   res: Response,
@@ -1744,8 +1722,6 @@ export const handOutBoatAddon = async (
       return;
     }
     const staffId = ["admin", "room_staff", "boat_staff"].includes(user?.role) ? user.id : null;
-    // มอบได้เฉพาะบัตรที่อนุมัติแล้ว และห้องพักต้องอนุมัติแล้ว (กันมอบบัตรก่อนลูกค้าชำระค่าห้อง)
-    // ไม่เขียนทับ handed_out_at ถ้าเคยมอบแล้ว (เรียกซ้ำได้โดยไม่เปลี่ยนเวลาเดิม)
     const result = await pool.query(
       `UPDATE boat_bookings
        SET handed_out_at = COALESCE(handed_out_at, NOW()),
@@ -1998,6 +1974,7 @@ export const getAllKayakBookings = async (
   }
 };
 
+// ดึงรายการประเภทเรือทั้งหมดสำหรับหน้าผู้ดูแลระบบ
 export const getAllKayaksAdmin = async (
   req: Request,
   res: Response,
@@ -2099,7 +2076,6 @@ export const createKayak = async (
       gallery_images,
     } = req.body;
 
-    // ตรวจค่าก่อนบันทึก: quantity = 0 ต้องคงเป็น 0 (เดิม quantity || 1 ทำให้กลายเป็น 1)
     const typeName = typeof name === "string" ? name.trim() : "";
     if (!typeName) {
       res.status(400).json({ success: false, message: "กรุณาระบุชื่อประเภทเรือ" });
@@ -2131,7 +2107,6 @@ export const createKayak = async (
 
     const boatTypeId = result.rows[0].id;
 
-    // 1. บันทึกรูปภาพหลักลงตาราง boat_images
     if (boat_image) {
       await client.query(
         `INSERT INTO boat_images (boat_type_id, image_path) VALUES ($1, $2)`,
@@ -2139,7 +2114,6 @@ export const createKayak = async (
       );
     }
 
-    // 2. บันทึกรูป Gallery เพิ่มเติมลงตาราง boat_images
     if (Array.isArray(gallery_images) && gallery_images.length > 0) {
       for (const imgPath of gallery_images) {
         if (imgPath && imgPath !== boat_image) {
@@ -2239,7 +2213,6 @@ export const createBoatRound = async (
       return;
     }
 
-    // Shared round: types live in round_boats, not boat_rounds.boat_type_id
     const result = await client.query(
       `INSERT INTO boat_rounds (start_time, end_time, max_booking, total_slots, is_active, boat_type_id)
        VALUES ($1, $2, $3, $4, true, NULL) RETURNING *`,
@@ -2312,13 +2285,11 @@ export const updateKayakBookingStatus = async (
       res.status(400).json({ success: false, message: transitionError });
       return;
     }
-    // เรือที่ลงน้ำไปแล้ว (เช็คอินแล้ว) ต้องไม่ถูกย้อนสถานะเป็น pending/rejected ผ่าน header
     if ((status === "rejected" || status === "pending") && current.rows[0].checkin_at) {
       await safeRollback(client);
       res.status(400).json({ success: false, message: "ไม่สามารถเปลี่ยนสถานะได้ เนื่องจากลูกค้าเช็คอินลงเรือแล้ว" });
       return;
     }
-    // บัตรเสริมที่ถูกปฏิเสธต้องปรับยอดห้องและบันทึกการคืนเงินเหมือนการยกเลิกโดยลูกค้า
     if (status === "rejected" && current.rows[0].is_addon) {
       const addonResult = await cancelBoatAddonInTx(
         client,
@@ -2473,7 +2444,7 @@ export const checkoutKayakBooking = async (
   }
 };
 
-/** เช็คอิน / บันทึกการปล่อยเรือลงน้ำ (ท่าเรือ) */
+// บันทึกการเช็คอินปล่อยเรือลงน้ำที่ท่าเรือ
 export const checkinKayakBooking = async (
   req: Request,
   res: Response,
@@ -2540,7 +2511,7 @@ export const checkinKayakBooking = async (
   }
 };
 
-/** ดึงข้อมูลรอบเรือและรายการเช็คอินประจำวัน (หน้าท่าเรือ) */
+// ดึงข้อมูลรอบเรือและรายการเช็คอินประจำวันสำหรับหน้าท่าเรือ
 export const getKayakCheckinSessions = async (
   req: Request,
   res: Response,
@@ -2661,7 +2632,6 @@ export const deleteKayak = async (
 
     await client.query("BEGIN");
 
-    // ล็อกแถวประเภทเรือก่อน เพื่อให้การตรวจการจองกับการลบเป็นชุดเดียวกัน (สอดคล้องกับ createKayakBooking)
     const locked = await client.query(
       `SELECT boat_type_id FROM boat_types WHERE boat_type_id = $1 FOR UPDATE`,
       [id],
@@ -2687,7 +2657,6 @@ export const deleteKayak = async (
       return;
     }
 
-    // ดึงรายการรูปทั้งหมดของเรือลำนี้เตรียมไว้ลบออกจาก Cloudinary
     const imagesRes = await client.query(
       `SELECT image_path FROM boat_images WHERE boat_type_id = $1`,
       [id],
@@ -2696,7 +2665,6 @@ export const deleteKayak = async (
     await client.query(`DELETE FROM boat_types WHERE boat_type_id = $1`, [id]);
     await client.query("COMMIT");
 
-    // ลบไฟล์รูปทั้งหมดออกจาก Cloudinary หลัง COMMIT สำเร็จเท่านั้น
     for (const row of imagesRes.rows) {
       if (row.image_path) {
         await deleteCloudinaryImage(row.image_path).catch(
@@ -2801,7 +2769,6 @@ export const deleteBoatImage = async (
       res.status(400).json({ success: false, message: "รหัสรายการไม่ถูกต้อง" });
       return;
     }
-    // ลบได้เฉพาะรูปที่เป็นของเรือ (boat_type_id) ตาม URL เท่านั้น
     const result = await pool.query(
       `DELETE FROM boat_images WHERE boat_image_id = $1 AND boat_type_id = $2 RETURNING boat_image_id, image_path`,
       [imageId, id],
@@ -2866,7 +2833,6 @@ export const updateKayak = async (
       }
     });
 
-    // ตรวจค่าที่ส่งมาก่อนเขียนลงฐาน (เฉพาะฟิลด์ที่ส่งมา)
     if (body.name !== undefined || body.type_name !== undefined) {
       const newName = String(body.name ?? body.type_name ?? "").trim();
       if (!newName) {
@@ -2893,7 +2859,6 @@ export const updateKayak = async (
       return;
     }
 
-    // รูปที่ถูกนำออกจะลบจาก Cloudinary หลัง COMMIT เท่านั้น (ถ้า rollback แถวใน DB ยังชี้ไฟล์เดิมอยู่)
     let removedImagePaths: string[] = [];
 
     await client.query("BEGIN");
@@ -2926,9 +2891,7 @@ export const updateKayak = async (
       await client.query(query, values);
     }
 
-    // จัดการอัปเดตรูปภาพแบบเดียวกับมาตรฐานห้องพัก (พร้อม Cloudinary Cleanup)
     if (boat_image !== undefined || gallery_images !== undefined) {
-      // 1. ดึงรายการรูปเดิมจากตาราง boat_images
       const oldImagesRes = await client.query(
         `SELECT image_path FROM boat_images WHERE boat_type_id = $1`,
         [id],
@@ -2937,7 +2900,6 @@ export const updateKayak = async (
         (row) => row.image_path,
       );
 
-      // 2. รวบรวมรูปภาพชุดใหม่ทั้งหมด
       const newImagePaths: string[] = [];
       if (boat_image) {
         newImagePaths.push(boat_image);
@@ -2950,17 +2912,14 @@ export const updateKayak = async (
         }
       }
 
-      // 3. เปรียบเทียบหาไฟล์รูปเดิมที่ถูกตัดออก
       removedImagePaths = oldImagePaths.filter(
         (oldPath) => !newImagePaths.includes(oldPath),
       );
 
-      // 4. ลบข้อมูลรูปเดิมใน DB
       await client.query(`DELETE FROM boat_images WHERE boat_type_id = $1`, [
         id,
       ]);
 
-      // 5. บันทึกรูปหลักใหม่ลง DB
       if (boat_image) {
         await client.query(
           `INSERT INTO boat_images (boat_type_id, image_path) VALUES ($1, $2)`,
@@ -2968,7 +2927,6 @@ export const updateKayak = async (
         );
       }
 
-      // 6. บันทึกรูป Gallery ใหม่ลง DB
       if (Array.isArray(gallery_images)) {
         for (const imgPath of gallery_images) {
           if (imgPath && imgPath !== boat_image) {
@@ -2979,12 +2937,10 @@ export const updateKayak = async (
           }
         }
       }
-
     }
 
     await client.query("COMMIT");
 
-    // 7. สั่งลบรูปที่ไม่ได้ใช้แล้วออกจาก Cloudinary หลัง COMMIT สำเร็จ
     for (const imgPath of removedImagePaths) {
       await deleteCloudinaryImage(imgPath).catch((cleanupError: unknown) => {
         console.error("Update kayak Cloudinary cleanup error:", cleanupError);
@@ -3043,7 +2999,6 @@ export const updateBoatRound = async (
 
     await client.query("BEGIN");
 
-    // Hold the round before reading reservation demand, matching booking paths.
     const lockedRound = await client.query(
       'SELECT boat_round_id FROM boat_rounds WHERE boat_round_id = $1 FOR UPDATE',
       [id],
@@ -3093,7 +3048,6 @@ export const updateBoatRound = async (
       }
     });
 
-    // Membership is round_boats; clear leftover 1:1 column when types are posted.
     if (hasBoatsPayload) {
       updates.push(`boat_type_id = NULL`);
     }
@@ -3122,7 +3076,6 @@ export const updateBoatRound = async (
         res.status(400).json({ success: false, message: "เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด" });
         return;
       }
-      // การจองเก็บเวลาไว้ในหัวบิลแล้ว การย้ายช่วงเวลาของรอบที่มีการจองจะทำให้ข้อมูลไม่ตรงกัน จึงไม่อนุญาต
       const changed = startSql !== String(current.rows[0].start_time) || endSql !== String(current.rows[0].end_time);
       if (changed) {
         const activeRes = await client.query(
@@ -3211,7 +3164,6 @@ export const deleteBoatRound = async (
 
     await client.query("BEGIN");
 
-    // ล็อกแถวรอบเวลาก่อน เพื่อให้การตรวจการจองกับการลบเป็นชุดเดียวกัน (สอดคล้องกับ createKayakBooking)
     const locked = await client.query(
       `SELECT boat_round_id FROM boat_rounds WHERE boat_round_id = $1 FOR UPDATE`,
       [id],
@@ -3259,17 +3211,12 @@ export const deleteBoatRound = async (
     client.release();
   }
 };
-// ยกเลิกบัตรเสริม (boat add-on) พร้อมปรับยอดห้องและบันทึกการคืนเงินแยก
-// - ห้องยังไม่ชำระ: ตัดยอดบัตรเสริมออกจากยอดห้องทั้งจำนวน (ยังไม่มีเงินเข้า จึงไม่มีรายการคืน)
-// - ห้องชำระแล้ว: คืนตามนโยบาย (cancellation_policies) และตัดยอดห้องเฉพาะส่วนที่คืน บันทึกใน booking_refunds
-// ฟังก์ชันนี้ไม่เปิด/ปิด transaction เอง ผู้เรียกต้อง BEGIN/COMMIT/ROLLBACK
+
 type AddonCancelResult =
   | { ok: true; refund: number; percent: number; roomTotalReduction: number }
   | { ok: false; status: number; message: string };
 
-// Room approval/payment/cancellation owns the room header before its addons.
-// Acquire that same header first; a joined FOR UPDATE cannot guarantee which
-// relation locks first. Normal standalone boat bookings have no room to lock.
+// ล็อกแถวการจองห้องพักหลักที่ผูกกับบัตรพายเรือเสริม
 async function lockAddonRoomHeader(
   client: PoolClient,
   boatBookingId: number,
@@ -3284,6 +3231,7 @@ async function lockAddonRoomHeader(
   );
 }
 
+// ยกเลิกหรือปฏิเสธบัตรพายเรือเสริมพร้อมคำนวณเงินคืนและปรับยอดห้องพักภายใน transaction
 async function cancelBoatAddonInTx(
   client: PoolClient,
   boatBookingId: number,
@@ -3332,7 +3280,6 @@ async function cancelBoatAddonInTx(
       : Number(policy.late_refund_percent);
     refund = Number(((charged * percent) / 100).toFixed(2));
   }
-  // ห้องยังไม่ชำระ: ยอดบัตรเสริมยังไม่ได้รับเงิน จึงตัดออกทั้งจำนวน
   const roomTotalReduction = roomPaid ? refund : charged;
 
   if (charged > 0 && roomPaid) {
@@ -3381,6 +3328,7 @@ async function cancelBoatAddonInTx(
   return { ok: true, refund, percent, roomTotalReduction };
 }
 
+// ยกเลิกบัตรพายเรือเสริมที่ผูกกับห้องพัก
 export const cancelBoatAddon = async (
   req: Request,
   res: Response,

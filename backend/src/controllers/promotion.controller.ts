@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
-import { AuthPayload } from '../types';
 import { AuthRequest } from '../middleware/auth.middleware';
 import {
   PromoApplyError,
@@ -11,9 +10,11 @@ import {
   parsePromotionIds,
 } from '../services/promotion-apply';
 import { loadApplyContext, loadPromosForApply } from '../services/promotion-ledger';
+import { AuthPayload } from '../types';
 import { mapDbError } from '../utils/db-errors';
 import { parsePositiveInt } from '../utils/ids';
 
+// ตรวจสอบว่าผู้เรียกเป็นสมาชิกลูกค้าและส่งคืนข้อมูลผู้ใช้
 function requireCustomer(req: Request, res: Response): AuthPayload | null {
   const user = (req as AuthRequest).user;
   if (!user || user.role !== 'customer') {
@@ -23,6 +24,7 @@ function requireCustomer(req: Request, res: Response): AuthPayload | null {
   return user;
 }
 
+// ดึงรายการโปรโมชั่นที่กำลังเปิดใช้งานและยังไม่หมดเขตพร้อมสถานะการเก็บเข้ากระเป๋าของสมาชิก
 export const getActivePromotions = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = (req as AuthRequest).user;
@@ -46,13 +48,23 @@ export const getActivePromotions = async (req: Request, res: Response): Promise<
        ORDER BY p.is_collectible DESC, p.created_at DESC`,
       [memberId]
     );
-    res.json({ success: true, data: result.rows.map((row) => ({ ...row, wallet_remaining: row.usage_limit_per_member == null ? null : Math.max(0, Number(row.usage_limit_per_member) - Number(row.member_usage_count ?? 0)) })) });
+    res.json({
+      success: true,
+      data: result.rows.map((row) => ({
+        ...row,
+        wallet_remaining:
+          row.usage_limit_per_member == null
+            ? null
+            : Math.max(0, Number(row.usage_limit_per_member) - Number(row.member_usage_count ?? 0)),
+      })),
+    });
   } catch (error) {
     console.error('Get active promotions error:', error);
     res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
+// ดึงรายการโปรโมชั่นทั้งหมดในระบบสำหรับหน้าจัดการของผู้ดูแลระบบ
 export const getAllPromotions = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(
@@ -71,12 +83,13 @@ export const getAllPromotions = async (req: Request, res: Response): Promise<voi
   }
 };
 
+// ตรวจสอบความถูกต้องของโค้ดโปรโมชั่นและคำนวณส่วนลดเบื้องต้น
 export const validatePromoCode = async (req: Request, res: Response): Promise<void> => {
   let ids: number[] = [];
   try {
     const body = req.body as Record<string, unknown>;
     if (body.scope === 'kayak') {
-      res.status(400).json({ success: false, message: 'กิจกรรมพายเรือไม่สามารถใช้โค้ดโปรโมชั่นได้' });
+      res.status(400).json({ success: false, message: 'กิจกรรมพายเรือไม่สามารถใช้คูปองส่วนลดได้' });
       return;
     }
     ids = parsePromotionIds(body);
@@ -92,7 +105,7 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
       if (found.rows.length === 0) {
         res.status(404).json({
           success: false,
-          message: 'โค้ดโปรโมชั่นไม่ถูกต้องหรือหมดอายุแล้ว',
+          message: 'คูปองส่วนลดไม่ถูกต้องหรือหมดอายุแล้ว',
         });
         return;
       }
@@ -118,8 +131,7 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
     const nightsRaw = body.nights;
     const hasPrice = priceRaw != null && priceRaw !== '';
     const basePrice = hasPrice ? Number(priceRaw) : 0;
-    const nights =
-      nightsRaw != null && nightsRaw !== '' ? Number(nightsRaw) : null;
+    const nights = nightsRaw != null && nightsRaw !== '' ? Number(nightsRaw) : null;
 
     const result = applyPromotionList(catalog, {
       memberId,
@@ -128,14 +140,16 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
       now,
       skipMinPrice: !hasPrice,
       scope: parseBookingScope(body.scope),
-      roomTypeIds: Array.isArray(body.room_type_ids) ? body.room_type_ids.map(Number) : body.room_type_id != null ? [Number(body.room_type_id)] : undefined,
+      roomTypeIds: Array.isArray(body.room_type_ids)
+        ? body.room_type_ids.map(Number)
+        : body.room_type_id != null
+          ? [Number(body.room_type_id)]
+          : undefined,
       ...ctxExtra,
     });
 
     const first = catalog[0];
-    const discountAmount = hasPrice
-      ? Math.round(basePrice - result.totalPrice)
-      : 0;
+    const discountAmount = hasPrice ? Math.round(basePrice - result.totalPrice) : 0;
     const lines = result.lines.map((line, index) => {
       const promo = catalog.find((c) => c.id === line.promotion_id) ?? catalog[index];
       return {
@@ -170,7 +184,7 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
         success: false,
         message: error.message,
       };
-      if (error.message === 'ต้องเก็บโค้ดนี้ก่อนใช้') {
+      if (error.message === 'ต้องเก็บคูปองนี้ก่อนใช้') {
         const firstId = ids[0];
         if (firstId != null) {
           payload.data = { id: firstId, needs_collect: true };
@@ -184,6 +198,7 @@ export const validatePromoCode = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// เก็บคูปองโปรโมชั่นเข้ากระเป๋าคูปองของสมาชิก
 export const collectPromotion = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = requireCustomer(req, res);
@@ -208,7 +223,7 @@ export const collectPromotion = async (req: Request, res: Response): Promise<voi
       [user.id, id]
     );
     if (inserted.rows.length > 0) {
-      res.json({ success: true, message: 'เก็บโค้ดแล้ว', data: inserted.rows[0] });
+      res.json({ success: true, message: 'เก็บคูปองแล้ว', data: inserted.rows[0] });
       return;
     }
     const existing = await pool.query(
@@ -224,7 +239,7 @@ export const collectPromotion = async (req: Request, res: Response): Promise<voi
     if (row.status === 'used') {
       res.status(409).json({
         success: false,
-        message: 'ใช้โค้ดนี้ครบจำนวนครั้งแล้ว',
+        message: 'ใช้คูปองนี้ครบจำนวนครั้งแล้ว',
       });
       return;
     }
@@ -232,7 +247,7 @@ export const collectPromotion = async (req: Request, res: Response): Promise<voi
       res.status(409).json({ success: false, message: 'โปรโมชั่นหมดอายุแล้ว' });
       return;
     }
-    res.json({ success: true, message: 'เก็บโค้ดแล้ว', data: row });
+    res.json({ success: true, message: 'เก็บคูปองแล้ว', data: row });
   } catch (error) {
     if (error instanceof PromoApplyError) {
       res.status(404).json({ success: false, message: error.message });
@@ -243,16 +258,16 @@ export const collectPromotion = async (req: Request, res: Response): Promise<voi
   }
 };
 
+// นำคูปองที่ยังไม่เคยถูกใช้งานออกจากกระเป๋าคูปองของสมาชิก
 export const uncollectPromotion = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = requireCustomer(req, res);
     if (!user) return;
     const id = parsePositiveInt(req.params.id);
     if (id == null) {
-      res.status(400).json({ success: false, message: 'รหัสโปรโมชั่นไม่ถูกต้อง' });
+      res.status(400).json({ success: false, message: 'ข้อมูลโปรโมชั่นไม่ถูกต้อง' });
       return;
     }
-    // ลบใน statement เดียวพร้อมเงื่อนไข NOT EXISTS (กัน race ระหว่างเช็คการใช้งานกับการลบ)
     const removed = await pool.query(
       `DELETE FROM member_promotions mp
        WHERE mp.member_id = $1 AND mp.promotion_id = $2
@@ -272,18 +287,19 @@ export const uncollectPromotion = async (req: Request, res: Response): Promise<v
       if (used.rows.length > 0) {
         res.status(400).json({
           success: false,
-          message: 'ไม่สามารถลบโค้ดที่เคยใช้แล้วได้',
+          message: 'ไม่สามารถลบคูปองที่เคยใช้แล้วได้',
         });
         return;
       }
     }
-    res.json({ success: true, message: 'เอาโค้ดออกจากกระเป๋าแล้ว' });
+    res.json({ success: true, message: 'เอาคูปองออกจากกระเป๋าแล้ว' });
   } catch (error) {
     console.error('Uncollect promotion error:', error);
     res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
+// ดึงรายการคูปองทั้งหมดในกระเป๋าของสมาชิกพร้อมจำนวนสิทธิ์คงเหลือ
 export const getMyPromotions = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = requireCustomer(req, res);
@@ -305,12 +321,14 @@ export const getMyPromotions = async (req: Request, res: Response): Promise<void
     const data = result.rows.map((row) => {
       const catalogExpired = !row.is_active || row.end_passed === true;
       const usedCount = Number(row.used_count);
-      const limit =
-        row.usage_limit_per_member == null
-          ? null
-          : Number(row.usage_limit_per_member);
+      const limit = row.usage_limit_per_member == null ? null : Number(row.usage_limit_per_member);
       const remaining = limit == null ? null : Math.max(0, limit - usedCount);
-      const status = catalogExpired || row.status === 'expired' ? 'expired' : (remaining == null || remaining > 0 ? 'saved' : 'used');
+      const status =
+        catalogExpired || row.status === 'expired'
+          ? 'expired'
+          : remaining == null || remaining > 0
+            ? 'saved'
+            : 'used';
       return {
         ...row,
         status,
@@ -325,7 +343,7 @@ export const getMyPromotions = async (req: Request, res: Response): Promise<void
   }
 };
 
-// บัตรพายเรือฟรีที่ได้จากโปรโมชั่นห้องพัก (promotions.boat_ticket_count) — ใช้ตอนจองเรือ
+// ดึงรายการบัตรพายเรือที่ยังไม่ถูกใช้ทั้งหมดของสมาชิก
 export const getMyBoatTickets = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = requireCustomer(req, res);
@@ -353,10 +371,8 @@ export const getMyBoatTickets = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const getPromotionRedemptions = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+// ดึงสถิติการเก็บและการใช้งานคูปองโปรโมชั่นตามรหัสโปรโมชั่นสำหรับผู้ดูแลระบบ
+export const getPromotionRedemptions = async (req: Request, res: Response): Promise<void> => {
   try {
     const id = Number(req.params.id);
     const wallet = await pool.query(
@@ -399,7 +415,7 @@ export const getPromotionRedemptions = async (
   }
 };
 
-// กติกาความสมเหตุสมผลของโปรโมชั่น ใช้ทั้งตอนสร้างและแก้ไข — คืนข้อความ error หรือ null เมื่อผ่าน
+// ตรวจสอบความถูกต้องของเงื่อนไขวันที่ โควตาการใช้งาน และราคาบัตรเสริมของโปรโมชั่น
 function promoRuleError(rule: {
   start: string | null;
   end: string | null;
@@ -420,23 +436,44 @@ function promoRuleError(rule: {
   return null;
 }
 
+// ตรวจสอบว่าโปรโมชั่นสามารถกำหนดมูลค่าส่วนลดเป็น 0 บาทได้หรือไม่
 function allowsZeroDiscount(discountType: string, ticketCount: number, appliesTo: unknown): boolean {
-  return discountType === 'fixed' && Number.isInteger(ticketCount) && ticketCount > 0
-    && parseAppliesTo(appliesTo) !== 'kayak';
+  return (
+    discountType === 'fixed' &&
+    Number.isInteger(ticketCount) &&
+    ticketCount > 0 &&
+    parseAppliesTo(appliesTo) !== 'kayak'
+  );
 }
 
+// สร้างคูปองโปรโมชั่นใหม่ในระบบโดยผู้ดูแลระบบ
 export const createPromotion = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
-      code, name, description, discount_type, discount_value,
-      min_nights, min_price, max_discount, start_date, end_date,
-      usage_limit, is_active, room_type_id, room_count, boat_ticket_count,
-      usage_limit_per_member, stackable, applies_to,
-      boat_addon_mode, boat_addon_price,
+      code,
+      name,
+      description,
+      discount_type,
+      discount_value,
+      min_nights,
+      min_price,
+      max_discount,
+      start_date,
+      end_date,
+      usage_limit,
+      is_active,
+      room_type_id,
+      room_count,
+      boat_ticket_count,
+      usage_limit_per_member,
+      stackable,
+      applies_to,
+      boat_addon_mode,
+      boat_addon_price,
     } = req.body;
 
     if (typeof code !== 'string' || !code.trim()) {
-      res.status(400).json({ success: false, message: 'กรุณาระบุรหัสโค้ดโปรโมชั่น' });
+      res.status(400).json({ success: false, message: 'กรุณาระบุคูปองส่วนลด' });
       return;
     }
     const discountValue = Number(discount_value);
@@ -444,9 +481,15 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
       res.status(400).json({ success: false, message: 'ประเภทส่วนลดต้องเป็น percent หรือ fixed' });
       return;
     }
-    if (!Number.isFinite(discountValue) || discountValue < 0
-      || (discountValue === 0 && !allowsZeroDiscount(discount_type, Number(boat_ticket_count), applies_to))) {
-      res.status(400).json({ success: false, message: 'ส่วนลดต้องมากกว่า 0 หรือเป็นส่วนลดจำนวนเงิน 0 บาทพร้อมสิทธิ์เรือจากห้องพัก' });
+    if (
+      !Number.isFinite(discountValue) ||
+      discountValue < 0 ||
+      (discountValue === 0 && !allowsZeroDiscount(discount_type, Number(boat_ticket_count), applies_to))
+    ) {
+      res.status(400).json({
+        success: false,
+        message: 'ส่วนลดต้องมากกว่า 0 หรือเป็นส่วนลดจำนวนเงิน 0 บาทพร้อมสิทธิ์เรือจากห้องพัก',
+      });
       return;
     }
     if (discount_type === 'percent' && discountValue > 100) {
@@ -467,18 +510,23 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
     }
     const existing = await pool.query('SELECT id FROM promotions WHERE UPPER(code) = UPPER($1)', [code]);
     if (existing.rows.length > 0) {
-      res.status(409).json({ success: false, message: 'โค้ดโปรโมชั่นนี้มีในระบบแล้ว' });
+      res.status(409).json({ success: false, message: 'คูปองส่วนลดนี้มีในระบบแล้ว' });
       return;
     }
 
     const parsedRoomTypeIds: number[] = Object.prototype.hasOwnProperty.call(req.body, 'room_type_ids')
       ? [...new Set<number>(Array.isArray(req.body.room_type_ids) ? req.body.room_type_ids.map(Number) : [])]
-      : (room_type_id ? [Number(room_type_id)] : []);
+      : room_type_id
+        ? [Number(room_type_id)]
+        : [];
     const resolvedRoomTypeId = parsedRoomTypeIds.length === 1 ? parsedRoomTypeIds[0] : null;
     if (parsedRoomTypeIds.length > 0) {
       const types = await pool.query('SELECT id FROM room_types WHERE id = ANY($1::int[])', [parsedRoomTypeIds]);
       if (types.rows.length !== parsedRoomTypeIds.length) {
-        res.status(400).json({ success: false, message: 'ไม่พบประเภทห้องที่เลือก กรุณาตรวจสอบประเภทห้องอีกครั้ง' });
+        res.status(400).json({
+          success: false,
+          message: 'ไม่พบประเภทห้องที่เลือก กรุณาตรวจสอบประเภทห้องอีกครั้ง',
+        });
         return;
       }
     }
@@ -492,12 +540,21 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
        RETURNING *`,
       [
-        code.toUpperCase().trim(), name, description || null,
-        discount_type, discountValue,
-        min_nights || null, min_price || null, max_discount || null,
-        start_date || null, end_date || null,
-        usage_limit || null, is_active !== false,
-        resolvedRoomTypeId, room_count || 1, boat_ticket_count || 0,
+        code.toUpperCase().trim(),
+        name,
+        description || null,
+        discount_type,
+        discountValue,
+        min_nights || null,
+        min_price || null,
+        max_discount || null,
+        start_date || null,
+        end_date || null,
+        usage_limit || null,
+        is_active !== false,
+        resolvedRoomTypeId,
+        room_count || 1,
+        boat_ticket_count || 0,
         usage_limit_per_member || null,
         true,
         stackable === true,
@@ -520,6 +577,7 @@ export const createPromotion = async (req: Request, res: Response): Promise<void
   }
 };
 
+// อัปเดตข้อมูลโปรโมชั่นตามรหัสโดยคงค่าเดิมไว้สำหรับฟิลด์ที่ไม่ได้ส่งมา
 export const updatePromotion = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -532,7 +590,6 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
     }
     const current = currentRes.rows[0] as Record<string, unknown>;
 
-    // ฟิลด์ที่ไม่ได้ส่งมาใช้ค่าเดิม (ส่ง null มาเพื่อล้างค่าได้) ไม่เขียนทับฟิลด์อื่นเป็น NULL
     const has = (key: string): boolean => Object.prototype.hasOwnProperty.call(body, key);
     const numOrCurrent = (key: string, fallback: number | null = null): number | null => {
       if (!has(key)) return current[key] == null ? null : Number(current[key]);
@@ -550,9 +607,10 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
       return body[key] === true || body[key] === 'true';
     };
 
-    const code = has('code') && typeof body.code === 'string' && body.code.trim()
-      ? body.code.toUpperCase().trim()
-      : String(current.code);
+    const code =
+      has('code') && typeof body.code === 'string' && body.code.trim()
+        ? body.code.toUpperCase().trim()
+        : String(current.code);
     const name = has('name') && body.name ? String(body.name) : String(current.name);
     const discountType = has('discount_type') ? String(body.discount_type) : String(current.discount_type);
     const discountValue = numOrCurrent('discount_value') ?? 0;
@@ -560,10 +618,20 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
       res.status(400).json({ success: false, message: 'ประเภทส่วนลดต้องเป็น percent หรือ fixed' });
       return;
     }
-    if (!Number.isFinite(discountValue) || discountValue < 0
-      || (discountValue === 0 && !allowsZeroDiscount(discountType, numOrCurrent('boat_ticket_count') ?? 0,
-        has('applies_to') ? body.applies_to : current.applies_to))) {
-      res.status(400).json({ success: false, message: 'ส่วนลดต้องมากกว่า 0 หรือเป็นส่วนลดจำนวนเงิน 0 บาทพร้อมสิทธิ์เรือจากห้องพัก' });
+    if (
+      !Number.isFinite(discountValue) ||
+      discountValue < 0 ||
+      (discountValue === 0 &&
+        !allowsZeroDiscount(
+          discountType,
+          numOrCurrent('boat_ticket_count') ?? 0,
+          has('applies_to') ? body.applies_to : current.applies_to
+        ))
+    ) {
+      res.status(400).json({
+        success: false,
+        message: 'ส่วนลดต้องมากกว่า 0 หรือเป็นส่วนลดจำนวนเงิน 0 บาทพร้อมสิทธิ์เรือจากห้องพัก',
+      });
       return;
     }
     if (discountType === 'percent' && discountValue > 100) {
@@ -584,33 +652,41 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
     }
 
     if (has('code') && typeof body.code === 'string') {
-      const existing = await pool.query(
-        'SELECT id FROM promotions WHERE UPPER(code) = UPPER($1) AND id != $2',
-        [code, id]
-      );
+      const existing = await pool.query('SELECT id FROM promotions WHERE UPPER(code) = UPPER($1) AND id != $2', [
+        code,
+        id,
+      ]);
       if (existing.rows.length > 0) {
-        res.status(409).json({ success: false, message: 'โค้ดโปรโมชั่นนี้มีในระบบแล้ว' });
+        res.status(409).json({ success: false, message: 'คูปองส่วนลดนี้มีในระบบแล้ว' });
         return;
       }
     }
 
     const appliesTo = parseAppliesTo(has('applies_to') ? body.applies_to : current.applies_to);
-    const boatAddonMode = (has('boat_addon_mode') ? body.boat_addon_mode : current.boat_addon_mode) === 'paid' ? 'paid' : 'free';
+    const boatAddonMode =
+      (has('boat_addon_mode') ? body.boat_addon_mode : current.boat_addon_mode) === 'paid' ? 'paid' : 'free';
 
     const updatedRoomTypeIds = has('room_type_ids')
-      ? (Array.isArray(body.room_type_ids)
-          ? [...new Set((body.room_type_ids as unknown[]).map(Number))]
-          : [])
+      ? Array.isArray(body.room_type_ids)
+        ? [...new Set((body.room_type_ids as unknown[]).map(Number))]
+        : []
       : has('room_type_id')
-        ? (numOrCurrent('room_type_id') != null ? [numOrCurrent('room_type_id')!] : [])
-        : (Array.isArray(current.room_type_ids) && current.room_type_ids.length > 0
-            ? (current.room_type_ids as number[])
-            : current.room_type_id != null ? [Number(current.room_type_id)] : []);
+        ? numOrCurrent('room_type_id') != null
+          ? [numOrCurrent('room_type_id')!]
+          : []
+        : Array.isArray(current.room_type_ids) && current.room_type_ids.length > 0
+          ? (current.room_type_ids as number[])
+          : current.room_type_id != null
+            ? [Number(current.room_type_id)]
+            : [];
     const updatedRoomTypeId = updatedRoomTypeIds.length === 1 ? updatedRoomTypeIds[0] : null;
     if (updatedRoomTypeIds.length > 0 && (has('room_type_ids') || has('room_type_id'))) {
       const types = await pool.query('SELECT id FROM room_types WHERE id = ANY($1::int[])', [updatedRoomTypeIds]);
       if (types.rows.length !== updatedRoomTypeIds.length) {
-        res.status(400).json({ success: false, message: 'ไม่พบประเภทห้องที่เลือก กรุณาตรวจสอบประเภทห้องอีกครั้ง' });
+        res.status(400).json({
+          success: false,
+          message: 'ไม่พบประเภทห้องที่เลือก กรุณาตรวจสอบประเภทห้องอีกครั้ง',
+        });
         return;
       }
     }
@@ -635,10 +711,10 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
         numOrCurrent('min_nights'),
         numOrCurrent('min_price'),
         numOrCurrent('max_discount'),
-        has('start_date') ? (body.start_date || null) : current.start_date,
-        has('end_date') ? (body.end_date || null) : current.end_date,
+        has('start_date') ? body.start_date || null : current.start_date,
+        has('end_date') ? body.end_date || null : current.end_date,
         numOrCurrent('usage_limit'),
-        has('is_active') ? (body.is_active === true || body.is_active === 'true') : current.is_active,
+        has('is_active') ? body.is_active === true || body.is_active === 'true' : current.is_active,
         updatedRoomTypeId,
         numOrCurrent('room_count', 1),
         numOrCurrent('boat_ticket_count', 0),
@@ -665,15 +741,15 @@ export const updatePromotion = async (req: Request, res: Response): Promise<void
   }
 };
 
+// ลบโปรโมชั่นที่ยังไม่เคยถูกใช้งานออกจากระบบ
 export const deletePromotion = async (req: Request, res: Response): Promise<void> => {
   try {
     const id = parsePositiveInt(req.params.id);
     if (id == null) {
-      res.status(400).json({ success: false, message: 'รหัสโปรโมชั่นไม่ถูกต้อง' });
+      res.status(400).json({ success: false, message: 'ข้อมูลโปรโมชั่นไม่ถูกต้อง' });
       return;
     }
 
-    // ลบเฉพาะเมื่อยังไม่เคยถูกใช้ ใน statement เดียว (กัน race และกัน FK 23503 จาก booking ledger)
     const deleted = await pool.query(
       `DELETE FROM promotions
        WHERE id = $1 AND usage_count = 0
@@ -683,7 +759,7 @@ export const deletePromotion = async (req: Request, res: Response): Promise<void
       [id]
     );
     if ((deleted.rowCount ?? 0) > 0) {
-      res.json({ success: true, message: 'ลบแพ็คเกจสำเร็จ' });
+      res.json({ success: true, message: 'ลบโปรโมชั่นสำเร็จ' });
       return;
     }
 
@@ -694,7 +770,7 @@ export const deletePromotion = async (req: Request, res: Response): Promise<void
     }
     res.status(400).json({
       success: false,
-      message: 'ไม่สามารถลบได้ เนื่องจากแพ็คเกจ/โปรโมชั่นนี้เคยถูกใช้งานแล้ว',
+      message: 'ไม่สามารถลบได้ เนื่องจากโปรโมชั่นนี้เคยถูกใช้งานแล้ว',
     });
   } catch (error) {
     console.error('Delete promotion error:', error);
@@ -707,6 +783,7 @@ export const deletePromotion = async (req: Request, res: Response): Promise<void
   }
 };
 
+// สลับสถานะการเปิดหรือปิดใช้งานโปรโมชั่นตามรหัส
 export const togglePromotion = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -720,22 +797,23 @@ export const togglePromotion = async (req: Request, res: Response): Promise<void
       return;
     }
     const active = result.rows[0].is_active;
-    res.json({ success: true, message: active ? 'เปิดใช้งานโปรโมชั่นแล้ว' : 'ปิดใช้งานโปรโมชั่นแล้ว', data: result.rows[0] });
+    res.json({
+      success: true,
+      message: active ? 'เปิดใช้งานโปรโมชั่นแล้ว' : 'ปิดใช้งานโปรโมชั่นแล้ว',
+      data: result.rows[0],
+    });
   } catch (error) {
     console.error('Toggle promotion error:', error);
     res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
 
-// การตั้งค่าการรับอีเมลแจ้งเตือนโปรโมชั่นของลูกค้า
+// ดึงค่าตั้งค่าการรับอีเมลแจ้งเตือนโปรโมชั่นของสมาชิก
 export const getPromoEmailPreference = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = requireCustomer(req, res);
     if (!user) return;
-    const result = await pool.query(
-      'SELECT promo_email_opt_out FROM members WHERE member_id = $1',
-      [user.id]
-    );
+    const result = await pool.query('SELECT promo_email_opt_out FROM members WHERE member_id = $1', [user.id]);
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'ไม่พบข้อมูลสมาชิก' });
       return;
@@ -747,15 +825,16 @@ export const getPromoEmailPreference = async (req: Request, res: Response): Prom
   }
 };
 
+// อัปเดตการตั้งค่าการรับอีเมลแจ้งเตือนโปรโมชั่นของสมาชิก
 export const setPromoEmailPreference = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = requireCustomer(req, res);
     if (!user) return;
     const optOut = req.body.opt_out === true || req.body.opt_out === 'true';
-    await pool.query(
-      'UPDATE members SET promo_email_opt_out = $1, updated_at = NOW() WHERE member_id = $2',
-      [optOut, user.id]
-    );
+    await pool.query('UPDATE members SET promo_email_opt_out = $1, updated_at = NOW() WHERE member_id = $2', [
+      optOut,
+      user.id,
+    ]);
     res.json({
       success: true,
       message: optOut ? 'ปิดการรับอีเมลแจ้งเตือนโปรโมชั่นแล้ว' : 'เปิดการรับอีเมลแจ้งเตือนโปรโมชั่นแล้ว',
