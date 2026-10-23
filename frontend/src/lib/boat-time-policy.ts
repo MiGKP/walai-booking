@@ -6,7 +6,15 @@ export interface BoatDayHours {
   advance_booking_minutes?: number;
 }
 
-export function isBoatSlotBookable(date: string, start: string, end: string, hours: BoatDayHours | undefined, advanceMinutes: number, nowMs = Date.now()): boolean {
+// ตรวจสอบว่ารอบเรืออยู่ในเวลาทำการและผ่านเกณฑ์เวลาจองล่วงหน้าหรือไม่
+export function isBoatSlotBookable(
+  date: string,
+  start: string,
+  end: string,
+  hours: BoatDayHours | undefined,
+  advanceMinutes: number,
+  nowMs = Date.now()
+): boolean {
   const startTime = start.length === 5 ? `${start}:00` : start.slice(0, 8);
   const beginsMs = new Date(`${date}T${startTime}+07:00`).getTime();
   if (!Number.isFinite(beginsMs) || beginsMs <= nowMs || beginsMs - nowMs < advanceMinutes * 60_000) return false;

@@ -8,13 +8,13 @@ interface ToastConfirmOptions {
   danger?: boolean;
 }
 
+// เปิดหน้าต่างยืนยันการทำงานผ่าน Global Confirm Modal
 export function toastConfirm(options: ToastConfirmOptions) {
-  // Call the global zustand modal instead of a react-hot-toast
   useConfirmStore.getState().openConfirm({
     title: options.title,
     confirmText: options.confirmText,
     cancelText: options.cancelText,
     danger: options.danger,
-    onConfirm: options.onConfirm
+    onConfirm: options.onConfirm,
   });
 }

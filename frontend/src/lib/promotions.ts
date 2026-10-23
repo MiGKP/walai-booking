@@ -16,7 +16,7 @@ export interface CatalogPromo {
   min_price: number | null;
   max_discount: number | null;
   boat_ticket_count?: number | null;
-  boat_addon_mode?: "free" | "paid" | null;
+  boat_addon_mode?: 'free' | 'paid' | null;
   boat_addon_price?: number | null;
   start_date: string | null;
   end_date: string | null;
@@ -45,10 +45,14 @@ export interface WalletPromo {
   min_nights?: number | null;
   max_discount?: number | null;
   boat_ticket_count?: number | null;
-  boat_addon_mode?: "free" | "paid" | null;
+  boat_addon_mode?: 'free' | 'paid' | null;
   boat_addon_price?: number | null;
 }
 
+export const STACKING_NOTE =
+  'ใช้หลายคูปองพร้อมกันในการจองเดียวได้ เฉพาะเมื่อทุกคูปองเปิดตัวเลือก "ใช้ร่วมคูปองอื่นได้" เท่านั้น';
+
+// แปลงสตริงวันที่หรือเวลาให้เป็นวันที่รูปแบบ YYYY-MM-DD
 export function toIsoDay(value: string | null): string {
   if (!value) return '';
   if (value.includes('T')) {
@@ -59,10 +63,8 @@ export function toIsoDay(value: string | null): string {
   return value;
 }
 
-export function formatPromoDiscount(
-  type: CatalogPromo['discount_type'],
-  value: number | string
-): string {
+// จัดรูปแบบข้อความแสดงมูลค่าส่วนลดของโปรโมชั่น
+export function formatPromoDiscount(type: CatalogPromo['discount_type'], value: number | string): string {
   const num = Number(value);
   if (type === 'percent') {
     return `${num}%`;
@@ -70,6 +72,7 @@ export function formatPromoDiscount(
   return `฿${num.toLocaleString()}`;
 }
 
+// จัดรูปแบบข้อความแสดงช่วงวันที่สามารถใช้โปรโมชั่นได้
 export function formatPromoWindow(start: string | null, end: string | null): string {
   if (!start && !end) return 'ไม่มีวันหมดอายุ';
   const startStr = start ? formatThaiDate(toIsoDay(start)) : '';
@@ -79,47 +82,49 @@ export function formatPromoWindow(start: string | null, end: string | null): str
   return `ถึง ${endStr}`;
 }
 
+// สร้างลิงก์ไปยังหน้าจองพร้อมแนบรหัสโปรโมชั่น
 export function bookingPromoHref(_scope: BookingPromoScope, code: string): string {
   return `/rooms?promo_code=${encodeURIComponent(code)}`;
 }
 
+// แปลงค่าขอบเขตการใช้โปรโมชั่นให้เป็นชนิดข้อมูลมาตรฐาน
 export function parseAppliesTo(val?: string | null): PromoAppliesTo {
   if (val === 'room') return 'room';
   if (val === 'kayak') return 'kayak';
   return 'both';
 }
 
-export function promoAllowsScope(
-  appliesTo: PromoAppliesTo,
-  scope: BookingPromoScope
-): boolean {
+// ตรวจสอบว่าโปรโมชั่นรองรับขอบเขตบริการที่เลือกหรือไม่
+export function promoAllowsScope(appliesTo: PromoAppliesTo, scope: BookingPromoScope): boolean {
   return appliesTo === 'both' || appliesTo === scope;
 }
 
+// คืนค่าข้อความภาษาไทยแสดงขอบเขตบริการที่ใช้โปรโมชั่นได้
 export function appliesToLabel(appliesTo: PromoAppliesTo): string {
   if (appliesTo === 'room') return 'ห้องพักเท่านั้น';
   if (appliesTo === 'kayak') return 'เรือเท่านั้น';
   return 'ห้องพักและเรือ';
 }
 
+// คืนค่าข้อความภาษาไทยแสดงสถานะของคูปองในกระเป๋า
 export function walletStatusLabel(status: WalletStatus): string {
   if (status === 'saved') return 'พร้อมใช้งาน';
   if (status === 'used') return 'ใช้แล้ว';
   return 'หมดอายุ';
 }
 
-// วันปัจจุบันตามเวลาไทย (YYYY-MM-DD) ให้ตรงกับที่ backend ใช้ตัดสินวันหมดอายุ
+// คืนค่าวันที่ปัจจุบันตามเวลาไทยในรูปแบบ YYYY-MM-DD
 export function bangkokTodayIso(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
 }
 
-// หมดอายุเมื่อผ่านวันสิ้นสุดตามเวลาไทยแล้ว (วันสิ้นสุดยังใช้ได้ทั้งวัน)
+// ตรวจสอบว่าโปรโมชั่นหมดอายุแล้วหรือยังตามเวลาประเทศไทย
 export function isPromoExpired(endDate: string | null | undefined): boolean {
   if (!endDate) return false;
   return toIsoDay(endDate) < bangkokTodayIso();
 }
 
-// จำนวนวันที่เหลือก่อนหมดอายุ (0 = วันนี้เป็นวันสุดท้าย) หรือ null ถ้าไม่มีวันหมดอายุ
+// คำนวณจำนวนวันที่เหลือก่อนโปรโมชั่นหมดอายุ
 export function promoDaysLeft(endDate: string | null | undefined): number | null {
   if (!endDate) return null;
   const end = new Date(`${toIsoDay(endDate)}T00:00:00+07:00`).getTime();
@@ -127,9 +132,7 @@ export function promoDaysLeft(endDate: string | null | undefined): number | null
   return Math.round((end - today) / 86_400_000);
 }
 
-export const STACKING_NOTE =
-  'ใช้หลายโค้ดพร้อมกันในการจองเดียวได้ เฉพาะเมื่อทุกโค้ดเปิดตัวเลือก "ใช้ร่วมโค้ดอื่นได้" เท่านั้น';
-
+// ตรวจสอบว่าคูปองในกระเป๋ายังมีสิทธิ์คงเหลือพร้อมใช้งานหรือไม่
 export function canUseWalletPromotion(status: WalletStatus | null | undefined, remaining?: number | null): boolean {
   if (status !== 'saved' && status !== 'used') return false;
   if (remaining === null) return true;

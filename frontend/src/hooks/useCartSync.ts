@@ -12,19 +12,21 @@ interface UseCartSyncOptions {
   childAges?: number[];
 }
 
-/**
- * แหล่งความจริงของตะกร้าคือ LocalStorage เท่านั้น (ไม่ผูกกับ URL) เพื่อไม่ให้ query string
- * เละเวลาเลือกห้อง (เช่น room_ids=51_0-1) — คอมโพเนนต์ที่ subscribe ผ่าน useRoomCart() จะ re-render
- * ให้เองทันทีที่ commit/clearAll ถูกเรียก
- */
+// ซิงค์รายการห้องพักและข้อมูลผู้เข้าพักลงในตะกร้าห้องพัก (localStorage)
 export function useCartSync({ checkIn, checkOut, adults, children, childAges }: UseCartSyncOptions) {
+  // บันทึกรายการห้องที่เลือกลงในตะกร้า
   const commit = useCallback(
     (items: RoomCartItem[]) => {
-      setRoomCart(items.length > 0 ? { check_in: checkIn, check_out: checkOut, adults, children, child_ages: childAges, items } : null);
+      setRoomCart(
+        items.length > 0
+          ? { check_in: checkIn, check_out: checkOut, adults, children, child_ages: childAges, items }
+          : null
+      );
     },
     [checkIn, checkOut, adults, children, childAges]
   );
 
+  // ล้างข้อมูลทั้งหมดในตะกร้าห้องพัก
   const clearAll = useCallback(() => setRoomCart(null), []);
 
   return { commit, clearAll };

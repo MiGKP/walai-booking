@@ -1,3 +1,4 @@
+// แปลงพาธรูปโปรไฟล์ให้เป็น URL เต็มที่พร้อมแสดงผล
 export const resolveAvatarUrl = (avatar?: string): string => {
   if (!avatar) return '';
   if (avatar.startsWith('http://') || avatar.startsWith('https://') || avatar.startsWith('blob:')) {
@@ -14,4 +15,5 @@ export const resolveAvatarUrl = (avatar?: string): string => {
   return `${apiOrigin}/${avatar}`;
 };
 
+// แปลงพาธไฟล์มีเดียให้เป็น URL เต็ม
 export const resolveMediaUrl = (path?: string): string => resolveAvatarUrl(path);

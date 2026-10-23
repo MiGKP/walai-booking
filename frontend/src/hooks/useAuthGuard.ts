@@ -5,23 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { consumePostLoginRedirect, setPostLoginRedirect } from '@/lib/auth-redirect';
 
-// กำหนด option ของ auth guard เพื่อควบคุมว่าแต่ละหน้าต้อง login ไหม รับ role อะไรได้บ้าง และควร redirect ไปไหน
 type GuardOptions = {
-  /** roles allowed to access this page. Empty = any authenticated user */
   allowedRoles?: string[];
-  /** if true, redirect authenticated users away (for login/register pages) */
   guestOnly?: boolean;
-  /** where to redirect unauthenticated users (default: /auth/login) */
   redirectTo?: string;
-  /** ข้ามการ redirect อัตโนมัติของ guard ชั่วคราว ใช้ตอนหน้านั้นกำลังคุมปลายทางเองอยู่ (เช่น หลัง login/register สำเร็จ) */
   skipRedirect?: boolean;
 };
 
-/**
- * Centralised auth guard hook.
- * Returns { ready: boolean } — render nothing until ready=true to prevent flash.
- */
-// hook กลางสำหรับป้องกันการเข้าถึงหน้าโดยอิงจากสถานะ login และ role ของผู้ใช้ พร้อมแก้ปัญหา hydration ของ Zustand
+// ตรวจสอบสิทธิ์การเข้าถึงหน้าตามสถานะการเข้าสู่ระบบและบทบาทของผู้ใช้
 export function useAuthGuard(options: GuardOptions = {}) {
   const { allowedRoles = [], guestOnly = false, redirectTo = '/auth/login', skipRedirect = false } = options;
   const router = useRouter();
@@ -44,7 +35,7 @@ export function useAuthGuard(options: GuardOptions = {}) {
         if (role === 'admin') router.replace('/admin');
         else if (role === 'room_staff') router.replace('/staff/rooms/dashboard');
         else if (role === 'boat_staff') router.replace('/staff/boats/dashboard');
-        else router.replace(consumePostLoginRedirect() ?? '/dashboard');
+        else router.replace('/');
         return;
       }
 
@@ -53,9 +44,6 @@ export function useAuthGuard(options: GuardOptions = {}) {
     }
 
     if (!isAuthenticated || !user) {
-      if (typeof window !== 'undefined') {
-        setPostLoginRedirect(`${window.location.pathname}${window.location.search}`);
-      }
       router.replace(redirectTo);
       return;
     }
