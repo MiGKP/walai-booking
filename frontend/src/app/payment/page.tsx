@@ -73,6 +73,7 @@ interface BookingDetail {
 
 const CARD = 'rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)] p-5 sm:p-6';
 
+// แสดงหัวข้อส่วนงานพร้อมไอคอนประจำหมวด
 function SectionHeading({ icon, title }: { icon: React.ReactNode; title: string }): React.ReactElement {
   return (
     <div className="flex items-center gap-2.5">
@@ -82,7 +83,7 @@ function SectionHeading({ icon, title }: { icon: React.ReactNode; title: string 
   );
 }
 
-// component หลักของหน้าชำระเงิน ทำหน้าที่โหลดข้อมูล payment, แสดง QR, รับสลิป และส่งสลิปไป backend
+// โหลดข้อมูลการชำระเงิน แสดง QR Code และรับอัปโหลดสลิปโอนเงิน
 function PaymentContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -99,7 +100,6 @@ function PaymentContent() {
   const [slipPreview, setSlipPreview] = useState('');
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
-  // สถานะจริงของการจอง (ไม่ใช่ payment_status ที่ค้างเป็น 'paid' ตลอดหลังส่งสลิป) ใช้แยกว่าเจ้าหน้าที่อนุมัติ/ปฏิเสธไปแล้วหรือยังรอตรวจสอบ
   const [bookingStatus, setBookingStatus] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -107,7 +107,7 @@ function PaymentContent() {
   const [step, setStep] = useState<1 | 2>(1);
   const [specialRequest, setSpecialRequest] = useState('');
 
-  // เรียก backend เพื่อสร้างหรือดึงข้อมูล payment ของ booking ปัจจุบัน รวมถึง QR Code และข้อมูลบัญชีรับเงิน
+  // สร้างหรือดึงข้อมูลรายการชำระเงินและรายละเอียดการจอง
   async function createPayment() {
     try {
       const res = await api.post('/payments', { booking_type, booking_id: Number(booking_id) });
@@ -116,20 +116,19 @@ function PaymentContent() {
       setRejectReason(res.data.data.reject_reason ?? null);
       if (res.data.data.slip_image) {
         setDone(true);
-              }
+      }
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'ไม่สามารถสร้างรายการชำระเงินได้'));
     } finally {
       setLoading(false);
     }
 
-    // ดึงรายละเอียดการจองแบบเต็ม (วันที่ ผู้เข้าพัก/ผู้โดยสาร รายการห้อง/เรือ) มาแสดงฝั่งซ้าย
     try {
       const detailUrl = booking_type === 'room' ? `/bookings/${booking_id}` : `/kayaks/bookings/${booking_id}`;
       const detailRes = await api.get(detailUrl);
       setBookingDetail(detailRes.data.data);
     } catch {
-      // ไม่ critical ต่อการชำระเงิน แค่แสดงรายละเอียดเพิ่มไม่ได้ ไม่ต้อง toast รบกวนผู้ใช้
+      // ไม่ต้องแจ้งเตือนหากดึงรายละเอียดเสริมไม่สำเร็จ
     }
   }
 
@@ -139,7 +138,7 @@ function PaymentContent() {
     createPayment();
   }, [ready, booking_type, booking_id]);
 
-  // รับไฟล์สลิปจาก input แล้วสร้าง preview ให้ผู้ใช้เห็นก่อนกดยืนยันอัปโหลด
+  // ตรวจสอบไฟล์สลิปที่เลือกและสร้างภาพตัวอย่างก่อนอัปโหลด
   const handleSlipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -156,7 +155,7 @@ function PaymentContent() {
     }
   };
 
-  // ส่งสลิปการโอนเงินไปยัง backend ในรูปแบบ multipart/form-data แล้วอัปเดตหน้าจอเป็นสถานะส่งสำเร็จ
+  // อัปโหลดสลิปโอนเงินไปยังระบบและอัปเดตสถานะการชำระเงิน
   const handleUploadSlip = async () => {
     if (!slip || !payment) return;
     setUploading(true);
@@ -171,8 +170,6 @@ function PaymentContent() {
       });
       setBookingStatus('paid');
       if (payment.booking_type === 'room') {
-        // Mixed grants may retain paid rights after all free rights were reserved.
-        // Do not keep the pre-payment reservation allowance while reloading it.
         setBookingDetail(current => current?.boat_ticket_summary?.paid_tickets ? {
           ...current, boat_ticket_summary: { ...current.boat_ticket_summary, bookable_tickets: 0 },
         } : current);
@@ -191,7 +188,7 @@ function PaymentContent() {
     }
   };
 
-  // ยกเลิกการจอง (เฉพาะสถานะ pending ที่ยังไม่ได้ส่งสลิป) แล้วพากลับไปหน้าการจองของฉัน
+  // ยกเลิกการจอง
   const handleCancelBooking = async () => {
     if (!booking_type || !booking_id) return;
     setCancelling(true);
@@ -214,8 +211,6 @@ function PaymentContent() {
     </div>
   );
 
-  // A cancelled booking may retain pending/paid payment metadata and a slip.
-  // The booking lifecycle must take precedence over those payment fields.
   if (bookingStatus === 'cancelled') {
     return (
       <div className="min-h-screen bg-cream-100 pt-20 flex items-center justify-center px-4 pb-10">
@@ -284,7 +279,6 @@ function PaymentContent() {
 
         {!isRejected && (
           <>
-            {/* Progress Steps */}
             <div className="mt-6 flex items-center justify-center gap-2 px-2">
               <div className="flex flex-1 flex-col items-center gap-1.5">
                 <div className="grid h-7 w-7 place-items-center rounded-full bg-forest-800 text-cream-100"><CheckCircle size={14} /></div>
@@ -325,7 +319,6 @@ function PaymentContent() {
   return (
     <div className="min-h-screen bg-cream-100 pt-20">
       <div className="max-w-5xl mx-auto p-6 space-y-6">
-        {/* Header Section */}
         <div>
           <div className="flex items-center gap-3 flex-wrap">
             <Link
@@ -367,7 +360,6 @@ function PaymentContent() {
 
         {payment && (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.1fr] items-start">
-            {/* ---- ด้านซ้าย: สรุปรายการจอง ---- */}
             <div className="space-y-5 lg:sticky lg:top-24">
               {payment.booking_type === 'room' && <RoomBoatTicketSummary summary={bookingDetail?.boat_ticket_summary} bookingId={payment.booking_id} bookingStatus={bookingStatus ?? payment.booking_status ?? 'pending'} hasTickets={payment.has_boat_tickets} />}
               <section className={CARD}>
@@ -492,10 +484,8 @@ function PaymentContent() {
                   </>
                 )}
 
-                {/* Price Breakdown */}
                 <div className="mt-4 space-y-2 border-t border-stone-100 pt-4 text-sm">
                   {payment.booking_type === 'room' && bookingDetail?.rooms && bookingDetail.rooms.length > 0 ? (() => {
-                    // Group rooms by type
                     const roomsByType: Record<string, { typeName: string; typeId: number; rooms: BookingRoomLine[]; subtotal: number }> = {};
                     (bookingDetail.rooms || []).forEach((r) => {
                       const key = String(r.room_type_id || r.room_name || 'other');
@@ -527,7 +517,7 @@ function PaymentContent() {
                               {typePromos.map((promo, idx: number) => (
                                 <div key={idx} className="flex justify-between text-forest-600">
                                   <span className="text-xs ml-4">
-                                    ส่วนลด: {promo.name} {promo.code ? `(โค้ด: ${promo.code})` : ''}
+                                    ส่วนลด: {promo.name} {promo.code ? `(โปรโมชั่น: ${promo.code})` : ''}
                                   </span>
                                   <span className="text-xs">-฿{Number(promo.discount_amount).toLocaleString()}</span>
                                 </div>
@@ -572,11 +562,9 @@ function PaymentContent() {
               </section>
             </div>
 
-            {/* ---- ด้านขวา: ขั้นตอนการชำระเงิน ---- */}
             <div className="space-y-5">
               {step === 1 ? (
                 <>
-                  {/* Step 1: ช่องทางชำระเงิน */}
                   <section className={CARD}>
                     {payment.qr_code_url && (
                       <div className="text-center">
@@ -611,8 +599,6 @@ function PaymentContent() {
                       </div>
                     </div>
 
-
-
                     <button
                       onClick={() => setStep(2)}
                       className="btn-primary w-full mt-6 text-center shadow-lg shadow-forest-900/20 py-3 text-sm"
@@ -629,7 +615,6 @@ function PaymentContent() {
                     </Link>
                   </section>
 
-                  {/* คำแนะนำและยกเลิกการจอง */}
                   <section className={CARD}>
                     <SectionHeading icon={<Info size={16} />} title="คำแนะนำและยกเลิกการจอง" />
                     <ul className="mt-4 list-disc pl-5 text-xs text-charcoal-500 space-y-1.5">
@@ -650,7 +635,6 @@ function PaymentContent() {
                 </>
               ) : (
                 <>
-                  {/* Step 2: อัปโหลดสลิป */}
                   <section className={CARD}>
                     <div className="flex items-center justify-between mb-4 border-b border-stone-100 pb-4">
                       <SectionHeading icon={<Upload size={16} />} title="ยืนยันการโอนเงิน" />
@@ -751,7 +735,7 @@ function PaymentContent() {
   );
 }
 
-// ครอบ PaymentContent ด้วย Suspense เพื่อรองรับ useSearchParams ใน Next.js App Router อย่างปลอดภัย
+// หน้าชำระเงินสำหรับห้องพักและกิจกรรมเรือ
 export default function PaymentPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-cream-100 pt-20 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-forest-800 border-t-transparent" /></div>}>

@@ -10,12 +10,6 @@ import {
   type NotifyMessage,
 } from "@/lib/admin-notify";
 
-/**
- * ระยะเวลาแสดงผลที่เหมาะสม:
- * - success: 3.5 วินาที
- * - error: 5.0 วินาที
- * - info: 4.0 วินาที
- */
 const DEFAULT_DURATIONS: Record<NotifyKind, number> = {
   success: 3500,
   error: 5000,
@@ -53,7 +47,7 @@ interface BannerProps {
   onClose?: () => void;
 }
 
-/** Component สำหรับกรณีเรียกใช้เฉพาะจุด */
+// แสดงแบนเนอร์แจ้งเตือนแบบฝังในจุดที่ต้องการ
 export function Banner({ kind, message, onClose }: BannerProps): React.ReactElement {
   const config = KIND_CONFIG[kind];
   return (
@@ -77,7 +71,7 @@ export function Banner({ kind, message, onClose }: BannerProps): React.ReactElem
   );
 }
 
-/** Floating Toast Component สไตล์มินิมอล ลอยเหนือทุกอย่างแบบเรียบหรู */
+// แสดงกล่องแจ้งเตือนลอยด้านบนพร้อมตัวนับเวลาปิดอัตโนมัติ
 function FloatingToast({ msg }: { msg: NotifyMessage }): React.ReactElement {
   const totalDuration = msg.duration ?? DEFAULT_DURATIONS[msg.kind];
   const [isExiting, setIsExiting] = useState(false);
@@ -86,6 +80,7 @@ function FloatingToast({ msg }: { msg: NotifyMessage }): React.ReactElement {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const config = KIND_CONFIG[msg.kind];
 
+  // ปิดการแจ้งเตือนพร้อมเล่นแอนิเมชันขาออก
   const handleClose = () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -97,6 +92,7 @@ function FloatingToast({ msg }: { msg: NotifyMessage }): React.ReactElement {
     }, 180);
   };
 
+  // เริ่มจับเวลาถอยหลังเพื่อปิดการแจ้งเตือนอัตโนมัติ
   const startTimer = (duration: number) => {
     if (timerRef.current) clearTimeout(timerRef.current);
     startTimeRef.current = Date.now();
@@ -115,7 +111,7 @@ function FloatingToast({ msg }: { msg: NotifyMessage }): React.ReactElement {
     };
   }, [msg.id, totalDuration]);
 
-  // หยุดเวลานับถอยหลังเมื่อเอาเมาส์ชี้ และนับต่อเมื่อเลื่อนเมาส์ออก
+  // หยุดเวลานับถอยหลังชั่วคราวเมื่อเลื่อนเมาส์มาวางบนการแจ้งเตือน
   const handleMouseEnter = () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -125,6 +121,7 @@ function FloatingToast({ msg }: { msg: NotifyMessage }): React.ReactElement {
     }
   };
 
+  // นับเวลาถอยหลังต่อเมื่อเลื่อนเมาส์ออกจากกล่องแจ้งเตือน
   const handleMouseLeave = () => {
     if (remainingRef.current > 0 && !isExiting) {
       startTimer(remainingRef.current);
@@ -143,19 +140,14 @@ function FloatingToast({ msg }: { msg: NotifyMessage }): React.ReactElement {
       }`}
     >
       <div className="flex items-center gap-3">
-        {/* Soft Minimal Icon */}
         <div
           className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${config.iconBg}`}
         >
           {config.icon}
         </div>
-
-        {/* Message */}
         <p className="flex-1 min-w-0 text-xs sm:text-sm font-medium text-charcoal-800 leading-snug break-words">
           {msg.message}
         </p>
-
-        {/* Minimal Close Button */}
         <button
           type="button"
           onClick={handleClose}
@@ -169,7 +161,7 @@ function FloatingToast({ msg }: { msg: NotifyMessage }): React.ReactElement {
   );
 }
 
-/** แบนเนอร์แจ้งเตือนกลางของแอดมิน — Floating Toast มินิมอล ลอยเหนือทุกอย่าง */
+// แสดงแบนเนอร์แจ้งเตือนส่วนกลางของหน้าแอดมินและพนักงาน
 export function NotifyBanner(): React.ReactElement | null {
   const msg = useSyncExternalStore(subscribeNotify, getNotifySnapshot, () => null);
   if (!msg) return null;

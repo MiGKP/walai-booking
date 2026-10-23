@@ -1,25 +1,26 @@
 'use client';
 
 interface TimeSelectProps {
-  /** เวลาในรูปแบบ HH:MM (24 ชั่วโมง) */
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
   label: string;
-  /** ระยะห่างของนาทีที่ให้เลือก (นาที) */
   minuteStep?: number;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
+// แยกข้อความเวลาในรูปแบบ HH:MM ออกเป็นตัวเลขชั่วโมงและนาที
 const splitTime = (value: string): { hour: number; minute: number } => {
   const match = /^(\d{1,2}):(\d{2})/.exec(value);
   if (!match) return { hour: 8, minute: 0 };
   return { hour: Number(match[1]), minute: Number(match[2]) };
 };
 
+// เติมเลขศูนย์ด้านหน้าตัวเลขให้ครบสองหลักสำหรับแสดงเวลา
 const pad = (n: number): string => String(n).padStart(2, '0');
 
+// แสดงตัวเลือกเวลาแบบชั่วโมงและนาทีในระบบ 24 ชั่วโมง
 export default function TimeSelect({
   value,
   onChange,
@@ -29,13 +30,13 @@ export default function TimeSelect({
 }: TimeSelectProps): React.ReactElement {
   const { hour, minute } = splitTime(value);
 
-  // รวมนาทีปัจจุบันเข้าไปด้วย เผื่อข้อมูลเดิมไม่ได้อยู่บนระยะห่างที่กำหนด
   const minuteOptions = Array.from({ length: Math.floor(60 / minuteStep) }, (_, i) => i * minuteStep);
   if (!minuteOptions.includes(minute)) {
     minuteOptions.push(minute);
     minuteOptions.sort((a, b) => a - b);
   }
 
+  // ส่งค่าเวลาที่เลือกกลับในรูปแบบ HH:MM
   const emit = (nextHour: number, nextMinute: number): void => {
     onChange(`${pad(nextHour)}:${pad(nextMinute)}`);
   };

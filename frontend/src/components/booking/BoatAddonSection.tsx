@@ -58,16 +58,17 @@ const addonStatusClass: Record<string, string> = {
   checked_out: 'bg-bamboo-50 text-bamboo-600',
 };
 
+// จัดรูปแบบตัวเลขเป็นสกุลเงินบาทไทย
 const formatThb = (value: number | string | null | undefined): string => `฿${Number(value ?? 0).toLocaleString()}`;
 
-// เวลาออกเรือ (เวลาไทย) ใช้คำนวณว่ายกเลิกทันเวลาคืนเงินเต็มจำนวนหรือไม่
+// แปลงวันและเวลาออกเรือเป็นค่ามิลลิวินาทีตามเวลาประเทศไทย
 const slotStartMs = (addon: BoatAddon): number => {
   const date = String(addon.booking_date).slice(0, 10);
   const time = (addon.start_time ?? '00:00').slice(0, 5);
   return new Date(`${date}T${time}:00+07:00`).getTime();
 };
 
-// ประมาณการยอดคืนเงินให้ลูกค้าเห็นก่อนยืนยัน (ยอดจริงคำนวณที่ฝั่งเซิร์ฟเวอร์)
+// สร้างข้อความอธิบายยอดคืนเงินโดยประมาณตามสถานะห้องและนโยบายการยกเลิก
 const describeExpectedRefund = (addon: BoatAddon, roomStatus: string, policy: CancellationPolicy | null): string => {
   if (roomStatus === 'pending') {
     return 'ห้องพักยังไม่ได้ชำระเงิน บัตรเสริมจะถูกนำออกโดยไม่มียอดคืนเงิน';
@@ -92,13 +93,19 @@ interface BoatAddonSectionProps {
   allowBooking?: boolean;
 }
 
-// แสดงบัตรเสริม (เรือ) ของห้องพักหนึ่งห้อง และให้ลูกค้ายกเลิกได้เมื่อยังไม่ได้รับเรือ
-export default function BoatAddonSection({ bookingRoomId, roomBookingStatus, onChanged, allowBooking = false }: BoatAddonSectionProps) {
+// แสดงรายการบัตรเสริมเรือของห้องพักพร้อมฟอร์มจองเพิ่มและปุ่มยกเลิก
+export default function BoatAddonSection({
+  bookingRoomId,
+  roomBookingStatus,
+  onChanged,
+  allowBooking = false,
+}: BoatAddonSectionProps) {
   const [addons, setAddons] = useState<BoatAddon[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [info, setInfo] = useState<AddonInfoResponse | null>(null);
 
+  // ดึงข้อมูลสิทธิ์และรายการบัตรเสริมเรือของห้องพักจากเซิร์ฟเวอร์
   const fetchAddons = useCallback(async (): Promise<void> => {
     try {
       const res = await api.get(`/kayaks/room-addon/${bookingRoomId}`);
@@ -116,9 +123,11 @@ export default function BoatAddonSection({ bookingRoomId, roomBookingStatus, onC
     fetchAddons();
   }, [fetchAddons]);
 
+  // ตรวจสอบว่าบัตรเสริมเรือรายการนี้ยังสามารถกดยกเลิกได้หรือไม่
   const canCancel = (addon: BoatAddon): boolean =>
     (addon.status === 'pending' || addon.status === 'approved') && addon.handed_out_at == null && addon.checkin_at == null;
 
+  // ส่งคำขอยกเลิกบัตรเสริมเรือไปยังเซิร์ฟเวอร์และอัปเดตข้อมูลใหม่
   const performCancel = async (addon: BoatAddon): Promise<void> => {
     setCancellingId(addon.boat_booking_id);
     try {
@@ -135,6 +144,7 @@ export default function BoatAddonSection({ bookingRoomId, roomBookingStatus, onC
     }
   };
 
+  // โหลดนโยบายการคืนเงินและเปิดหน้าต่างยืนยันการยกเลิกบัตรเสริมเรือ
   const handleCancel = async (addon: BoatAddon): Promise<void> => {
     let policy: CancellationPolicy | null = null;
     try {
@@ -170,16 +180,42 @@ export default function BoatAddonSection({ bookingRoomId, roomBookingStatus, onC
       <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-forest-900">
         <Anchor size={13} /> รอบเรือจากโปรโมชั่นห้องพัก
       </p>
-      {info?.total_tickets != null && <div className="mb-3"><RoomBoatTicketSummary bookingStatus={['checked_out', 'cancelled', 'rejected'].includes(info.room_line_status ?? '') ? info.room_line_status! : roomBookingStatus} summary={{
-        total_tickets: info.total_tickets, used_tickets: info.used_tickets ?? Math.max(0, info.total_tickets - info.balance), remaining_tickets: info.balance,
-        bookable_tickets: canBookRoomBoatAddon(info, new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' })) ? info.balance : 0,
-        free_tickets: info.mode === 'free' ? info.total_tickets : 0, paid_tickets: info.mode === 'paid' ? info.total_tickets : 0,
-        valid_from: info.valid_from, valid_to: info.valid_to,
-      }} /></div>}
-      {allowBooking && info && <RoomBoatAddonForm bookingRoomId={bookingRoomId} info={info} onCreated={async () => { await fetchAddons(); onChanged?.(); }} />}
-      {allowBooking && info && info.balance <= 0 && <p className="mb-3 text-xs text-charcoal-500">ห้องนี้ไม่มีสิทธิ์เรือที่ยังไม่ได้ใช้</p>}
-      {allowBooking && info && info.balance > 0 && (!info.valid_from || !info.valid_to) && <p className="mb-3 text-xs text-charcoal-500">ไม่พบช่วงวันที่ใช้สิทธิ์ กรุณาตรวจสอบรายละเอียดการจองห้องพัก</p>}
-      {allowBooking && info?.mode === 'paid' && info.room_status !== 'pending' && <p className="mb-3 text-xs text-charcoal-500">สิทธิ์เรือแบบเสียเงินต้องเลือกก่อนชำระค่าห้องพัก</p>}
+      {info?.total_tickets != null && (
+        <div className="mb-3">
+          <RoomBoatTicketSummary
+            bookingStatus={['checked_out', 'cancelled', 'rejected'].includes(info.room_line_status ?? '') ? info.room_line_status! : roomBookingStatus}
+            summary={{
+              total_tickets: info.total_tickets,
+              used_tickets: info.used_tickets ?? Math.max(0, info.total_tickets - info.balance),
+              remaining_tickets: info.balance,
+              bookable_tickets: canBookRoomBoatAddon(info, new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' })) ? info.balance : 0,
+              free_tickets: info.mode === 'free' ? info.total_tickets : 0,
+              paid_tickets: info.mode === 'paid' ? info.total_tickets : 0,
+              valid_from: info.valid_from,
+              valid_to: info.valid_to,
+            }}
+          />
+        </div>
+      )}
+      {allowBooking && info && (
+        <RoomBoatAddonForm
+          bookingRoomId={bookingRoomId}
+          info={info}
+          onCreated={async () => {
+            await fetchAddons();
+            onChanged?.();
+          }}
+        />
+      )}
+      {allowBooking && info && info.balance <= 0 && (
+        <p className="mb-3 text-xs text-charcoal-500">ห้องนี้ไม่มีสิทธิ์เรือที่ยังไม่ได้ใช้</p>
+      )}
+      {allowBooking && info && info.balance > 0 && (!info.valid_from || !info.valid_to) && (
+        <p className="mb-3 text-xs text-charcoal-500">ไม่พบช่วงวันที่ใช้สิทธิ์ กรุณาตรวจสอบรายละเอียดการจองห้องพัก</p>
+      )}
+      {allowBooking && info?.mode === 'paid' && info.room_status !== 'pending' && (
+        <p className="mb-3 text-xs text-charcoal-500">สิทธิ์เรือแบบเสียเงินต้องเลือกก่อนชำระค่าห้องพัก</p>
+      )}
       <ul className="space-y-2">
         {addons.map((addon) => {
           const dateLabel = new Date(addon.booking_date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });

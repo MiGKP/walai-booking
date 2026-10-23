@@ -22,6 +22,7 @@ export interface CustomSelectProps {
   prefix?: React.ReactNode;
 }
 
+// แสดงเมนูตัวเลือกดรอปดาวน์แบบกำหนดเอง
 export function CustomSelect({
   options,
   value,
@@ -41,6 +42,7 @@ export function CustomSelect({
   const selectedOption = options.find((opt) => String(opt.value) === String(value));
 
   useEffect(() => {
+    // ปิดดรอปดาวน์เมื่อคลิกนอกพื้นที่คอมโพเนนต์
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);

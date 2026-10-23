@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Search, Loader2, Navigation, MapPin } from 'lucide-react';
-import { notify } from "@/lib/admin-notify";
+import { notify } from '@/lib/admin-notify';
 
 const customIcon = new L.Icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -13,15 +13,14 @@ const customIcon = new L.Icon({
   iconAnchor: [12, 41],
 });
 
-// พิกัดสำคัญของสถาบันวิจัยวลัยรุกขเวช
 const PRESET_LOCATIONS = [
   {
     name: 'สถาบันฯ (สถานีบ้านเกิ้ง)',
-    coords: [16.219313, 103.329219] as [number, number], // 689H+RM8
+    coords: [16.219313, 103.329219] as [number, number],
   },
   {
     name: 'สถาบันฯ (สถานีนาดูน)',
-    coords: [15.713500, 103.228100] as [number, number],
+    coords: [15.7135, 103.2281] as [number, number],
   },
   {
     name: 'ม.มหาสารคาม (ขามเรียง)',
@@ -29,6 +28,7 @@ const PRESET_LOCATIONS = [
   },
 ];
 
+// ปรับมุมมองและขนาดของแผนที่เมื่อพิกัดกึ่งกลางเปลี่ยนแปลง
 function ChangeView({ center }: { center: [number, number] }): null {
   const map = useMap();
   useEffect(() => {
@@ -48,6 +48,7 @@ function ChangeView({ center }: { center: [number, number] }): null {
   return null;
 }
 
+// แสดงหมุดตำแหน่งบนแผนที่และอัปเดตพิกัดเมื่อผู้ใช้คลิกบนแผนที่
 function LocationMarker({
   position,
   setPosition,
@@ -73,6 +74,7 @@ interface LeafletMapProps {
   showControls?: boolean;
 }
 
+// แสดงแผนที่แบบโต้ตอบพร้อมช่องค้นหาสถานที่และปุ่มลัดพิกัดสำคัญ
 export default function LeafletMap({
   position,
   setPosition,
@@ -81,10 +83,11 @@ export default function LeafletMap({
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
 
+  // ค้นหาพิกัดสถานที่จากชื่ออำเภอหรือจังหวัดผ่านบริการ Nominatim
   const handleSearch = async (
     e?: React.FormEvent | React.KeyboardEvent | React.MouseEvent
   ) => {
-    if (e && "preventDefault" in e) {
+    if (e && 'preventDefault' in e) {
       e.preventDefault();
     }
     if (!searchQuery.trim()) return;
@@ -114,6 +117,7 @@ export default function LeafletMap({
     }
   };
 
+  // ดึงตำแหน่งพิกัดปัจจุบันของผู้ใช้จาก GPS ของเบราว์เซอร์
   const handleCurrentLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -127,14 +131,10 @@ export default function LeafletMap({
 
   return (
     <div className="relative w-full h-full z-0">
-      {/* ส่วนค้นหาและปุ่มลัดสถานที่สำคัญ (แสดงเฉพาะเมื่อ showControls = true) */}
       {showControls && (
         <div className="absolute top-2.5 left-2.5 right-2.5 z-500 flex flex-col gap-1.5 max-w-lg mx-auto">
-          {/* ช่องค้นหา + ปุ่ม GPS */}
           <div className="flex gap-1.5">
-            <div
-              className="flex-1 flex items-center bg-white/95 backdrop-blur-xs rounded-xl shadow-md border border-cream-200 overflow-hidden px-3 py-1"
-            >
+            <div className="flex-1 flex items-center bg-white/95 backdrop-blur-xs rounded-xl shadow-md border border-cream-200 overflow-hidden px-3 py-1">
               <input
                 type="text"
                 className="w-full text-xs py-1 focus:outline-hidden text-charcoal-800 placeholder:text-charcoal-400"
@@ -142,7 +142,7 @@ export default function LeafletMap({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
+                  if (e.key === 'Enter') {
                     e.preventDefault();
                     e.stopPropagation();
                     handleSearch(e);
@@ -173,7 +173,6 @@ export default function LeafletMap({
             </button>
           </div>
 
-          {/* ปุ่มลัดตำแหน่งที่ใช้บ่อย (Quick Preset Buttons) */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
             <span className="text-[11px] font-bold text-charcoal-600 bg-white/95 px-2 py-0.5 rounded-lg border border-cream-200 shrink-0 shadow-2xs">
               ทางลัด:

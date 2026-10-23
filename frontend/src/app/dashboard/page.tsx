@@ -1,6 +1,6 @@
 "use client";
 
-import { getNewPasswordError, PASSWORD_HINT } from '@/lib/password-policy';
+import { getNewPasswordError, getPasswordStrength, PASSWORD_HINT } from '@/lib/password-policy';
 
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -17,6 +17,7 @@ import MyPromotionsSection from "@/components/dashboard/MyPromotionsSection";
 
 const CARD = "rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)] p-5 sm:p-6";
 
+// แสดงหัวข้อส่วนงานพร้อมไอคอนประจำหมวด
 function SectionHeading({ icon, title }: { icon: React.ReactNode; title: string }): React.ReactElement {
   return (
     <div className="flex items-center gap-2.5">
@@ -26,6 +27,7 @@ function SectionHeading({ icon, title }: { icon: React.ReactNode; title: string 
   );
 }
 
+// แสดงข้อความกำกับช่องกรอกข้อมูลในฟอร์ม
 function FieldLabel({ children }: { children: React.ReactNode }): React.ReactElement {
   return <label className="mb-1.5 block text-xs font-semibold text-charcoal-600">{children}</label>;
 }
@@ -37,7 +39,7 @@ const ROLE_LABELS: Record<string, string> = {
   boat_staff: "เจ้าหน้าที่เรือ",
 };
 
-// input รหัสผ่านพร้อมปุ่มแสดง/ซ่อน (ไอคอนตา)
+// ช่องกรอกรหัสผ่านพร้อมปุ่มสลับแสดงหรือซ่อนรหัสผ่าน
 function PasswordField({
   value,
   onChange,
@@ -84,7 +86,7 @@ const DASHBOARD_TABS_CONFIG = [
 type DashboardTab = (typeof DASHBOARD_TABS_CONFIG)[number]["id"];
 const DASHBOARD_TAB_IDS = DASHBOARD_TABS_CONFIG.map((t) => t.id) as readonly DashboardTab[];
 
-// หน้าโปรไฟล์ของผู้ใช้ ใช้สำหรับแก้ไขข้อมูลส่วนตัว และจัดการรหัสผ่านตามประเภทการสมัครของ member
+// หน้าจัดการข้อมูลส่วนตัว ประวัติการจอง รีวิว คูปอง และความปลอดภัยของลูกค้า
 function DashboardContent() {
   const router = useRouter();
   const { ready, user } = useAuthGuard({ allowedRoles: ['customer'] });
@@ -110,12 +112,10 @@ function DashboardContent() {
   const [changingPw, setChangingPw] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("bookings");
 
-  // State สำหรับการเลื่อนแถบแท็บบนมือถือ
   const navRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
-  // State สำหรับ Modal ขอลบบัญชี
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
@@ -141,12 +141,14 @@ function DashboardContent() {
     }
   }, [tabParam]);
 
+  // เปลี่ยนแท็บที่แสดงผลและบันทึกสถานะลงใน URL และ localStorage
   const changeTab = (tab: DashboardTab) => {
     setActiveTab(tab);
     localStorage.setItem("walai_dashboard_tab", tab);
     router.replace(`/dashboard?tab=${tab}`, { scroll: false });
   };
 
+  // ตรวจสอบระยะการเลื่อนซ้ายขวาของแถบเมนูบนหน้าจอมือถือ
   const checkScroll = useCallback(() => {
     const el = navRef.current;
     if (!el) return;
@@ -167,7 +169,6 @@ function DashboardContent() {
     };
   }, [checkScroll, ready, user]);
 
-  // เมื่อเปลี่ยน activeTab ให้เลื่อนปุ่มแท็บนั้นมาตรงกลางเสมอ (โดยเฉพาะบนจอมือถือ)
   useEffect(() => {
     const el = navRef.current;
     if (!el) return;
@@ -177,6 +178,7 @@ function DashboardContent() {
     }
   }, [activeTab]);
 
+  // เลื่อนแถบเมนูแนวนอนไปทางซ้ายหรือขวา
   const scrollNav = (direction: "left" | "right") => {
     const el = navRef.current;
     if (!el) return;
@@ -189,7 +191,6 @@ function DashboardContent() {
     [avatarLoadError, avatarPreview],
   );
 
-  // เคลียร์ blob URL ทิ้งตอน unmount กันหน่วยความจำรั่ว
   useEffect(() => {
     return () => {
       if (avatarPreview.startsWith("blob:")) URL.revokeObjectURL(avatarPreview);
@@ -209,12 +210,20 @@ function DashboardContent() {
     setAvatarLoadError(false);
   }, [ready, user]);
 
-  // บันทึกการแก้ไขข้อมูลโปรไฟล์ เช่น ชื่อและเบอร์โทร แล้ว sync ข้อมูลใหม่กลับเข้า auth store
+  // บันทึกการแก้ไขข้อมูลส่วนตัวและอัปเดตสถานะผู้ใช้
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanPhone = profile.phone.trim().replace(/[\s-]/g, "");
+    if (cleanPhone && !/^0\d{8,9}$/.test(cleanPhone)) {
+      toast.error("กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (9–10 หลัก)");
+      return;
+    }
     setSaving(true);
     try {
-      const res = await api.put("/auth/profile", profile);
+      const res = await api.put("/auth/profile", {
+        ...profile,
+        phone: cleanPhone,
+      });
       updateUser(res.data.data);
       toast.success("บันทึกโปรไฟล์สำเร็จ");
     } catch (err: unknown) {
@@ -224,7 +233,7 @@ function DashboardContent() {
     }
   };
 
-  // กดที่รูปแล้วเลือกไฟล์ปุ๊บอัปโหลดทันที ไม่ต้องมีขั้นตอน/ปุ่มแยกต่างหาก
+  // อัปโหลดรูปโปรไฟล์ใหม่ทันทีเมื่อผู้ใช้เลือกไฟล์รูปภาพ
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -263,7 +272,7 @@ function DashboardContent() {
     }
   };
 
-  // เปลี่ยนรหัสผ่านสำหรับผู้ใช้ที่มีรหัสผ่านเดิมอยู่แล้ว โดยตรวจสอบความถูกต้องของข้อมูลก่อนส่งไป backend
+  // เปลี่ยนรหัสผ่านสำหรับผู้ใช้ที่มีรหัสผ่านเดิมอยู่แล้ว
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwords.new_password !== passwords.confirm) {
@@ -290,7 +299,7 @@ function DashboardContent() {
     }
   };
 
-  // ตั้งรหัสผ่านครั้งแรกสำหรับผู้ใช้ที่สมัครผ่าน Google และยังไม่มี password ในระบบ
+  // ตั้งรหัสผ่านครั้งแรกสำหรับบัญชีที่เข้าสู่ระบบผ่าน Google
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwords.new_password !== passwords.confirm) {
@@ -309,7 +318,6 @@ function DashboardContent() {
       });
       toast.success("ตั้งรหัสผ่านสำเร็จ");
       setPasswords({ current_password: "", new_password: "", confirm: "" });
-      // Update local user state to reflect they now have a password
       updateUser({ has_password: true });
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, "ตั้งรหัสผ่านไม่สำเร็จ"));
@@ -318,7 +326,7 @@ function DashboardContent() {
     }
   };
 
-  // ดำเนินการลบบัญชีและทำให้นิรนาม (Soft Delete + Anonymize ตาม PDPA)
+  // ลบบัญชีผู้ใช้งานและแปลงข้อมูลส่วนบุคคลเป็นนิรนาม
   const handleDeleteAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -355,9 +363,7 @@ function DashboardContent() {
     <div className="min-h-screen bg-cream-100 pt-16">
       <div className="w-full px-4 py-4 sm:px-6 lg:px-10">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr] lg:items-start">
-          {/* ---- ฝั่งซ้าย: Sidebar Navigation ---- */}
           <div className="flex flex-col gap-4">
-            {/* User Mini Profile */}
             <div className={`${CARD} hidden lg:flex flex-col items-center text-center p-6 pb-7`}>
               <div className="h-24 w-24 rounded-full bg-stone-100 overflow-hidden mb-3 border-4 border-white shadow-xs">
                 {displayAvatarSrc ? (
@@ -375,11 +381,8 @@ function DashboardContent() {
               </span>
             </div>
 
-            {/* Navigation Menu */}
             <div className={`${CARD} p-2.5 lg:p-3 relative overflow-hidden`}>
-              {/* Mobile scroll hints & arrows */}
               <div className="relative">
-                {/* Left arrow / gradient fade */}
                 {canScrollLeft && (
                   <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center pr-3 bg-gradient-to-r from-white via-white/95 to-transparent lg:hidden pointer-events-none">
                     <button
@@ -393,7 +396,6 @@ function DashboardContent() {
                   </div>
                 )}
 
-                {/* Right arrow / gradient fade */}
                 {canScrollRight && (
                   <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center pl-3 bg-gradient-to-l from-white via-white/95 to-transparent lg:hidden pointer-events-none">
                     <button
@@ -439,9 +441,8 @@ function DashboardContent() {
                 </nav>
               </div>
 
-              {/* Mobile Indicator Bar: Dots + Tab Counter */}
               <div className="mt-2.5 pt-2 border-t border-stone-100/90 flex lg:hidden items-center justify-between text-xs text-charcoal-400 px-1">
-                <span className="text-[11px] font-medium text-charcoal-500">
+                <span className="text-xs font-medium text-charcoal-500">
                   เมนู ({DASHBOARD_TABS_CONFIG.findIndex((t) => t.id === activeTab) + 1}/{DASHBOARD_TABS_CONFIG.length}): <span className="font-semibold text-forest-900">{DASHBOARD_TABS_CONFIG.find((t) => t.id === activeTab)?.label}</span>
                 </span>
                 <div className="flex items-center gap-1.5">
@@ -462,7 +463,6 @@ function DashboardContent() {
             </div>
           </div>
 
-          {/* ---- ฝั่งขวา: Main Content ---- */}
           <div className="space-y-6">
             {activeTab === "bookings" && (
               <section className={CARD}>
@@ -491,7 +491,6 @@ function DashboardContent() {
                   <h1 className="mb-5 font-sans text-lg font-semibold text-forest-900 border-b border-stone-100 pb-4">จัดการโปรไฟล์</h1>
                   
                   <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 pt-2">
-                    {/* ---- ฝั่งซ้าย: รูปโปรไฟล์ ---- */}
                     <div className="flex flex-col items-center lg:items-start lg:w-48 shrink-0">
                       <label
                         htmlFor="avatar-upload"
@@ -544,10 +543,8 @@ function DashboardContent() {
                       </div>
                     </div>
 
-                    {/* ---- ฝั่งขวา: ฟอร์มข้อมูล ---- */}
                     <div className="flex-1 min-w-0">
                       <form onSubmit={handleSaveProfile} className="space-y-8">
-                        {/* ข้อมูลส่วนตัว */}
                         <div>
                           <h3 className="text-xs font-bold text-forest-800 uppercase tracking-wide border-b border-stone-100 pb-2 mb-4">ข้อมูลส่วนตัว</h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -574,7 +571,6 @@ function DashboardContent() {
                           </div>
                         </div>
                         
-                        {/* ช่องทางติดต่อ */}
                         <div>
                           <h3 className="text-xs font-bold text-forest-800 uppercase tracking-wide border-b border-stone-100 pb-2 mb-4">ช่องทางติดต่อ</h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -668,13 +664,37 @@ function DashboardContent() {
                       <form onSubmit={handleSetPassword} className="space-y-5">
                         <div>
                           <FieldLabel>รหัสผ่านใหม่</FieldLabel>
-                        <p className="mb-2 text-xs text-charcoal-400">{PASSWORD_HINT}</p>
                           <PasswordField
                             required
                             minLength={8}
                             value={passwords.new_password}
                             onChange={(v) => setPasswords({ ...passwords, new_password: v })}
                           />
+                          {(() => {
+                            const strength = getPasswordStrength(passwords.new_password);
+                            return (
+                              <div className="mt-2.5 space-y-1.5">
+                                <div className="grid grid-cols-4 gap-1.5" aria-hidden="true">
+                                  {[1, 2, 3, 4].map((step) => (
+                                    <div
+                                      key={step}
+                                      className={`h-1.5 rounded-full transition-colors duration-200 ${
+                                        step <= strength.level ? strength.barColor : "bg-stone-200"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs">
+                                  <span className="text-stone-500">{PASSWORD_HINT}</span>
+                                  {strength.label ? (
+                                    <span className={`font-semibold ${strength.textColor}`}>
+                                      {strength.label}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div>
                           <FieldLabel>ยืนยันรหัสผ่านใหม่</FieldLabel>
@@ -710,13 +730,37 @@ function DashboardContent() {
                       <div className="pt-2 border-t border-stone-100"></div>
                       <div>
                         <FieldLabel>รหัสผ่านใหม่</FieldLabel>
-                        <p className="mb-2 text-xs text-charcoal-400">{PASSWORD_HINT}</p>
                         <PasswordField
                           required
                           minLength={8}
                           value={passwords.new_password}
                           onChange={(v) => setPasswords({ ...passwords, new_password: v })}
                         />
+                        {(() => {
+                          const strength = getPasswordStrength(passwords.new_password);
+                          return (
+                            <div className="mt-2.5 space-y-1.5">
+                              <div className="grid grid-cols-4 gap-1.5" aria-hidden="true">
+                                {[1, 2, 3, 4].map((step) => (
+                                  <div
+                                    key={step}
+                                    className={`h-1.5 rounded-full transition-colors duration-200 ${
+                                      step <= strength.level ? strength.barColor : "bg-stone-200"
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs">
+                                <span className="text-stone-500">{PASSWORD_HINT}</span>
+                                {strength.label ? (
+                                  <span className={`font-semibold ${strength.textColor}`}>
+                                    {strength.label}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div>
                         <FieldLabel>ยืนยันรหัสผ่านใหม่</FieldLabel>
@@ -740,7 +784,6 @@ function DashboardContent() {
                     </form>
                   )}
 
-                  {/* Danger Zone: ปิด/ลบบัญชีผู้ใช้ */}
                   <div className="mt-10 pt-6 border-t border-rose-100">
                     <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-4 sm:p-5">
                       <div className="flex items-start gap-3">
@@ -777,7 +820,6 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Modal: ยืนยันการลบบัญชีผู้ใช้ */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150">
@@ -852,6 +894,7 @@ function DashboardContent() {
   );
 }
 
+// หน้าแดชบอร์ดของสมาชิกพร้อมรองรับพารามิเตอร์แท็บจาก URL
 export default function DashboardPage() {
   return (
     <Suspense

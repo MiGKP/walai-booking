@@ -30,7 +30,7 @@ const baseURL = process.env.TEST_FRONTEND_URL || 'http://localhost:3107';
  role='admin';await page.goto(baseURL + '/admin/promotions');
  await page.getByRole('button',{name:/เพิ่มโปรโมชั่น/}).first().click();
  assert.equal(await page.getByText('บริการที่ใช้ส่วนลดได้',{exact:true}).count(),0);
- assert.equal(await page.getByText('ใช้ร่วมกับโค้ดอื่นที่อนุญาตให้ใช้ร่วมกันได้',{exact:true}).count(),0);
+ assert.equal(await page.getByText('ใช้ร่วมกับคูปองอื่นที่อนุญาตให้ใช้ร่วมกันได้',{exact:true}).count(),0);
  await page.goto(baseURL + '/admin/policies');
  const input=page.getByPlaceholder('เช่น 500').first();await input.waitFor();
  await input.fill('');await input.pressSequentially('123', { delay: 80 });

@@ -8,7 +8,6 @@ import {
   BedDouble,
   Sailboat,
   LogIn,
-  LogOut,
   ChevronRight,
   CheckCircle2,
   Clock,
@@ -20,13 +19,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 import { ADMIN_BOOKINGS_CHANGED } from "@/lib/admin-booking-events";
 
+// แสดงปุ่มกระดิ่งแจ้งเตือนงานค้างและรายการสลิปรอตรวจสอบสำหรับแอดมินและพนักงาน
 export default function AdminNotificationBell(): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { counts, recentItems, isLoading, fetchNotifications } = useAdminNotificationStore();
 
-  const enabled = Boolean(user && ['admin', 'room_staff', 'boat_staff'].includes(user.role));
+  const enabled = Boolean(user && ["admin", "room_staff", "boat_staff"].includes(user.role));
   const refresh = useCallback(() => fetchNotifications(true), [fetchNotifications]);
   useVisiblePolling(refresh, enabled, ADMIN_BOOKINGS_CHANGED);
 
@@ -34,13 +34,14 @@ export default function AdminNotificationBell(): React.ReactElement {
     if (enabled) void fetchNotifications();
   }, [enabled, user?.id, fetchNotifications]);
 
-  // Close dropdown on outside click or ESC
   useEffect(() => {
+    // ปิดเมนูแจ้งเตือนเมื่อคลิกด้านนอก
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
+    // ปิดเมนูแจ้งเตือนเมื่อกดปุ่ม Escape
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setIsOpen(false);
     };
@@ -58,7 +59,6 @@ export default function AdminNotificationBell(): React.ReactElement {
   const hasUrgent = counts.total_urgent > 0;
   const totalTasks = counts.total_urgent + counts.today_checkins;
 
-  // Determine primary link for room and boat review
   const roomReviewHref =
     user?.role === "room_staff"
       ? "/staff/rooms/dashboard?filter=has_slip"
@@ -74,7 +74,6 @@ export default function AdminNotificationBell(): React.ReactElement {
 
   return (
     <div className="relative inline-block" ref={dropdownRef}>
-      {/* Bell Button */}
       <button
         type="button"
         onClick={() => {
@@ -91,7 +90,6 @@ export default function AdminNotificationBell(): React.ReactElement {
       >
         <Bell size={18} className={hasUrgent ? "stroke-[2.2]" : "stroke-[1.8]"} />
 
-        {/* Badge & Ping */}
         {hasUrgent && (
           <>
             <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs ring-2 ring-white">
@@ -102,10 +100,8 @@ export default function AdminNotificationBell(): React.ReactElement {
         )}
       </button>
 
-      {/* Dropdown Popover */}
       {isOpen && (
         <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white border border-stone-200 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-stone-50/80 border-b border-stone-100">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-xs text-charcoal-700">การแจ้งเตือนงานค้าง</span>
@@ -130,7 +126,6 @@ export default function AdminNotificationBell(): React.ReactElement {
             </button>
           </div>
 
-          {/* Quick Action Counters */}
           <div className="p-3 grid grid-cols-2 gap-2 bg-stone-50/40 border-b border-stone-100">
             {(user?.role === "admin" || user?.role === "room_staff") && (
               <Link
@@ -223,7 +218,6 @@ export default function AdminNotificationBell(): React.ReactElement {
             )}
           </div>
 
-          {/* Recent Pending Slips Section */}
           <div className="max-h-64 overflow-y-auto divide-y divide-stone-100">
             {recentItems.length === 0 ? (
               <div className="py-8 px-4 text-center">
@@ -283,7 +277,6 @@ export default function AdminNotificationBell(): React.ReactElement {
             )}
           </div>
 
-          {/* Footer */}
           <div className="p-2.5 bg-stone-50 border-t border-stone-100 text-center">
             <Link
               href={user?.role === "boat_staff" ? boatReviewHref : roomReviewHref}

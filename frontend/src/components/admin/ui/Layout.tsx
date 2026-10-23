@@ -7,6 +7,7 @@ interface PageHeaderProps {
   actions?: ReactNode;
 }
 
+// แสดงส่วนหัวของหน้าพร้อมชื่อเรื่อง คำอธิบาย ป้ายกำกับ และปุ่มจัดการ
 export function PageHeader({ title, description, badge, actions }: PageHeaderProps): React.ReactElement {
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">
@@ -46,7 +47,7 @@ interface StatCardProps {
   active?: boolean;
 }
 
-/** การ์ดสถิติสไตล์เทมเพลต: ตัวเลขใหญ่ + ไอคอนเส้นบางมุมขวา บนพื้นขาวเงาอ่อน */
+// แสดงการ์ดตัวเลขสถิติพร้อมไอคอนและรองรับการคลิกกรองข้อมูล
 export function StatCard({ label, value, hint, icon, tone = "forest", onClick, active }: StatCardProps): React.ReactElement {
   const Comp = onClick ? "button" : "div";
   return (
@@ -74,7 +75,7 @@ interface PanelProps {
   className?: string;
 }
 
-/** กล่องเนื้อหามาตรฐาน (พื้นขาว มุมมน เงาอ่อน) */
+// แสดงกล่องเนื้อหาพื้นขาวมุมมนมาตรฐานสำหรับหน้าแอดมิน
 export function Panel({ title, actions, children, className = "" }: PanelProps): React.ReactElement {
   return (
     <section className={`rounded-2xl bg-white p-5 shadow-panel ${className}`}>

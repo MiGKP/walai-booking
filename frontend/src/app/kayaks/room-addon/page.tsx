@@ -22,6 +22,7 @@ interface RoomBooking {
   boat_ticket_summary?: BoatTicketSummary;
 }
 
+// แสดงและจัดการสิทธิ์การจองเรือที่ได้รับจากการจองห้องพัก
 function RoomAddonContent(): React.ReactElement {
   const { ready } = useAuthGuard({ allowedRoles: ['customer'] });
   const params = useSearchParams();
@@ -31,6 +32,7 @@ function RoomAddonContent(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const activeBooking = !!booking && ['pending', 'paid', 'approved'].includes(booking.status);
 
+  // โหลดข้อมูลสิทธิ์เรือและรายการห้องพักใหม่เมื่อมีการเปลี่ยนแปลง
   const reloadBooking = async (): Promise<void> => {
     try {
       const { data } = await api.get(`/bookings/${bookingId}`);
@@ -79,6 +81,7 @@ function RoomAddonContent(): React.ReactElement {
   );
 }
 
+// หน้าจัดการสิทธิ์เรือพ่วงจากการจองห้องพัก
 export default function RoomAddonPage(): React.ReactElement {
   return <Suspense fallback={<div className="min-h-screen bg-cream-100 pt-24 text-center">กำลังโหลด...</div>}><RoomAddonContent /></Suspense>;
 }

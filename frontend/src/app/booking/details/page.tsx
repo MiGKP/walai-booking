@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, User, Clock, AlertCircle, ShieldCheck, ChevronDown, ChevronRight, Tag } from 'lucide-react';
+import { ArrowLeft, User, Clock, AlertCircle, ShieldCheck, ChevronDown, ChevronRight, Tag, Users, X, Ticket, Check, Sparkles, Sailboat } from 'lucide-react';
 import { useRoomCart, setRoomCart } from '@/lib/room-cart-store';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useAuth } from '@/hooks/useAuth';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { PromoNotice, usePromoNotice } from '@/components/promotions/PromoNotice';
-import { formatThaiDate, nightsBetween } from '@/lib/date';
-import { chooseRoomPromotions, eligibleRoomPromotion, resolveCheckoutDetails, roomPromotionDiscount, roomPromotionReasons, roomPromotionLabel, selectedChildExtraBeds } from '@/lib/booking-checkout';
+import { formatThaiDate, nightsBetween, addDaysISO } from '@/lib/date';
+import { eligibleRoomPromotion, resolveCheckoutDetails, roomPromotionDiscount, roomPromotionReasons, roomPromotionLabel, selectedChildExtraBeds } from '@/lib/booking-checkout';
 import type { CheckoutPromotion } from '@/lib/booking-checkout';
 import { roomOccupancy, type RoomCartItem } from '@/lib/room-cart';
 import { useGuestAgePolicy } from '@/hooks/useInfantAgePolicy';
@@ -18,6 +18,7 @@ import BookingGuests, { type BookingGuestSelection } from '@/components/booking/
 
 type Promotion = CheckoutPromotion;
 
+// สร้างป้ายชื่อห้องพักสำหรับแสดงตัวเลือกเตียงเสริม
 function extraBedRoomLabel(room: RoomCartItem): string {
   const typeName = room.type_name || room.room_name;
   return room.room_number ? `ห้อง ${room.room_number} (${typeName})` : typeName;
@@ -32,6 +33,7 @@ const ARRIVAL_TIME_OPTIONS = [
   { value: "19:00", label: "หลัง 19:00 น." },
 ];
 
+// เมนูดรอปดาวน์แบบกำหนดเองสำหรับเลือกเวลาเข้าพัก
 function CustomSelect({
   options,
   value,
@@ -133,8 +135,7 @@ function CustomSelect({
   );
 }
 
-import { Suspense } from 'react';
-
+// หน้ารายละเอียดการจองห้องพักพร้อม Suspense boundary
 export default function BookingDetailsPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-forest-800"></div></div>}>
@@ -143,6 +144,7 @@ export default function BookingDetailsPage() {
   );
 }
 
+// เนื้อหาหลักสำหรับกรอกข้อมูลผู้เข้าพัก เลือกโปรโมชั่น และยืนยันการจองห้องพัก
 function BookingDetailsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -165,14 +167,28 @@ function BookingDetailsContent() {
   const [otherRequest, setOtherRequest] = useState('');
 
   const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [selectedPromos, setSelectedPromos] = useState<Record<number, number | null>>({}); // typeId -> promoId
+  const [selectedPromos, setSelectedPromos] = useState<Record<number, number | null>>({});
   const { notice: promoNotice, showNotice: showPromoNotice } = usePromoNotice();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [childBeds, setChildBeds] = useState<Record<number, number>>({});
   const [guestSelection, setGuestSelection] = useState<BookingGuestSelection | null>(null);
   const [showGuestErrors, setShowGuestErrors] = useState(false);
+  const [activePromoDrawerTypeId, setActivePromoDrawerTypeId] = useState<number | null>(null);
+  const [manualCodeInput, setManualCodeInput] = useState('');
   const policy = useGuestAgePolicy();
+
+  useEffect(() => {
+    if (activePromoDrawerTypeId === null) return;
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Element | null;
+      if (target && !target.closest('[data-promo-dropdown]')) {
+        setActivePromoDrawerTypeId(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [activePromoDrawerTypeId]);
 
   const initialDetails = resolveCheckoutDetails(new URLSearchParams(searchParams.toString()), cart);
   const { checkIn, checkOut } = initialDetails;
@@ -206,7 +222,6 @@ function BookingDetailsContent() {
     `คนที่ ${bed.index + 1} อายุ ${bed.age} ปี${bed.room ? ` — ${extraBedRoomLabel(bed.room)}` : ' — ยังไม่ได้เลือกห้อง'}`
   ).join('; ');
 
-  // Capacity validation
   const totalCapacity = cartItems.reduce((sum, item) => sum + Number(item.capacity || 0), 0);
   const occupancy = roomOccupancy({ adults, children: childrenCount, childAges, infantAge: policy.infantAge, capacity: totalCapacity, roomCount: cartItems.length });
   const totalGuests = occupancy.occupyingGuests;
@@ -214,6 +229,7 @@ function BookingDetailsContent() {
   const isCapacityInsufficient = cartItems.length > 0 && !hasIncompleteGuestAges && !occupancy.fits;
   const missingCapacity = occupancy.missingCapacity;
 
+  // อัปเดตจำนวนผู้เข้าพักและอายุเด็กพร้อมซิงก์กับ URL และตะกร้า
   const handleGuestSelection = (next: BookingGuestSelection): void => {
     setGuestSelection(next);
     setShowGuestErrors(false);
@@ -241,14 +257,12 @@ function BookingDetailsContent() {
   }, [user]);
 
   useEffect(() => {
-    // Fetch active promos
     api.get('/promotions/active').then(res => {
       const activePromos = res.data?.data || [];
       setPromotions(activePromos);
     }).catch(err => console.error(err));
   }, []);
 
-  // Group by room_type_id
   const groups = useMemo(() => {
     const acc: Record<number, { typeId: number, typeName: string, pricePerNight: number, rooms: RoomCartItem[], totalBasePrice: number }> = {};
     cartItems.forEach(item => {
@@ -267,16 +281,6 @@ function BookingDetailsContent() {
     return Object.values(acc);
   }, [cartItems, nights]);
 
-  // Auto-select best promo initially when promotions load
-  useEffect(() => {
-    if (promotions.length === 0 || groups.length === 0) return;
-    
-    // Only auto-select if we haven't set them yet
-    if (Object.keys(selectedPromos).length > 0) return;
-
-    setSelectedPromos(chooseRoomPromotions(groups, promotions, nights));
-  }, [promotions, groups, nights]);
-
   if (!ready) return <div className="min-h-screen bg-stone-50 flex items-center justify-center">กำลังโหลด...</div>;
 
   if (cartItems.length === 0) {
@@ -294,14 +298,16 @@ function BookingDetailsContent() {
     );
   }
 
+  // เลือกหรือยกเลิกโปรโมชั่นสำหรับประเภทห้องพักที่ระบุ
   const handleSelectPromo = (typeId: number, promoId: number | null): void => {
     if (promoId !== null && Object.entries(selectedPromos).some(([key, value]) => Number(key) !== typeId && value === promoId)) {
-      showPromoNotice('error', 'โค้ดนี้ใช้ได้กับประเภทห้องเดียว กรุณาเลือกโค้ดอื่น');
+      showPromoNotice('error', 'โปรโมชั่นนี้ใช้ได้กับประเภทห้องเดียว กรุณาเลือกโปรโมชั่นอื่น');
       return;
     }
     setSelectedPromos(prev => ({ ...prev, [typeId]: promoId }));
   };
 
+  // คำนวณยอดส่วนลดของโปรโมชั่นสำหรับประเภทห้องพัก
   const calculateDiscount = (typeId: number, basePrice: number): number => {
     const promoId = selectedPromos[typeId];
     if (!promoId) return 0;
@@ -315,6 +321,7 @@ function BookingDetailsContent() {
   const totalDiscount = groups.reduce((sum, g) => sum + calculateDiscount(g.typeId, g.totalBasePrice), 0);
   const netTotal = grandTotalBase - totalDiscount;
 
+  // ตรวจสอบความครบถ้วนของข้อมูลและส่งคำขอสร้างการจองห้องพักไปยังระบบ
   const handleSubmit = async (): Promise<void> => {
     if (!checkIn || !checkOut || !Number.isFinite(nights) || nights < 1 || (cart && (cart.check_in !== checkIn || cart.check_out !== checkOut))) {
       toast.error('กรุณาเลือกวันที่เข้าพักและออกให้ตรงกับรายการในตะกร้า');
@@ -338,8 +345,18 @@ function BookingDetailsContent() {
         return;
       }
     }
-    if (!firstName || !lastName || !email || !phone) {
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
       toast.error('กรุณากรอกข้อมูลผู้ติดต่อให้ครบถ้วน');
+      return;
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      toast.error('กรุณากรอกอีเมลให้ถูกต้อง');
+      return;
+    }
+    const normalizedPhone = phone.trim().replace(/[\s-]/g, '');
+    if (!/^0\d{8,9}$/.test(normalizedPhone)) {
+      toast.error('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (9–10 หลัก)');
       return;
     }
     if (extraBed && selectedExtraBedRooms.length === 0) {
@@ -353,7 +370,6 @@ function BookingDetailsContent() {
     
     setIsSubmitting(true);
     
-    // Construct special request string
     const requests = [];
     if (extraBed) {
       requests.push(`ขอเตียงเสริม: ${selectedExtraBedRooms.map(extraBedRoomLabel).join('; ')} (ชำระหน้าเคาน์เตอร์)`);
@@ -364,14 +380,10 @@ function BookingDetailsContent() {
         : `ขอเตียงเสริมสำหรับเด็ก ${chargeableKidsCount} คน (${childBedDescription}) ชำระหน้าเคาน์เตอร์ตามนโยบายรีสอร์ต`;
       requests.push(chargeText);
     }
-    if (lowerFloor) requests.push("ขอห้องพักชั้นล่าง");
-    if (withKids) requests.push("เดินทางพร้อมเด็กเล็ก / ผู้สูงอายุ");
     if (otherRequest.trim()) requests.push(otherRequest.trim());
     
-    // เวลาที่คาดว่าจะถึงส่งแยกเป็น arrival_time เอง ไม่ฝังรวมกับคำขอพิเศษแล้ว
     const specialReqStr = requests.join(', ');
 
-    // Prepare items array
     const payloadItems = cartItems.map(item => ({
       room_type_id: item.room_type_id,
       quantity: 1,
@@ -389,9 +401,9 @@ function BookingDetailsContent() {
         special_requests: specialReqStr,
         arrival_time: arrivalTime,
         items: payloadItems,
-        guest_name: `${firstName} ${lastName}`,
-        guest_phone: phone,
-        guest_email: email
+        guest_name: `${firstName.trim()} ${lastName.trim()}`,
+        guest_phone: normalizedPhone,
+        guest_email: normalizedEmail
       });
       
       setRoomCart(null);
@@ -402,7 +414,7 @@ function BookingDetailsContent() {
         return;
       }
       const grantedTickets = Number(res.data?.data?.boat_ticket_summary?.total_tickets ?? res.data?.data?.boat_tickets_granted ?? 0);
-      toast.success(grantedTickets > 0 ? `จองห้องพักสำเร็จ ได้รับสิทธิ์เรือ ${grantedTickets} สิทธิ์จากโปรโมชั่น` : 'จองห้องพักสำเร็จ');
+      toast.success(grantedTickets > 0 ? `บันทึกข้อมูลการจองแล้ว ได้รับสิทธิ์เรือ ${grantedTickets} สิทธิ์ กรุณาดำเนินการชำระเงิน` : 'บันทึกข้อมูลการจองแล้ว กรุณาดำเนินการชำระเงิน');
       router.push(`/payment?booking_type=room&booking_id=${bId}`);
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'เกิดข้อผิดพลาดในการสร้างการจอง'));
@@ -413,22 +425,16 @@ function BookingDetailsContent() {
   return (
     <div className="min-h-screen bg-stone-50/50 pb-28 pt-24">
       <div className="mx-auto max-w-6xl px-4">
-        <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-          <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-sm font-bold text-stone-500 hover:text-stone-800 transition-colors">
-            <ArrowLeft size={16} /> กลับไปแก้ไข
-          </button>
-          <button onClick={() => router.push('/rooms')} className="inline-flex items-center gap-2 text-sm font-bold text-forest-800 hover:text-forest-900 transition-colors">
-            <ArrowLeft size={16} /> ย้อนกลับไปหน้าค้นหาห้องพัก
+        <div className="mb-6">
+          <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-sm font-bold text-forest-800 hover:text-forest-950 transition-colors">
+            <ArrowLeft size={16} /> ย้อนกลับไปแก้ไขการเลือกห้องพัก
           </button>
         </div>
         
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start">
-          
-          {/* LEFT: FORM */}
           <div className="lg:col-span-7 xl:col-span-8 space-y-6">
             <h1 className="text-3xl font-extrabold text-forest-900 tracking-tight">รายละเอียดการจอง</h1>
             
-            {/* Contact Info */}
             <section className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/80 shadow-xs">
               <h2 className="text-lg font-bold text-forest-900 mb-6 flex items-center gap-2">
                 <User className="text-forest-600" size={20} /> ข้อมูลผู้เข้าพักหลัก
@@ -463,7 +469,6 @@ function BookingDetailsContent() {
               onChange={handleGuestSelection}
             />
 
-            {/* Arrival Time */}
             <section className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/80 shadow-xs">
               <h2 className="text-lg font-bold text-forest-900 mb-2 flex items-center gap-2">
                 <Clock className="text-forest-600" size={20} /> เวลาที่ท่านจะเดินทางมาถึง
@@ -480,7 +485,6 @@ function BookingDetailsContent() {
               </div>
             </section>
             
-            {/* Additional Requests */}
             <section className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/80 shadow-xs">
               <h2 className="text-lg font-bold text-forest-900 mb-2 flex items-center gap-2">
                 <AlertCircle className="text-forest-600" size={20} /> ตัวเลือกอื่นๆ สำหรับเพิ่มเติมในการจอง
@@ -528,9 +532,8 @@ function BookingDetailsContent() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-bold text-stone-900">{eligibleChildBeds.length > 0 ? 'ขอเตียงเสริมอื่น ๆ (นอกเหนือจากเตียงเด็กที่เลือก)' : 'ขอเตียงเสริม'}</span>
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">ชำระหน้าเคาน์เตอร์</span>
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">{policy.childChargePricePerNight ? `+฿${policy.childChargePricePerNight.toLocaleString()}/คืน ชำระหน้าเคาน์เตอร์` : 'ชำระหน้าเคาน์เตอร์'}</span>
                     </div>
-                    <p className="text-xs text-stone-500 mt-0.5">เหมาะสำหรับผู้เข้าพักเพิ่มเติมหรือผู้ที่ต้องการเตียงแยก (ชำระค่าบริการเพิ่มเติมตอนเช็คอิน)</p>
                   </div>
                 </label>
                 {extraBed && <fieldset className="space-y-2 rounded-2xl border border-forest-200 bg-forest-50/30 p-4">
@@ -553,14 +556,6 @@ function BookingDetailsContent() {
                   </label>)}
                   {selectedExtraBedRooms.length === 0 && <p className="text-xs text-amber-800">กรุณาเลือกอย่างน้อย 1 ห้อง</p>}
                 </fieldset>}
-                <label className="flex items-center gap-3 p-3 border border-stone-200 rounded-xl cursor-pointer hover:bg-stone-50 transition-colors">
-                  <input type="checkbox" checked={lowerFloor} onChange={e => setLowerFloor(e.target.checked)} className="w-5 h-5 text-forest-700 rounded border-stone-300 focus:ring-forest-500" />
-                  <span className="text-sm font-medium text-stone-800">ขอห้องพักชั้นล่าง (หากมีห้องว่าง)</span>
-                </label>
-                <label className="flex items-center gap-3 p-3 border border-stone-200 rounded-xl cursor-pointer hover:bg-stone-50 transition-colors">
-                  <input type="checkbox" checked={withKids} onChange={e => setWithKids(e.target.checked)} className="w-5 h-5 text-forest-700 rounded border-stone-300 focus:ring-forest-500" />
-                  <span className="text-sm font-medium text-stone-800">เดินทางพร้อมเด็กเล็ก / ผู้สูงอายุ</span>
-                </label>
               </div>
               
               <div className="space-y-1.5">
@@ -575,33 +570,37 @@ function BookingDetailsContent() {
               </div>
             </section>
             
-            {/* Policies */}
-            <section className="bg-stone-100 rounded-3xl p-6 sm:p-8 text-sm text-stone-600">
-              <h3 className="font-bold text-stone-900 mb-3 flex items-center gap-2">
-                <ShieldCheck size={18} className="text-forest-600" /> แจ้งสิทธิต่างๆ ที่ควรทราบ
-              </h3>
-              <ul className="space-y-2 pl-6 list-disc marker:text-stone-400">
-                <li>คุณสามารถยกเลิกการจองได้ฟรีก่อนถึงวันเข้าพักอย่างน้อย 7 วัน</li>
-                <li>เวลาเช็คอิน 14:00 น. และเวลาเช็คเอาต์ ก่อน 12:00 น.</li>
-                <li>ไม่อนุญาตให้นำสัตว์เลี้ยงเข้าพักเว้นแต่มีการตกลงล่วงหน้า</li>
-                <li>โปรโมชั่นและส่วนลดไม่สามารถแลกเปลี่ยนเป็นเงินสดได้</li>
-              </ul>
+            <section className="bg-stone-100/80 rounded-2xl p-4 sm:p-6 text-sm text-stone-600 border border-stone-200/60">
+              <details className="group">
+                <summary className="cursor-pointer font-bold text-stone-900 flex items-center justify-between list-none select-none">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck size={18} className="text-forest-600" />
+                    <span>แจ้งสิทธิต่างๆ ที่ควรทราบ</span>
+                  </div>
+                  <span className="text-xs font-semibold text-forest-700 underline group-open:hidden">ดูข้อกำหนด</span>
+                  <span className="text-xs font-semibold text-stone-400 hidden group-open:inline">ย่อเก็บ</span>
+                </summary>
+                <ul className="space-y-2 pl-6 list-disc marker:text-stone-400 mt-3 pt-3 border-t border-stone-200/60 text-xs sm:text-sm">
+                  <li>คุณสามารถยกเลิกการจองได้ฟรีก่อนถึงวันเข้าพักอย่างน้อย 7 วัน</li>
+                  <li>เวลาเช็คอิน 14:00 น. และเวลาเช็คเอาต์ ก่อน 12:00 น.</li>
+                  <li>ไม่อนุญาตให้นำสัตว์เลี้ยงเข้าพักเว้นแต่มีการตกลงล่วงหน้า</li>
+                  <li>โปรโมชั่นและส่วนลดไม่สามารถแลกเปลี่ยนเป็นเงินสดได้</li>
+                  <li>
+                    <span className="font-medium text-stone-700">นโยบายเด็กและเตียงเสริม:</span>{' '}
+                    {policy.infantAge > 0 ? `เด็ก 0–${policy.infantAge - 1} ปี พักฟรีโดยใช้เตียงเดิม · ` : ''}เด็ก {policy.infantAge}–{policy.childMaxAge} ปี สามารถใช้เตียงเดิมหรือเลือกเตียงเสริมได้ (ชำระหน้าเคาน์เตอร์) · อายุ 12 ปีขึ้นไปคิดราคาเท่าผู้ใหญ่
+                  </li>
+                </ul>
+              </details>
             </section>
-            
           </div>
           
-          {/* RIGHT: SUMMARY CARD */}
           <div className="lg:col-span-5 xl:col-span-4">
             <div className="bg-white rounded-3xl border border-stone-200/80 shadow-xl shadow-stone-200/40 overflow-hidden lg:sticky lg:top-[96px]">
-              
-              {/* Header */}
               <div className="bg-stone-50/50 border-b border-stone-100 p-5 sm:p-6">
                 <h2 className="text-lg font-extrabold text-forest-900">สรุปรายละเอียดการจอง</h2>
               </div>
               
               <div className="p-5 sm:p-6 space-y-6">
-                
-                {/* Dates strictly read-only */}
                 <div className="flex items-center gap-4 pb-5 border-b border-stone-100">
                   <div className="flex-1">
                     <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">เช็คอิน</p>
@@ -632,7 +631,6 @@ function BookingDetailsContent() {
                    <p className="text-xs text-stone-500 mt-1">จำนวนคืน: <span className="font-bold text-forest-900">{nights} คืน</span></p>
                 </div>
                 
-                {/* Rooms & Promos */}
                 <div className="space-y-4">
                   <h3 className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">ห้องพักที่เลือก</h3>
                   <PromoNotice notice={promoNotice} />
@@ -656,51 +654,453 @@ function BookingDetailsContent() {
                         </p>
                       </div>
                       
-                      {/* Promotion Selector per Type */}
                       {promotions.length > 0 && (() => {
-                        const promoOptions: { value: string | number; label: string; disabled?: boolean }[] = [
-                          { value: '', label: 'ไม่ใช้โปรโมชั่น' }
-                        ];
-                        promotions.forEach(p => {
-                          if (p.applies_to === 'kayak' || (p.room_type_id != null && p.room_type_id !== group.typeId)) return;
-                          const reasons = roomPromotionReasons(p, group.totalBasePrice, nights, group.typeId, group.rooms.length);
-                          const isDisabled = reasons.length > 0 || Object.entries(selectedPromos).some(([key, val]) => Number(key) !== group.typeId && val === p.id);
-                          promoOptions.push({
-                            value: p.id,
-                            label: `${p.name} (${roomPromotionLabel(p)})${reasons.length > 0 ? ` — ${reasons.join(' / ')}` : ''}`,
-                            disabled: isDisabled
-                          });
-                        });
+                        const availablePromos = promotions
+                          .filter(p => p.applies_to !== 'kayak' && (p.room_type_id == null || p.room_type_id === group.typeId))
+                          .filter(p => roomPromotionReasons(p, group.totalBasePrice, nights, group.typeId, group.rooms.length).length === 0);
+
+                        const ineligiblePromos = promotions
+                          .filter(p => p.applies_to !== 'kayak' && (p.room_type_id == null || p.room_type_id === group.typeId))
+                          .map(p => ({
+                            promo: p,
+                            reasons: roomPromotionReasons(p, group.totalBasePrice, nights, group.typeId, group.rooms.length)
+                          }))
+                          .filter(item => item.reasons.length > 0);
+
+                        const isOpen = activePromoDrawerTypeId === group.typeId || (activePromoDrawerTypeId as unknown) === true;
 
                         return (
-                          <div className="bg-stone-50 rounded-xl p-3 border border-stone-100">
-                            <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1.5 block">
-                              โปรโมชั่นสำหรับประเภทนี้
-                            </label>
-                            <CustomSelect
-                              size="sm"
-                              value={selectedPromos[group.typeId] || ''}
-                              onChange={val => handleSelectPromo(group.typeId, val ? Number(val) : null)}
-                              placeholder="ไม่ใช้โปรโมชั่น"
-                              options={promoOptions}
-                            />
-                            <p className="mt-2 text-xs text-charcoal-600">เลือกได้ 1 โปรโมชั่นต่อประเภทห้อง ระบบเลือกส่วนลดสูงสุดที่ใช้ได้ให้ก่อน คุณเปลี่ยนได้</p>
-                          {promotions.filter(p => p.applies_to !== 'kayak' && (p.room_type_id == null || p.room_type_id === group.typeId)).map(p => {
-                            const reasons = roomPromotionReasons(p, group.totalBasePrice, nights, group.typeId, group.rooms.length);
-                            return reasons.length > 0 ? <p key={p.id} className="mt-2 text-xs leading-relaxed text-charcoal-600"><strong>{p.name}:</strong> {reasons.join(' · ')}{p.is_collectible && !p.wallet_status && <a href="/promotions" target="_blank" rel="noopener noreferrer" className="ml-1 underline text-forest-700">ไปเก็บคูปอง</a>}</p> : null;
-                          })}
-                          {selectedPromo && Number(selectedPromo.boat_ticket_count) > 0 && <div className="mt-2 space-y-1 text-xs leading-relaxed text-charcoal-600">
-                            <p className="font-semibold text-forest-800">{`โปรโมชั่นนี้ให้สิทธิ์เรือ ${Number(selectedPromo.boat_ticket_count) * group.rooms.length} สิทธิ์ (${selectedPromo.boat_ticket_count} สิทธิ์/ห้อง)`}</p>
-                            <p>{selectedPromo.boat_addon_mode === 'paid' ? `มีค่าใช้จ่าย ฿${Number(selectedPromo.boat_addon_price ?? 0).toLocaleString()} ต่อเรือ 1 ลำ 1 รอบ คิดเมื่อจองและรวมในยอดค่าห้องพัก ต้องเลือกก่อนชำระค่าห้อง` : 'สิทธิ์เรือฟรี ไม่มีค่าเรือเพิ่ม'}</p>
-                            <p>1 สิทธิ์ = เรือ 1 ลำ 1 รอบ · จำนวนผู้โดยสารขึ้นอยู่กับความจุของประเภทเรือที่เลือก</p>
-                            <p>ใช้ได้ {formatThaiDate(checkIn)} – {formatThaiDate(checkOut)} รวมวันเช็คอินและวันเช็คเอาต์ ตามรอบเรือที่เปิดให้จอง</p>
-                            <p>หลังจองห้องพักแล้ว เลือกห้องและจองรอบเรือได้จากหน้าชำระเงินหรือการจองของฉัน</p>
-                          </div>}
-                          {discount > 0 && (
-                            <p className="text-xs font-bold text-forest-600 mt-2 flex items-center gap-1 text-right justify-end">
-                              <Tag size={12} /> ส่วนลด ฿{discount.toLocaleString()}
-                            </p>
-                          )}
+                          <div className="space-y-2 relative" data-promo-dropdown>
+                            <div className={`rounded-xl border transition-all ${
+                              isOpen
+                                ? 'border-forest-600 bg-forest-50/30 ring-1 ring-forest-600/30'
+                                : selectedPromo
+                                ? 'border-forest-200 bg-forest-50/20'
+                                : 'border-stone-200 bg-stone-50/70 hover:border-stone-300 hover:bg-stone-50'
+                            }`}>
+                              <button
+                                type="button"
+                                onClick={() => setActivePromoDrawerTypeId(isOpen ? null : group.typeId)}
+                                className="w-full flex items-center justify-between gap-2.5 p-3 text-left cursor-pointer focus:outline-hidden"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                                    selectedPromo ? 'bg-forest-800 text-white' : 'bg-stone-200 text-stone-600'
+                                  }`}>
+                                    <Tag size={13} />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">โปรโมชั่นส่วนลด</span>
+                                    {selectedPromo ? (
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-xs font-bold text-forest-900 truncate">{selectedPromo.name}</span>
+                                        {discount > 0 && (
+                                          <span className="text-[10px] font-bold text-forest-700 bg-forest-100 px-1.5 py-0.2 rounded">
+                                            -฿{discount.toLocaleString()}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-stone-600 font-medium">เลือกโปรโมชั่น</span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 text-xs font-semibold text-stone-500 shrink-0">
+                                  <span className="text-forest-800 font-bold hidden sm:inline">
+                                    {selectedPromo ? 'เปลี่ยน' : 'เลือก'}
+                                  </span>
+                                  <ChevronDown
+                                    size={15}
+                                    className={`transition-transform duration-200 text-stone-400 ${isOpen ? 'rotate-180 text-forest-800' : ''}`}
+                                  />
+                                </div>
+                              </button>
+                            </div>
+
+                            {selectedPromo && Number(selectedPromo.boat_ticket_count) > 0 && (
+                              <div className="sm:hidden space-y-1 text-xs leading-relaxed text-charcoal-600 bg-forest-50/50 p-2.5 rounded-xl border border-forest-100">
+                                <p className="font-semibold text-forest-800">{`โปรโมชั่นนี้ให้สิทธิ์เรือ ${Number(selectedPromo.boat_ticket_count) * group.rooms.length} สิทธิ์ (${selectedPromo.boat_ticket_count} สิทธิ์/ห้อง)`}</p>
+                                <p>{selectedPromo.boat_addon_mode === 'paid' ? `มีค่าใช้จ่าย ฿${Number(selectedPromo.boat_addon_price ?? 0).toLocaleString()} ต่อเรือ 1 ลำ 1 รอบ คิดเมื่อจองและรวมในยอดค่าห้องพัก ต้องเลือกก่อนชำระค่าห้อง` : 'สิทธิ์เรือฟรี ไม่มีค่าเรือเพิ่ม'}</p>
+                                <p>1 สิทธิ์ = เรือ 1 ลำ 1 รอบ · จำนวนผู้โดยสารขึ้นอยู่กับความจุของประเภทเรือที่เลือก</p>
+                                {(() => {
+                                  const boatValidFrom = checkIn && checkOut && nightsBetween(checkIn, checkOut) > 1 ? addDaysISO(checkIn, 1) : null;
+                                  const boatValidTo = checkIn && checkOut && nightsBetween(checkIn, checkOut) > 1 ? addDaysISO(checkOut, -1) : null;
+                                  return boatValidFrom && boatValidTo ? (
+                                    <p>ใช้ได้ {formatThaiDate(boatValidFrom)}{boatValidFrom !== boatValidTo ? ' – ' + formatThaiDate(boatValidTo) : ''} (เฉพาะวันระหว่างเข้าพัก ไม่รวมวันเช็คอินและวันเช็คเอาต์) ตามรอบเรือที่เปิดให้จอง</p>
+                                  ) : (
+                                    <p>(เฉพาะวันระหว่างเข้าพัก ไม่รวมวันเช็คอินและวันเช็คเอาต์ ตามรอบเรือที่เปิดให้จอง)</p>
+                                  );
+                                })()}
+                                <p>หลังจองห้องพักแล้ว เลือกห้องและจองรอบเรือได้จากหน้าชำระเงินหรือการจองของฉัน</p>
+                              </div>
+                            )}
+
+                            {discount > 0 && (
+                              <p className="text-xs font-bold text-forest-600 flex items-center gap-1 text-right justify-end">
+                                <Tag size={12} /> ส่วนลด ฿{discount.toLocaleString()}
+                              </p>
+                            )}
+
+                            {isOpen && (
+                              <>
+                                <div className="sm:hidden fixed inset-0 z-50 flex flex-col justify-end">
+                                  <div
+                                    onClick={() => setActivePromoDrawerTypeId(null)}
+                                    className="fixed inset-0 bg-stone-900/60 backdrop-blur-xs transition-opacity duration-200"
+                                  />
+
+                                  <div className="relative z-10 w-full max-h-[85vh] flex flex-col rounded-t-[28px] bg-cream-50 shadow-2xl border-t border-stone-200/80 animate-in slide-in-from-bottom duration-200 overflow-hidden">
+                                    <div className="pt-3 pb-1 flex justify-center cursor-pointer" onClick={() => setActivePromoDrawerTypeId(null)}>
+                                      <div className="h-1.5 w-12 rounded-full bg-stone-300" />
+                                    </div>
+
+                                    <div className="flex items-center justify-between border-b border-stone-100 bg-white px-5 py-3.5 shrink-0">
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-9 h-9 rounded-xl bg-forest-900 text-cream-100 flex items-center justify-center shadow-xs shrink-0">
+                                          <Ticket size={18} className="text-bamboo-300" />
+                                        </div>
+                                        <div>
+                                          <h3 className="font-pridi text-base font-bold text-forest-950 leading-tight">โปรโมชั่นรีสอร์ต</h3>
+                                          <p className="text-[11px] text-stone-500">สำหรับห้อง: <span className="font-semibold text-stone-700">{group.typeName}</span></p>
+                                        </div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setActivePromoDrawerTypeId(null)}
+                                        aria-label="ปิด"
+                                        className="grid h-7 w-7 place-items-center rounded-full bg-stone-100 text-stone-500 hover:bg-stone-200 hover:text-stone-800 transition-colors cursor-pointer"
+                                      >
+                                        <X size={15} />
+                                      </button>
+                                    </div>
+
+                                    <div className="p-3 bg-stone-50/80 border-b border-stone-100 shrink-0">
+                                      <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                          <Tag size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                                          <input
+                                            type="text"
+                                            value={manualCodeInput}
+                                            onChange={e => setManualCodeInput(e.target.value.toUpperCase())}
+                                            placeholder="กรอกชื่อโปรโมชั่น เช่น ROOMBOAT"
+                                            className="w-full rounded-xl border border-stone-200 bg-white pl-9 pr-3 py-2 text-xs font-bold text-forest-900 placeholder:text-stone-400 placeholder:font-normal focus:border-forest-600 focus:ring-1 focus:ring-forest-600 uppercase tracking-wider shadow-xs"
+                                          />
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const code = manualCodeInput.trim();
+                                            if (!code) return;
+                                            const found = promotions.find(p => p.code?.toUpperCase() === code);
+                                            if (found) {
+                                              const reasons = roomPromotionReasons(found, group.totalBasePrice, nights, group.typeId, group.rooms.length);
+                                              if (reasons.length > 0) {
+                                                toast.error(`ไม่สามารถใช้โปรโมชั่นนี้ได้: ${reasons.join(', ')}`);
+                                              } else {
+                                                handleSelectPromo(group.typeId, found.id);
+                                                toast.success(`ใช้โปรโมชั่น ${found.name} สำเร็จ!`);
+                                                setManualCodeInput('');
+                                              }
+                                            } else {
+                                              toast.error('ไม่พบโปรโมชั่นนี้ หรือข้อมูลไม่ถูกต้อง');
+                                            }
+                                          }}
+                                          className="rounded-xl bg-forest-900 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-forest-800 transition-all active:scale-95 cursor-pointer shrink-0"
+                                        >
+                                          ใช้โปรโมชั่น
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="p-4 space-y-3 overflow-y-auto flex-1 custom-scrollbar bg-stone-50/40">
+                                      <div className="space-y-2.5">
+                                        <div className="flex items-center justify-between px-1">
+                                          <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+                                            โปรโมชั่นที่สามารถใช้ได้
+                                          </p>
+                                          <span className="text-[11px] font-semibold text-forest-800 bg-forest-100/70 px-2 py-0.5 rounded-full">
+                                            {availablePromos.length} รายการ
+                                          </span>
+                                        </div>
+
+                                        {availablePromos.length === 0 ? (
+                                          <div className="rounded-2xl border border-dashed border-stone-200 bg-white p-5 text-center text-xs text-stone-400">
+                                            ยังไม่มีโปรโมชั่นที่ร่วมรายการสำหรับห้องนี้
+                                          </div>
+                                        ) : (
+                                          availablePromos.map(p => {
+                                            const isSelected = selectedPromos[group.typeId] === p.id;
+                                            const isUsedElsewhere = Object.entries(selectedPromos).some(([k, v]) => Number(k) !== group.typeId && v === p.id);
+                                            const pDiscount = p.discount_type === 'percent'
+                                              ? Math.min((group.totalBasePrice * Number(p.discount_value)) / 100, Number(p.max_discount ?? Infinity))
+                                              : Number(p.discount_value);
+
+                                            return (
+                                              <div
+                                                key={p.id}
+                                                onClick={() => {
+                                                  if (isUsedElsewhere) return;
+                                                  handleSelectPromo(group.typeId, isSelected ? null : p.id);
+                                                }}
+                                                className={`group relative flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                                                  isSelected
+                                                    ? 'border-forest-700 bg-forest-50/30 ring-2 ring-forest-700/20 shadow-xs'
+                                                    : isUsedElsewhere
+                                                    ? 'border-stone-200 bg-stone-50 opacity-40 cursor-not-allowed'
+                                                    : 'border-stone-200/90 bg-white hover:border-forest-300'
+                                                }`}
+                                              >
+                                                <div className="flex-1 space-y-1 min-w-0 pr-2">
+                                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <span className="font-bold text-xs text-forest-950">
+                                                      {p.name}
+                                                    </span>
+                                                    {p.code && (
+                                                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 border border-stone-200">
+                                                        {p.code}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  <p className="text-[11px] text-stone-500 leading-snug">
+                                                    {roomPromotionLabel(p)}
+                                                  </p>
+                                                  {pDiscount > 0 && (
+                                                    <p className="text-[11px] font-extrabold text-forest-700 flex items-center gap-1">
+                                                      <Sparkles size={11} className="text-amber-500" />
+                                                      ประหยัดทันที ฿{pDiscount.toLocaleString()}
+                                                    </p>
+                                                  )}
+                                                  {isUsedElsewhere && (
+                                                    <p className="text-[10px] text-amber-700 font-bold">ใช้กับห้องประเภทอื่นแล้ว</p>
+                                                  )}
+                                                </div>
+
+                                                <div className="shrink-0 pl-1">
+                                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                                                    isSelected
+                                                      ? 'border-forest-700 bg-forest-700 text-white shadow-xs'
+                                                      : 'border-stone-300 bg-white'
+                                                  }`}>
+                                                    {isSelected && <Check size={12} strokeWidth={3} />}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            );
+                                          })
+                                        )}
+                                      </div>
+
+                                      {ineligiblePromos.length > 0 && (
+                                        <div className="space-y-2 pt-3 border-t border-stone-200/60">
+                                          <div className="flex items-center justify-between px-1">
+                                            <p className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">
+                                              โปรโมชั่นที่ยังไม่เข้าเงื่อนไข ({ineligiblePromos.length})
+                                            </p>
+                                          </div>
+                                          {ineligiblePromos.map(({ promo: p, reasons }) => {
+                                            const isUncollected = p.is_collectible && !p.wallet_status;
+                                            const displayReasons = isUncollected
+                                              ? reasons.filter(r => r !== 'ต้องเก็บคูปองที่หน้าโปรโมชั่นก่อน')
+                                              : reasons;
+
+                                            return (
+                                              <button
+                                                key={p.id}
+                                                type="button"
+                                                disabled
+                                                className="w-full text-left p-3.5 rounded-2xl border border-stone-200/80 bg-white opacity-70 cursor-not-allowed space-y-1 block transition-all"
+                                              >
+                                                <div className="flex items-center justify-between gap-2">
+                                                  <span className="font-bold text-xs text-stone-800 truncate">{p.name}</span>
+                                                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${
+                                                    isUncollected
+                                                      ? 'bg-amber-50 text-amber-800 border border-amber-200/70'
+                                                      : 'bg-stone-100 text-stone-500'
+                                                  }`}>
+                                                    {isUncollected ? 'ยังไม่เก็บ' : 'ไม่เข้าเกณฑ์'}
+                                                  </span>
+                                                </div>
+                                                {displayReasons.length > 0 && (
+                                                  <p className="text-[11px] text-stone-500 leading-snug">{displayReasons.join(' · ')}</p>
+                                                )}
+                                                {isUncollected && (
+                                                  <a
+                                                    href="/promotions"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={e => e.stopPropagation()}
+                                                    className="inline-block text-[11px] font-bold text-forest-700 hover:text-forest-900 underline mt-0.5"
+                                                  >
+                                                    ไปเก็บโปรโมชั่น
+                                                  </a>
+                                                )}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="p-4 border-t border-stone-100 bg-white shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => setActivePromoDrawerTypeId(null)}
+                                        className="w-full rounded-2xl bg-forest-900 py-3.5 text-sm font-bold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800 active:scale-95 flex items-center justify-center cursor-pointer"
+                                      >
+                                        ตกลง
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="hidden sm:block static z-30 mt-1.5 max-h-96 rounded-2xl shadow-lg border border-stone-200 bg-white overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                                  <div className="p-2.5 bg-stone-50/80 border-b border-stone-100 flex gap-1.5">
+                                    <input
+                                      type="text"
+                                      value={manualCodeInput}
+                                      onChange={e => setManualCodeInput(e.target.value.toUpperCase())}
+                                      placeholder="กรอกชื่อโปรโมชั่น..."
+                                      className="flex-1 rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs font-bold text-forest-900 placeholder:text-stone-400 placeholder:font-normal focus:border-forest-600 focus:outline-hidden uppercase tracking-wider"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const code = manualCodeInput.trim();
+                                        if (!code) return;
+                                        const found = promotions.find(p => p.code?.toUpperCase() === code);
+                                        if (found) {
+                                          const reasons = roomPromotionReasons(found, group.totalBasePrice, nights, group.typeId, group.rooms.length);
+                                          if (reasons.length > 0) {
+                                            toast.error(`ไม่สามารถใช้โปรโมชั่นนี้ได้: ${reasons.join(', ')}`);
+                                          } else {
+                                            handleSelectPromo(group.typeId, found.id);
+                                            toast.success(`ใช้โปรโมชั่น ${found.name} สำเร็จ!`);
+                                            setManualCodeInput('');
+                                          }
+                                        } else {
+                                          toast.error('ไม่พบโปรโมชั่นนี้ หรือข้อมูลไม่ถูกต้อง');
+                                        }
+                                      }}
+                                      className="rounded-lg bg-forest-900 hover:bg-forest-800 text-white px-3.5 py-1.5 text-xs font-bold transition-all active:scale-95 cursor-pointer shrink-0"
+                                    >
+                                      ใช้โปรโมชั่น
+                                    </button>
+                                  </div>
+
+                                  <div className="p-2.5 space-y-2 overflow-y-auto max-h-64 custom-scrollbar">
+                                    {availablePromos.length === 0 ? (
+                                      <div className="p-3 text-center text-xs text-stone-400">
+                                        ไม่มีโปรโมชั่นที่ร่วมรายการสำหรับห้องนี้
+                                      </div>
+                                    ) : (
+                                      availablePromos.map(p => {
+                                        const isSelected = selectedPromos[group.typeId] === p.id;
+                                        const isUsedElsewhere = Object.entries(selectedPromos).some(([k, v]) => Number(k) !== group.typeId && v === p.id);
+                                        const pDiscount = p.discount_type === 'percent'
+                                          ? Math.min((group.totalBasePrice * Number(p.discount_value)) / 100, Number(p.max_discount ?? Infinity))
+                                          : Number(p.discount_value);
+
+                                        return (
+                                          <div
+                                            key={p.id}
+                                            onClick={() => {
+                                              if (isUsedElsewhere) return;
+                                              handleSelectPromo(group.typeId, isSelected ? null : p.id);
+                                            }}
+                                            className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2.5 ${
+                                              isSelected
+                                                ? 'border-forest-600 bg-forest-50/50 shadow-2xs'
+                                                : isUsedElsewhere
+                                                ? 'border-stone-200 bg-stone-50/60 opacity-40 cursor-not-allowed'
+                                                : 'border-stone-200/90 bg-white hover:border-forest-300 hover:bg-stone-50/50'
+                                            }`}
+                                          >
+                                            <div className="min-w-0 flex-1">
+                                              <div className="flex items-center gap-1.5 flex-wrap">
+                                                <span className="font-bold text-xs text-forest-950">{p.name}</span>
+                                                {p.code && (
+                                                  <span className="text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded bg-stone-100 text-stone-600 border border-stone-200">
+                                                    {p.code}
+                                                  </span>
+                                                )}
+                                                {pDiscount > 0 && (
+                                                  <span className="text-[10px] font-bold text-forest-700 bg-forest-100 px-1.5 py-0.2 rounded">
+                                                    ลด ฿{pDiscount.toLocaleString()}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <p className="text-[11px] text-stone-500 mt-0.5">{roomPromotionLabel(p)}</p>
+                                              {isUsedElsewhere && (
+                                                <p className="text-[10px] text-amber-700 font-semibold mt-0.5">ใช้กับห้องประเภทอื่นแล้ว</p>
+                                              )}
+                                            </div>
+
+                                            <div className="shrink-0">
+                                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
+                                                isSelected
+                                                  ? 'border-forest-700 bg-forest-700 text-white'
+                                                  : 'border-stone-300 bg-white'
+                                              }`}>
+                                                {isSelected && <Check size={10} strokeWidth={3} />}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })
+                                    )}
+
+                                    {ineligiblePromos.length > 0 && (
+                                      <div className="space-y-1.5 pt-2 border-t border-stone-100">
+                                          <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-1">
+                                            โปรโมชั่นที่ยังไม่เข้าเงื่อนไข ({ineligiblePromos.length})
+                                          </p>
+                                        {ineligiblePromos.map(({ promo: p, reasons }) => {
+                                          const isUncollected = p.is_collectible && !p.wallet_status;
+                                          const displayReasons = isUncollected
+                                            ? reasons.filter(r => r !== 'ต้องเก็บคูปองที่หน้าโปรโมชั่นก่อน')
+                                            : reasons;
+
+                                          return (
+                                            <button
+                                              key={p.id}
+                                              type="button"
+                                              disabled
+                                              className="w-full text-left p-2 rounded-xl border border-stone-200/70 bg-stone-50/60 opacity-50 cursor-not-allowed space-y-0.5 block"
+                                            >
+                                              <div className="flex items-center justify-between gap-2">
+                                                <span className="font-bold text-xs text-stone-600">{p.name}</span>
+                                                <span className={`text-[10px] font-medium px-1.5 py-0.2 rounded ${
+                                                  isUncollected
+                                                    ? 'bg-amber-50 text-amber-800 border border-amber-200/70'
+                                                    : 'bg-stone-200/60 text-stone-400'
+                                                }`}>
+                                                  {isUncollected ? 'ยังไม่เก็บ' : 'ไม่เข้าเกณฑ์'}
+                                                </span>
+                                              </div>
+                                              {displayReasons.length > 0 && (
+                                                <p className="text-[11px] text-stone-500">{displayReasons.join(' · ')}</p>
+                                              )}
+                                              {isUncollected && (
+                                                <a
+                                                  href="/promotions"
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  onClick={e => e.stopPropagation()}
+                                                  className="inline-block text-[11px] font-bold text-forest-700 hover:text-forest-900 underline mt-0.5"
+                                                >
+                                                  ไปเก็บโปรโมชั่น
+                                                </a>
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </>
+                            )}
                           </div>
                         );
                       })()}
@@ -708,8 +1108,19 @@ function BookingDetailsContent() {
                   )})}
                 </div>
 
-                <p className="mt-4 whitespace-pre-line text-xs text-charcoal-600">{policy.bookingPolicyText}</p>
-                {/* On-Site Extra Charges Notice Box (ชำระหน้าเคาน์เตอร์) */}
+                {childrenCount > 0 && (
+                  <div className="mt-4 rounded-2xl bg-stone-50 border border-stone-200/80 p-3.5 text-xs text-stone-700 space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-forest-900">
+                      <Users size={14} className="text-forest-700 shrink-0" />
+                      <span>ข้อมูลผู้เข้าพักเด็ก ({childrenCount} คน)</span>
+                    </div>
+                    <p className="text-[11px] text-stone-600 leading-relaxed">
+                      {policy.infantAge > 0 && `เด็กอายุต่ำกว่า ${policy.infantAge} ปี พักฟรีโดยใช้เตียงเดิม · `}
+                      เด็กอายุ {policy.infantAge}–{policy.childMaxAge} ปี สามารถใช้เตียงเดิม หรือเลือกขอเตียงเสริมรายคนได้ (ชำระหน้าเคาน์เตอร์)
+                    </p>
+                  </div>
+                )}
+
                 {hasOnsiteCharges && (
                   <div className="mt-5 rounded-2xl border border-amber-200/90 bg-amber-50/70 p-4 text-xs text-amber-950 space-y-2.5">
                     <div className="flex items-center gap-1.5 font-bold text-amber-900 text-sm">
@@ -762,7 +1173,6 @@ function BookingDetailsContent() {
                 )}
               </div>
               
-              {/* Footer Total */}
               <div className="bg-forest-900 text-white p-5 sm:p-6">
                 <div className="space-y-2 mb-6">
                   <div className="flex justify-between text-sm text-forest-200">
@@ -802,12 +1212,37 @@ function BookingDetailsContent() {
                   {isCapacityInsufficient ? `กรุณาเลือกห้องเพิ่ม (ขาดอีก ${missingCapacity} ท่าน)` : isSubmitting ? 'กำลังดำเนินการ...' : 'ดำเนินการชำระเงิน'} <ChevronRight size={16} />
                 </button>
               </div>
-              
             </div>
           </div>
-          
+        </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200/80 bg-white/95 px-5 py-3 shadow-[0_-10px_35px_rgba(18,60,48,0.12)] backdrop-blur-xl lg:hidden" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">ยอดโอนชำระออนไลน์</span>
+            <div className="flex items-baseline gap-1.5 leading-none">
+              <span className="font-sans text-xl font-extrabold tracking-tight text-forest-900">
+                ฿{netTotal.toLocaleString()}
+              </span>
+              {hasOnsiteCharges && (
+                <span className="text-[10px] text-amber-700 font-medium">
+                  +ชำระหน้าเคาน์เตอร์
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isSubmitting || isCapacityInsufficient}
+            className="shrink-0 rounded-2xl bg-forest-900 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-forest-900/20 transition-all hover:bg-forest-800 active:scale-95 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5"
+          >
+            {isCapacityInsufficient ? 'เลือกห้องเพิ่ม' : isSubmitting ? 'กำลังดำเนินการ...' : 'ดำเนินการชำระเงิน'}
+            {!isCapacityInsufficient && !isSubmitting && <ChevronRight size={15} />}
+          </button>
         </div>
       </div>
+    </div>
     </div>
   );
 }

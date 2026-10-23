@@ -8,7 +8,6 @@ import {
   formatPromoWindow,
   bookingPromoHref,
   parseAppliesTo,
-  appliesToLabel,
   canUseWalletPromotion,
   type CatalogPromo,
   type PromoAppliesTo,
@@ -34,6 +33,7 @@ interface PromoVoucherProps {
   footer: ReactNode;
 }
 
+// แสดงการ์ดคูปองโปรโมชั่นแบบพลิกดูเงื่อนไขด้านหลังได้
 export function PromoVoucher({
   code,
   name,
@@ -54,29 +54,27 @@ export function PromoVoucher({
   const [flipped, setFlipped] = useState(false);
 
   const scope = parseAppliesTo(appliesTo);
-  const scopeLabel = scope === 'kayak' ? 'โค้ดส่วนลดเรือยกเลิกแล้ว' : 'ห้องพัก';
+  const scopeLabel = scope === 'kayak' ? 'โปรโมชั่นเรือยกเลิกแล้ว' : 'ห้องพัก';
   const discountText = formatPromoDiscount(discountType, discountValue);
   const windowText = formatPromoWindow(startDate, endDate);
 
   return (
     <div
-      className={`relative transition-opacity ${muted ? 'opacity-60' : ''} h-full`}
+      className={`relative h-full transition-opacity ${muted ? 'opacity-60' : ''}`}
       style={{ perspective: '1200px' }}
     >
       <div
-        className="grid w-full h-full transition-transform duration-500"
+        className="grid h-full w-full transition-transform duration-500"
         style={{
           transformStyle: 'preserve-3d',
-          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
         }}
       >
-        {/* ──── FRONT ──── */}
         <div
-          className="overflow-hidden rounded-2xl border border-forest-100/60 bg-linear-to-br from-white to-forest-50/30 shadow-xs hover:shadow-md hover:border-forest-200 transition-all"
+          className="overflow-hidden rounded-2xl border border-forest-100/60 bg-linear-to-br from-white to-forest-50/30 shadow-xs transition-all hover:border-forest-200 hover:shadow-md"
           style={{ gridArea: '1/1', backfaceVisibility: 'hidden', minHeight: '160px' }}
         >
           <div className="flex h-full">
-            {/* Left: discount slab */}
             <div
               className={`flex w-24 shrink-0 flex-col items-center justify-center px-2 py-4 text-center sm:w-28 ${
                 discountType === 'percent' ? 'bg-forest-800' : 'bg-lagoon-800'
@@ -90,21 +88,19 @@ export function PromoVoucher({
                 {discountText}
               </p>
               {boatTicketCount && boatTicketCount > 0 ? (
-                <div className="mt-2 flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-0.5 backdrop-blur-xs shadow-xs">
+                <div className="mt-2 flex items-center gap-0.5 rounded-full bg-white/20 px-1.5 py-0.5 shadow-xs backdrop-blur-xs">
                   <Sailboat size={9} className="text-white/90" />
                   <span className="text-[9px] font-medium text-white">ฟรี ×{boatTicketCount}</span>
                 </div>
               ) : null}
             </div>
 
-            {/* Perforation */}
             <div className="relative w-3 shrink-0" aria-hidden>
               <span className="absolute -left-1.5 top-0 h-3 w-3 rounded-full bg-cream-100 shadow-inner" />
               <span className="absolute -left-1.5 bottom-0 h-3 w-3 rounded-full bg-cream-100 shadow-inner" />
               <span className="absolute bottom-3 left-1/2 top-3 w-px -translate-x-1/2 border-l border-dashed border-forest-200/50" />
             </div>
 
-            {/* Right body */}
             <div className="flex min-w-0 flex-1 flex-col justify-between p-3 sm:p-4">
               <div>
                 <div className="flex items-start justify-between gap-2">
@@ -127,26 +123,26 @@ export function PromoVoucher({
                     type="button"
                     onClick={() => setFlipped(true)}
                     title="ดูเงื่อนไข"
-                    className="shrink-0 rounded-lg p-1.5 text-stone-300 hover:bg-forest-50 hover:text-forest-600 transition-colors"
+                    className="shrink-0 rounded-lg p-1.5 text-stone-300 transition-colors hover:bg-forest-50 hover:text-forest-600"
                   >
                     <Info size={16} />
                   </button>
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-charcoal-400">
-                  <span className="flex items-center gap-1"><Tag size={10} />{scopeLabel}</span>
+                  <span className="flex items-center gap-1">
+                    <Tag size={10} />
+                    {scopeLabel}
+                  </span>
                   <span className="text-stone-300">·</span>
                   <span>{windowText}</span>
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {footer}
-              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">{footer}</div>
             </div>
           </div>
         </div>
 
-        {/* ──── BACK ──── */}
         <div
           className="overflow-hidden rounded-2xl border border-forest-100 bg-forest-800 shadow-md"
           style={{
@@ -158,12 +154,12 @@ export function PromoVoucher({
         >
           <div className="flex h-full flex-col justify-between p-4">
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="mb-3 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-widest text-cream-200/70">เงื่อนไขการใช้</p>
                 <button
                   type="button"
                   onClick={() => setFlipped(false)}
-                  className="rounded-full p-1 text-cream-200/60 hover:text-white hover:bg-white/10 transition-colors"
+                  className="rounded-full p-1 text-cream-200/60 transition-colors hover:bg-white/10 hover:text-white"
                 >
                   <RotateCcw size={14} />
                 </button>
@@ -198,7 +194,7 @@ export function PromoVoucher({
                 ) : null}
                 <li className="flex items-start gap-2 text-xs text-cream-100/70">
                   <Layers size={12} className="shrink-0 text-bamboo-300" />
-                  <span>{stackable ? 'ใช้ซ้อนกับโค้ดอื่นได้' : 'ไม่สามารถใช้ซ้อนกับโค้ดอื่น'}</span>
+                  <span>{stackable ? 'ใช้ซ้อนกับโปรโมชั่นอื่นได้' : 'ไม่สามารถใช้ซ้อนกับโปรโมชั่นอื่น'}</span>
                 </li>
               </ul>
             </div>
@@ -209,7 +205,6 @@ export function PromoVoucher({
   );
 }
 
-// ─── Booking links: only show kayak if applies_to is explicitly 'kayak' ───
 interface PromoBookingLinksProps {
   code: string;
   appliesTo?: PromoAppliesTo | string | null;
@@ -217,10 +212,11 @@ interface PromoBookingLinksProps {
   kayakLabel: string;
 }
 
+// แสดงปุ่มลิงก์ไปหน้าจองห้องพักหรือเรือพร้อมแนบโค้ดโปรโมชั่น
 export function PromoBookingLinks({ code, appliesTo, roomLabel, kayakLabel }: PromoBookingLinksProps): React.ReactElement {
   const scope = parseAppliesTo(appliesTo);
   const showRoom = scope === 'room' || scope === 'both';
-  const showKayak = false; // Kayak discounts are retired; room boat benefits remain available.
+  const showKayak = false;
   return (
     <>
       {showRoom ? (
@@ -237,7 +233,6 @@ export function PromoBookingLinks({ code, appliesTo, roomLabel, kayakLabel }: Pr
   );
 }
 
-// ─── Collect / CTA ───
 interface CollectButtonProps {
   code: string;
   loading: boolean;
@@ -251,6 +246,7 @@ interface CollectButtonProps {
   onLogin: () => void;
 }
 
+// แสดงปุ่มเก็บโปรโมชั่นหรือสถานะการใช้งานตามสิทธิ์ของผู้ใช้
 export function PromoCollectAction({
   code,
   loading,
@@ -263,11 +259,11 @@ export function PromoCollectAction({
   onCollect,
   onLogin,
 }: CollectButtonProps): React.ReactElement {
-  if (parseAppliesTo(appliesTo) === 'kayak') return <span className="text-xs text-stone-500">โค้ดส่วนลดเรือยกเลิกแล้ว</span>;
+  if (parseAppliesTo(appliesTo) === 'kayak') {
+    return <span className="text-xs text-stone-500">โปรโมชั่นเรือยกเลิกแล้ว</span>;
+  }
   if (!isCollectible) {
-    return (
-      <PromoBookingLinks code={code} appliesTo={appliesTo} roomLabel="จองห้องพัก" kayakLabel="จองเรือ" />
-    );
+    return <PromoBookingLinks code={code} appliesTo={appliesTo} roomLabel="จองห้องพัก" kayakLabel="จองเรือ" />;
   }
 
   if (canUseWalletPromotion(status, remaining)) {

@@ -74,6 +74,7 @@ const RANGE_PRESETS = [
 
 const PLUS_PRESETS = [12, 13, 16, 18];
 
+// ดึงตัวเลขราคาค่าบริการออกจากข้อความรายละเอียดนโยบาย
 function extractPriceFromDetail(detail: string): number | null {
   const priceMatch = detail.match(/(?:฿\s*(\d+(?:,\d{3})*(?:\.\d+)?)|(\d+(?:,\d{3})*(?:\.\d+)?)\s*(?:บาท|\.-|บ\.|\/คืน))/);
   if (priceMatch) {
@@ -83,20 +84,18 @@ function extractPriceFromDetail(detail: string): number | null {
   return null;
 }
 
+// แปลงข้อความนโยบายแต่ละบรรทัดเป็นโครงสร้างข้อมูลสำหรับแก้ไข
 function parseLine(line: string, index: number): ParsedItem {
   const parts = line.split(":");
   let title = parts[0]?.trim() || "";
   const detail = parts.slice(1).join(":").trim();
 
-  // If no colon at all
   if (parts.length === 1 && !detail) {
     title = line.trim();
   }
 
   const price = extractPriceFromDetail(detail);
 
-  // Detect mode
-  // 1. Range match: e.g. "เด็ก 0-5 ปี" or "0-5 ปี"
   const rangeMatch = title.match(/(?:เด็ก\s*)?(\d+)\s*(?:-|–|ถึง)\s*(\d+)\s*ปี/);
   if (rangeMatch) {
     const min = parseInt(rangeMatch[1], 10);
@@ -114,7 +113,6 @@ function parseLine(line: string, index: number): ParsedItem {
     };
   }
 
-  // 2. Plus match: e.g. "12 ปีขึ้นไป" or "เด็ก 12 ปีขึ้นไป"
   const plusMatch = title.match(/(\d+)\s*ปีขึ้นไป/);
   if (plusMatch) {
     const plus = parseInt(plusMatch[1], 10);
@@ -131,7 +129,6 @@ function parseLine(line: string, index: number): ParsedItem {
     };
   }
 
-  // 3. Custom title
   return {
     id: `item-${index}-${Date.now()}-${Math.random()}`,
     mode: "custom",
@@ -145,6 +142,7 @@ function parseLine(line: string, index: number): ParsedItem {
   };
 }
 
+// สร้างข้อความหัวข้อช่วงอายุตามโหมดที่เลือกของแต่ละรายการ
 function computeTitle(item: ParsedItem): string {
   if (item.mode === "range") {
     return `เด็ก ${item.minAge}-${item.maxAge} ปี`;
@@ -163,6 +161,7 @@ interface AgeDropdownSelectProps {
   className?: string;
 }
 
+// แสดงเมนูเลือกตัวเลขอายุแบบดรอปดาวน์
 function AgeDropdownSelect({
   value,
   options,
@@ -174,6 +173,7 @@ function AgeDropdownSelect({
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // ปิดดรอปดาวน์เลือกอายุเมื่อคลิกนอกพื้นที่
     const handleClickOutside = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setIsOpen(false);
@@ -233,6 +233,7 @@ function AgeDropdownSelect({
   );
 }
 
+// แสดงตัวแก้ไขข้อกำหนดเด็กและเตียงเสริมพร้อมปุ่มลัดและตัวอย่างการแสดงผล
 export default function KidsPolicyEditor({
   value,
   onChange,
@@ -243,7 +244,6 @@ export default function KidsPolicyEditor({
   const lastEmittedValue = useRef<string | null>(null);
 
   useEffect(() => {
-    // Preserve row keys and input focus when the parent echoes an in-progress edit.
     if (value === lastEmittedValue.current) return;
     if (!value || !value.trim()) {
       setItems([]);
@@ -254,6 +254,7 @@ export default function KidsPolicyEditor({
     setItems(lines.map((line, idx) => parseLine(line, idx)));
   }, [value]);
 
+  // แปลงรายการข้อกำหนดทั้งหมดเป็นข้อความรวมและส่งค่ากลับไปยังฟอร์มหลัก
   const serializeAndNotify = (newItems: ParsedItem[]) => {
     setItems(newItems);
     const text = newItems
@@ -270,6 +271,7 @@ export default function KidsPolicyEditor({
     onChange(text);
   };
 
+  // เพิ่มรายการข้อกำหนดเด็กและเตียงเสริมใหม่
   const handleAdd = () => {
     const newItem: ParsedItem = {
       id: `item-${Date.now()}-${Math.random()}`,
@@ -285,11 +287,13 @@ export default function KidsPolicyEditor({
     serializeAndNotify([...items, newItem]);
   };
 
+  // ลบรายการข้อกำหนดตามลำดับที่เลือก
   const handleRemove = (index: number) => {
     const updated = items.filter((_, i) => i !== index);
     serializeAndNotify(updated);
   };
 
+  // เปลี่ยนโหมดการระบุช่วงอายุของรายการที่เลือก
   const setItemMode = (index: number, mode: AgeMode) => {
     const updated = [...items];
     const item = { ...updated[index], mode };
@@ -298,6 +302,7 @@ export default function KidsPolicyEditor({
     serializeAndNotify(updated);
   };
 
+  // อัปเดตค่าอายุต่ำสุดและสูงสุดในโหมดช่วงอายุ
   const handleRangeChange = (index: number, minAge: number, maxAge: number) => {
     const updated = [...items];
     const item = { ...updated[index], minAge, maxAge, mode: "range" as const };
@@ -306,6 +311,7 @@ export default function KidsPolicyEditor({
     serializeAndNotify(updated);
   };
 
+  // อัปเดตค่าอายุขั้นต่ำในโหมดอายุขึ้นไป
   const handlePlusChange = (index: number, plusAge: number) => {
     const updated = [...items];
     const item = { ...updated[index], plusAge, mode: "plus" as const };
@@ -314,6 +320,7 @@ export default function KidsPolicyEditor({
     serializeAndNotify(updated);
   };
 
+  // อัปเดตข้อความหัวข้อที่ผู้ใช้พิมพ์กำหนดเอง
   const handleCustomTitleChange = (index: number, customTitle: string) => {
     const updated = [...items];
     const item = { ...updated[index], customTitle, mode: "custom" as const };
@@ -322,6 +329,7 @@ export default function KidsPolicyEditor({
     serializeAndNotify(updated);
   };
 
+  // อัปเดตรายละเอียดเงื่อนไขและดึงราคาค่าบริการอัตโนมัติ
   const handleDetailChange = (index: number, detail: string) => {
     const updated = [...items];
     const isFreeOrAdult = detail.includes("ฟรี") || detail.includes("ราคาผู้ใหญ่");
@@ -330,6 +338,7 @@ export default function KidsPolicyEditor({
     serializeAndNotify(updated);
   };
 
+  // นำค่าจากปุ่มตัวเลือกด่วนมาใส่ในรายละเอียดและราคาของรายการ
   const handleApplyPreset = (index: number, preset: QuickPreset) => {
     const updated = [...items];
     updated[index] = {
@@ -340,13 +349,13 @@ export default function KidsPolicyEditor({
     serializeAndNotify(updated);
   };
 
+  // อัปเดตราคาเตียงเสริมและปรับข้อความรายละเอียดให้สอดคล้องกัน
   const handlePriceChange = (index: number, rawPrice: string) => {
     const updated = [...items];
     const item = { ...updated[index] };
     const cleanNum = rawPrice.replace(/[^0-9]/g, "");
     if (!cleanNum) {
       item.price = null;
-      // If detail had price pattern, clean it up
       item.detail = item.detail.replace(/\s*\d+\s*บาท\/คืน/, "").trim();
       if (!item.detail) {
         item.detail = "คิดราคาเด็ก / เตียงเสริม (ชำระหน้าเคาน์เตอร์)";
@@ -411,7 +420,6 @@ export default function KidsPolicyEditor({
                 key={item.id}
                 className="rounded-2xl border border-cream-200/90 bg-white p-3.5 sm:p-4 shadow-2xs space-y-3 transition-all hover:border-cream-300"
               >
-                {/* Header: Badge with number and title + Delete */}
                 <div className="flex items-center justify-between pb-2 border-b border-cream-100">
                   <div className="flex items-center gap-2">
                     <span className="w-5 h-5 rounded-md bg-forest-800 text-white text-[11px] font-bold flex items-center justify-center">
@@ -435,13 +443,11 @@ export default function KidsPolicyEditor({
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
-                  {/* Left Column: Age Selector / Title (5 cols) */}
                   <div className="lg:col-span-5 space-y-2">
                     <span className="text-[11px] font-semibold text-charcoal-700 block">
                       ช่วงอายุ / หัวข้อ
                     </span>
 
-                    {/* Mode segmented control */}
                     <div className="flex rounded-xl bg-cream-100/70 p-1 gap-1 text-[11px] font-bold">
                       <button
                         type="button"
@@ -478,7 +484,6 @@ export default function KidsPolicyEditor({
                       </button>
                     </div>
 
-                    {/* Mode = Range */}
                     {item.mode === "range" && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -500,7 +505,6 @@ export default function KidsPolicyEditor({
                           />
                         </div>
 
-                        {/* Quick Presets */}
                         <div className="flex flex-wrap items-center gap-1">
                           <span className="text-[10px] text-charcoal-400">ปุ่มลัด:</span>
                           {RANGE_PRESETS.map((p) => {
@@ -527,7 +531,6 @@ export default function KidsPolicyEditor({
                       </div>
                     )}
 
-                    {/* Mode = Plus */}
                     {item.mode === "plus" && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -541,7 +544,6 @@ export default function KidsPolicyEditor({
                           </span>
                         </div>
 
-                        {/* Quick Presets */}
                         <div className="flex flex-wrap items-center gap-1">
                           <span className="text-[10px] text-charcoal-400">ปุ่มลัด:</span>
                           {PLUS_PRESETS.map((age) => {
@@ -565,7 +567,6 @@ export default function KidsPolicyEditor({
                       </div>
                     )}
 
-                    {/* Mode = Custom */}
                     {item.mode === "custom" && (
                       <div>
                         <input
@@ -581,7 +582,6 @@ export default function KidsPolicyEditor({
                     )}
                   </div>
 
-                  {/* Right Column: Detail & Suggestion chips (7 cols) */}
                   <div className="lg:col-span-7 space-y-2">
                     {(() => {
                       const isFree = item.detail.includes("ฟรี");
@@ -603,7 +603,6 @@ export default function KidsPolicyEditor({
                             )}
                           </div>
 
-                          {/* Dedicated Price Input Field - Only show when chargeable */}
                           {isChargeable && (
                             <div className="flex flex-wrap items-center gap-2 p-2 bg-cream-50/70 border border-cream-200/90 rounded-xl animate-in fade-in duration-150">
                               <span className="text-xs font-semibold text-charcoal-700 whitespace-nowrap">
@@ -641,7 +640,6 @@ export default function KidsPolicyEditor({
                       className="w-full px-3 py-2 bg-cream-50/70 focus:bg-white border border-cream-200 rounded-xl text-xs font-medium text-charcoal-800 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 transition-all shadow-2xs"
                     />
 
-                    {/* Suggestion Chips */}
                     <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                       <span className="text-[10px] font-semibold text-charcoal-400 flex items-center gap-1 mr-0.5">
                         <Sparkles size={11} className="text-forest-600" />
@@ -688,7 +686,6 @@ export default function KidsPolicyEditor({
         </div>
       )}
 
-      {/* Live Preview of formatted list */}
       {items.length > 0 && (
         <div className="rounded-xl bg-cream-50/60 border border-cream-200/80 p-3 space-y-1">
           <span className="text-[10px] font-bold text-forest-800 uppercase tracking-wide block">

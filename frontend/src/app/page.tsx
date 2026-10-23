@@ -13,6 +13,7 @@ import { maskReviewerName } from '@/lib/format';
 import { FacilityGroup, ROOM_SPECIFIC_FACILITY_CATEGORIES } from '@/lib/facilities';
 import Navbar from '@/components/layout/Navbar';
 import { getResortLocation, pickResortInfo } from '@/lib/resort-info';
+
 interface ResortInfo {
   name?: string;
   address?: string;
@@ -54,9 +55,7 @@ interface LandingStats {
   review_count: number;
 }
 
-/* ———————————————————————————————
-   Scroll-reveal hook (IntersectionObserver)
-   ——————————————————————————————— */
+// ตรวจจับการเลื่อนหน้าจอด้วย IntersectionObserver เพื่อเล่นแอนิเมชันแสดงองค์ประกอบ
 function useRevealOnScroll(...deps: unknown[]) {
   const containerRef = useRef<HTMLElement | null>(null);
 
@@ -91,11 +90,7 @@ function useRevealOnScroll(...deps: unknown[]) {
   return containerRef;
 }
 
-/* ———————————————————————————————
-   Wave divider — the one recurring motif that ties sections
-   back to the floating-house / water theme. Used sparingly,
-   only at the two structural transitions that need it.
-   ——————————————————————————————— */
+// เส้นคั่นลวดลายคลื่นน้ำสำหรับแบ่งส่วนเนื้อหาหน้าแรก
 function WaveDivider({
   className = "",
   flip = false,
@@ -122,9 +117,7 @@ function WaveDivider({
   );
 }
 
-/* ———————————————————————————————
-   Scroll Mouse Indicator
-   ——————————————————————————————— */
+// ปุ่มไอคอนเมาส์สำหรับเลื่อนลงไปยังส่วนถัดไปของหน้าแรก
 function ScrollMouseIndicator({ targetId }: { targetId: string }) {
   const [visible, setVisible] = useState(true);
 
@@ -136,6 +129,7 @@ function ScrollMouseIndicator({ targetId }: { targetId: string }) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // เลื่อนหน้าจอไปยังส่วนเป้าหมายอย่างนุ่มนวล
   const scrollToTarget = () => {
     const el = document.getElementById(targetId);
     if (el) el.scrollIntoView({ behavior: "smooth" });
@@ -163,44 +157,38 @@ function ScrollMouseIndicator({ targetId }: { targetId: string }) {
   );
 }
 
-/* ———————————————————————————————
-   Stats counter component
-   ——————————————————————————————— */
-
-
 const FACILITY_CATEGORY_ICONS: Record<string, React.ElementType> = {
   ConciergeBell,
   ShieldCheck,
   Languages,
 };
 
+// คืนค่าไอคอนประจำหมวดหมู่สิ่งอำนวยความสะดวกของรีสอร์ต
 function getFacilityCategoryIcon(iconName: string): React.ReactElement {
   const IconComponent = FACILITY_CATEGORY_ICONS[iconName] || Sparkles;
   return <IconComponent size={20} className="text-forest-800" />;
 }
 
+// จัดรูปแบบตัวเลขราคาเป็นสตริงตามรูปแบบภาษาไทย
 function formatPrice(value: number): string {
   return Number(value).toLocaleString("th-TH");
 }
 
+// แปลงชื่อผู้รีวิวให้เป็นรูปแบบปกปิดข้อมูลส่วนบุคคลบางส่วน
 function getReviewerName(review: LandingReview): string {
   return maskReviewerName(review.first_name, review.last_name);
 }
 
-/* ———————————————————————————————
-   River Ripple Background (For Rooms Section)
-   ——————————————————————————————— */
+// พื้นหลังลวดลายคลื่นน้ำวงกลมสำหรับตกแต่งส่วนแสดงห้องพัก
 function RippleBackground() {
   return (
     <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden mix-blend-multiply">
-      {/* Top Left Ripple */}
       <div 
         className="absolute w-[150vw] h-[150vw] md:w-screen md:h-[100vw] rounded-full left-[-30vw] top-[-30vw] md:left-[-10vw] md:top-[-20vw]"
         style={{
           background: 'repeating-radial-gradient(circle at center, transparent 0, transparent 45px, rgba(18, 60, 48, 0.03) 45px, rgba(18, 60, 48, 0.03) 46px)'
         }}
       />
-      {/* Bottom Right Ripple */}
       <div 
         className="absolute w-[150vw] h-[150vw] md:w-[120vw] md:h-[120vw] rounded-full right-[-50vw] bottom-[-20vw] md:right-[-20vw] md:bottom-[-40vw]"
         style={{
@@ -211,14 +199,11 @@ function RippleBackground() {
   );
 }
 
-/* ———————————————————————————————
-   Room card — Zig-Zag Editorial treatment (For exactly 2 rooms).
-   ——————————————————————————————— */
+// การ์ดแสดงห้องพักแบบสลับซ้าย-ขวาสำหรับกรณีมีห้องพักแนะนำ 2 ประเภท
 function EditorialRoomCard({ room, index }: { room: LandingRoomType, index: number }) {
   const isEven = index % 2 === 0;
   return (
     <Link href={`/rooms/${room.id}`} className="group flex flex-col md:flex-row items-center gap-6 md:gap-16 py-8 md:py-16 border-b border-stone-200/50 last:border-0">
-      {/* Image Side */}
       <div className={`w-full md:w-1/2 ${isEven ? 'md:order-1' : 'md:order-2'}`}>
         <div className="relative aspect-4/3 w-full rounded-2xl sm:rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_-15px_rgba(18,60,48,0.2)] transition-transform duration-700 group-hover:scale-[1.03]">
           {room.main_image ? (
@@ -235,7 +220,6 @@ function EditorialRoomCard({ room, index }: { room: LandingRoomType, index: numb
         </div>
       </div>
       
-      {/* Text Side */}
       <div className={`w-full md:w-1/2 ${isEven ? 'md:order-2' : 'md:order-1'} space-y-4 md:space-y-5 md:px-6`}>
          {room.type_name?.toLowerCase() !== room.room_name?.toLowerCase() && (
            <span className="text-xs sm:text-sm font-semibold tracking-wider text-bamboo-600 uppercase block">{room.type_name}</span>
@@ -268,16 +252,13 @@ function EditorialRoomCard({ room, index }: { room: LandingRoomType, index: numb
   );
 }
 
-/* ———————————————————————————————
-   Room card — Floating Glass treatment.
-   ——————————————————————————————— */
+// การ์ดแสดงห้องพักพร้อมกล่องข้อความโปร่งแสงซ้อนทับด้านล่าง
 function RoomCard({ room, large = false, className = "" }: { room: LandingRoomType; large?: boolean; className?: string }) {
   return (
     <Link
       href={`/rooms/${room.id}`}
       className={`group block relative pb-14 sm:pb-16 md:pb-20 ${className}`}
     >
-      {/* Image Container (Floating) */}
       <div className={`relative w-full rounded-2xl sm:rounded-[2.5rem] overflow-hidden shadow-[0_20px_60px_-15px_rgba(18,60,48,0.2)] transition-transform duration-700 group-hover:scale-[1.02] ${
         large ? "h-[300px] sm:h-[360px] md:h-[420px]" : "h-[220px] sm:h-[240px] md:h-[280px]"
       }`}>
@@ -296,7 +277,6 @@ function RoomCard({ room, large = false, className = "" }: { room: LandingRoomTy
         )}
       </div>
 
-      {/* Floating Glass Text Box (Overlap) */}
       <div className="absolute -bottom-2 left-2 right-2 sm:left-4 sm:right-4 md:-bottom-4 md:left-8 md:right-8 bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.05)] rounded-2xl md:rounded-4xl p-4 sm:p-6 md:p-8 transition-transform duration-700 group-hover:-translate-y-4">
         {room.type_name?.toLowerCase() !== room.room_name?.toLowerCase() && (
           <span className="text-xs font-semibold tracking-wider text-bamboo-600 uppercase mb-1 sm:mb-2 block">{room.type_name}</span>
@@ -336,9 +316,7 @@ function RoomCard({ room, large = false, className = "" }: { room: LandingRoomTy
   );
 }
 
-/* ———————————————————————————————
-   Review Gallery — Auto-scrolling and draggable, or static if <= 3 reviews
-   ——————————————————————————————— */
+// แกลเลอรีแสดงการ์ดรีวิวจากผู้เข้าพักพร้อมระบบเลื่อนอัตโนมัติ
 function ReviewGallery({ reviews }: { reviews: LandingReview[] }) {
   const galleryRef = useRef<HTMLDivElement>(null);
   const [isInteracting, setIsInteracting] = useState(false);
@@ -402,6 +380,7 @@ function ReviewGallery({ reviews }: { reviews: LandingReview[] }) {
     );
   }
 
+  // การ์ดแสดงรายละเอียดรีวิวแต่ละรายการ
   const ReviewCard = ({ review }: { review: LandingReview }) => (
     <div className="w-[280px] sm:w-[320px] md:w-[400px] bg-white border border-stone-200/60 rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-xs shrink-0 flex flex-col gap-4 text-left">
        <div className="flex gap-0.5" aria-label={`คะแนน ${review.rating} ดาว`}>
@@ -437,32 +416,26 @@ function ReviewGallery({ reviews }: { reviews: LandingReview[] }) {
     );
   }
 
-  // Ensure enough items to scroll infinitely on large screens
   const safeReviews = [...reviews, ...reviews, ...reviews];
 
   return (
     <div className="relative overflow-hidden group/gallery mt-8 py-4">
-      {/* Fade edges */}
       <div className="absolute left-0 top-0 bottom-12 w-16 md:w-48 bg-linear-to-r from-stone-50 to-transparent z-10 pointer-events-none" />
       <div className="absolute right-0 top-0 bottom-12 w-16 md:w-48 bg-linear-to-l from-stone-50 to-transparent z-10 pointer-events-none" />
       
-      {/* Scroll Container */}
       <div 
         ref={galleryRef}
         className="flex overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing"
         style={{ scrollBehavior: 'auto', msOverflowStyle: 'none', scrollbarWidth: 'none' }}
       >
-        {/* Set 1 */}
         <div className="flex gap-4 md:gap-6 px-4 md:px-6 shrink-0">
            {safeReviews.map((r, i) => <ReviewCard key={`set1-${i}`} review={r} />)}
         </div>
-        {/* Set 2 (Exact Duplicate) */}
         <div className="flex gap-4 md:gap-6 pr-4 md:pr-6 shrink-0">
            {safeReviews.map((r, i) => <ReviewCard key={`set2-${i}`} review={r} />)}
         </div>
       </div>
       
-      {/* Hint Below Gallery */}
       <div className={`mt-6 flex justify-center items-center gap-2 text-stone-400 transition-opacity duration-700 ${isInteracting ? 'opacity-0' : 'opacity-100'}`}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse">
           <path d="M17 8l4 4-4 4"></path>
@@ -496,9 +469,7 @@ function ReviewGallery({ reviews }: { reviews: LandingReview[] }) {
   );
 }
 
-/* ———————————————————————————————
-   Cover Flow Gallery — Apple Music / Card Stack style
-   ——————————————————————————————— */
+// แกลเลอรีรูปภาพบรรยากาศรีสอร์ตแบบซ้อนการ์ดเรียงซ้าย-ขวา
 function CoverFlowGallery() {
   const images = [
     '/images/boat.jpg',
@@ -513,17 +484,20 @@ function CoverFlowGallery() {
   const [startX, setStartX] = useState<number | null>(null);
   const [isHovered, setIsHovered] = useState(false);
 
+  // เลื่อนไปยังรูปถัดไปในแกลเลอรี
   const next = () => setActiveIndex((p) => (p + 1) % images.length);
+  // เลื่อนกลับไปยังรูปก่อนหน้าในแกลเลอรี
   const prev = () => setActiveIndex((p) => (p - 1 + images.length) % images.length);
 
-  // Auto-scroll effect
   useEffect(() => {
     if (isHovered || startX !== null) return;
-    const interval = setInterval(next, 3500); // Change image every 3.5s
+    const interval = setInterval(next, 3500);
     return () => clearInterval(interval);
   }, [isHovered, startX]);
 
+  // บันทึกตำแหน่งเริ่มต้นเมื่อแตะหน้าจอ
   const handleTouchStart = (e: React.TouchEvent) => setStartX(e.touches[0].clientX);
+  // คำนวณระยะการปัดหน้าจอเพื่อเปลี่ยนรูปภาพ
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (startX === null) return;
     const diff = startX - e.changedTouches[0].clientX;
@@ -532,7 +506,9 @@ function CoverFlowGallery() {
     setStartX(null);
   };
   
+  // บันทึกตำแหน่งเริ่มต้นเมื่อคลิกเมาส์ค้าง
   const handleMouseDown = (e: React.MouseEvent) => setStartX(e.clientX);
+  // คำนวณระยะการลากเมาส์เพื่อเปลี่ยนรูปภาพ
   const handleMouseUp = (e: React.MouseEvent) => {
     if (startX === null) return;
     const diff = startX - e.clientX;
@@ -562,7 +538,6 @@ function CoverFlowGallery() {
         >
           {images.map((src, i) => {
           let offset = i - activeIndex;
-          // Handle circular array indexing so cards loop
           const half = Math.floor(images.length / 2);
           if (offset > half) offset -= images.length;
           if (offset < -half) offset += images.length;
@@ -570,10 +545,9 @@ function CoverFlowGallery() {
           const isCenter = offset === 0;
           const absOffset = Math.abs(offset);
           
-          // Math for smooth 3D-like stacking
           const scale = isCenter ? 1 : Math.max(0.7, 1 - absOffset * 0.15);
-          const translateX = offset * 65; // percentage shift
-          const zIndex = 20 - absOffset; // Use 20 instead of 50 to avoid overlapping the z-50 Navbar
+          const translateX = offset * 65;
+          const zIndex = 20 - absOffset;
           const opacity = absOffset > 2 ? 0 : isCenter ? 1 : 0.8;
           const blur = isCenter ? '0px' : '6px';
 
@@ -603,7 +577,6 @@ function CoverFlowGallery() {
         </div>
       </div>
       
-      {/* Hint */}
       <div className="mt-2 flex justify-center items-center gap-2 text-stone-400">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse">
           <path d="M17 8l4 4-4 4"></path>
@@ -616,9 +589,7 @@ function CoverFlowGallery() {
   );
 }
 
-/* ═══════════════════════════════
-   MAIN HOME PAGE
-   ═══════════════════════════════ */
+// หน้าแรกของเว็บไซต์ แสดงภาพรวมรีสอร์ต ห้องพักแนะนำ สิ่งอำนวยความสะดวก รีวิว และแผนที่ตั้ง
 export default function HomePage() {
   const mapTitleId = useId();
   const [resortInfo, setResortInfo] = useState<ResortInfo>({});
@@ -660,7 +631,6 @@ export default function HomePage() {
         setRoomTypes(roomsRes.value.data?.data || []);
       setLoadingRooms(false);
 
-      // หมวดที่ไม่ใช่ของเจาะจงห้องพัก (อินเทอร์เน็ต/สิ่งอำนวยความสะดวกในห้อง ไปโชว์ที่หน้าห้องแทน) — ที่นี่โชว์แค่หมวดรวมของรีสอร์ท
       if (facilitiesRes.status === "fulfilled") {
         const all: FacilityGroup[] = Array.isArray(facilitiesRes.value.data?.data?.facilities)
           ? facilitiesRes.value.data.data.facilities
@@ -717,16 +687,10 @@ export default function HomePage() {
 
   return (
     <div className="bg-cream-100 text-charcoal min-h-screen overflow-x-hidden">
-      {/* ═══════════════════════════════
-          1. HERO SECTION
-          ═══════════════════════════════ */}
       <section className="relative min-h-[85vh] lg:min-h-[90vh] flex flex-col justify-center pt-24 pb-12 sm:pt-28 sm:pb-16 lg:pt-32 lg:pb-24 overflow-hidden bg-cream-100">
         <div className="relative container mx-auto px-4 z-10 w-full">
           <div className="grid lg:grid-cols-12 gap-8 lg:gap-8 items-center">
-            
-            {/* Left: Floating text content */}
             <div className="lg:col-span-6 flex flex-col items-center lg:items-start text-center lg:text-left z-20">
-              
               <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-bold leading-[1.2] sm:leading-[1.15] tracking-tight mb-4 sm:mb-6">
                 {resortInfo.name && resortInfo.name !== 'สวนวลัยรุกขเวช' ? (
                   <span className="inline-block animate-reveal-up opacity-0 bg-clip-text text-transparent bg-linear-to-br from-forest-950 via-forest-800 to-bamboo-800" style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}>
@@ -781,12 +745,10 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Right: Playful Bento Cluster */}
             <div 
               className="lg:col-span-6 relative w-full h-[250px] sm:h-[420px] lg:h-[520px] animate-reveal-up mt-2 sm:mt-8 lg:mt-0" 
               style={{ animationDelay: '400ms' }}
             >
-              {/* Main Hero Image */}
               <div className="absolute inset-0 sm:inset-auto sm:right-0 sm:top-1/2 sm:-translate-y-1/2 w-full sm:w-[85%] h-full md:h-[90%] rounded-2xl sm:rounded-[2.5rem] md:rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(18,60,48,0.15)] z-10 group">
                 <img 
                   src="/images/boat.jpg"
@@ -795,7 +757,6 @@ export default function HomePage() {
                 />
               </div>
 
-              {/* Floating Accents */}
               <div className="absolute left-0 sm:left-2 top-[6%] md:top-[8%] w-[44%] sm:w-[36%] h-[44%] sm:h-[40%] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-forest-900/20 z-20 border-4 md:border-[6px] border-cream-100 hidden sm:block -rotate-3 group hover:rotate-0 transition-all duration-500 hover:scale-105 cursor-pointer origin-bottom-right">
                 <img 
                   src="/images/room-interior.jpg"
@@ -818,11 +779,7 @@ export default function HomePage() {
         <ScrollMouseIndicator targetId="gallery-section" />
       </section>
 
-      {/* ═══════════════════════════════
-          2. GALLERY 
-          ═══════════════════════════════ */}
       <section id="gallery-section" className="pt-20 pb-16 md:pt-32 md:pb-32 overflow-hidden relative bg-cream-100">
-        {/* Decorative Topographic / Ripple Pattern matching the Vibe */}
         <div className="absolute inset-0 pointer-events-none z-0 mix-blend-multiply overflow-hidden">
           <div 
             className="absolute w-[150vw] h-[150vw] md:w-screen md:h-[100vw] rounded-full left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
@@ -845,15 +802,12 @@ export default function HomePage() {
           </h2>
         </div>
 
-        {/* Gallery */}
         <div className="relative z-10 mb-16 md:mb-24">
           <CoverFlowGallery />
         </div>
 
-        {/* Features: editorial layout matching Facilities section */}
         <article className="container mx-auto px-4 md:px-6 relative z-10" ref={experienceRef}>
           <div className="grid lg:grid-cols-12 gap-8 lg:gap-16 items-start">
-            {/* Left: sticky label + heading */}
             <div className="lg:col-span-4 lg:sticky lg:top-32">
               <p className="text-forest-700 font-medium text-xs sm:text-sm tracking-widest uppercase mb-2 sm:mb-3">Why Walai</p>
               <h2 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold text-forest-800 leading-tight">
@@ -864,7 +818,6 @@ export default function HomePage() {
               </p>
             </div>
 
-            {/* Right: feature rows */}
             <div className="lg:col-span-8 flex flex-col">
               {features.map((item, idx) => (
                 <div 
@@ -889,9 +842,6 @@ export default function HomePage() {
         </article>
       </section>
 
-      {/* ═══════════════════════════════
-          3. ROOM TYPES SECTION
-          ═══════════════════════════════ */}
       <section className="pt-8 pb-24 relative overflow-hidden bg-cream-50/50" ref={roomsRef}>
         <RippleBackground />
         
@@ -923,21 +873,18 @@ export default function HomePage() {
               'lg:grid-cols-5'
             }`}>
               {roomTypes.length === 2 ? (
-                // 2 rooms: Zig-Zag Editorial layout
                 <div className="flex flex-col">
                   {roomTypes.map((room, index) => (
                     <EditorialRoomCard key={room.id} room={room} index={index} />
                   ))}
                 </div>
               ) : roomTypes.length === 1 ? (
-                // 1 room: Full width Floating Glass
                 roomTypes.map((room) => (
                   <div key={room.id} className="w-full">
                     <RoomCard room={room} large className="md:h-[520px]!" />
                   </div>
                 ))
               ) : (
-                // 3 or more rooms: Magazine asymmetric layout
                 <>
                   {featured && (
                     <div className="lg:col-span-3">
@@ -958,9 +905,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══════════════════════════════
-          5.5 FACILITIES SECTION (Resort-wide services)
-          ═══════════════════════════════ */}
       {facilities.length > 0 && (
         <section className="py-24 bg-white border-t border-stone-200">
           <div className="container mx-auto px-4 md:px-6">
@@ -1008,11 +952,7 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* ═══════════════════════════════
-          5. TESTIMONIALS / REVIEWS SECTION
-          ═══════════════════════════════ */}
       <section id="testimonials-section" className="min-h-[80vh] md:min-h-screen flex flex-col justify-center py-16 md:py-24 relative overflow-hidden" ref={testimonialsRef}>
-        {/* Pastel Blurred Background Orbs */}
         <div className="absolute top-10 left-1/4 w-96 h-96 bg-bamboo-200/40 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 animate-blob pointer-events-none" />
         <div className="absolute top-10 right-1/4 w-96 h-96 bg-lagoon-200/40 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 animate-blob animation-delay-2000 pointer-events-none" />
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-96 h-96 bg-cream-300/40 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 animate-blob animation-delay-4000 pointer-events-none" />
@@ -1030,9 +970,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══════════════════════════════
-          6. LOCATION & MAP SECTION
-          ═══════════════════════════════ */}
       <section className="bg-stone-50" ref={locationRef}>
         <WaveDivider className="text-cream-100" />
         <div className="container mx-auto px-4 md:px-6 py-16">
@@ -1098,10 +1035,6 @@ export default function HomePage() {
         </div>
       </section>
 
-
-      {/* ═══════════════════════════════
-          7. FINAL CTA
-          ═══════════════════════════════ */}
       <section className="relative bg-forest-800 text-cream-100" ref={ctaRef}>
         <WaveDivider className="text-stone-50 -mb-px" flip />
         <div className="container mx-auto px-4 py-20 md:py-28 text-center">

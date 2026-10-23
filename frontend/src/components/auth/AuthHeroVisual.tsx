@@ -47,6 +47,7 @@ interface AuthHeroVisualProps {
   subheadingOverride?: string;
 }
 
+// แสดงภาพสไลด์บรรยากาศรีสอร์ทพร้อมข้อความต้อนรับในหน้าเข้าสู่ระบบและสมัครสมาชิก
 export default function AuthHeroVisual({
   mode = "login",
   headingOverride,
@@ -55,7 +56,6 @@ export default function AuthHeroVisual({
   const [activeIdx, setActiveIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Auto cycle images every 6.5 seconds when not paused
   useEffect(() => {
     if (isPaused) return;
 
@@ -65,8 +65,6 @@ export default function AuthHeroVisual({
 
     return () => clearInterval(timer);
   }, [isPaused]);
-
-  const currentScene = HERO_SCENES[activeIdx];
 
   const defaultHeading =
     mode === "login" ? (
@@ -95,7 +93,6 @@ export default function AuthHeroVisual({
       onMouseLeave={() => setIsPaused(false)}
       aria-label="ทัศนียภาพวลัยรุกขเวช"
     >
-      {/* Background Images with Crossfade & Ambient Zoom */}
       <div className="absolute inset-0 z-0">
         {HERO_SCENES.map((scene, index) => {
           const isActive = index === activeIdx;
@@ -126,18 +123,11 @@ export default function AuthHeroVisual({
           );
         })}
 
-        {/* Sophisticated Natural Overlays */}
-        {/* Top vignette for back button & badge clarity */}
         <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-forest-950/80 via-forest-950/30 to-transparent" />
-
-        {/* Bottom rich botanical gradient for typography contrast */}
         <div className="absolute inset-x-0 bottom-0 h-[65%] bg-gradient-to-t from-forest-950/95 via-forest-900/65 to-transparent" />
-
-        {/* Soft emerald tint for brand cohesion */}
         <div className="absolute inset-0 bg-forest-900/15 mix-blend-multiply" />
       </div>
 
-      {/* Top Header Bar inside Visual */}
       <div className="relative z-20 flex items-center justify-between p-5 sm:p-7 lg:p-8">
         <Link
           href="/"
@@ -148,15 +138,12 @@ export default function AuthHeroVisual({
         </Link>
       </div>
 
-      {/* Bottom Content Area */}
       <div className="relative z-20 px-6 pb-6 pt-12 sm:px-9 sm:pb-8 lg:px-12 lg:pb-10">
-        {/* Resort Brand Tagline */}
         <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-bamboo-300">
           <span className="h-px w-8 bg-bamboo-400" />
           <span>Walai Booking</span>
         </div>
 
-        {/* Editorial Heading */}
         <h1 className="max-w-xl text-3xl font-semibold leading-[1.2] text-cream-100 sm:text-4xl lg:text-5xl">
           {headingOverride || defaultHeading}
         </h1>
@@ -165,7 +152,6 @@ export default function AuthHeroVisual({
           {subheadingOverride || defaultSubheading}
         </p>
 
-        {/* Interactive Scene Switcher Cards / Tabs */}
         <div className="mt-6 flex flex-wrap items-center gap-2 pt-2 sm:gap-2.5">
           {HERO_SCENES.map((scene, idx) => {
             const isSelected = idx === activeIdx;
@@ -206,7 +192,6 @@ export default function AuthHeroVisual({
           })}
         </div>
 
-        {/* Slide Progress Indicator Bar */}
         <div className="mt-4 flex items-center gap-1.5" aria-hidden="true">
           {HERO_SCENES.map((_, idx) => (
             <span

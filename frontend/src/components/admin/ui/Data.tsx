@@ -17,7 +17,7 @@ interface DataTableProps<T> {
   empty?: ReactNode;
 }
 
-/** ตารางมาตรฐาน: หัวตารางเล็กสีเทา แถวแบ่งด้วยเส้นบาง ไม่มีขอบหนัก */
+// แสดงตารางข้อมูลมาตรฐานพร้อมจัดการกรณีไม่มีข้อมูล
 export function DataTable<T>({ columns, rows, rowKey, empty }: DataTableProps<T>): React.ReactElement {
   if (rows.length === 0 && empty) return <>{empty}</>;
   return (
@@ -57,6 +57,7 @@ interface FormFieldProps {
   children: ReactNode;
 }
 
+// แสดงกลุ่มฟิลด์ในฟอร์มพร้อมป้ายชื่อ คำแนะนำ และข้อความแจ้งข้อผิดพลาด
 export function FormField({ label, htmlFor, hint, error, required, children }: FormFieldProps): React.ReactElement {
   return (
     <div className="space-y-1.5">
@@ -84,9 +85,19 @@ interface ModalProps {
   overflowClass?: string;
 }
 
-export function Modal({ open, title, onClose, children, footer, widthClass = "max-w-lg", overflowClass = "overflow-y-auto" }: ModalProps): React.ReactElement | null {
+// แสดงหน้าต่างโมดอลมาตรฐานที่รองรับการกดปุ่ม Escape เพื่อปิด
+export function Modal({
+  open,
+  title,
+  onClose,
+  children,
+  footer,
+  widthClass = "max-w-lg",
+  overflowClass = "overflow-y-auto",
+}: ModalProps): React.ReactElement | null {
   useEffect(() => {
     if (!open) return;
+    // ปิดโมดอลเมื่อผู้ใช้กดปุ่ม Escape
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Escape") onClose();
     };
@@ -98,11 +109,21 @@ export function Modal({ open, title, onClose, children, footer, widthClass = "ma
   return (
     <div className="fixed inset-0 z-9999 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-label={title || "หน้าต่างแจ้งเตือน"} className={`relative max-h-[90vh] w-full ${overflowClass} rounded-3xl bg-white shadow-2xl border border-cream-200 animate-in zoom-in-95 fade-in duration-200 ${widthClass}`}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || "หน้าต่างแจ้งเตือน"}
+        className={`relative max-h-[90vh] w-full ${overflowClass} rounded-3xl bg-white shadow-2xl border border-cream-200 animate-in zoom-in-95 fade-in duration-200 ${widthClass}`}
+      >
         {title && (
           <div className="flex items-center justify-between border-b border-cream-200 bg-cream-50/50 px-6 py-4">
             <h3 className="font-display text-base font-bold text-forest-900">{title}</h3>
-            <button type="button" onClick={onClose} aria-label="ปิด" className="rounded-xl p-1.5 text-charcoal-400 hover:text-charcoal-700 hover:bg-cream-100 transition-all cursor-pointer">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="ปิด"
+              className="rounded-xl p-1.5 text-charcoal-400 hover:text-charcoal-700 hover:bg-cream-100 transition-all cursor-pointer"
+            >
               <X size={16} />
             </button>
           </div>

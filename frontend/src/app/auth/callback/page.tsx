@@ -5,10 +5,10 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { clearAuthToken, useAuth } from '@/hooks/useAuth';
 import api from '@/lib/api';
-import { consumePostLoginRedirect } from '@/lib/auth-redirect';
 import toast from 'react-hot-toast';
 import { LoaderCircle, Waves } from 'lucide-react';
 
+// ตรวจสอบและรับโทเค็นจากการเข้าสู่ระบบด้วย Google OAuth
 function CallbackContent(): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -27,7 +27,7 @@ function CallbackContent(): React.ReactElement {
     if (token) {
       login(token).then(() => {
         toast.success('เข้าสู่ระบบสำเร็จ!');
-        router.push(consumePostLoginRedirect() ?? '/');
+        router.push('/');
       }).catch(() => {
         clearAuthToken();
         toast.error('เกิดข้อผิดพลาด กรุณาลองใหม่');
@@ -52,6 +52,7 @@ function CallbackContent(): React.ReactElement {
   );
 }
 
+// หน้าจัดการ Callback หลังยืนยันตัวตนผ่านผู้ให้บริการภายนอก
 export default function CallbackPage(): React.ReactElement {
   return (
     <Suspense fallback={<div className="grid min-h-screen place-items-center bg-cream-200"><div className="h-10 w-10 animate-spin rounded-full border-2 border-forest-800 border-t-transparent" /></div>}>

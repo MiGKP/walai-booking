@@ -1,6 +1,6 @@
 'use client';
 
-import { getNewPasswordError, PASSWORD_HINT } from '@/lib/password-policy';
+import { getNewPasswordError, getPasswordStrength, PASSWORD_HINT } from '@/lib/password-policy';
 import { useState, useRef } from 'react';
 import type { FormEvent } from 'react';
 import Link from 'next/link';
@@ -35,10 +35,10 @@ import AuthHeroVisual from '@/components/auth/AuthHeroVisual';
 
 const MIN_PASSWORD_LENGTH = 8;
 
+// หน้าสมัครสมาชิกใหม่สำหรับลูกค้า
 export default function RegisterPage(): React.ReactElement | null {
   const router = useRouter();
   const { login } = useAuth();
-  // skipRedirect กันไม่ให้ guard แย่ง redirect ตอน isAuthenticated เพิ่งเปลี่ยนเป็น true จากสมัครสมาชิกสำเร็จ
   const [isRedirecting, setIsRedirecting] = useState(false);
   const { ready } = useAuthGuard({ guestOnly: true, skipRedirect: isRedirecting });
   const [form, setForm] = useState({
@@ -60,10 +60,12 @@ export default function RegisterPage(): React.ReactElement | null {
 
   if (!ready) return null;
 
+  // อัปเดตค่าข้อมูลในฟอร์มตามชื่อฟิลด์
   const updateField = (field: keyof typeof form, value: string): void => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  // ตรวจสอบและแสดงตัวอย่างรูปโปรไฟล์ที่ผู้ใช้เลือก
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -85,6 +87,7 @@ export default function RegisterPage(): React.ReactElement | null {
     setAvatarPreview(URL.createObjectURL(file));
   };
 
+  // ลบรูปโปรไฟล์ที่เลือกไว้และล้างค่าใน input
   const handleRemoveAvatar = (): void => {
     setAvatarFile(null);
     if (avatarPreview) {
@@ -96,10 +99,17 @@ export default function RegisterPage(): React.ReactElement | null {
     }
   };
 
+  // ตรวจสอบความถูกต้องของข้อมูลและส่งคำขอสมัครสมาชิก
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>
   ): Promise<void> => {
     event.preventDefault();
+
+    const cleanPhone = form.phone.trim().replace(/[\s-]/g, '');
+    if (cleanPhone && !/^0\d{8,9}$/.test(cleanPhone)) {
+      toast.error('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (9–10 หลัก)');
+      return;
+    }
 
     const passwordError = getNewPasswordError(form.password);
     if (passwordError) {
@@ -117,9 +127,9 @@ export default function RegisterPage(): React.ReactElement | null {
       const formData = new FormData();
       formData.append('first_name', form.first_name);
       formData.append('last_name', form.last_name);
-      formData.append('email', form.email);
+      formData.append('email', form.email.trim().toLowerCase());
       formData.append('password', form.password);
-      if (form.phone) formData.append('phone', form.phone);
+      if (cleanPhone) formData.append('phone', cleanPhone);
       if (form.line_id) formData.append('line_id', form.line_id);
       if (form.facebook) formData.append('facebook', form.facebook);
       if (avatarFile) formData.append('avatar', avatarFile);
@@ -138,16 +148,13 @@ export default function RegisterPage(): React.ReactElement | null {
     }
   };
 
+  // เปลี่ยนเส้นทางไปยังหน้าสมัครสมาชิกด้วยบัญชี Google
   const handleGoogleRegister = (): void => {
     window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
   };
 
   return (
     <div className="min-h-screen bg-stone-100 p-3 sm:p-5 lg:p-6">
-      {/*
-        บนจอ lg ตรึงความสูงกริดไว้เท่าหน้าจอ แล้วให้เฉพาะคอลัมน์ฟอร์มเลื่อนเอง
-        ภาพบรรยากาศจึงอยู่นิ่งเต็มพาเนลแม้ฟอร์มสมัครจะยาวกว่าหน้าจอ
-      */}
       <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] w-full max-w-[1500px] overflow-hidden rounded-[28px] border border-stone-200 bg-cream-100 shadow-[0_28px_90px_rgba(18,60,48,0.14)] sm:min-h-[calc(100vh-2.5rem)] lg:h-[calc(100vh-3rem)] lg:min-h-0 lg:grid-cols-[1.12fr_0.88fr] lg:rounded-[36px]">
         <AuthHeroVisual mode="register" />
 
@@ -186,7 +193,6 @@ export default function RegisterPage(): React.ReactElement | null {
                 className="space-y-5"
                 aria-busy={loading}
               >
-                {/* อัปโหลดรูปโปรไฟล์ */}
                 <div className="flex flex-col items-center justify-center pb-2">
                   <div className="relative group">
                     <div className="relative h-24 w-24 overflow-hidden rounded-full border-2 border-forest-200/80 bg-cream-50 shadow-sm ring-4 ring-forest-800/5 transition-all group-hover:border-forest-400">
@@ -449,12 +455,31 @@ export default function RegisterPage(): React.ReactElement | null {
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
-                  <p
-                    id="register-password-hint"
-                    className="mt-2 text-xs text-stone-400"
-                  >
-                    {PASSWORD_HINT}
-                  </p>
+                  {(() => {
+                    const strength = getPasswordStrength(form.password);
+                    return (
+                      <div id="register-password-hint" className="mt-2.5 space-y-1.5">
+                        <div className="grid grid-cols-4 gap-1.5" aria-hidden="true">
+                          {[1, 2, 3, 4].map((step) => (
+                            <div
+                              key={step}
+                              className={`h-1.5 rounded-full transition-colors duration-200 ${
+                                step <= strength.level ? strength.barColor : 'bg-stone-200'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs">
+                          <span className="text-stone-500">{PASSWORD_HINT}</span>
+                          {strength.label ? (
+                            <span className={`font-semibold ${strength.textColor}`}>
+                              {strength.label}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div>

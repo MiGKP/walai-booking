@@ -11,6 +11,7 @@ interface ChildAgeSelectProps {
   onChange: (age: number) => void;
 }
 
+// แสดงดรอปดาวน์สำหรับเลือกอายุของเด็กรายคนพร้อมแสดงสถานะแจ้งเตือนเมื่อยังไม่เลือก
 export default function ChildAgeSelect({
   index,
   value,
@@ -24,6 +25,7 @@ export default function ChildAgeSelect({
   const isSelected = value !== null;
 
   useEffect(() => {
+    // ปิดดรอปดาวน์เลือกอายุเด็กเมื่อคลิกนอกพื้นที่คอมโพเนนต์
     function handleClickOutside(event: MouseEvent) {
       if (
         dropdownRef.current &&
@@ -63,7 +65,6 @@ export default function ChildAgeSelect({
         </span>
       </div>
 
-      {/* Minimalist Custom Select matching other pages */}
       <div className="relative" ref={dropdownRef}>
         <button
           type="button"

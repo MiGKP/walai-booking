@@ -9,7 +9,7 @@ export interface PromoNoticeState {
   message: string;
 }
 
-// แจ้งผลการทำงานเรื่องโปรโมชั่นในหน้าเดียวกัน (ไม่ใช้ toast) แล้วซ่อนเองหลังเวลาที่กำหนด
+// จัดการสถานะข้อความแจ้งเตือนโปรโมชั่นและซ่อนอัตโนมัติตามเวลาที่กำหนด
 export function usePromoNotice(durationMs = 10_000): {
   notice: PromoNoticeState | null;
   showNotice: (tone: PromoNoticeTone, message: string) => void;
@@ -29,6 +29,7 @@ export function usePromoNotice(durationMs = 10_000): {
   return { notice, showNotice };
 }
 
+// แสดงกล่องข้อความแจ้งเตือนผลการทำงานของโปรโมชั่น
 export function PromoNotice({ notice }: { notice: PromoNoticeState | null }): React.ReactElement | null {
   if (notice == null) return null;
   const tone =

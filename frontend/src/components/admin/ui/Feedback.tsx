@@ -19,6 +19,7 @@ const DOT: Record<BadgeTone, string> = {
   neutral: "bg-charcoal-300",
 };
 
+// แสดงป้ายสถานะพร้อมจุดสีตามโทนที่กำหนด
 export function StatusBadge({ tone, children }: { tone: BadgeTone; children: ReactNode }): React.ReactElement {
   return (
     <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${BADGE[tone]}`}>
@@ -28,7 +29,7 @@ export function StatusBadge({ tone, children }: { tone: BadgeTone; children: Rea
   );
 }
 
-/** แปลงสถานะการจอง (CHECK constraint) เป็นป้ายสี + ข้อความไทย */
+// แปลงสถานะการจองเป็นป้ายสีพร้อมข้อความภาษาไทย
 export function BookingStatusBadge({ status }: { status: string }): React.ReactElement {
   const map: Record<string, { tone: BadgeTone; label: string }> = {
     pending: { tone: "neutral", label: "ยังไม่ชำระเงิน" },
@@ -42,6 +43,7 @@ export function BookingStatusBadge({ status }: { status: string }): React.ReactE
   return <StatusBadge tone={s.tone}>{s.label}</StatusBadge>;
 }
 
+// แสดงสถานะว่างเปล่าเมื่อไม่มีข้อมูลในรายการ
 export function EmptyState({ title, description, action }: { title: string; description?: string; action?: ReactNode }): React.ReactElement {
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
@@ -53,6 +55,7 @@ export function EmptyState({ title, description, action }: { title: string; desc
   );
 }
 
+// แสดงโครงร่างจำลองขณะกำลังโหลดข้อมูล
 export function Skeleton({ className = "" }: { className?: string }): React.ReactElement {
   return <div className={`animate-pulse rounded-lg bg-charcoal-100 ${className}`} />;
 }

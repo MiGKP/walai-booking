@@ -20,9 +20,9 @@ const AUTH_PATHS_WITHOUT_CHROME = new Set([
   '/auth/callback',
 ]);
 
-// หน้าที่เป็น task-flow เฉพาะทาง (เช่น ขั้นตอนชำระเงิน, หน้าโปรไฟล์/การจอง) ไม่ต้องมี Footer มารบกวน แต่ยังเก็บ Navbar ไว้เพื่อให้เมนูหลักใช้งานได้
 const PATHS_WITHOUT_FOOTER = new Set(['/payment', '/dashboard']);
 
+// โครงร่างหลักของแอปที่ครอบ Navbar, Footer, AuthProvider และระบบแจ้งเตือน
 export default function AppShell({ children }: AppShellProps): ReactNode {
   const pathname = usePathname();
 
@@ -37,37 +37,36 @@ export default function AppShell({ children }: AppShellProps): ReactNode {
       {!hideChrome && <Navbar />}
       <main className="min-h-screen">{children}</main>
       {!hideFooter && <Footer />}
-      
-      {/* 🌟 ปรับ Toast ให้ทันสมัย สไตล์ Minimal Pill & ย้ายลงล่าง */}
+
       <Toaster
         position="bottom-center"
         toastOptions={{
           duration: 3500,
           style: {
-            background: "#ffffff",
-            color: "#123C30",
-            border: "1px solid #e7e5e4",
-            borderRadius: "100px",
-            fontSize: "13.5px",
-            fontWeight: "600",
-            padding: "12px 20px",
-            boxShadow: "0 8px 30px rgba(0, 0, 0, 0.08)",
+            background: '#ffffff',
+            color: '#123C30',
+            border: '1px solid #e7e5e4',
+            borderRadius: '100px',
+            fontSize: '13.5px',
+            fontWeight: '600',
+            padding: '12px 20px',
+            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.08)',
           },
           success: {
             iconTheme: {
-              primary: "#059669",
-              secondary: "#ffffff",
+              primary: '#059669',
+              secondary: '#ffffff',
             },
           },
           error: {
             style: {
-              background: "#fff1f2",
-              color: "#be123c",
-              border: "1px solid #fecdd3",
+              background: '#fff1f2',
+              color: '#be123c',
+              border: '1px solid #fecdd3',
             },
             iconTheme: {
-              primary: "#e11d48",
-              secondary: "#ffffff",
+              primary: '#e11d48',
+              secondary: '#ffffff',
             },
           },
         }}

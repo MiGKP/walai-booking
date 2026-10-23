@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Tag, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, Tag, Loader2 } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { PromoNotice, usePromoNotice } from '@/components/promotions/PromoNotice';
 
@@ -29,7 +29,14 @@ interface PromotionDrawerProps {
   scope: 'room' | 'kayak';
 }
 
-export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onApply, scope }: PromotionDrawerProps) {
+// แสดงหน้าต่างลิ้นชักรายการโปรโมชั่นในกระเป๋าและโปรโมชั่นที่สามารถเก็บเพิ่มได้
+export default function PromotionDrawer({
+  isOpen,
+  onClose,
+  currentPromoCode,
+  onApply,
+  scope,
+}: PromotionDrawerProps) {
   const [activePromos, setActivePromos] = useState<PromotionItem[]>([]);
   const [myPromos, setMyPromos] = useState<WalletPromotion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,6 +49,7 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
     }
   }, [isOpen]);
 
+  // ดึงข้อมูลโปรโมชั่นที่เปิดใช้งานและโปรโมชั่นในกระเป๋าของสมาชิกตามประเภทบริการ
   async function fetchCoupons() {
     setLoading(true);
     try {
@@ -65,6 +73,7 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
     }
   }
 
+  // กดเก็บคูปองโปรโมชั่นเข้ากระเป๋าของสมาชิกและอัปเดตรายการใหม่
   const handleCollect = async (id: number) => {
     setCollectingId(id);
     try {
@@ -81,13 +90,11 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
   if (!isOpen) return null;
 
   const myPromoIds = new Set(myPromos.map((p) => p.promotion_id));
-  const availableToCollect = activePromos.filter(p => p.is_collectible && !myPromoIds.has(p.id));
+  const availableToCollect = activePromos.filter((p) => p.is_collectible && !myPromoIds.has(p.id));
 
   return (
     <div className="fixed inset-0 z-100 flex items-end justify-center bg-stone-900/50 backdrop-blur-xs transition-opacity sm:items-center">
-      <div 
-        className="w-full max-w-md overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl flex flex-col max-h-[85vh] animate-reveal-up"
-      >
+      <div className="w-full max-w-md overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl flex flex-col max-h-[85vh] animate-reveal-up">
         <div className="flex items-center justify-between border-b border-stone-100 p-5">
           <h2 className="text-lg font-bold text-forest-900 flex items-center gap-2">
             <Tag size={20} className="text-bamboo-600" />
@@ -114,13 +121,16 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {myPromos.map(p => (
-                      <PromotionCard 
-                        key={p.promotion_id} 
-                        promo={p.promotion} 
+                    {myPromos.map((p) => (
+                      <PromotionCard
+                        key={p.promotion_id}
+                        promo={p.promotion}
                         isCollected={true}
                         isActive={currentPromoCode === p.promotion.code}
-                        onApply={() => { onApply(p.promotion.code); onClose(); }} 
+                        onApply={() => {
+                          onApply(p.promotion.code);
+                          onClose();
+                        }}
                       />
                     ))}
                   </div>
@@ -131,14 +141,14 @@ export default function PromotionDrawer({ isOpen, onClose, currentPromoCode, onA
                 <div>
                   <h3 className="text-sm font-bold text-charcoal-800 mb-3">โปรโมชั่นพิเศษที่เก็บได้เพิ่ม</h3>
                   <div className="space-y-3">
-                    {availableToCollect.map(p => (
-                      <PromotionCard 
-                        key={p.id} 
-                        promo={p} 
+                    {availableToCollect.map((p) => (
+                      <PromotionCard
+                        key={p.id}
+                        promo={p}
                         isCollected={false}
                         isActive={false}
                         loading={collectingId === p.id}
-                        onCollect={() => handleCollect(p.id)} 
+                        onCollect={() => handleCollect(p.id)}
                       />
                     ))}
                   </div>
@@ -161,6 +171,7 @@ interface PromotionCardProps {
   onApply?: () => void;
 }
 
+// แสดงการ์ดโปรโมชั่นแต่ละรายการพร้อมปุ่มกดเก็บหรือปุ่มกดใช้งาน
 function PromotionCard({ promo, isCollected, isActive, loading, onCollect, onApply }: PromotionCardProps) {
   if (!promo) return null;
   return (
@@ -185,9 +196,9 @@ function PromotionCard({ promo, isCollected, isActive, loading, onCollect, onApp
             <p className="text-[11px] text-stone-500 mt-0.5 line-clamp-2">{promo.description || 'ไม่มีเงื่อนไขเพิ่มเติม'}</p>
           </div>
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-[10px] font-medium text-stone-400">โค้ด: {promo.code}</span>
+            <span className="text-[10px] font-medium text-stone-400">โปรโมชั่น: {promo.code}</span>
             {isCollected ? (
-              <button 
+              <button
                 onClick={onApply}
                 disabled={isActive}
                 className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${isActive ? 'bg-forest-200 text-forest-800' : 'bg-forest-900 text-white hover:bg-forest-800'}`}
@@ -195,7 +206,7 @@ function PromotionCard({ promo, isCollected, isActive, loading, onCollect, onApp
                 {isActive ? 'กำลังใช้' : 'ใช้โปรโมชั่น'}
               </button>
             ) : (
-              <button 
+              <button
                 onClick={onCollect}
                 disabled={loading}
                 className="rounded-full bg-bamboo-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-bamboo-700 disabled:opacity-50"

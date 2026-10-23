@@ -39,9 +39,9 @@ const fields = { min_price: 'ยอดจองขั้นต่ำ', max_disco
     for (const fixture of cases) {
       submitted = undefined;
       await page.getByRole('button', { name: 'เพิ่มโปรโมชั่น', exact: true }).click();
-      const form = page.locator('form').filter({ hasText: 'โค้ดส่วนลด' });
+      const form = page.locator('form').filter({ hasText: 'คูปองส่วนลด' });
       const field = name => form.locator('label').filter({ hasText: name }).first().locator('..');
-      await field('โค้ดส่วนลด').locator('input').fill(fixture.code);
+      await field('คูปองส่วนลด').locator('input').fill(fixture.code);
       await field('ชื่อโปรโมชั่น').locator('input').fill(`TEST ${fixture.code}`);
       if (fixture.discount_type === 'fixed') {
         await field('ประเภทส่วนลด').getByRole('button').click();

@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
+// หน้าแจ้งเตือนเมื่อไม่พบหน้าที่ผู้ใช้ค้นหา (404)
 export default function NotFound(): React.ReactElement {
   const router = useRouter();
 
+  // ย้อนกลับไปหน้าก่อนหน้า หรือกลับสู่หน้าหลักหากไม่มีประวัติการเข้าชม
   const handleBack = (): void => {
-    // ถ้าไม่มีประวัติการเปิดหน้าในแท็บนี้ (เช่น เปิดลิงก์ตรงมา) ให้กลับหน้าแรกแทน
     if (window.history.length > 1) {
       router.back();
       return;
