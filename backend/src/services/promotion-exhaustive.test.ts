@@ -99,7 +99,7 @@ describe('EXHAUSTIVE PROMOTION TEST SUITE', () => {
         applyPromotionList([promo({ id: 1, stackable: false }), promo({ id: 2, stackable: true })], {
           memberId: 1, nights: 1, basePrice: 1000, now, memberUsedCountByPromoId: {}, walletsByPromoId: {}
         });
-      }, /โค้ดนี้ใช้ร่วมกับโปรโมชั่นอื่นไม่ได้/);
+      }, /คูปองส่วนลดนี้ใช้ร่วมกับโปรโมชั่นอื่นไม่ได้/);
     });
 
     it('Case 9: Two codes where both are non-stackable throws PromoApplyError', () => {
@@ -107,7 +107,7 @@ describe('EXHAUSTIVE PROMOTION TEST SUITE', () => {
         applyPromotionList([promo({ id: 1, stackable: false }), promo({ id: 2, stackable: false })], {
           memberId: 1, nights: 1, basePrice: 1000, now, memberUsedCountByPromoId: {}, walletsByPromoId: {}
         });
-      }, /โค้ดนี้ใช้ร่วมกับโปรโมชั่นอื่นไม่ได้/);
+      }, /คูปองส่วนลดนี้ใช้ร่วมกับโปรโมชั่นอื่นไม่ได้/);
     });
 
     it('Case 10: Duplicate promotion ID in the list throws PromoApplyError', () => {
@@ -115,7 +115,7 @@ describe('EXHAUSTIVE PROMOTION TEST SUITE', () => {
         applyPromotionList([promo({ id: 1, stackable: true }), promo({ id: 1, stackable: true })], {
           memberId: 1, nights: 1, basePrice: 1000, now, memberUsedCountByPromoId: {}, walletsByPromoId: {}
         });
-      }, /ไม่สามารถใช้โค้ดซ้ำในบิลเดียวกันได้/);
+      }, /ไม่สามารถใช้คูปองซ้ำในบิลเดียวกันได้/);
     });
 
     it('Case 11: Two stackable codes apply fixed discount before percent discount regardless of input order', () => {
@@ -170,7 +170,7 @@ describe('EXHAUSTIVE PROMOTION TEST SUITE', () => {
         applyPromotionList([promo({ id: 1, applies_to: 'room' })], {
           memberId: 1, nights: null, basePrice: 500, now, scope: 'kayak', memberUsedCountByPromoId: {}, walletsByPromoId: {}
         });
-      }, /โค้ดนี้ใช้กับห้องพักเท่านั้น/);
+      }, /คูปองนี้ใช้กับห้องพักเท่านั้น/);
     });
 
     it('Case 16: applies_to: kayak on kayak scope is allowed', () => {
@@ -185,7 +185,7 @@ describe('EXHAUSTIVE PROMOTION TEST SUITE', () => {
         applyPromotionList([promo({ id: 1, applies_to: 'kayak' })], {
           memberId: 1, nights: 1, basePrice: 500, now, scope: 'room', memberUsedCountByPromoId: {}, walletsByPromoId: {}
         });
-      }, /โค้ดนี้ใช้กับเรือคายัคเท่านั้น/);
+      }, /คูปองนี้ใช้กับเรือคายัคเท่านั้น/);
     });
 
     it('Case 18 & 19: applies_to: both works on both room and kayak scopes', () => {
@@ -380,7 +380,7 @@ describe('EXHAUSTIVE PROMOTION TEST SUITE', () => {
         applyPromotionList([p], {
           memberId: 1, nights: 1, basePrice: 500, now, memberUsedCountByPromoId: { 1: 2 }, walletsByPromoId: {}
         });
-      }, /ใช้โค้ดนี้ครบจำนวนครั้งแล้ว/);
+      }, /ใช้คูปองนี้ครบจำนวนครั้งแล้ว/);
     });
 
     it('Case 42: usage_limit_per_member not yet reached allows booking', () => {
@@ -418,7 +418,7 @@ describe('EXHAUSTIVE PROMOTION TEST SUITE', () => {
           memberId: 1, nights: 1, basePrice: 500, now, memberUsedCountByPromoId: {},
           walletsByPromoId: { 1: { member_promotion_id: 10, status: 'expired' } }
         });
-      }, /ต้องเก็บโค้ดนี้ก่อนใช้/);
+      }, /ต้องเก็บคูปองนี้ก่อนใช้/);
     });
 
     it('Case 46: Collectible code without wallet row throws error', () => {
@@ -428,7 +428,7 @@ describe('EXHAUSTIVE PROMOTION TEST SUITE', () => {
           memberId: 1, nights: 1, basePrice: 500, now, memberUsedCountByPromoId: {},
           walletsByPromoId: {}
         });
-      }, /ต้องเก็บโค้ดนี้ก่อนใช้/);
+      }, /ต้องเก็บคูปองนี้ก่อนใช้/);
     });
 
     it('Case 47: Non-collectible promo (type-in code) works without wallet', () => {

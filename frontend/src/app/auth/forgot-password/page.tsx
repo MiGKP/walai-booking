@@ -15,6 +15,7 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 
+// หน้าขอรหัส OTP ทางอีเมลสำหรับการกู้คืนรหัสผ่าน
 export default function ForgotPasswordPage(): React.ReactElement | null {
   const router = useRouter();
   const { ready } = useAuthGuard({ guestOnly: true });
@@ -27,6 +28,7 @@ export default function ForgotPasswordPage(): React.ReactElement | null {
 
   const normalizedEmail = email.trim().toLowerCase();
 
+  // ส่งคำขอรหัส OTP ไปยังอีเมลที่ผู้ใช้ระบุ
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>
   ): Promise<void> => {

@@ -1,10 +1,6 @@
 import api from '@/lib/api';
 import type { DayStatus } from '@/components/booking/BookingCalendar';
 
-/**
- * เหลือถึงจำนวนนี้ถือว่า "เหลือน้อย" — แต่ต้องมีของถูกจองไปแล้วจริงด้วย
- * ไม่งั้นรีสอร์ทที่มีห้องรวมน้อย (เช่น 2 ห้อง) จะถูกมาร์กว่าเหลือน้อยทุกวัน
- */
 const LOW_STOCK_THRESHOLD = 2;
 
 export interface RoomCalendarDay {
@@ -33,6 +29,13 @@ export interface KayakRound {
   available: boolean;
 }
 
+export interface KayakScheduleSlot {
+  boat_round_id: number;
+  start_time: string;
+  end_time: string;
+}
+
+// ดึงข้อมูลปฏิทินจำนวนห้องว่างรายวันจาก API
 export const fetchRoomCalendar = async (params: {
   start: string;
   end: string;
@@ -49,6 +52,7 @@ export const fetchRoomCalendar = async (params: {
   return Array.isArray(days) ? (days as RoomCalendarDay[]) : [];
 };
 
+// ดึงข้อมูลปฏิทินรอบเรือว่างรายวันจาก API
 export const fetchKayakCalendar = async (params: {
   kayakId: number;
   start: string;
@@ -61,6 +65,7 @@ export const fetchKayakCalendar = async (params: {
   return Array.isArray(days) ? (days as KayakCalendarDay[]) : [];
 };
 
+// ดึงข้อมูลจำนวนเรือว่างในแต่ละรอบของวันที่เลือก
 export const fetchKayakRounds = async (params: {
   kayakId: number;
   bookingDate: string;
@@ -72,18 +77,12 @@ export const fetchKayakRounds = async (params: {
   return Array.isArray(rounds) ? (rounds as KayakRound[]) : [];
 };
 
-/** รอบเวลาทั้งหมดที่เปิดบริการ (ไม่ต้องการ booking_date) — ใช้แสดง shell ก่อนเลือกวัน */
-export interface KayakScheduleSlot {
-  boat_round_id: number;
-  start_time: string;
-  end_time: string;
-}
-
+// ดึงรายการรอบเวลาพายเรือทั้งหมดที่เปิดให้บริการ
 export const fetchKayakSchedule = async (): Promise<KayakScheduleSlot[]> => {
   const res = await api.get('/kayaks/schedule');
   const data: unknown = res.data?.data;
   if (!Array.isArray(data)) return [];
-  // deduplicate by start_time+end_time
+
   const seen = new Set<string>();
   const result: KayakScheduleSlot[] = [];
   for (const row of data as KayakScheduleSlot[]) {
@@ -96,6 +95,7 @@ export const fetchKayakSchedule = async (): Promise<KayakScheduleSlot[]> => {
   return result.sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
 };
 
+// แปลงข้อมูลห้องว่างรายวันให้เป็นสถานะสีและข้อความสำหรับแสดงบนปฏิทิน
 export const toRoomDayStatus = (days: RoomCalendarDay[]): Record<string, DayStatus> => {
   const status: Record<string, DayStatus> = {};
   days.forEach((day) => {
@@ -110,6 +110,7 @@ export const toRoomDayStatus = (days: RoomCalendarDay[]): Record<string, DayStat
   return status;
 };
 
+// แปลงข้อมูลรอบเรือว่างรายวันให้เป็นสถานะสีและข้อความสำหรับแสดงบนปฏิทิน
 export const toKayakDayStatus = (days: KayakCalendarDay[]): Record<string, DayStatus> => {
   const status: Record<string, DayStatus> = {};
   days.forEach((day) => {

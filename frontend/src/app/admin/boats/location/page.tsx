@@ -26,7 +26,6 @@ import MapPickerModal from "@/components/admin/MapPickerModal";
 import TimeSelect from "@/components/admin/TimeSelect";
 import { Modal } from "@/components/admin/ui";
 
-// Dynamic import LeafletMap with SSR disabled
 const LeafletMap = dynamic(() => import("@/components/admin/LeafletMap"), {
   ssr: false,
   loading: () => (
@@ -47,6 +46,7 @@ interface DayHour {
   is_open: boolean;
 }
 
+// สร้างค่าเริ่มต้นเวลาทำการเรือทั้ง 7 วันของสัปดาห์
 const defaultHours = (): DayHour[] =>
   Array.from({ length: 7 }, (_, i) => ({
     day_of_week: i,
@@ -55,6 +55,7 @@ const defaultHours = (): DayHour[] =>
     is_open: true,
   }));
 
+// หน้าตั้งค่าข้อมูลจุดบริการเรือ พิกัดแผนที่ เวลาทำการ และข้อกำหนดการจองเรือ
 export default function BoatLocationPage() {
   const { ready } = useAuthGuard({ allowedRoles: ["boat_staff", "admin"] });
 
@@ -72,7 +73,6 @@ export default function BoatLocationPage() {
 
   const [termsList, setTermsList] = useState<string[]>([""]);
 
-  // เวลาทำการรายวัน 7 วัน และเวลาจองล่วงหน้าขั้นต่ำ
   const [hours, setHours] = useState<DayHour[]>(defaultHours());
   const [advanceMinutes, setAdvanceMinutes] = useState("60");
   const [bulkOpenTime, setBulkOpenTime] = useState("08:00");
@@ -95,10 +95,12 @@ export default function BoatLocationPage() {
     message: "",
   });
 
+  // อัปเดตเวลาเปิด-ปิดหรือสถานะเปิดให้บริการของวันที่เลือก
   const updateDay = <K extends keyof DayHour>(day: number, field: K, value: DayHour[K]): void => {
     setHours((prev) => prev.map((h) => (h.day_of_week === day ? { ...h, [field]: value } : h)));
   };
 
+  // นำเวลามาตรฐานที่เลือกไปใช้กับทุกวันในสัปดาห์
   const handleApplyToAllDays = (): void => {
     setHours((prev) =>
       prev.map((h) => ({
@@ -111,6 +113,7 @@ export default function BoatLocationPage() {
     notify.success(`ตั้งเวลา ${bulkOpenTime} - ${bulkCloseTime} น. ให้กับทุกวันเรียบร้อย`);
   };
 
+  // อัปเดตข้อความข้อกำหนดการใช้บริการเรือตามลำดับที่แก้ไข
   const handleTermChange = (index: number, value: string) => {
     const updated = [...termsList];
     updated[index] = value;
@@ -121,10 +124,12 @@ export default function BoatLocationPage() {
     }));
   };
 
+  // เพิ่มช่องกรอกข้อกำหนดการใช้บริการเรือข้อใหม่
   const handleAddTerm = () => {
     setTermsList([...termsList, ""]);
   };
 
+  // ลบข้อกำหนดการใช้บริการเรือข้อที่เลือกออก
   const handleRemoveTerm = (index: number) => {
     const updated = termsList.filter((_, i) => i !== index);
     const finalTerms = updated.length > 0 ? updated : [""];
@@ -135,6 +140,7 @@ export default function BoatLocationPage() {
     }));
   };
 
+  // แปลงข้อความพิกัดละติจูดและลองจิจูดเป็นอาร์เรย์ตัวเลขสำหรับแผนที่
   const parseCoordsTuple = (coords: string): [number, number] => {
     if (coords) {
       const parts = coords.split(",").map((p) => parseFloat(p.trim()));
@@ -216,11 +222,13 @@ export default function BoatLocationPage() {
       .finally(() => setLoading(false));
   }, [ready]);
 
+  // เปิดหน้าต่างยืนยันก่อนบันทึกการเปลี่ยนแปลง
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setShowConfirmModal(true);
   };
 
+  // บันทึกข้อมูลจุดบริการเรือและตารางเวลาทำการลงระบบ
   const handleConfirmSave = async () => {
     setShowConfirmModal(false);
     setSaving(true);
@@ -232,7 +240,6 @@ export default function BoatLocationPage() {
       return;
     }
 
-    // สรุป operating_days & operating_hours เป็นข้อความสรุป
     const openDaysCount = hours.filter((h) => h.is_open).length;
     let daysSummary = "เปิดทุกวัน";
     if (openDaysCount === 0) daysSummary = "ปิดให้บริการชั่วคราว";
@@ -295,7 +302,6 @@ export default function BoatLocationPage() {
 
   return (
     <div className="space-y-6 pb-12 font-sans">
-      {/* Top Header Card */}
       <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10">
@@ -336,9 +342,7 @@ export default function BoatLocationPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* ROW 1: ข้อมูลจุดบริการ และ แผนที่พิกัดท่าเรือ */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start w-full">
-              {/* การ์ด 1: ข้อมูลการติดต่อจุดบริการเรือ */}
               <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 space-y-4">
                 <div className="flex items-center gap-2.5 pb-4 border-b border-cream-200">
                   <div className="w-8 h-8 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center">
@@ -435,7 +439,6 @@ export default function BoatLocationPage() {
                 </div>
               </div>
 
-              {/* การ์ด 2: ตำแหน่งจุดบริการเรือ & พิกัดแผนที่ */}
               <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 space-y-4">
                 <div className="flex items-center gap-2.5 pb-4 border-b border-cream-200">
                   <div className="w-8 h-8 rounded-xl bg-forest-50 text-forest-800 border border-forest-200/80 flex items-center justify-center">
@@ -511,9 +514,7 @@ export default function BoatLocationPage() {
               </div>
             </div>
 
-            {/* ROW 2: เวลาเปิด-ปิดรายวัน 7 วัน & การจองล่วงหน้าขั้นต่ำ */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-              {/* ตารางเวลา 7 วัน */}
               <div className="xl:col-span-8 bg-white rounded-3xl p-6 shadow-panel border border-cream-200/90 space-y-4">
                 <div className="flex items-center justify-between gap-3 pb-3 border-b border-cream-200/80">
                   <div className="flex items-center gap-2.5">
@@ -531,7 +532,6 @@ export default function BoatLocationPage() {
                   </span>
                 </div>
 
-                {/* Quick Bulk Time Setter: กำหนดเวลามาตรฐานทุกวัน */}
                 <div className="bg-cream-50/80 border border-cream-200/90 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
                   <span className="text-xs font-bold text-forest-900">
                     กำหนดเวลามาตรฐานทุกวัน:
@@ -636,9 +636,7 @@ export default function BoatLocationPage() {
                 </div>
               </div>
 
-              {/* กฎการจองล่วงหน้า และ ข้อกำหนดการจองเรือ */}
               <div className="xl:col-span-4 space-y-6">
-                {/* กฎการจองล่วงหน้า */}
                 <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/90 space-y-4">
                   <div className="flex items-center gap-2.5 pb-3 border-b border-cream-200/80">
                     <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
@@ -676,7 +674,6 @@ export default function BoatLocationPage() {
                   </div>
                 </div>
 
-                {/* ข้อกำหนดและกฎความปลอดภัยเรือ */}
                 <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/90 space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-cream-200/80">
                     <div className="flex items-center gap-2.5">
@@ -726,7 +723,6 @@ export default function BoatLocationPage() {
         )}
       </form>
 
-      {/* Map Picker Modal */}
       {isMapOpen && (
         <MapPickerModal
           isOpen={isMapOpen}
@@ -742,7 +738,6 @@ export default function BoatLocationPage() {
         />
       )}
 
-      {/* Modal ยืนยันการบันทึกข้อมูล */}
       <Modal
         open={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
@@ -771,7 +766,6 @@ export default function BoatLocationPage() {
         </div>
       </Modal>
 
-      {/* Modal แจ้งเตือนผลลัพธ์ */}
       <Modal
         open={statusModal.isOpen}
         onClose={() => setStatusModal({ ...statusModal, isOpen: false })}

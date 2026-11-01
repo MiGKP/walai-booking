@@ -9,6 +9,7 @@ interface AnimatedRing {
   offset: number;
 }
 
+// คืนหน่วยความจำวัสดุ 3D เมื่อเลิกใช้งาน
 const disposeMaterial = (material: Material | Material[]): void => {
   if (Array.isArray(material)) {
     material.forEach((item) => item.dispose());
@@ -17,12 +18,13 @@ const disposeMaterial = (material: Material | Material[]): void => {
   material.dispose();
 };
 
-/** สุ่มแบบกำหนดค่าได้ เพื่อให้ตำแหน่งต้นอ้อ/ก้อนหินเหมือนกันทุกครั้งที่ mount */
+// สุ่มตัวเลขแบบกำหนดค่าคงที่เพื่อให้ตำแหน่งวัตถุในฉากเหมือนกันทุกครั้ง
 const pseudoRandom = (seed: number): number => {
   const value = Math.sin(seed * 127.1) * 43758.5453;
   return value - Math.floor(value);
 };
 
+// แสดงฉากสามมิติของบ้านพักลอยน้ำและเรือสำหรับหน้าเข้าสู่ระบบ
 export default function LoginScene3D(): React.ReactElement {
   const mountRef = useRef<HTMLDivElement>(null);
 
@@ -33,6 +35,7 @@ export default function LoginScene3D(): React.ReactElement {
     let disposed = false;
     let cleanup = (): void => {};
 
+    // สร้างและตั้งค่าฉาก 3D ทั้งหมดพร้อมระบบแสงและแอนิเมชัน
     const initializeScene = async (): Promise<void> => {
       try {
         const THREE = await import('three');
@@ -127,10 +130,6 @@ export default function LoginScene3D(): React.ReactElement {
           }),
         };
 
-        /**
-         * รัศมี 34 คือระยะที่ FogExp2 density 0.042 กลืนขอบวงกลมไปแล้วราว 87%
-         * ถ้าใช้รัศมีสั้นกว่านี้จะเห็นขอบเป็นเส้นโค้งคมชัดกลางผิวน้ำ
-         */
         const water = new THREE.Mesh(
           new THREE.CircleGeometry(34, 96),
           materials.water
@@ -140,7 +139,6 @@ export default function LoginScene3D(): React.ReactElement {
         water.receiveShadow = true;
         worldGroup.add(water);
 
-        // พื้นใต้น้ำ ทำให้ผิวน้ำโปร่งแสงอ่านเป็นความลึกจริง
         const waterBed = new THREE.Mesh(
           new THREE.CircleGeometry(32, 64),
           materials.deepWater
@@ -149,7 +147,6 @@ export default function LoginScene3D(): React.ReactElement {
         waterBed.position.y = -1.15;
         worldGroup.add(waterBed);
 
-        // ───────────────────────── ฝั่งและต้นไม้ ─────────────────────────
         const shoreGroup = new THREE.Group();
         shoreGroup.position.set(-5.7, 0, -3.3);
         worldGroup.add(shoreGroup);
@@ -193,7 +190,6 @@ export default function LoginScene3D(): React.ReactElement {
           shoreGroup.add(tree);
         });
 
-        // ───────────────────────── บ้านลอยน้ำ ─────────────────────────
         const bungalowGroup = new THREE.Group();
         bungalowGroup.position.set(-0.45, 0, -0.3);
         worldGroup.add(bungalowGroup);
@@ -228,11 +224,6 @@ export default function LoginScene3D(): React.ReactElement {
         house.receiveShadow = true;
         bungalowGroup.add(house);
 
-        /**
-         * หลังคาต้องอยู่ใน Group แล้วบีบแกน z ที่ Group เท่านั้น
-         * ถ้าใส่ scale.z บน mesh ที่หมุน 45° เอง matrix จะเป็น R·S ทำให้ผังหลังคา
-         * บิดเป็นสี่เหลี่ยมขนมเปียกปูนแทนสี่เหลี่ยมผืนผ้า
-         */
         const roofGroup = new THREE.Group();
         roofGroup.position.set(0, houseBase + houseHeight - 0.07, houseCenterZ);
         roofGroup.scale.z = 0.82;
@@ -315,7 +306,6 @@ export default function LoginScene3D(): React.ReactElement {
           bungalowGroup.add(post);
         });
 
-        // ราวกันตกหน้าบ้าน — เสาสั้นสี่ต้นกับคานบนสองท่อน
         const railPostGeometry = new THREE.CylinderGeometry(0.055, 0.055, 0.62, 6);
         [-2.35, -1.2, 1.2, 2.35].forEach((x) => {
           const railPost = new THREE.Mesh(railPostGeometry, materials.bamboo);
@@ -348,17 +338,11 @@ export default function LoginScene3D(): React.ReactElement {
         lanternLight.position.copy(lantern.position);
         bungalowGroup.add(lanternLight);
 
-        // ───────────────────────── เรือ ─────────────────────────
         const kayakGroup = new THREE.Group();
         kayakGroup.position.set(4.0, -0.12, 1.5);
         kayakGroup.rotation.y = -0.52;
         worldGroup.add(kayakGroup);
 
-        /**
-         * ลำเรือใช้ LatheGeometry หมุนรอบแกน y แล้วล้มลงเป็นแกน x
-         * โปรไฟล์รัศมีเป็น 0 ที่ปลายทั้งสองข้าง จึงได้หัว-ท้ายเรียวแบบเรือจริง
-         * ต่างจากทรงกลมบี้ที่อ่านเป็นวงรีแบน
-         */
         const hullPoints: Vector2[] = [];
         const hullSegments = 18;
         for (let index = 0; index <= hullSegments; index += 1) {
@@ -371,7 +355,6 @@ export default function LoginScene3D(): React.ReactElement {
           new THREE.LatheGeometry(hullPoints, 26),
           materials.bamboo
         );
-        // หมุน 90° พอดี สเกลจึงยังตรงกับแกนโลก: x=ความหนา y=ความยาว z=ความกว้าง
         hull.rotation.z = Math.PI / 2;
         hull.scale.set(0.42, 1.85, 0.72);
         hull.castShadow = true;
@@ -402,10 +385,6 @@ export default function LoginScene3D(): React.ReactElement {
         cockpitHole.position.y = hullTop - 0.01;
         kayakGroup.add(cockpitHole);
 
-        /**
-         * ใบพายต้องอยู่ปลายก้านพอดี จึงผูกทุกชิ้นไว้ใน group เดียว
-         * แล้วอ้างอิงครึ่งความยาวก้านเป็นตัวแปรร่วม
-         */
         const paddleGroup = new THREE.Group();
         paddleGroup.position.set(-0.1, hullTop + 0.12, 0.05);
         paddleGroup.rotation.set(0, 0.44, 0.08);
@@ -431,7 +410,6 @@ export default function LoginScene3D(): React.ReactElement {
           paddleGroup.add(blade);
         });
 
-        // ───────────────────────── สภาพแวดล้อม ─────────────────────────
         const environmentGroup = new THREE.Group();
         worldGroup.add(environmentGroup);
 
@@ -462,7 +440,6 @@ export default function LoginScene3D(): React.ReactElement {
           }
         }
 
-        // ก้อนหินใช้ Icosahedron detail 1 แล้วบิดสเกล จึงดูกลมมนแบบหินแม่น้ำ
         const stoneGeometry = new THREE.IcosahedronGeometry(1, 1);
         [
           [-4.35, -0.5, 1.1, 0.46],
@@ -548,10 +525,12 @@ export default function LoginScene3D(): React.ReactElement {
         let animationFrame = 0;
         let tabVisible = !document.hidden;
 
+        // วาดฉาก 3D ลงบน Canvas
         const renderScene = (): void => {
           renderer.render(scene, camera);
         };
 
+        // ปรับขนาดกล้องและสเกลฉากเมื่อขนาดหน้าจอเปลี่ยน
         const resize = (): void => {
           const width = Math.max(mount.clientWidth, 1);
           const height = Math.max(mount.clientHeight, 1);
@@ -570,6 +549,7 @@ export default function LoginScene3D(): React.ReactElement {
           renderScene();
         };
 
+        // คำนวณตำแหน่งเมาส์เพื่อหมุนฉากตามการขยับเมาส์
         const handlePointerMove = (event: PointerEvent): void => {
           if (reducedMotion) return;
           const bounds = mount.getBoundingClientRect();
@@ -577,6 +557,7 @@ export default function LoginScene3D(): React.ReactElement {
           targetPointerY = ((event.clientY - bounds.top) / bounds.height - 0.5) * 2;
         };
 
+        // อัปเดตการเคลื่อนไหวของฉาก บ้าน เรือ โคมไฟ และระลอกน้ำในแต่ละเฟรม
         const animate = (time: number): void => {
           if (disposed || reducedMotion || !tabVisible) {
             animationFrame = 0;
@@ -608,6 +589,7 @@ export default function LoginScene3D(): React.ReactElement {
           animationFrame = window.requestAnimationFrame(animate);
         };
 
+        // เริ่มลูปแอนิเมชันหากแท็บเปิดอยู่และไม่ได้ตั้งค่าลดการเคลื่อนไหว
         const startAnimation = (): void => {
           if (!animationFrame && !reducedMotion && tabVisible && !disposed) {
             animationFrame = window.requestAnimationFrame(animate);
@@ -616,6 +598,7 @@ export default function LoginScene3D(): React.ReactElement {
           }
         };
 
+        // หยุดหรือเริ่มแอนิเมชันใหม่เมื่อผู้ใช้สลับแท็บเบราว์เซอร์
         const handleVisibility = (): void => {
           tabVisible = !document.hidden;
           if (!tabVisible && animationFrame) {
@@ -625,6 +608,7 @@ export default function LoginScene3D(): React.ReactElement {
           startAnimation();
         };
 
+        // ปรับการทำงานของแอนิเมชันตามค่า prefers-reduced-motion ของระบบ
         const handleMotionChange = (event: MediaQueryListEvent): void => {
           reducedMotion = event.matches;
           if (reducedMotion && animationFrame) {
@@ -643,6 +627,7 @@ export default function LoginScene3D(): React.ReactElement {
         mount.dataset.sceneState = 'ready';
         startAnimation();
 
+        // ล้าง Event Listener และคืนหน่วยความจำ WebGL เมื่อคอมโพเนนต์ถูกถอดออก
         cleanup = (): void => {
           resizeObserver.disconnect();
           mount.removeEventListener('pointermove', handlePointerMove);

@@ -19,14 +19,15 @@ export interface AuthUser {
   has_password?: boolean;
 }
 
+// ดึง JWT token ที่เก็บไว้ใน localStorage
 const getStoredToken = (): string | null => {
   if (typeof window === 'undefined') {
     return null;
   }
-
   return localStorage.getItem('token');
 };
 
+// บันทึกหรือลบ JWT token ใน localStorage และตั้งค่า Authorization header
 const setStoredToken = (token: string | null) => {
   if (typeof window === 'undefined') {
     return;
@@ -42,10 +43,12 @@ const setStoredToken = (token: string | null) => {
   delete api.defaults.headers.common.Authorization;
 };
 
+// บันทึก JWT token เมื่อเข้าสู่ระบบ
 export const storeAuthToken = (token: string) => {
   setStoredToken(token);
 };
 
+// ล้าง JWT token เมื่อออกจากระบบ
 export const clearAuthToken = () => {
   setStoredToken(null);
 };
@@ -62,10 +65,12 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Provider หลักสำหรับจัดการสถานะการเข้าสู่ระบบและข้อมูลผู้ใช้
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // ดึงข้อมูลโปรไฟล์ผู้ใช้ปัจจุบันจาก API
   const refreshProfile = useCallback(async () => {
     const token = getStoredToken();
 
@@ -91,21 +96,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(async (token: string) => {
-    storeAuthToken(token);
-    setLoading(true);
-    return refreshProfile();
-  }, [refreshProfile]);
+  // บันทึก token และโหลดข้อมูลโปรไฟล์หลังเข้าสู่ระบบ
+  const login = useCallback(
+    async (token: string) => {
+      storeAuthToken(token);
+      setLoading(true);
+      return refreshProfile();
+    },
+    [refreshProfile]
+  );
 
   useEffect(() => {
     refreshProfile();
   }, [refreshProfile]);
 
+  // ล้างข้อมูลผู้ใช้และ token เพื่อออกจากระบบ
   const logout = useCallback(() => {
     clearAuthToken();
     setUser(null);
   }, []);
 
+  // อัปเดตข้อมูลผู้ใช้ใน state บางส่วนโดยไม่ต้องดึง API ใหม่
   const updateUser = useCallback((updatedUser: Partial<AuthUser>) => {
     setUser((currentUser) => (currentUser ? { ...currentUser, ...updatedUser } : null));
   }, []);
@@ -126,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return React.createElement(AuthContext.Provider, { value }, children);
 }
 
+// Hook สำหรับเรียกใช้ข้อมูลและฟังก์ชันการยืนยันตัวตนจาก AuthContext
 export function useAuth() {
   const context = useContext(AuthContext);
 

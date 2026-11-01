@@ -234,16 +234,16 @@ test('checkout keeps ineligible room offers visible with a disabled option and e
   assert.match(html, /<button[^>]*disabled[^>]*>[^]*?ROOMANDBOAT/);
   assert(html.includes('ต้องพักอย่างน้อย 2 คืน'));
   assert(html.includes('ต้องจองอย่างน้อย 5 ห้อง'));
-  assert(html.includes('ต้องเก็บคูปองที่หน้าโปรโมชั่นก่อน'));
+  assert(html.includes('ยังไม่เก็บ'));
   assert(html.includes('href="/promotions"'));
   assert(!html.includes('ลด ฿0'));
 });
-test('room checkout explains priced boat benefit and inclusive stay dates', () => {
+test('room checkout explains priced boat benefit and exclusive stay dates', () => {
   const html = renderToStaticMarkup(React.createElement(details().default));
   assert(html.includes('มีค่าใช้จ่าย'));
   assert(html.includes('150'));
   assert(html.includes('ตามรอบเรือที่เปิดให้จอง'));
-  assert(html.includes('รวมวันเช็คอินและวันเช็คเอาต์'));
+  assert(html.includes('ไม่รวมวันเช็คอินและวันเช็คเอาต์'));
 });
 function findClick(element, text) {
   if (!element || typeof element !== 'object') return null;
@@ -388,7 +388,7 @@ test('boat staff row and details identify room promotion origin and parent booki
     '@/lib/avatar': { resolveMediaUrl: value => value },
   }).TestContent;
   const html = renderToStaticMarkup(React.createElement(Page));
-  assert(html.includes('แพ็กเกจห้องพัก #9'));
+  assert(html.includes('โปรโมชั่นห้องพัก #9'));
   assert(html.includes('เรือจากโปรโมชั่นห้องพัก'));
   assert(html.includes('การจองห้องพัก #9'));
   assert(html.includes('มีค่าใช้จ่าย'));

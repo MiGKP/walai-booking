@@ -11,6 +11,7 @@ interface AnimatedRing {
   baseY: number;
 }
 
+// คืนหน่วยความจำวัสดุ 3D เมื่อเลิกใช้งาน
 const disposeMaterial = (material: THREE.Material | THREE.Material[]): void => {
   if (Array.isArray(material)) {
     material.forEach((item) => item.dispose());
@@ -19,6 +20,7 @@ const disposeMaterial = (material: THREE.Material | THREE.Material[]): void => {
   material.dispose();
 };
 
+// แสดงฉากสามมิติของบ้านลอยน้ำ เรือคายัค และเกาะต้นไม้
 export default function WaterHouseScene3D(): React.ReactElement {
   const mountRef = useRef<HTMLDivElement>(null);
 
@@ -29,14 +31,12 @@ export default function WaterHouseScene3D(): React.ReactElement {
     let disposed = false;
     let cleanup = (): void => {};
 
+    // สร้างและตั้งค่าฉาก 3D ทั้งหมดพร้อมระบบแอนิเมชัน
     const initializeScene = async (): Promise<void> => {
       try {
         const THREE = await import("three");
         if (disposed) return;
 
-        // -----------------------------------------------------------------
-        // 1. Scene / Camera / Renderer Setup
-        // -----------------------------------------------------------------
         const scene = new THREE.Scene();
 
         const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
@@ -65,9 +65,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         const worldGroup = new THREE.Group();
         scene.add(worldGroup);
 
-        // -----------------------------------------------------------------
-        // 2. Materials
-        // -----------------------------------------------------------------
         const materials = {
           landTerrain: new THREE.MeshStandardMaterial({
             color: 0x3f7a45,
@@ -212,9 +209,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
           }),
         };
 
-        // -----------------------------------------------------------------
-        // 4. Water Base with a subtle two-tone gradient look
-        // -----------------------------------------------------------------
         const water = new THREE.Mesh(
           new THREE.CircleGeometry(5.4, 96),
           materials.water,
@@ -224,7 +218,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         water.receiveShadow = true;
         worldGroup.add(water);
 
-        // ambient wide ripple rings drifting across the pond
         const ambientRipples: AnimatedRing[] = [0, 1, 2, 3].map((index) => {
           const material = new THREE.MeshBasicMaterial({
             color: 0xdff7f2,
@@ -243,7 +236,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
           return { mesh, material, offset: index / 4, baseY: -0.448 };
         });
 
-        // a few lily pads for texture on the water surface
         [
           [2.1, -2.6],
           [2.6, -2.1],
@@ -259,9 +251,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
           worldGroup.add(pad);
         });
 
-        // -----------------------------------------------------------------
-        // 5. Land & Forest
-        // -----------------------------------------------------------------
         const landGroup = new THREE.Group();
         landGroup.position.set(-4.8, -0.2, -3.2);
         worldGroup.add(landGroup);
@@ -283,7 +272,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         grassTop.castShadow = true;
         landGroup.add(grassTop);
 
-        // shoreline rocks
         [
           [3.4, -1.2, 0.18],
           [3.7, 0.4, 0.14],
@@ -301,7 +289,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
           landGroup.add(rock);
         });
 
-        // low bushes with tiny flower accents
+        // สร้างพุ่มไม้เตี้ยพร้อมดอกไม้ประดับบนเกาะ
         const createBush = (x: number, z: number, scale: number, flower?: Material) => {
           const bush = new THREE.Group();
           bush.position.set(x, 0.16, z);
@@ -339,6 +327,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
         createBush(1.4, 1.9, 0.7);
         createBush(-1.9, -1.4, 0.8, materials.flowerPink);
 
+        // สร้างต้นไม้แบบหลายชั้นใบตามตำแหน่งและขนาดที่กำหนด
         const createTree = (x: number, z: number, scale: number, accent = false) => {
           const tree = new THREE.Group();
           tree.position.set(x, 0.15, z);
@@ -383,14 +372,10 @@ export default function WaterHouseScene3D(): React.ReactElement {
         createTree(0.1, 1.1, 1.05);
         createTree(-2.4, -0.6, 0.65);
 
-        // -----------------------------------------------------------------
-        // 6. Floating House
-        // -----------------------------------------------------------------
         const houseGroup = new THREE.Group();
         houseGroup.position.set(-0.2, 0, 0.2);
         worldGroup.add(houseGroup);
 
-        // pontoons
         [-1.4, 0, 1.4].forEach((x) => {
           const pontoon = new THREE.Mesh(
             new THREE.CylinderGeometry(0.22, 0.22, 4.4, 16),
@@ -401,7 +386,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
           houseGroup.add(pontoon);
         });
 
-        // main wooden deck
         const mainDeck = new THREE.Mesh(
           new THREE.BoxGeometry(4.3, 0.18, 4.6),
           materials.woodDeck,
@@ -411,7 +395,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         mainDeck.receiveShadow = true;
         houseGroup.add(mainDeck);
 
-        // deck plank lines (thin dark grooves) for texture
         for (let i = -3; i <= 3; i += 1) {
           const groove = new THREE.Mesh(
             new THREE.BoxGeometry(4.28, 0.005, 0.03),
@@ -421,7 +404,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
           houseGroup.add(groove);
         }
 
-        // deck railing along the open front edge
         const railingGroup = new THREE.Group();
         houseGroup.add(railingGroup);
         const railTopZ = 2.28;
@@ -442,7 +424,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         railBar.position.set(0, 0.38, railTopZ);
         railingGroup.add(railBar);
 
-        // house body
         const houseBody = new THREE.Mesh(
           new THREE.BoxGeometry(3.0, 2.2, 2.6),
           materials.houseWall,
@@ -452,7 +433,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         houseBody.receiveShadow = true;
         houseGroup.add(houseBody);
 
-        // trim band at the base of the walls
         const trimBand = new THREE.Mesh(
           new THREE.BoxGeometry(3.06, 0.14, 2.66),
           materials.houseTrim,
@@ -460,9 +440,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         trimBand.position.set(-0.3, 0.02, -0.4);
         houseGroup.add(trimBand);
 
-        /**
-         * หลังคาทรงจั่ว — ยืดแกนที่ Group ที่ครอบ ไม่ใช่ที่ตัว mesh
-         */
         const roofGroup = new THREE.Group();
         roofGroup.position.set(-0.3, 2.15, -0.4);
         roofGroup.scale.set(1.25, 1, 1.15);
@@ -475,7 +452,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         roof.castShadow = true;
         roofGroup.add(roof);
 
-        // ridge cap + a small finial for extra detail
         const ridgeCap = new THREE.Mesh(
           new THREE.CylinderGeometry(0.05, 0.05, 1.85, 6),
           materials.roofRidge,
@@ -491,7 +467,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         finial.position.y = 1.36;
         roofGroup.add(finial);
 
-        // door with frame + small glass pane
         const doorFrame = new THREE.Mesh(
           new THREE.BoxGeometry(0.82, 1.62, 0.04),
           materials.houseTrim,
@@ -513,7 +488,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
         doorPane.position.set(0.5, 1.22, 0.98);
         houseGroup.add(doorPane);
 
-        // windows with frames
+        // สร้างหน้าต่างพร้อมกรอบและคิ้วแบ่งช่องกระจก
         const createWindow = (
           x: number,
           y: number,
@@ -563,7 +538,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         createWindow(-1.83, 1.2, -0.4, 0.8, 0.8, -Math.PI / 2);
         createWindow(1.23, 1.2, -0.4, 0.8, 0.8, Math.PI / 2);
 
-        // hanging lantern beside the door, with a warm point light
         const lanternGroup = new THREE.Group();
         lanternGroup.position.set(1.05, 1.55, 0.95);
         const lanternFrame = new THREE.Mesh(
@@ -581,7 +555,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
         lanternLight.position.copy(lanternGroup.position);
         houseGroup.add(lanternLight);
 
-        // a couple of potted plants flanking the door
+        // สร้างกระถางต้นไม้ประดับหน้าประตูบ้าน
         const createPot = (x: number, z: number) => {
           const pot = new THREE.Mesh(
             new THREE.CylinderGeometry(0.11, 0.09, 0.18, 10),
@@ -601,7 +575,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         createPot(0.02, 1.9);
         createPot(0.98, 1.9);
 
-        // small wooden steps at the deck edge, toward the water
         const steps = new THREE.Mesh(
           new THREE.BoxGeometry(1.0, 0.06, 0.5),
           materials.woodDeck,
@@ -610,9 +583,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         steps.castShadow = true;
         houseGroup.add(steps);
 
-        // -----------------------------------------------------------------
-        // 7. Kayak Boat with Person
-        // -----------------------------------------------------------------
         const kayakGroup = new THREE.Group();
         kayakGroup.position.set(3.2, -0.28, 1.6);
         kayakGroup.rotation.y = -0.42;
@@ -638,7 +608,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
 
             let x = Math.sin(theta) * Math.cos(phi) * (length / 2);
             let y = Math.cos(theta) * height;
-            let z = Math.sin(theta) * Math.sin(phi) * width;
+            const z = Math.sin(theta) * Math.sin(phi) * width;
 
             if (y > 0) y *= 0.2;
             else y *= 0.6;
@@ -673,7 +643,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         kayakHull.receiveShadow = true;
         kayakGroup.add(kayakHull);
 
-        // a thin dark trim stripe along the hull's waterline
         const kayakStripe = new THREE.Mesh(
           new THREE.TorusGeometry(0.02, 0.008, 6, 40),
           materials.kayakTrim,
@@ -683,7 +652,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         kayakStripe.position.y = -0.02;
         kayakGroup.add(kayakStripe);
 
-        // person paddling
         const personGroup = new THREE.Group();
         personGroup.position.set(0, 0.1, 0);
         kayakGroup.add(personGroup);
@@ -711,7 +679,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         body.castShadow = true;
         personGroup.add(body);
 
-        // paddle, pivoted around the person's hands
         const paddlePivot = new THREE.Group();
         paddlePivot.position.set(0, 0.42, 0);
         paddlePivot.rotation.set(0.15, 0.4, 0);
@@ -735,7 +702,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
           paddle.add(blade);
         });
 
-        // wake rings trailing the kayak
         const rings: AnimatedRing[] = [0, 1, 2].map((index) => {
           const material = new THREE.MeshBasicMaterial({
             color: 0x9be3de,
@@ -753,9 +719,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
           return { mesh, material, offset: index / 3, baseY: -0.44 };
         });
 
-        // -----------------------------------------------------------------
-        // 8. Lights
-        // -----------------------------------------------------------------
         const hemisphereLight = new THREE.HemisphereLight(
           0xf3fbf8,
           0x1b382b,
@@ -778,9 +741,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
         rimLight.position.set(-4, 3, 9);
         scene.add(rimLight);
 
-        // -----------------------------------------------------------------
-        // 9. Animation & Controls Logic
-        // -----------------------------------------------------------------
         const motionQuery = window.matchMedia(
           "(prefers-reduced-motion: reduce)",
         );
@@ -801,10 +761,12 @@ export default function WaterHouseScene3D(): React.ReactElement {
         const MAX_ROTATION = Math.PI / 8;
         const MIN_ROTATION = -Math.PI / 8;
 
+        // วาดฉาก 3D ลงบน Canvas
         const renderScene = (): void => {
           renderer.render(scene, camera);
         };
 
+        // ปรับขนาดกล้องและสเกลฉากเมื่อขนาดหน้าจอเปลี่ยน
         const resize = (): void => {
           const width = Math.max(mount.clientWidth, 1);
           const height = Math.max(mount.clientHeight, 1);
@@ -824,16 +786,19 @@ export default function WaterHouseScene3D(): React.ReactElement {
           renderScene();
         };
 
+        // เริ่มสถานะการลากหมุนฉากด้วยเมาส์หรือนิ้ว
         const handlePointerDown = (event: PointerEvent): void => {
           isDragging = true;
           previousMouseX = event.clientX;
           velocityY = 0;
         };
 
+        // สิ้นสุดสถานะการลากหมุนฉาก
         const handlePointerUp = (): void => {
           isDragging = false;
         };
 
+        // คำนวณความเร็วการหมุนหรือตำแหน่งเมาส์เมื่อเลื่อนผ่านฉาก
         const handlePointerMove = (event: PointerEvent): void => {
           if (reducedMotion) return;
           const bounds = mount.getBoundingClientRect();
@@ -850,6 +815,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
           }
         };
 
+        // อัปเดตการเคลื่อนไหวของบ้าน เรือ พาย และระลอกน้ำในแต่ละเฟรม
         const animate = (time: number): void => {
           if (disposed || reducedMotion || !tabVisible) {
             animationFrame = 0;
@@ -908,6 +874,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
           animationFrame = window.requestAnimationFrame(animate);
         };
 
+        // เริ่มลูปแอนิเมชันหากแท็บเปิดอยู่และไม่ได้ตั้งค่าลดการเคลื่อนไหว
         const startAnimation = (): void => {
           if (!animationFrame && !reducedMotion && tabVisible && !disposed) {
             animationFrame = window.requestAnimationFrame(animate);
@@ -916,6 +883,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
           }
         };
 
+        // หยุดหรือเริ่มแอนิเมชันใหม่เมื่อผู้ใช้สลับแท็บเบราว์เซอร์
         const handleVisibility = (): void => {
           tabVisible = !document.hidden;
           if (!tabVisible && animationFrame) {
@@ -925,6 +893,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
           startAnimation();
         };
 
+        // ปรับการทำงานของแอนิเมชันตามค่า prefers-reduced-motion ของระบบ
         const handleMotionChange = (event: MediaQueryListEvent): void => {
           reducedMotion = event.matches;
           if (reducedMotion && animationFrame) {
@@ -949,6 +918,7 @@ export default function WaterHouseScene3D(): React.ReactElement {
         mount.dataset.sceneState = "ready";
         startAnimation();
 
+        // ล้าง Event Listener และคืนหน่วยความจำ WebGL เมื่อคอมโพเนนต์ถูกถอดออก
         cleanup = (): void => {
           resizeObserver.disconnect();
           mount.removeEventListener("pointerdown", handlePointerDown);
@@ -989,8 +959,6 @@ export default function WaterHouseScene3D(): React.ReactElement {
       className="relative w-full h-full cursor-grab active:cursor-grabbing select-none"
       aria-label="ภาพจำลองสามมิติของบ้านลอยน้ำ เรือ และเกาะต้นไม้"
       role="img"
-    >
-      {/* <div className="absolute inset-0 bg-linear-to-tr from-lagoon-400/10 via-bamboo-300/10 to-transparent blur-3xl pointer-events-none" /> */}
-    </div>
+    />
   );
 }

@@ -12,7 +12,7 @@ interface PromoPriceBreakdownProps {
   className?: string;
 }
 
-/** แสดงราคาเต็ม → โค้ด/ส่วนลด → ราคาที่ต้องจ่าย */
+// แสดงรายละเอียดราคาเต็ม รายการคูปองส่วนลด และยอดสุทธิที่ต้องชำระ
 export default function PromoPriceBreakdown({
   basePrice,
   promo,
@@ -44,7 +44,7 @@ export default function PromoPriceBreakdown({
       {displayLines.map((line) => (
         <div key={line.code} className="space-y-1">
           <div className="flex items-center justify-between text-charcoal-500">
-            <span>โค้ดส่วนลด</span>
+            <span>โปรโมชั่นส่วนลด</span>
             <span className="font-mono text-xs font-semibold text-forest-800">
               {line.code}
             </span>

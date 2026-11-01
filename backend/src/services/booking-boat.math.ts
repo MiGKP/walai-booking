@@ -1,3 +1,4 @@
+// คำนวณจำนวนลำเรือที่ต้องใช้จากจำนวนผู้โดยสารและที่นั่งต่อลำ
 export function boatsNeeded(passengers: number, seatCount: number): number {
   if (!Number.isFinite(passengers) || passengers < 1) {
     throw new Error('จำนวนผู้โดยสารต้องมีอย่างน้อย 1 คน');
@@ -8,16 +9,19 @@ export function boatsNeeded(passengers: number, seatCount: number): number {
   return Math.ceil(passengers / seatCount);
 }
 
+// คำนวณราคารวมย่อยของเรือแต่ละประเภท
 export function lineSubtotal(unitPrice: number, boatCount: number): number {
   return Number(unitPrice) * boatCount;
 }
 
+// รวมจำนวนผู้โดยสารทั้งหมดจากทุกรายการเรือ
 export function sumPassengerCounts(
   items: Array<{ num_passengers: number }>
 ): number {
   return items.reduce((sum, item) => sum + Number(item.num_passengers || 0), 0);
 }
 
+// รวมยอดเงินย่อยทั้งหมดเป็นราคารวมก่อนหักส่วนลด
 export function sumSubtotals(subtotals: number[]): number {
   return subtotals.reduce((a, b) => a + b, 0);
 }

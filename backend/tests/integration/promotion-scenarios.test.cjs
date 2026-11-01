@@ -103,7 +103,7 @@ test('ten room promotion scenarios: persistence, validation, real booking and qu
       if (index < 7) {
         const uncollected = await validate(promo, { price: index === 3 ? 3000 : 2000 });
         assert.equal(uncollected.code, 400);
-        assert.match(uncollected.body.message, /ต้องเก็บโค้ดนี้ก่อนใช้/);
+        assert.match(uncollected.body.message, /ต้องเก็บคูปองนี้ก่อนใช้/);
         await pool.query("INSERT INTO member_promotions(member_id,promotion_id,status) VALUES(1,$1,'saved'),(2,$1,'saved')", [promo.id]);
       }
       assert.deepEqual(promo.room_type_ids, []);

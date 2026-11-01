@@ -36,6 +36,7 @@ const MONTH_NAMES = [
 
 const WEEKDAY_NAMES = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
+// แสดงปุ่มและปฏิทินเลือกวันที่แบบกำหนดเองในรูปแบบปี พ.ศ.
 export function CustomDatePicker({
   value,
   onChange,
@@ -63,6 +64,7 @@ export function CustomDatePicker({
   }, [value]);
 
   useEffect(() => {
+    // ปิดปฏิทินเมื่อคลิกนอกพื้นที่คอมโพเนนต์
     function handleClickOutside(event: MouseEvent) {
       if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -78,32 +80,38 @@ export function CustomDatePicker({
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfWeek = new Date(year, month, 1).getDay();
 
+  // เลื่อนปฏิทินไปแสดงเดือนก่อนหน้า
   const handlePrevMonth = (e: React.MouseEvent) => {
     e.preventDefault();
     setViewDate(new Date(year, month - 1, 1));
   };
 
+  // เลื่อนปฏิทินไปแสดงเดือนถัดไป
   const handleNextMonth = (e: React.MouseEvent) => {
     e.preventDefault();
     setViewDate(new Date(year, month + 1, 1));
   };
 
+  // เลือกวันที่ในปฏิทินและส่งค่ากลับในรูปแบบ YYYY-MM-DD
   const handleSelectDay = (day: number) => {
     const formattedDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     onChange(formattedDate);
     setIsOpen(false);
   };
 
+  // ตรวจสอบว่าวันที่ในช่องตรงกับวันปัจจุบันหรือไม่
   const isToday = (day: number) => {
     const today = new Date();
     return today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
   };
 
+  // ตรวจสอบว่าวันที่ในช่องตรงกับวันที่ที่เลือกไว้หรือไม่
   const isSelected = (day: number) => {
     if (!selectedDate) return false;
     return selectedDate.getDate() === day && selectedDate.getMonth() === month && selectedDate.getFullYear() === year;
   };
 
+  // ตรวจสอบว่าวันที่อยู่นอกช่วง min/max หรือถูกปิดใช้งานหรือไม่
   const isDisabled = (day: number) => {
     if (disabled) return true;
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -151,9 +159,10 @@ export function CustomDatePicker({
 
       {isOpen && !disabled && (
         <div
-          className={`${mobileCentered
-            ? `fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:absolute sm:top-full sm:translate-x-0 sm:translate-y-0 ${align === "right" ? "sm:left-auto sm:right-0" : "sm:left-0"}`
-            : `absolute top-full ${align === "right" ? "right-0" : "left-0"}`
+          className={`${
+            mobileCentered
+              ? `fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:absolute sm:top-full sm:translate-x-0 sm:translate-y-0 ${align === "right" ? "sm:left-auto sm:right-0" : "sm:left-0"}`
+              : `absolute top-full ${align === "right" ? "right-0" : "left-0"}`
           } mt-2 w-64 bg-white border border-cream-200/90 rounded-2xl shadow-xl z-50 p-3.5 animate-in fade-in zoom-in-95 duration-150`}
         >
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-cream-200">

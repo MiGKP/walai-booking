@@ -1,23 +1,30 @@
 export const BOOKING_FILTERS = ['all', 'has_slip', 'pending', 'approved', 'checked_out', 'cancelled', 'rejected'] as const;
-export type BookingListFilter = typeof BOOKING_FILTERS[number];
+export type BookingListFilter = (typeof BOOKING_FILTERS)[number];
 export const BOOKING_SORTS = ['newest', 'oldest', 'service_asc', 'price_desc'] as const;
-export type BookingListSort = typeof BOOKING_SORTS[number];
+export type BookingListSort = (typeof BOOKING_SORTS)[number];
 
+// อ่านและตรวจสอบค่าตัวกรองสถานะการจองจาก URL
 export function readBookingFilter(value: string | null): BookingListFilter {
-  return BOOKING_FILTERS.find(filter => filter === value) ?? 'all';
+  return BOOKING_FILTERS.find((filter) => filter === value) ?? 'all';
 }
 
+// อ่านและตรวจสอบรูปแบบการเรียงลำดับรายการจองจาก URL
 export function readBookingSort(value: string | null): BookingListSort {
-  return BOOKING_SORTS.find(sort => sort === value) ?? 'newest';
+  return BOOKING_SORTS.find((sort) => sort === value) ?? 'newest';
 }
 
+// อ่านและตรวจสอบจำนวนรายการต่อหน้าจาก URL
 export function readBookingPageSize(value: string | null): number {
   const limit = Number(value);
   return [10, 25, 50].includes(limit) ? limit : 10;
 }
 
-/** Sort/filter before pagination on the API, never just the currently visible rows. */
-export function bookingListOrderParams(filter: BookingListFilter, sort: BookingListSort, service: 'room' | 'boat'): Record<string, string | undefined> {
+// แปลงตัวกรองและการเรียงลำดับเป็น query parameters สำหรับส่งไปที่ API
+export function bookingListOrderParams(
+  filter: BookingListFilter,
+  sort: BookingListSort,
+  service: 'room' | 'boat'
+): Record<string, string | undefined> {
   return {
     filter: filter === 'cancelled' || filter === 'rejected' ? 'all' : filter,
     status: filter === 'cancelled' || filter === 'rejected' ? filter : undefined,

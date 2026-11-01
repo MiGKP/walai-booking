@@ -30,15 +30,21 @@ export interface RoomBoatAddonRequest {
   num_passengers: number;
 }
 
+// ส่งคำขอสร้างรายการจองเรือเสริมจากสิทธิ์ของห้องพักไปยัง API
 export async function createRoomBoatAddon(bookingRoomId: number, request: RoomBoatAddonRequest): Promise<void> {
   await api.post(`/kayaks/room-addon/${bookingRoomId}`, request);
 }
 
+// ตรวจสอบว่าสิทธิ์จองเรือเสริมของห้องพักยังสามารถกดจองได้ในวันปัจจุบันหรือไม่
 export function canBookRoomBoatAddon(info: RoomBoatAddonInfo, today: string): boolean {
-  return info.balance > 0
-    && ['pending', 'paid', 'approved'].includes(info.room_status)
-    && !['checked_out', 'cancelled', 'rejected'].includes(info.room_line_status ?? '')
-    && (info.mode === 'free' || info.room_status === 'pending')
-    && !!info.valid_from && !!info.valid_to
-    && info.valid_from <= info.valid_to && info.valid_to >= today;
+  return (
+    info.balance > 0 &&
+    ['pending', 'paid', 'approved'].includes(info.room_status) &&
+    !['checked_out', 'cancelled', 'rejected'].includes(info.room_line_status ?? '') &&
+    (info.mode === 'free' || info.room_status === 'pending') &&
+    !!info.valid_from &&
+    !!info.valid_to &&
+    info.valid_from <= info.valid_to &&
+    info.valid_to >= today
+  );
 }

@@ -869,7 +869,7 @@ export default function AdminPage() {
                   <Tag size={16} />
                 </span>
                 <h3 className="font-display text-base font-bold text-forest-900">
-                  โปรโมชั่น & โค้ดส่วนลด
+                  โปรโมชั่น & คูปองส่วนลด
                 </h3>
               </div>
               <button

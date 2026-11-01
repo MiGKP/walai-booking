@@ -3,14 +3,14 @@ import { remainingBoats, roundIncludesTypeSql, roundTypeQuantitySql, typeCapacit
 
 export interface ReportRange { start: string; end: string; }
 
-// Paid addons are included in the room payment header and also have boat
-// headers. Attribute them to boat revenue once, keeping room revenue separate.
+// สร้างนิพจน์ SQL คำนวณรายได้เฉพาะค่าห้องพักโดยหักยอดบัตรเสริมพายเรือออก
 export const roomReportAmountSql = (alias: 'rb' | 'b'): string => `GREATEST(0, ${alias}.total_price - COALESCE((
   SELECT SUM(addon.total_price) FROM boat_bookings addon
   WHERE addon.room_booking_id = ${alias}.room_booking_id AND addon.is_addon = true
     AND addon.status NOT IN ('cancelled', 'rejected')
 ), 0))`;
 
+// คำนวณช่วงวันที่เริ่มต้นและสิ้นสุดของรายงานแบบรายวันหรือรายเดือน
 export const reportRange = (query: Record<string, unknown>): ReportRange => {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   if (query.period !== undefined && query.period !== 'day' && query.period !== 'month') throw new Error('ช่วงรายงานไม่ถูกต้อง');
@@ -29,8 +29,7 @@ export const reportRange = (query: Record<string, unknown>): ReportRange => {
   return { start, end };
 };
 
-// Booking-created dates preserve the existing reporting basis. Exclude rejected
-// and cancelled bookings from package usage, and allocate group revenue once.
+// ดึงรายงานสถิติการใช้โปรโมชั่นและยอดรายได้ที่เกิดขึ้นในช่วงเวลาที่กำหนด
 export const packageReport = async (range: ReportRange): Promise<Record<string, unknown>[]> => {
   const result = await pool.query(`WITH uses AS (
       SELECT DISTINCT room_booking_id, promotion_id FROM booking_room_promotions
@@ -62,6 +61,7 @@ export const packageReport = async (range: ReportRange): Promise<Record<string, 
   return result.rows;
 };
 
+// ดึงรายงานจำนวนห้องพักทั้งหมด ห้องที่ถูกจอง และห้องว่างรายวันแยกตามประเภทห้อง
 export const roomInventoryReport = async (range: ReportRange): Promise<Record<string, unknown>[]> => {
   const result = await pool.query(`WITH days AS (SELECT generate_series($1::date, $2::date, interval '1 day')::date AS day)
     SELECT to_char(d.day, 'YYYY-MM-DD') AS date, rt.id AS room_type_id, rt.room_name AS type_name,
@@ -75,6 +75,7 @@ export const roomInventoryReport = async (range: ReportRange): Promise<Record<st
   return result.rows.map(row => ({ ...row, available: Math.max(0, Number(row.total) - Number(row.booked)) }));
 };
 
+// ดึงรายงานจำนวนเรือทั้งหมด เรือที่ถูกจอง และเรือว่างรายวันแยกตามประเภทเรือและรอบเวลา
 export const boatInventoryReport = async (range: ReportRange): Promise<Record<string, unknown>[]> => {
   const result = await pool.query(`WITH days AS (SELECT generate_series($1::date, $2::date, interval '1 day')::date AS day)
     SELECT DISTINCT ON (d.day, bt.boat_type_id, br.start_time, br.end_time)

@@ -15,7 +15,6 @@ import {
   Sailboat,
   MessageSquare,
   Building2,
-  Clock,
   UserCheck,
   Tag,
   LayoutDashboard,
@@ -43,7 +42,6 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
-// ปฏิทินการจองเป็นลิงก์ด้านบนของ sidebar อยู่แล้ว จึงไม่ต้องอยู่ในรายการนี้
 const roomStaffAllowedPaths = [
   "/admin/stats",
   "/admin/policies",
@@ -175,11 +173,13 @@ const menuGroups: MenuGroup[] = [
   },
 ];
 
+// แสดงแถบเมนูด้านข้างของระบบจัดการตามสิทธิ์ของผู้ใช้งาน
 export default function AdminSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { counts } = useAdminNotificationStore();
 
+  // คืนค่าจำนวนรายการแจ้งเตือนของเมนูย่อยแต่ละรายการ
   const getItemBadge = (label: string): number => {
     if (label === "จัดการการจองห้องพัก" || label === "แดชบอร์ดจองห้อง") return counts.room_slips;
     if (label === "เช็คอิน-เช็คเอาต์") return counts.today_checkins;
@@ -188,30 +188,28 @@ export default function AdminSidebar() {
     return 0;
   };
 
+  // คืนค่าจำนวนรายการแจ้งเตือนรวมของหมวดเมนูหลัก
   const getGroupBadge = (title: string): number => {
     if (title === "ห้องพัก") return counts.room_slips;
     if (title === "เรือ") return counts.boat_slips;
     return 0;
   };
 
-  // ฟังก์ชันแปลง Path จาก /admin เป็น /staff/... ตาม Role
+  // แปลงเส้นทางเมนูจากหน้าแอดมินให้ตรงกับสิทธิ์ของพนักงานแต่ละแผนก
   const resolvePath = (path: string) => {
     if (user?.role === "room_staff") {
       if (path === "/admin") return "/staff/rooms/dashboard";
       if (path === "/admin/policies") return "/admin/policies";
 
-      // ถ้า path มี /admin/rooms อยู่แล้ว ให้เปลี่ยนแค่ /admin เป็น /staff (เพื่อไม่ให้ซ้ำ)
       if (path.startsWith("/admin/rooms")) {
         return path.replace("/admin", "/staff");
       }
-      // ถ้าเป็น path อื่นๆ เช่น /admin/calendar -> /staff/rooms/calendar
       if (path.startsWith("/admin")) {
         return path.replace("/admin", "/staff/rooms");
       }
     }
 
     if (user?.role === "boat_staff") {
-      // หน้าภาพรวมของ boat_staff ชี้ไปที่แดชบอร์ดของระบบเรือ
       if (path === "/admin") return "/staff/boats/dashboard";
       if (path === "/admin/policies") return "/admin/policies";
       if (path === "/admin/boats") return "/staff/boats/dashboard";
@@ -228,7 +226,6 @@ export default function AdminSidebar() {
   const calendarHref = resolvePath("/admin/calendar");
   const profileHref = resolvePath("/admin/profile");
 
-  // กรองเมนูและแปลง Path ย่อยตามสิทธิ์ของ user role
   const filteredMenuGroups = menuGroups
     .map((group) => {
       let allowedItems = group.items;
@@ -253,8 +250,6 @@ export default function AdminSidebar() {
     })
     .filter((group) => group.items.length > 0);
 
-  // เปิดเฉพาะหมวดที่ตรงกับหน้าปัจจุบันเท่านั้น — ถ้าอยู่หน้าที่ไม่ได้อยู่ในหมวดไหนเลย (เช่น "ภาพรวม")
-  // ให้ทุกหมวดยุบไว้หมด แทนที่จะกางหมวดใดหมวดหนึ่งขึ้นมาแบบเดาสุ่ม
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     const activeGroup = filteredMenuGroups.find((g) =>
       g.items.some((item) => item.path === pathname),
@@ -262,6 +257,7 @@ export default function AdminSidebar() {
     return activeGroup ? [activeGroup.title] : [];
   });
 
+  // สลับการพับหรือกางหมวดเมนูที่เลือก
   const toggleGroup = (title: string) => {
     setOpenGroups((prev) =>
       prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title],
@@ -270,16 +266,17 @@ export default function AdminSidebar() {
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   useEffect(() => {
-    const narrowScreen = window.matchMedia('(max-width: 767px)');
+    const narrowScreen = window.matchMedia("(max-width: 767px)");
+    // ย่อแถบเมนูด้านข้างอัตโนมัติเมื่อหน้าจอมีขนาดเล็ก
     const adaptSidebar = (): void => setIsCollapsed(narrowScreen.matches);
     adaptSidebar();
-    narrowScreen.addEventListener('change', adaptSidebar);
-    return () => narrowScreen.removeEventListener('change', adaptSidebar);
+    narrowScreen.addEventListener("change", adaptSidebar);
+    return () => narrowScreen.removeEventListener("change", adaptSidebar);
   }, []);
 
+  // สร้างเนื้อหาภายในแถบเมนูตามสถานะการย่อหรือขยาย
   const renderNavContent = (collapsed: boolean, isMobile: boolean = false) => (
     <div className={`flex flex-col h-full py-5 ${collapsed ? "px-2" : "px-3.5"}`}>
-      {/* Brand / Logo */}
       <div className={`mb-5 flex items-center ${collapsed ? "justify-center px-0" : "justify-between px-3"}`}>
         {!collapsed && (
           <div className="min-w-0 pr-2">
@@ -291,7 +288,7 @@ export default function AdminSidebar() {
         {!isMobile && (
           <button
             onClick={() => setIsCollapsed(!collapsed)}
-            className={`p-1.5 rounded-lg text-charcoal-500 hover:bg-stone-200/50 hover:text-forest-800 transition-colors shrink-0 ${collapsed ? '' : '-mr-2'}`}
+            className={`p-1.5 rounded-lg text-charcoal-500 hover:bg-stone-200/50 hover:text-forest-800 transition-colors shrink-0 ${collapsed ? "" : "-mr-2"}`}
             title={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
           >
             <Menu size={18} />
@@ -299,9 +296,7 @@ export default function AdminSidebar() {
         )}
       </div>
 
-      {/* Nav Links */}
       <nav className={`flex-1 overflow-y-auto space-y-1.5 custom-scrollbar ${collapsed ? "" : "pr-1"}`}>
-        {/* Dashboard Main Link */}
         <Link
           href={dashboardHref}
           title={collapsed ? "ภาพรวม (Dashboard)" : undefined}
@@ -315,7 +310,6 @@ export default function AdminSidebar() {
             <LayoutDashboard size={18} className="shrink-0" />
             {!collapsed && <span>ภาพรวม (Dashboard)</span>}
           </div>
-          {/* Badge for staff overview */}
           {user?.role === "room_staff" && counts.room_slips > 0 && (
             collapsed ? (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
@@ -336,7 +330,6 @@ export default function AdminSidebar() {
           )}
         </Link>
 
-        {/* Calendar Link */}
         <Link
           href={calendarHref}
           title={collapsed ? "ปฏิทินการจอง" : undefined}
@@ -350,7 +343,6 @@ export default function AdminSidebar() {
           {!collapsed && <span>ปฏิทินการจอง</span>}
         </Link>
 
-        {/* Accordion Groups */}
         {filteredMenuGroups.map((group) => {
           const isOpen = openGroups.includes(group.title);
           const hasActiveChild = group.items.some(
@@ -363,7 +355,6 @@ export default function AdminSidebar() {
               key={group.title}
               className="rounded-xl overflow-hidden transition-all"
             >
-              {/* Header เมนูหลัก (กดเพื่อพับ/กาง) */}
               <button
                 type="button"
                 onClick={() => {
@@ -409,7 +400,6 @@ export default function AdminSidebar() {
                 )}
               </button>
 
-              {/* Sub-items (เมนูย่อย) */}
               {isOpen && (
                 <div className={collapsed ? "py-1 space-y-1 my-1 flex flex-col items-center" : "pl-4 pr-1 py-1 space-y-0.5 border-l-2 border-stone-200 ml-5 my-1"}>
                   {group.items.map((item) => {
@@ -453,7 +443,6 @@ export default function AdminSidebar() {
         })}
       </nav>
 
-      {/* ส่วนท้าย Sidebar */}
       <div className={`pt-3 border-t border-stone-200/80 space-y-2 mt-2 ${collapsed ? "flex flex-col items-center" : ""}`}>
         <a
           href="/"
@@ -486,7 +475,7 @@ export default function AdminSidebar() {
           <div className={`${collapsed ? "flex flex-col gap-1 w-full" : "grid grid-cols-2 gap-1"} pt-1.5 border-t border-stone-100`}>
             <Link
               href={profileHref}
-                  title={collapsed ? "โปรไฟล์" : undefined}
+              title={collapsed ? "โปรไฟล์" : undefined}
               className={`flex items-center justify-center ${collapsed ? "p-1.5" : "gap-1 py-1"} text-xs font-medium text-charcoal-600 hover:text-forest-800 hover:bg-stone-100 rounded-lg transition-colors`}
             >
               <User size={13} className="shrink-0" />

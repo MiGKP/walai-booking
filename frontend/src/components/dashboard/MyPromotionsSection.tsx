@@ -10,7 +10,7 @@ import { promoDaysLeft, canUseWalletPromotion, type WalletPromo, type WalletStat
 
 type FilterTab = 'saved' | 'used' | 'expired';
 
-// แท็บ "โปรโมชั่นของฉัน" แบบฝังในหน้า dashboard เดียวกัน ไม่ต้องสลับไปหน้า /dashboard/promotions
+// แสดงรายการโปรโมชั่นในกระเป๋าของลูกค้าแยกตามสถานะพร้อมใช้ ใช้แล้ว และหมดอายุ
 export default function MyCouponsSection(): React.ReactElement {
   const [wallet, setWallet] = useState<WalletPromo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,6 +18,7 @@ export default function MyCouponsSection(): React.ReactElement {
   const [boatTicketBalance, setBoatTicketBalance] = useState(0);
   const { notice, showNotice } = usePromoNotice();
 
+  // ดึงข้อมูลโปรโมชั่นที่ลูกค้าเก็บไว้ในกระเป๋า
   const loadWallet = useCallback(async (): Promise<void> => {
     try {
       const res = await api.get<{ data: WalletPromo[] }>('/promotions/mine');
@@ -27,7 +28,7 @@ export default function MyCouponsSection(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showNotice]);
 
   useEffect(() => {
     void loadWallet();
@@ -40,7 +41,11 @@ export default function MyCouponsSection(): React.ReactElement {
   const grouped = useMemo(() => {
     const buckets: Record<FilterTab, WalletPromo[]> = { saved: [], used: [], expired: [] };
     for (const item of wallet) {
-      const status: WalletStatus = canUseWalletPromotion(item.status, item.remaining) ? 'saved' : item.status === 'expired' ? 'expired' : 'used';
+      const status: WalletStatus = canUseWalletPromotion(item.status, item.remaining)
+        ? 'saved'
+        : item.status === 'expired'
+          ? 'expired'
+          : 'used';
       buckets[status].push(item);
     }
     return buckets;
@@ -53,7 +58,12 @@ export default function MyCouponsSection(): React.ReactElement {
       {boatTicketBalance > 0 && (
         <div className="mb-4 flex items-center gap-2.5 rounded-2xl border border-bamboo-200 bg-bamboo-50/70 px-4 py-3 text-xs font-medium text-bamboo-800">
           <Ticket size={16} className="shrink-0" />
-          <p>คุณมีโปรโมชั่นพายเรือฟรี {boatTicketBalance} ใบ — ใช้ได้ตอนจองเรือที่หน้า <Link href="/kayaks" className="font-bold underline">จองเรือ</Link></p>
+          <p>
+            คุณมีโปรโมชั่นพายเรือฟรี {boatTicketBalance} ใบ — ใช้ได้ตอนจองเรือที่หน้า{' '}
+            <Link href="/kayaks" className="font-bold underline">
+              จองเรือ
+            </Link>
+          </p>
         </div>
       )}
 
@@ -83,7 +93,9 @@ export default function MyCouponsSection(): React.ReactElement {
 
       {loading ? (
         <div className="space-y-3">
-          {[1, 2].map((key) => <div key={key} className="h-28 animate-pulse rounded-2xl bg-stone-100" />)}
+          {[1, 2].map((key) => (
+            <div key={key} className="h-28 animate-pulse rounded-2xl bg-stone-100" />
+          ))}
         </div>
       ) : visible.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-200 py-16 text-center">
@@ -91,92 +103,102 @@ export default function MyCouponsSection(): React.ReactElement {
           <p className="mb-4 text-sm text-charcoal-400">
             {filter === 'saved' ? 'ยังไม่มีโปรโมชั่นในกระเป๋า' : 'ยังไม่มีรายการในหมวดนี้'}
           </p>
-          {filter === 'saved' && <Link href="/promotions" className="btn-primary">ไปเก็บโปรโมชั่น</Link>}
+          {filter === 'saved' && (
+            <Link href="/promotions" className="btn-primary">
+              ไปเก็บโปรโมชั่น
+            </Link>
+          )}
         </div>
       ) : (
         <div className="space-y-10">
-            {[
-              { title: 'ส่วนลดห้องพัก', items: visible.filter(p => p.applies_to === 'room') },
-              { title: 'ส่วนลดเรือ', items: visible.filter(p => p.applies_to === 'kayak') },
-              { title: 'โปรโมชั่นพิเศษ', items: visible.filter(p => !p.applies_to || p.applies_to === 'both') }
-            ].map(group => group.items.length > 0 && (
-              <div key={group.title}>
-                <h3 className="text-sm font-semibold text-stone-500 mb-3 px-1">{group.title}</h3>
-                <ul className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {group.items.map((item) => (
-                    <li key={item.promotion_id}>
-                      <PromoVoucher
-                        code={item.code}
-                        name={item.name}
-                        description={item.description}
-                        discountType={item.discount_type}
-                        discountValue={item.discount_value}
-                        startDate={item.start_date}
-                        endDate={item.end_date}
-                        stackable={Boolean(item.stackable)}
-                        appliesTo={item.applies_to}
-                        minNights={item.min_nights}
-                        maxDiscount={item.max_discount}
-                        boatTicketCount={item.boat_ticket_count}
-                        boatAddonMode={item.boat_addon_mode}
-                        muted={!canUseWalletPromotion(item.status, item.remaining)}
-                        footer={
-                          canUseWalletPromotion(item.status, item.remaining) ? (
-                            <>
-                              {(() => {
-                                const daysLeft = promoDaysLeft(item.end_date);
-                                if (daysLeft === null || daysLeft < 0 || daysLeft > 3) return null;
-                                return (
-                                  <p className="w-full text-xs font-semibold text-amber-700">
-                                    {daysLeft === 0 ? 'หมดอายุวันนี้ ใช้ได้ถึงเที่ยงคืน' : `เหลืออีก ${daysLeft} วันก่อนหมดอายุ`}
-                                  </p>
-                                );
-                              })()}
-                              <PromoBookingLinks
-                                code={item.code} 
-                                appliesTo={item.applies_to}
-                                roomLabel="ใช้จองห้องพัก"
-                                kayakLabel="ใช้จองเรือ"
-                              />
-                              {item.remaining != null && (
-                                <span className="ml-auto text-xs text-charcoal-400">เหลือ {item.remaining} สิทธิ์</span>
-                              )}
-                            </>
-                          ) : (
-                            <Link href="/promotions" className="text-sm font-medium text-forest-800">หาโปรโมชั่นใหม่</Link>
-                          )
-                        }
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+          {[
+            { title: 'ส่วนลดห้องพัก', items: visible.filter((p) => p.applies_to === 'room') },
+            { title: 'ส่วนลดเรือ', items: visible.filter((p) => p.applies_to === 'kayak') },
+            { title: 'โปรโมชั่นพิเศษ', items: visible.filter((p) => !p.applies_to || p.applies_to === 'both') },
+          ].map(
+            (group) =>
+              group.items.length > 0 && (
+                <div key={group.title}>
+                  <h3 className="mb-3 px-1 text-sm font-semibold text-stone-500">{group.title}</h3>
+                  <ul className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    {group.items.map((item) => (
+                      <li key={item.promotion_id}>
+                        <PromoVoucher
+                          code={item.code}
+                          name={item.name}
+                          description={item.description}
+                          discountType={item.discount_type}
+                          discountValue={item.discount_value}
+                          startDate={item.start_date}
+                          endDate={item.end_date}
+                          stackable={Boolean(item.stackable)}
+                          appliesTo={item.applies_to}
+                          minNights={item.min_nights}
+                          maxDiscount={item.max_discount}
+                          boatTicketCount={item.boat_ticket_count}
+                          boatAddonMode={item.boat_addon_mode}
+                          muted={!canUseWalletPromotion(item.status, item.remaining)}
+                          footer={
+                            canUseWalletPromotion(item.status, item.remaining) ? (
+                              <>
+                                {(() => {
+                                  const daysLeft = promoDaysLeft(item.end_date);
+                                  if (daysLeft === null || daysLeft < 0 || daysLeft > 3) return null;
+                                  return (
+                                    <p className="w-full text-xs font-semibold text-amber-700">
+                                      {daysLeft === 0 ? 'หมดอายุวันนี้ ใช้ได้ถึงเที่ยงคืน' : `เหลืออีก ${daysLeft} วันก่อนหมดอายุ`}
+                                    </p>
+                                  );
+                                })()}
+                                <PromoBookingLinks
+                                  code={item.code}
+                                  appliesTo={item.applies_to}
+                                  roomLabel="ใช้จองห้องพัก"
+                                  kayakLabel="ใช้จองเรือ"
+                                />
+                                {item.remaining != null && (
+                                  <span className="ml-auto text-xs text-charcoal-400">เหลือ {item.remaining} สิทธิ์</span>
+                                )}
+                              </>
+                            ) : (
+                              <Link href="/promotions" className="text-sm font-medium text-forest-800">
+                                หาโปรโมชั่นใหม่
+                              </Link>
+                            )
+                          }
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+          )}
+        </div>
       )}
     </div>
   );
 }
 
-// ปิด/เปิดการรับอีเมลแจ้งเตือนโปรโมชั่นใกล้หมดอายุ
+// แสดงปุ่มเปิด/ปิดการรับอีเมลแจ้งเตือนเมื่อโปรโมชั่นใกล้หมดอายุ
 function EmailPreferenceToggle(): React.ReactElement {
   const [optOut, setOptOut] = useState(false);
   const [saving, setSaving] = useState(false);
   const { notice, showNotice } = usePromoNotice();
 
   useEffect(() => {
-    api.get<{ data: { opt_out: boolean } }>('/promotions/email-preference')
+    api
+      .get<{ data: { opt_out: boolean } }>('/promotions/email-preference')
       .then((res) => setOptOut(res.data?.data?.opt_out === true))
       .catch(() => undefined);
   }, []);
 
+  // บันทึกการตั้งค่ารับหรือไม่รับอีเมลแจ้งเตือนโปรโมชั่น
   const toggle = async (): Promise<void> => {
     setSaving(true);
     try {
-      const res = await api.put<{ message?: string; data: { opt_out: boolean } }>(
-        '/promotions/email-preference',
-        { opt_out: !optOut }
-      );
+      const res = await api.put<{ message?: string; data: { opt_out: boolean } }>('/promotions/email-preference', {
+        opt_out: !optOut,
+      });
       setOptOut(res.data?.data?.opt_out === true);
       showNotice('success', res.data?.message ?? 'บันทึกแล้ว');
     } catch (error: unknown) {
@@ -188,22 +210,22 @@ function EmailPreferenceToggle(): React.ReactElement {
 
   return (
     <>
-    <PromoNotice notice={notice} />
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm">
-      <span className="text-charcoal-500">
-        {optOut
-          ? 'ปิดการรับอีเมลแจ้งเตือนโปรโมชั่นใกล้หมดอายุอยู่'
-          : 'รับอีเมลแจ้งเตือนเมื่อโปรโมชั่นในกระเป๋าใกล้หมดอายุ (ก่อน 3 วันและก่อน 1 วัน)'}
-      </span>
-      <button
-        type="button"
-        onClick={() => void toggle()}
-        disabled={saving}
-        className="text-xs font-semibold text-forest-800 underline disabled:opacity-50"
-      >
-        {optOut ? 'เปิดรับอีเมล' : 'ปิดรับอีเมล'}
-      </button>
-    </div>
+      <PromoNotice notice={notice} />
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm">
+        <span className="text-charcoal-500">
+          {optOut
+            ? 'ปิดการรับอีเมลแจ้งเตือนโปรโมชั่นใกล้หมดอายุอยู่'
+            : 'รับอีเมลแจ้งเตือนเมื่อโปรโมชั่นในกระเป๋าใกล้หมดอายุ (ก่อน 3 วันและก่อน 1 วัน)'}
+        </span>
+        <button
+          type="button"
+          onClick={() => void toggle()}
+          disabled={saving}
+          className="text-xs font-semibold text-forest-800 underline disabled:opacity-50"
+        >
+          {optOut ? 'เปิดรับอีเมล' : 'ปิดรับอีเมล'}
+        </button>
+      </div>
     </>
   );
 }

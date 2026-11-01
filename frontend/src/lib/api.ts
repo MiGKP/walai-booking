@@ -2,6 +2,7 @@ import axios from 'axios';
 import { isSafeInternalPath, setPostLoginRedirect } from '@/lib/auth-redirect';
 import { ADMIN_BOOKINGS_CHANGED } from '@/lib/admin-booking-events';
 
+// อินสแตนซ์ Axios กลางสำหรับเรียกใช้งาน Backend API
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
   headers: {
@@ -21,9 +22,12 @@ api.interceptors.response.use(
   (response) => {
     const method = response.config.method?.toLowerCase();
     const url = response.config.url || '';
-    if (typeof window !== 'undefined' && ['post', 'put', 'patch', 'delete'].includes(method || '')
-      && /^\/(?:bookings|kayaks\/bookings|payments)(?:\/|$)/.test(url)
-      && response.data?.success !== false) {
+    if (
+      typeof window !== 'undefined' &&
+      ['post', 'put', 'patch', 'delete'].includes(method || '') &&
+      /^\/(?:bookings|kayaks\/bookings|payments)(?:\/|$)/.test(url) &&
+      response.data?.success !== false
+    ) {
       window.dispatchEvent(new Event(ADMIN_BOOKINGS_CHANGED));
     }
     return response;
@@ -45,8 +49,7 @@ api.interceptors.response.use(
   }
 );
 
-/** ดึงข้อความ error จาก backend ที่ตอบรูปแบบ { success, message } โดยไม่ต้องใช้ any */
-/** ข้อความภาษาไทยสำหรับกรณีที่ request ไม่ถึง server หรือไม่ได้รับคำตอบ (เน็ตหลุด, timeout, server ล่ม) */
+// แปลงข้อผิดพลาดเกี่ยวกับเครือข่ายหรือเซิร์ฟเวอร์เป็นข้อความภาษาไทย
 export const getNetworkErrorMessage = (error: unknown): string | null => {
   if (!axios.isAxiosError(error)) return null;
   if (error.code === 'ECONNABORTED') {
@@ -61,6 +64,7 @@ export const getNetworkErrorMessage = (error: unknown): string | null => {
   return null;
 };
 
+// ดึงข้อความแจ้งเตือนข้อผิดพลาดจาก API หรือคืนค่าข้อความสำรอง
 export const getApiErrorMessage = (error: unknown, fallback: string): string => {
   if (axios.isAxiosError(error)) {
     const message = error.response?.data?.message;

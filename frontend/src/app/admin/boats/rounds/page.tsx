@@ -54,24 +54,24 @@ interface AdminRoundRow extends BoatRound {
   round_boats?: BoatQuantityItem[];
 }
 
+// ดึงรหัสอ้างอิงของประเภทเรือจากข้อมูลที่ส่งมา
 function boatTypeKey(bt: BoatType): number | undefined {
   return bt.boat_type_id ?? bt.id;
 }
 
+// ดึงชื่อประเภทเรือสำหรับแสดงผลบนหน้าจอ
 function boatTypeLabel(bt: BoatType): string {
   return bt.type_name ?? bt.name ?? "";
 }
 
-// -------------------------------------------------------------
-// CUSTOM TIME PICKER COMPONENT (เวลาไทย 24 ชม. ดีไซน์ละมุน)
-// -------------------------------------------------------------
 interface ThaiTimePickerProps {
   label: string;
-  value: string; // "15:00"
+  value: string;
   onChange: (time: string) => void;
   required?: boolean;
 }
 
+// คอมโพเนนต์เลือกเวลาแบบ 24 ชั่วโมงสำหรับกำหนดเวลารอบเรือ
 const ThaiTimePicker: React.FC<ThaiTimePickerProps> = ({
   label,
   value,
@@ -123,10 +123,12 @@ const ThaiTimePicker: React.FC<ThaiTimePickerProps> = ({
     }
   }, [isOpen]);
 
+  // เลือกชั่วโมงและส่งค่าเวลาใหม่กลับไป
   const handleSelectHour = (h: string) => {
     onChange(`${h}:${minutes}`);
   };
 
+  // เลือกนาทีและส่งค่าเวลาใหม่กลับไป
   const handleSelectMinute = (m: string) => {
     onChange(`${hours}:${m}`);
   };
@@ -216,9 +218,7 @@ const ThaiTimePicker: React.FC<ThaiTimePickerProps> = ({
   );
 };
 
-// -------------------------------------------------------------
-// MAIN PAGE COMPONENT
-// -------------------------------------------------------------
+// หน้าจัดการรอบเวลาพายเรือและกำหนดโควตาเรือในแต่ละรอบ
 export default function BoatRoundsPage(): React.ReactElement | null {
   const { ready } = useAuthGuard({ allowedRoles: ["admin", "boat_staff"] });
 
@@ -235,19 +235,20 @@ export default function BoatRoundsPage(): React.ReactElement | null {
   const [endTime, setEndTime] = useState("16:00");
   const [isActive, setIsActive] = useState<boolean>(true);
 
-  // รองรับทั้ง number และ string (เพื่อปล่อยให้ช่องว่างเปล่าได้ชั่วคราวตอนกดลบ)
   const [selectedBoatsMap, setSelectedBoatsMap] = useState<
     Record<number, number | string>
   >({});
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
   const [deleteRoundId, setDeleteRoundId] = useState<number | null>(null);
 
+  // จัดรูปแบบสตริงเวลาให้เป็นข้อความภาษาไทย เช่น 15:00 น.
   const formatThaiDisplay = (timeStr?: string) => {
     if (!timeStr) return "-";
     const clean = timeStr.slice(0, 5);
     return `${clean} น.`;
   };
 
+  // ทำความสะอาดข้อมูลเวลาให้อยู่ในรูปแบบ HH:mm ก่อนส่งไปบันทึก
   const cleanTimeForBackend = (timeStr: string) => {
     if (!timeStr) return "";
     return timeStr
@@ -269,6 +270,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // ดึงข้อมูลประเภทเรือและตารางรอบเวลาทั้งหมดจากระบบ
   const fetchData = async (): Promise<void> => {
     try {
       setLoading(true);
@@ -322,7 +324,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     void fetchData();
   }, [ready]);
 
-  // รวมโควตาเรือที่เลือกในฟอร์มปัจจุบัน
   const totalBoatCount = useMemo(() => {
     return Object.values(selectedBoatsMap).reduce(
       (sum: number, qty) => sum + (Number(qty) || 0),
@@ -330,7 +331,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     );
   }, [selectedBoatsMap]);
 
-  // สถิติรอบเวลา
   const activeRoundsCount = useMemo(
     () => rounds.filter((r) => r.is_active).length,
     [rounds]
@@ -340,12 +340,10 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     [rounds]
   );
 
-  // จำนวนเรือจริงทั้งหมดในระบบ (Physical Fleet) จากฐานข้อมูล
   const totalFleetBoats = useMemo(() => {
     return boatTypes.reduce((sum, bt) => sum + (Number(bt.quantity) || 0), 0);
   }, [boatTypes]);
 
-  // Pagination (10 items per page)
   const ITEMS_PER_PAGE = 10;
   const [currentPage, setCurrentPage] = useState<number>(1);
   const totalPages = Math.ceil(rounds.length / ITEMS_PER_PAGE) || 1;
@@ -361,6 +359,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     return rounds.slice(start, start + ITEMS_PER_PAGE);
   }, [rounds, currentPage]);
 
+  // สลับการเลือกหรือยกเลิกประเภทเรือในแบบฟอร์มรอบเวลา
   const handleToggleBoatType = (typeId: number) => {
     setSelectedBoatsMap((prev) => {
       const next = { ...prev };
@@ -373,10 +372,12 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     });
   };
 
+  // อัปเดตจำนวนลำเรือของประเภทเรือที่ระบุในรอบเวลา
   const handleQuantityChange = (typeId: number, qty: number | string) => {
     setSelectedBoatsMap((prev) => ({ ...prev, [typeId]: qty }));
   };
 
+  // ตรวจสอบและปรับจำนวนเรือให้อยู่ในขอบเขตที่ถูกต้องเมื่อเลิกโฟกัสช่องกรอก
   const handleQuantityBlur = (typeId: number, maxFleet?: number) => {
     setSelectedBoatsMap((prev) => {
       const currentVal = prev[typeId];
@@ -392,6 +393,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     });
   };
 
+  // ล้างค่าในฟอร์มกลับเป็นค่าเริ่มต้น
   const handleResetForm = () => {
     setEditingRoundId(null);
     setStartTime("15:00");
@@ -401,6 +403,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     setIsDropdownOpen(false);
   };
 
+  // บันทึกการเพิ่มหรือแก้ไขรอบเวลาพายเรือ
   const handleSubmitForm = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     const selectedBoatEntries = Object.entries(selectedBoatsMap);
@@ -410,7 +413,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
       return;
     }
 
-    // ตรวจสอบตรรกะ: ห้ามใส่จำนวนเกินกว่าจำนวนเรือจริงที่มีในระบบ
     for (const [idStr, qtyRaw] of selectedBoatEntries) {
       const typeId = Number(idStr);
       const qty = Number(qtyRaw) || 1;
@@ -452,6 +454,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     }
   };
 
+  // แสดงป้ายรายการประเภทเรือและจำนวนลำของแต่ละรอบเวลา
   const renderBoatChips = (round: BoatRound) => {
     if (round.boats && Array.isArray(round.boats) && round.boats.length > 0) {
       return round.boats.map((b, idx) => {
@@ -507,6 +510,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     );
   };
 
+  // ดึงข้อมูลของรอบเวลาที่เลือกมาใส่ฟอร์มเพื่อแก้ไข
   const handleEditClick = (round: BoatRound) => {
     setEditingRoundId(round.boat_round_id);
     setStartTime(round.start_time.slice(0, 5));
@@ -531,6 +535,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
+  // ยืนยันและลบรอบเวลาที่เลือกออกจากระบบ
   const handleDeleteConfirm = async (): Promise<void> => {
     if (!deleteRoundId) return;
     try {
@@ -548,7 +553,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
 
   return (
     <div className="space-y-6 pb-16 max-w-[1600px] mx-auto">
-      {/* Top Header Card (สไตล์ละมุนแบบหน้า /admin/checkin) */}
       <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 relative">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="space-y-1.5">
@@ -564,7 +568,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
             </div>
           </div>
 
-          {/* Quick Info Badge */}
           <div className="flex items-center gap-2.5 flex-wrap">
             <div className="px-3.5 py-2 bg-cream-50/80 rounded-2xl border border-cream-300 shadow-2xs flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-forest-100 flex items-center justify-center text-forest-800">
@@ -583,9 +586,7 @@ export default function BoatRoundsPage(): React.ReactElement | null {
         </div>
       </div>
 
-      {/* 4 Overview Stat Cards (KPI Summary สไตล์ละมุนแบบหน้า /admin/checkin) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        {/* Card 1: Total Rounds */}
         <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
           <div className="flex items-start justify-between">
             <div>
@@ -606,7 +607,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
           </div>
         </div>
 
-        {/* Card 2: Active Rounds */}
         <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
           <div className="flex items-start justify-between">
             <div>
@@ -627,7 +627,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
           </div>
         </div>
 
-        {/* Card 3: Inactive Rounds */}
         <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
           <div className="flex items-start justify-between">
             <div>
@@ -648,7 +647,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
           </div>
         </div>
 
-        {/* Card 4: Total Physical Fleet (เรือจริงในระบบทั้งหมด) */}
         <div className="relative p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel">
           <div className="flex items-start justify-between">
             <div>
@@ -672,7 +670,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
         </div>
       </div>
 
-      {/* FORM: Card Form สำหรับเพิ่ม/แก้ไขรอบเวลา (จัดลำดับฟิลด์อย่างมีตรรกะ) */}
       <form
         ref={formRef}
         onSubmit={handleSubmitForm}
@@ -709,7 +706,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
-          {/* 1. เวลาเริ่มต้น */}
           <div className="md:col-span-2">
             <ThaiTimePicker
               label="เวลาเริ่มต้น"
@@ -719,7 +715,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
             />
           </div>
 
-          {/* 2. เวลาสิ้นสุด */}
           <div className="md:col-span-2">
             <ThaiTimePicker
               label="เวลาสิ้นสุด"
@@ -729,7 +724,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
             />
           </div>
 
-          {/* 3. ประเภทเรือ (เลือกประเภทและจำนวนเรือ ไม่เกินเรือจริงในระบบ) */}
           <div className="md:col-span-3 relative" ref={dropdownRef}>
             <label className="block text-xs font-bold text-charcoal-700 mb-1">
               ประเภทเรือ <span className="text-rose-500">*</span>
@@ -789,7 +783,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
                         {isSelected && (
                           <div className="flex items-center gap-1.5 shrink-0">
                             <div className="flex items-center border border-cream-300 rounded-lg bg-white overflow-hidden shadow-2xs">
-                              {/* ปุ่มลด */}
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -805,7 +798,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
                                 <Minus size={12} />
                               </button>
 
-                              {/* ช่องพิมพ์จำนวน */}
                               <input
                                 type="number"
                                 min={1}
@@ -832,7 +824,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
                                 className="w-10 text-center text-xs font-bold text-charcoal-800 bg-transparent focus:outline-hidden [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
 
-                              {/* ปุ่มเพิ่ม */}
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -863,7 +854,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
             )}
           </div>
 
-          {/* 4. รวมโควตาในรอบนี้ (ลำ) - ย้ายมาอยู่หลังประเภทเรือ ตามที่ผู้ใช้สั่ง */}
           <div className="md:col-span-2">
             <label className="block text-xs font-bold text-charcoal-700 mb-1">
               รวมโควตาในรอบนี้ (ลำ)
@@ -876,7 +866,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
             />
           </div>
 
-          {/* 5. สวิตช์เปิด/ปิด */}
           <div className="md:col-span-1 flex items-center justify-center pb-2.5">
             <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
               <input
@@ -889,7 +878,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
             </label>
           </div>
 
-          {/* 6. ปุ่ม Submit */}
           <div className="md:col-span-2">
             <button
               type="submit"
@@ -902,7 +890,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
         </div>
       </form>
 
-      {/* TABLE LIST CARD */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col">
         <div className="pb-4 mb-4 border-b border-cream-200/80 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -990,7 +977,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
           )}
         </div>
 
-        {/* Pagination Footer (สไตล์แบบหน้า /admin/checkin) */}
         {rounds.length > ITEMS_PER_PAGE && (
           <div className="flex items-center justify-between pt-4 mt-4 border-t border-cream-200 text-xs text-charcoal-500">
             <span>
@@ -1035,7 +1021,6 @@ export default function BoatRoundsPage(): React.ReactElement | null {
         )}
       </div>
 
-      {/* MODAL: DELETE CONFIRM */}
       <Modal
         open={!!deleteRoundId}
         title="ยืนยันการลบรอบเวลา"

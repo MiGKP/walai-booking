@@ -3,10 +3,7 @@ export interface FacebookLink {
   label: string;
 }
 
-/**
- * ค่า facebook ที่แอดมินกรอกมีได้หลายแบบ (URL เต็ม, โดเมนเปล่า, หรือชื่อเพจ/handle)
- * จึงต้อง normalize ให้เป็นลิงก์ที่กดได้ พร้อมข้อความสั้นที่อ่านรู้เรื่องสำหรับแสดงผล
- */
+// แปลงค่าชื่อเพจหรือ URL ของ Facebook ให้เป็นลิงก์พร้อมข้อความสำหรับแสดงผล
 export const resolveFacebookLink = (value?: string | null): FacebookLink | null => {
   const raw = value?.trim();
   if (!raw) return null;
@@ -17,15 +14,16 @@ export const resolveFacebookLink = (value?: string | null): FacebookLink | null 
   const href = looksLikeUrl
     ? raw
     : looksLikeDomain
-      ? `https://${raw.replace(/^\/+/, '')}`
-      : `https://facebook.com/${raw.replace(/^@/, '')}`;
+    ? `https://${raw.replace(/^\/+/, '')}`
+    : `https://facebook.com/${raw.replace(/^@/, '')}`;
 
-  const label = looksLikeUrl || looksLikeDomain
-    ? href
-        .replace(/^https?:\/\//i, '')
-        .replace(/^www\./i, '')
-        .replace(/\/+$/, '')
-    : raw;
+  const label =
+    looksLikeUrl || looksLikeDomain
+      ? href
+          .replace(/^https?:\/\//i, '')
+          .replace(/^www\./i, '')
+          .replace(/\/+$/, '')
+      : raw;
 
   return { href, label };
 };

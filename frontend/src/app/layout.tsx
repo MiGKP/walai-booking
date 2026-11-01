@@ -2,8 +2,6 @@ import './globals.css';
 import AppShell from '@/components/layout/AppShell';
 import { Prompt, Noto_Sans_Thai } from 'next/font/google';
 
-// โหลด Prompt (หัวข้อ) + Noto Sans Thai (เนื้อหา) ผ่าน next/font
-// เพื่อได้ font preloading อัตโนมัติ ลด FOUT และปรับปรุง LCP
 const prompt = Prompt({
   subsets: ['thai', 'latin'],
   weight: ['400', '500', '600', '700'],
@@ -18,6 +16,7 @@ const notoSansThai = Noto_Sans_Thai({
   display: 'swap',
 });
 
+// โครงสร้างหลักของแอปพลิเคชันสำหรับกำหนดฟอนต์และส่วนหัวของหน้าเว็บ
 export default function RootLayout({
   children,
 }: {

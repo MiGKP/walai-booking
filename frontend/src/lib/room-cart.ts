@@ -7,43 +7,10 @@ export interface RoomGuestInput {
   infantAge: number;
 }
 
-function occupancyCounts(input: RoomGuestInput): { occupyingGuests: number; eligibleChildren: number } {
-  let occupyingGuests = input.adults;
-  let eligibleChildren = 0;
-  for (let index = 0; index < input.children; index += 1) {
-    const age = input.childAges[index];
-    if (age == null || !Number.isInteger(age) || age < 0 || age >= input.infantAge) {
-      occupyingGuests += 1;
-      if (age != null && Number.isInteger(age) && age >= Math.max(6, input.infantAge) && age <= 11) {
-        eligibleChildren += 1;
-      }
-    }
-  }
-  return { occupyingGuests, eligibleChildren };
-}
-
-export function roomOccupancy(input: RoomGuestInput & { capacity: number; roomCount: number }): {
-  occupyingGuests: number;
-  additionalChildren: number;
-  missingCapacity: number;
-  fits: boolean;
-} {
-  const { occupyingGuests, eligibleChildren } = occupancyCounts(input);
-  const additionalChildren = Math.min(eligibleChildren, Math.max(0, Math.floor(input.roomCount)));
-  const missingCapacity = Math.max(0, occupyingGuests - additionalChildren - input.capacity);
-  return { occupyingGuests, additionalChildren, missingCapacity, fits: input.adults >= 1 && missingCapacity === 0 };
-}
-
-export function minimumRoomsForGuests(input: RoomGuestInput, capacityPerRoom: number): number {
-  if (!Number.isFinite(capacityPerRoom) || capacityPerRoom <= 0) return Infinity;
-  const { occupyingGuests, eligibleChildren } = occupancyCounts(input);
-  return Math.max(1, Math.ceil((occupyingGuests - eligibleChildren) / capacityPerRoom), Math.ceil(occupyingGuests / (capacityPerRoom + 1)));
-}
-
 export interface RoomCartItem {
   room_type_id: number;
-  room_id?: number | null; // For physical room snapshot
-  room_number?: string | null; // For physical room snapshot
+  room_id?: number | null;
+  room_number?: string | null;
   room_name: string;
   type_name: string | null;
   capacity: number;
@@ -63,6 +30,52 @@ export interface RoomCartState {
 
 const STORAGE_KEY = 'walai_room_cart_v1';
 
+// คำนวณจำนวนผู้เข้าพักที่นับรวมในความจุห้องและจำนวนเด็กที่พักเสริมได้
+function occupancyCounts(input: RoomGuestInput): { occupyingGuests: number; eligibleChildren: number } {
+  let occupyingGuests = input.adults;
+  let eligibleChildren = 0;
+  for (let index = 0; index < input.children; index += 1) {
+    const age = input.childAges[index];
+    if (age == null || !Number.isInteger(age) || age < 0 || age >= input.infantAge) {
+      occupyingGuests += 1;
+      if (age != null && Number.isInteger(age) && age >= Math.max(6, input.infantAge) && age <= 11) {
+        eligibleChildren += 1;
+      }
+    }
+  }
+  return { occupyingGuests, eligibleChildren };
+}
+
+// ตรวจสอบว่าความจุห้องพักและจำนวนห้องที่เลือกรองรับจำนวนผู้เข้าพักได้พอดีหรือไม่
+export function roomOccupancy(input: RoomGuestInput & { capacity: number; roomCount: number }): {
+  occupyingGuests: number;
+  additionalChildren: number;
+  missingCapacity: number;
+  fits: boolean;
+} {
+  const { occupyingGuests, eligibleChildren } = occupancyCounts(input);
+  const additionalChildren = Math.min(eligibleChildren, Math.max(0, Math.floor(input.roomCount)));
+  const missingCapacity = Math.max(0, occupyingGuests - additionalChildren - input.capacity);
+  return {
+    occupyingGuests,
+    additionalChildren,
+    missingCapacity,
+    fits: input.adults >= 1 && missingCapacity === 0,
+  };
+}
+
+// คำนวณจำนวนห้องขั้นต่ำที่ต้องใช้สำหรับรองรับผู้เข้าพักทั้งหมด
+export function minimumRoomsForGuests(input: RoomGuestInput, capacityPerRoom: number): number {
+  if (!Number.isFinite(capacityPerRoom) || capacityPerRoom <= 0) return Infinity;
+  const { occupyingGuests, eligibleChildren } = occupancyCounts(input);
+  return Math.max(
+    1,
+    Math.ceil((occupyingGuests - eligibleChildren) / capacityPerRoom),
+    Math.ceil(occupyingGuests / (capacityPerRoom + 1))
+  );
+}
+
+// โหลดข้อมูลตะกร้าห้องพักจาก localStorage
 export function loadRoomCart(): RoomCartState | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -85,31 +98,29 @@ export function loadRoomCart(): RoomCartState | null {
   }
 }
 
+// บันทึกข้อมูลตะกร้าห้องพักลงใน localStorage
 export function saveRoomCart(state: RoomCartState): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+// ล้างข้อมูลตะกร้าห้องพักออกจาก localStorage
 export function clearRoomCart(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(STORAGE_KEY);
 }
 
+// เพิ่มหรืออัปเดตจำนวนห้องพักของประเภทห้องที่เลือกในตะกร้า
 export function upsertCartItem(
   state: RoomCartState,
   item: Omit<RoomCartItem, 'quantity'> & { quantity?: number }
 ): RoomCartState {
   const quantity = Math.max(1, item.quantity ?? 1);
-  const existingIndex = state.items.findIndex(
-    (row) => row.room_type_id === item.room_type_id
-  );
+  const existingIndex = state.items.findIndex((row) => row.room_type_id === item.room_type_id);
   const nextItems = [...state.items];
   if (existingIndex >= 0) {
     const prev = nextItems[existingIndex];
-    const nextQty = Math.min(
-      prev.available_count,
-      prev.quantity + quantity
-    );
+    const nextQty = Math.min(prev.available_count, prev.quantity + quantity);
     nextItems[existingIndex] = { ...prev, quantity: nextQty, available_count: item.available_count };
   } else {
     nextItems.push({
@@ -125,11 +136,8 @@ export function upsertCartItem(
   return { ...state, items: nextItems };
 }
 
-export function setCartItemQuantity(
-  state: RoomCartState,
-  roomTypeId: number,
-  quantity: number
-): RoomCartState {
+// กำหนดจำนวนห้องพักของประเภทห้องในตะกร้า หรือลบออกหากจำนวนน้อยกว่า 1
+export function setCartItemQuantity(state: RoomCartState, roomTypeId: number, quantity: number): RoomCartState {
   if (quantity < 1) {
     return {
       ...state,
@@ -139,24 +147,22 @@ export function setCartItemQuantity(
   return {
     ...state,
     items: state.items.map((item) =>
-      item.room_type_id === roomTypeId
-        ? { ...item, quantity: Math.min(quantity, item.available_count) }
-        : item
+      item.room_type_id === roomTypeId ? { ...item, quantity: Math.min(quantity, item.available_count) } : item
     ),
   };
 }
 
+// คำนวณความจุผู้เข้าพักรวมทั้งหมดของห้องในตะกร้า
 export function cartCapacitySum(state: RoomCartState): number {
-  return state.items.reduce(
-    (sum, item) => sum + item.capacity * item.quantity,
-    0
-  );
+  return state.items.reduce((sum, item) => sum + item.capacity * item.quantity, 0);
 }
 
+// คำนวณจำนวนผู้เข้าพักรวมทั้งหมด (ผู้ใหญ่และเด็ก)
 export function cartGuestTotal(state: RoomCartState): number {
   return state.adults + state.children;
 }
 
+// คำนวณจำนวนผู้เข้าพักที่นับรวมในความจุห้องพักจริง (ไม่รวมเด็กเล็กที่พักฟรี)
 export function cartOccupyingGuestTotal(state: RoomCartState, infantMaxAgeExclusive: number): number {
   const ages = state.child_ages || [];
   let count = state.adults;
@@ -167,14 +173,13 @@ export function cartOccupyingGuestTotal(state: RoomCartState, infantMaxAgeExclus
   return count;
 }
 
+// คำนวณราคารวมโดยประมาณของห้องพักทั้งหมดในตะกร้าตามจำนวนคืน
 export function cartEstimatedTotal(state: RoomCartState): number {
   const nights = nightsBetween(state.check_in, state.check_out);
-  return state.items.reduce(
-    (sum, item) => sum + item.price_per_night * item.quantity * nights,
-    0
-  );
+  return state.items.reduce((sum, item) => sum + item.price_per_night * item.quantity * nights, 0);
 }
 
+// คำนวณจำนวนห้องรวมทั้งหมดที่อยู่ในตะกร้า
 export function cartRoomCount(state: RoomCartState): number {
   return state.items.reduce((sum, item) => sum + item.quantity, 0);
 }

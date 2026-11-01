@@ -1,28 +1,28 @@
-import { getNewPasswordError } from '../services/password-policy';
-import { legacyAuthEmail, normalizeAuthEmail } from '../services/auth-email';
-import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { QueryResult, type PoolClient } from 'pg';
 import pool from '../config/database';
-import { sendPasswordResetEmail } from '../services/mail.service';
-import { AuthPayload } from '../types';
-import { mapDbError } from '../utils/db-errors';
-import { safeRollback } from '../utils/safe-rollback';
+import { legacyAuthEmail, normalizeAuthEmail } from '../services/auth-email';
 import {
   CloudinaryUploadResult,
   deleteCloudinaryImage,
   extractCloudinaryPublicId,
   uploadImage,
 } from '../services/cloudinary.service';
+import { sendPasswordResetEmail } from '../services/mail.service';
+import { getNewPasswordError } from '../services/password-policy';
+import { AuthPayload } from '../types';
+import { mapDbError } from '../utils/db-errors';
+import { safeRollback } from '../utils/safe-rollback';
 
 interface AvatarUpdateRow {
   id: number;
   avatar: string;
 }
 
-// สร้าง JWT token สำหรับใช้ยืนยันตัวตนหลังจาก login หรือ register สำเร็จ โดยเก็บ id, email และ role ของผู้ใช้ไว้ใน token
+// สร้าง JWT token สำหรับยืนยันตัวตนโดยเก็บ id, email และ role ของผู้ใช้
 const generateToken = (payload: AuthPayload): string => {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error('JWT_SECRET environment variable is not set');
@@ -32,10 +32,12 @@ const generateToken = (payload: AuthPayload): string => {
   } as jwt.SignOptions);
 };
 
+// รวมชื่อและนามสกุลเป็นชื่อที่แสดงผลในระบบ
 const buildDisplayName = (firstName?: string | null, lastName?: string | null): string => {
   return `${firstName || ''} ${lastName || ''}`.trim();
 };
 
+// สร้างรหัส OTP สำหรับรีเซ็ตรหัสผ่านพร้อมค่า hash และเวลาหมดอายุ
 const createPasswordResetOtp = () => {
   const otpCode = crypto.randomInt(100000, 1000000).toString();
   const hashedOtp = crypto.createHash('sha256').update(otpCode).digest('hex');
@@ -45,15 +47,18 @@ const createPasswordResetOtp = () => {
   return { otpCode, hashedOtp, expiresAt };
 };
 
-// สมัครสมาชิกใหม่ด้วย email/password พร้อม hash รหัสผ่านก่อนบันทึกลงฐานข้อมูล และส่ง token กลับไปให้ frontend ใช้งานต่อทันที
+// สมัครสมาชิกใหม่ด้วยอีเมลและรหัสผ่านพร้อมสร้าง JWT token ให้ใช้งานทันที
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { first_name, last_name, email, password, phone, line_id, facebook } = req.body;
 
-    const existing = await pool.query(`SELECT member_id FROM members
+    const existing = await pool.query(
+      `SELECT member_id FROM members
        WHERE LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2)
           OR (SPLIT_PART(LOWER(email), '@', 2) IN ('gmail.com', 'googlemail.com')
-              AND REGEXP_REPLACE(SPLIT_PART(SPLIT_PART(LOWER(email), '@', 1), '+', 1), '[.]', '', 'g') || '@gmail.com' = $2)`, [email, legacyAuthEmail(email)]);
+              AND REGEXP_REPLACE(SPLIT_PART(SPLIT_PART(LOWER(email), '@', 1), '+', 1), '[.]', '', 'g') || '@gmail.com' = $2)`,
+      [email, legacyAuthEmail(email)]
+    );
     if (existing.rows.length > 0) {
       res.status(400).json({ success: false, message: 'อีเมลนี้ถูกใช้สมัครแล้ว' });
       return;
@@ -93,13 +98,15 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// เข้าสู่ระบบโดยตรวจสอบ staff ก่อน แล้วจึงตรวจ member เพื่อรองรับหลาย role และกำหนด redirect ปลายทางให้ตรงกับสิทธิ์ของผู้ใช้
+// เข้าสู่ระบบโดยตรวจสอบบัญชีพนักงานก่อนแล้วจึงตรวจสมาชิกพร้อมคืนเส้นทางตามสิทธิ์
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-    // Check staff first
-    let result = await pool.query('SELECT * FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2)) AND status = true ORDER BY CASE WHEN LOWER(email) = LOWER($1) THEN 0 ELSE 1 END LIMIT 1', [email, legacyAuthEmail(email)]);
+    let result = await pool.query(
+      'SELECT * FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2)) AND status = true ORDER BY CASE WHEN LOWER(email) = LOWER($1) THEN 0 ELSE 1 END LIMIT 1',
+      [email, legacyAuthEmail(email)]
+    );
     if (result.rows.length > 0) {
       const staff = result.rows[0];
       if (!staff.password) {
@@ -113,7 +120,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       }
       const token = generateToken({ id: staff.staff_id, email: staff.email, role: staff.role });
       const { password: _, ...userSafe } = staff;
-      
+
       let redirectUrl = '/dashboard';
       if (staff.role === 'admin') redirectUrl = '/admin';
       else if (staff.role === 'room_staff') redirectUrl = '/staff/rooms/dashboard';
@@ -122,7 +129,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       res.json({
         success: true,
         message: 'Login successful',
-        data: { 
+        data: {
           user: {
             id: staff.staff_id,
             first_name: staff.first_name || '',
@@ -130,17 +137,19 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             name: buildDisplayName(staff.first_name, staff.last_name),
             email: staff.email,
             role: staff.role,
-            phone: staff.phone
-          }, 
+            phone: staff.phone,
+          },
           token,
-          redirectUrl
+          redirectUrl,
         },
       });
       return;
     }
 
-    // Check members
-    result = await pool.query('SELECT * FROM members WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2)) ORDER BY CASE WHEN LOWER(email) = LOWER($1) THEN 0 ELSE 1 END LIMIT 1', [email, legacyAuthEmail(email)]);
+    result = await pool.query(
+      'SELECT * FROM members WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2)) ORDER BY CASE WHEN LOWER(email) = LOWER($1) THEN 0 ELSE 1 END LIMIT 1',
+      [email, legacyAuthEmail(email)]
+    );
     if (result.rows.length === 0) {
       res.status(401).json({ success: false, message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
       return;
@@ -158,7 +167,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // ตรวจสถานะบัญชีหลังยืนยันรหัสผ่านแล้วเท่านั้น เพื่อไม่เปิดเผยว่าอีเมลนี้มีอยู่ในระบบ
     if (member.is_active === false) {
       res.status(401).json({ success: false, message: 'บัญชีนี้ถูกปิดการใช้งาน กรุณาติดต่อเจ้าหน้าที่' });
       return;
@@ -170,23 +178,23 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     res.json({
       success: true,
       message: 'Login successful',
-      data: { 
-        user: { 
-          id: member.member_id, 
+      data: {
+        user: {
+          id: member.member_id,
           first_name: member.first_name || '',
           last_name: member.last_name || '',
-          name: buildDisplayName(member.first_name, member.last_name), 
-          email: member.email, 
-          role: 'customer', 
-          phone: member.phone, 
+          name: buildDisplayName(member.first_name, member.last_name),
+          email: member.email,
+          role: 'customer',
+          phone: member.phone,
           line_id: member.line_id,
           facebook: member.facebook,
           avatar: member.avatar_url,
           has_password: member.password != null,
-          auth_provider: member.auth_provider || 'email'
-        }, 
+          auth_provider: member.auth_provider || 'email',
+        },
         token,
-        redirectUrl: '/'
+        redirectUrl: '/',
       },
     });
   } catch (error) {
@@ -195,16 +203,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// รับผลลัพธ์จาก Google OAuth หลัง Passport ยืนยันตัวตนสำเร็จ แล้วสร้าง JWT ของระบบเราเพื่อส่งกลับไปที่ frontend
+// รับผลลัพธ์จาก Google OAuth แล้วสร้าง JWT token เพื่อส่งกลับไปยังหน้า frontend
 export const googleCallback = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = req.user as any; // from passport
+    const user = req.user as any;
     if (!user) {
       res.redirect(`${process.env.FRONTEND_URL}/auth/login?error=google_failed`);
       return;
     }
 
-    // req.user is already the member record from DB (handled in passport.ts)
     const token = generateToken({ id: user.member_id, email: user.email, role: 'customer' });
     res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
   } catch (error) {
@@ -213,15 +220,14 @@ export const googleCallback = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// ใช้สร้าง admin คนแรกของระบบในกรณีที่ยังไม่มี admin อยู่เลย เพื่อปิดช่องให้สร้าง admin ซ้ำโดยไม่จำเป็น
+// สร้างบัญชีผู้ดูแลระบบคนแรกเมื่อยังไม่มีผู้ดูแลระบบอยู่ในฐานข้อมูล
 export const initAdmin = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Check if an admin already exists to prevent unauthorized creation later
     const adminCheck = await pool.query("SELECT staff_id FROM staff WHERE role = 'admin' LIMIT 1");
     if (adminCheck.rows.length > 0) {
-      res.status(403).json({ 
-        success: false, 
-        message: 'Admin already exists. Please login and use /api/auth/staff with JWT to create more admins.' 
+      res.status(403).json({
+        success: false,
+        message: 'Admin already exists. Please login and use /api/auth/staff with JWT to create more admins.',
       });
       return;
     }
@@ -234,7 +240,10 @@ export const initAdmin = async (req: Request, res: Response): Promise<void> => {
       last_name = String(name).trim().split(' ').slice(1).join(' ');
     }
 
-    const existing = await pool.query('SELECT staff_id FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2))', [email, legacyAuthEmail(email)]);
+    const existing = await pool.query(
+      'SELECT staff_id FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2))',
+      [email, legacyAuthEmail(email)]
+    );
     if (existing.rows.length > 0) {
       res.status(400).json({ success: false, message: 'อีเมลนี้ถูกใช้สมัครแล้ว' });
       return;
@@ -254,7 +263,7 @@ export const initAdmin = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// ให้ admin สร้างบัญชี staff ใหม่ในระบบ โดยกำหนด role ได้ เช่น room_staff หรือ boat_staff และ hash password ก่อนบันทึก
+// สร้างบัญชีพนักงานใหม่โดยผู้ดูแลระบบพร้อมกำหนดบทบาทและเข้ารหัสรหัสผ่าน
 export const createStaff = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -271,7 +280,10 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
       last_name = String(name).trim().split(' ').slice(1).join(' ');
     }
 
-    const existing = await pool.query('SELECT staff_id FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2))', [email, legacyAuthEmail(email)]);
+    const existing = await pool.query(
+      'SELECT staff_id FROM staff WHERE (LOWER(email) = LOWER($1) OR LOWER(email) = LOWER($2))',
+      [email, legacyAuthEmail(email)]
+    );
     if (existing.rows.length > 0) {
       res.status(400).json({ success: false, message: 'อีเมลนี้ถูกใช้สมัครแล้ว' });
       return;
@@ -303,7 +315,7 @@ export const createStaff = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-// ดึงรายการ staff ทั้งหมดสำหรับหน้า admin เพื่อใช้แสดงข้อมูลบัญชีพนักงานและสถานะการเปิดใช้งาน
+// ดึงรายชื่อพนักงานทั้งหมดสำหรับหน้าจัดการของผู้ดูแลระบบ
 export const getAllStaff = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -317,10 +329,10 @@ export const getAllStaff = async (req: Request, res: Response): Promise<void> =>
               address, subdistrict, district, province, postal_code, created_at 
        FROM staff ORDER BY created_at DESC`
     );
-    
-    const staff = result.rows.map(s => ({
+
+    const staff = result.rows.map((s) => ({
       ...s,
-      name: `${s.first_name || ''} ${s.last_name || ''}`.trim()
+      name: `${s.first_name || ''} ${s.last_name || ''}`.trim(),
     }));
 
     res.json({ success: true, data: staff });
@@ -330,7 +342,7 @@ export const getAllStaff = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-// ดึงข้อมูล staff รายคนตาม id เพื่อใช้แสดงรายละเอียดหรือเตรียมข้อมูลสำหรับแก้ไขในฝั่ง admin
+// ดึงข้อมูลพนักงานรายบุคคลตามรหัสสำหรับผู้ดูแลระบบ
 export const getStaffById = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -355,7 +367,7 @@ export const getStaffById = async (req: Request, res: Response): Promise<void> =
     const s = result.rows[0];
     const staff = {
       ...s,
-      name: `${s.first_name || ''} ${s.last_name || ''}`.trim()
+      name: `${s.first_name || ''} ${s.last_name || ''}`.trim(),
     };
 
     res.json({ success: true, data: staff });
@@ -365,7 +377,7 @@ export const getStaffById = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// เปิดหรือปิดการใช้งานบัญชี staff โดย admin และป้องกันไม่ให้ admin ปิดบัญชีของตัวเองโดยตรง
+// เปิดหรือปิดสถานะการใช้งานบัญชีพนักงานโดยผู้ดูแลระบบ
 export const toggleStaffStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -375,22 +387,21 @@ export const toggleStaffStatus = async (req: Request, res: Response): Promise<vo
     }
 
     const { id } = req.params;
-    const { status } = req.body; // boolean
+    const { status } = req.body;
     if (typeof status !== 'boolean') {
       res.status(400).json({ success: false, message: 'status must be boolean' });
       return;
     }
 
-    // Don't allow changing own status
     if (Number(id) === authUser.id) {
       res.status(400).json({ success: false, message: 'Cannot change your own status' });
       return;
     }
 
-    const result = await pool.query(
-      `UPDATE staff SET status = $1 WHERE staff_id = $2 RETURNING staff_id, status`,
-      [status, id]
-    );
+    const result = await pool.query(`UPDATE staff SET status = $1 WHERE staff_id = $2 RETURNING staff_id, status`, [
+      status,
+      id,
+    ]);
 
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'Staff not found' });
@@ -404,7 +415,7 @@ export const toggleStaffStatus = async (req: Request, res: Response): Promise<vo
   }
 };
 
-// อัปเดตข้อมูล staff เช่น ชื่อ, email, phone, role
+// อัปเดตข้อมูลและบทบาทของพนักงานโดยผู้ดูแลระบบ
 export const updateStaff = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -430,13 +441,11 @@ export const updateStaff = async (req: Request, res: Response): Promise<void> =>
       return raw === null || raw === undefined || raw === '' ? null : String(raw);
     };
 
-    // role ต้องเป็นบทบาทของ staff เท่านั้น ห้ามกำหนดเป็น customer หรือค่าอื่น
     const role = has('role') ? String(body.role) : String(current.role);
     if (!STAFF_ROLES.includes(role)) {
       res.status(400).json({ success: false, message: 'Invalid staff role' });
       return;
     }
-    // กันแอดมินลดสิทธิ์ตัวเองจนเข้าระบบแอดมินไม่ได้
     if (Number(id) === Number(authUser.id) && role !== 'admin') {
       res.status(400).json({ success: false, message: 'ไม่สามารถลดสิทธิ์ของตัวเองได้' });
       return;
@@ -485,7 +494,7 @@ export const updateStaff = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-// ลบบัญชี staff ออกจากระบบแบบถาวร โดยมีการป้องกันการลบตัวเองและจัดการกรณีที่มีข้อมูลอ้างอิงอยู่ในฐานข้อมูล
+// ลบบัญชีพนักงานออกจากระบบโดยผู้ดูแลระบบ
 export const deleteStaff = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -496,15 +505,11 @@ export const deleteStaff = async (req: Request, res: Response): Promise<void> =>
 
     const { id } = req.params;
 
-    // Don't allow deleting self
     if (Number(id) === authUser.id) {
       res.status(400).json({ success: false, message: 'Cannot delete yourself' });
       return;
     }
 
-    // Instead of hard delete, maybe just deactivate, or hard delete if really needed.
-    // I'll implement hard delete based on user request "ลบพนักงานให้ด้วย", but note that 
-    // if staff has linked data, this might fail due to foreign key constraints.
     const result = await pool.query('DELETE FROM staff WHERE staff_id = $1 RETURNING staff_id', [id]);
 
     if (result.rows.length === 0) {
@@ -515,14 +520,18 @@ export const deleteStaff = async (req: Request, res: Response): Promise<void> =>
     res.json({ success: true, message: 'Staff deleted successfully' });
   } catch (error) {
     console.error('Delete staff error:', error);
-    if ((error as any).code === '23503') { // foreign key violation
-      res.status(400).json({ success: false, message: 'Cannot delete this staff because they have linked records. Please disable their account instead.' });
+    if ((error as any).code === '23503') {
+      res.status(400).json({
+        success: false,
+        message: 'Cannot delete this staff because they have linked records. Please disable their account instead.',
+      });
     } else {
       res.status(500).json({ success: false, message: 'Internal server error' });
     }
   }
 };
 
+// ดึงข้อมูลโปรไฟล์ของผู้ใช้ที่เข้าสู่ระบบอยู่ตามบทบาท
 export const getProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -550,27 +559,27 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
           role: 'customer',
           auth_provider: data.auth_provider,
           has_password: data.has_password,
-          created_at: data.created_at
-        }
+          created_at: data.created_at,
+        },
       });
     } else {
       const result = await pool.query(
         'SELECT staff_id as id, first_name, last_name, email, phone, role, address, line_id, facebook FROM staff WHERE staff_id = $1',
         [authUser.id]
       );
-      
+
       const data = result.rows[0];
       const name = buildDisplayName(data.first_name, data.last_name);
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         data: {
           ...data,
           first_name: data.first_name || '',
           last_name: data.last_name || '',
           name: name,
-          has_password: true
-        } 
+          has_password: true,
+        },
       });
     }
   } catch (error) {
@@ -579,6 +588,7 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+// อัปเดตข้อมูลโปรไฟล์ของผู้ใช้ที่เข้าสู่ระบบอยู่พร้อมตรวจสอบเบอร์โทรและอีเมลซ้ำ
 export const updateProfile = async (req: Request, res: Response): Promise<void> => {
   let client: PoolClient | undefined;
   let transactionOpen = false;
@@ -586,14 +596,11 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     const authUser = req.user as AuthPayload;
     const { first_name, last_name, phone, line_id, facebook } = req.body;
 
-    // 1. ตรวจสอบชื่อ (ต้องกรอกทุกคน ไม่ว่าจะบทบาทไหน)
     if (!first_name || !first_name.trim()) {
       res.status(400).json({ success: false, message: 'กรุณากรอกชื่อ' });
       return;
     }
 
-    // 2. ตรวจสอบนามสกุล: ยกเว้นเฉพาะ admin เท่านั้น!
-    // (room_staff, boat_staff และ customer ต้องกรอกนามสกุลเสมอ)
     if (authUser.role !== 'admin' && (!last_name || !last_name.trim())) {
       res.status(400).json({ success: false, message: 'กรุณากรอกนามสกุล' });
       return;
@@ -602,8 +609,6 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     const trimmedFirstName = first_name.trim();
     const trimmedLastName = last_name ? last_name.trim() : '';
 
-    // Serialize profile phone changes, including changes across account types.
-    // Do not reject the current account when saving its existing phone.
     if (typeof phone === 'string' && phone.trim()) {
       client = await pool.connect();
       await client.query('BEGIN');
@@ -641,7 +646,10 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
       const email = req.body.email === undefined ? current.rows[0].email : normalizeAuthEmail(req.body.email);
       const emailChanged = email !== normalizeAuthEmail(current.rows[0].email);
       if (emailChanged) {
-        if (typeof req.body.current_password !== 'string' || !await bcrypt.compare(req.body.current_password, current.rows[0].password)) {
+        if (
+          typeof req.body.current_password !== 'string' ||
+          !(await bcrypt.compare(req.body.current_password, current.rows[0].password))
+        ) {
           res.status(400).json({ success: false, message: 'กรุณายืนยันรหัสผ่านปัจจุบันเพื่อเปลี่ยนอีเมล' });
           return;
         }
@@ -664,21 +672,42 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
           reset_token_expires_at = CASE WHEN $11::boolean THEN NULL ELSE reset_token_expires_at END
          WHERE staff_id = $12 AND email = $13 AND password = $14 AND status = true
          RETURNING first_name, last_name, phone, email, address, line_id, facebook`,
-        [trimmedFirstName, trimmedLastName, phone || null, email,
-          req.body.address !== undefined, req.body.address || null,
-          line_id !== undefined, line_id || null, facebook !== undefined, facebook || null,
-          emailChanged, authUser.id, current.rows[0].email, current.rows[0].password]
+        [
+          trimmedFirstName,
+          trimmedLastName,
+          phone || null,
+          email,
+          req.body.address !== undefined,
+          req.body.address || null,
+          line_id !== undefined,
+          line_id || null,
+          facebook !== undefined,
+          facebook || null,
+          emailChanged,
+          authUser.id,
+          current.rows[0].email,
+          current.rows[0].password,
+        ]
       );
       if (!saved.rows.length) {
-        res.status(409).json({ success: false, message: 'ข้อมูลบัญชีเปลี่ยนแปลงแล้ว กรุณาโหลดหน้าใหม่และลองอีกครั้ง' });
+        res.status(409).json({
+          success: false,
+          message: 'ข้อมูลบัญชีเปลี่ยนแปลงแล้ว กรุณาโหลดหน้าใหม่และลองอีกครั้ง',
+        });
         return;
       }
-      if (client) { await client.query('COMMIT'); transactionOpen = false; }
+      if (client) {
+        await client.query('COMMIT');
+        transactionOpen = false;
+      }
       res.json({ success: true, message: 'บันทึกข้อมูลสำเร็จ', data: saved.rows[0] });
       return;
     }
 
-    if (client) { await client.query('COMMIT'); transactionOpen = false; }
+    if (client) {
+      await client.query('COMMIT');
+      transactionOpen = false;
+    }
     res.json({
       success: true,
       message: 'Profile updated successfully',
@@ -688,23 +717,29 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         name: buildDisplayName(trimmedFirstName, trimmedLastName),
         phone: phone || '',
         line_id: line_id || '',
-        facebook: facebook || ''
-      }
+        facebook: facebook || '',
+      },
     });
   } catch (error) {
     console.error('Update profile error:', error);
     const mapped = mapDbError(error);
-    if (mapped) { res.status(mapped.status).json({ success: false, message: mapped.message }); return; }
+    if (mapped) {
+      res.status(mapped.status).json({ success: false, message: mapped.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Internal server error' });
   } finally {
     if (client) {
       try {
         if (transactionOpen) await safeRollback(client);
-      } finally { client.release(); }
+      } finally {
+        client.release();
+      }
     }
   }
 };
 
+// อัปโหลดรูปโปรไฟล์ของสมาชิกไปยัง Cloudinary และลบรูปเดิมเมื่ออัปเดตสำเร็จ
 export const uploadProfileAvatar = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -720,10 +755,9 @@ export const uploadProfileAvatar = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const memberResult = await pool.query(
-      'SELECT image_profile FROM members WHERE member_id = $1 LIMIT 1',
-      [authUser.id]
-    );
+    const memberResult = await pool.query('SELECT image_profile FROM members WHERE member_id = $1 LIMIT 1', [
+      authUser.id,
+    ]);
     if (memberResult.rows.length === 0) {
       res.status(404).json({ success: false, message: 'Member not found' });
       return;
@@ -763,9 +797,7 @@ export const uploadProfileAvatar = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const previousPublicId = previousAvatar
-      ? extractCloudinaryPublicId(previousAvatar)
-      : null;
+    const previousPublicId = previousAvatar ? extractCloudinaryPublicId(previousAvatar) : null;
     if (previousPublicId && previousPublicId !== uploadedAvatar.publicId) {
       deleteCloudinaryImage(previousAvatar).catch((cleanupError: unknown) => {
         console.error('Previous profile avatar cleanup error:', cleanupError);
@@ -775,7 +807,7 @@ export const uploadProfileAvatar = async (req: Request, res: Response): Promise<
     res.json({
       success: true,
       message: 'Profile image updated successfully',
-      data: result.rows[0]
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Upload profile avatar error:', error);
@@ -783,7 +815,7 @@ export const uploadProfileAvatar = async (req: Request, res: Response): Promise<
   }
 };
 
-// ตั้งรหัสผ่านครั้งแรกสำหรับผู้ใช้ที่สมัครผ่าน Google และยังไม่มี password ในระบบ
+// ตั้งรหัสผ่านครั้งแรกสำหรับสมาชิกที่สมัครผ่าน Google และยังไม่มีรหัสผ่าน
 export const setPassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -826,6 +858,7 @@ export const setPassword = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+// เปลี่ยนรหัสผ่านของผู้ใช้หลังตรวจสอบรหัสผ่านปัจจุบันถูกต้อง
 export const changePassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const authUser = req.user as AuthPayload;
@@ -857,9 +890,15 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
 
     const new_password_hash = await bcrypt.hash(new_password, 12);
     if (authUser.role === 'customer') {
-      await pool.query('UPDATE members SET password = $1, password_changed_at = NOW() WHERE member_id = $2', [new_password_hash, authUser.id]);
+      await pool.query('UPDATE members SET password = $1, password_changed_at = NOW() WHERE member_id = $2', [
+        new_password_hash,
+        authUser.id,
+      ]);
     } else {
-      await pool.query('UPDATE staff SET password = $1, password_changed_at = NOW() WHERE staff_id = $2', [new_password_hash, authUser.id]);
+      await pool.query('UPDATE staff SET password = $1, password_changed_at = NOW() WHERE staff_id = $2', [
+        new_password_hash,
+        authUser.id,
+      ]);
     }
 
     res.json({ success: true, message: 'Password changed successfully' });
@@ -869,13 +908,7 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
   }
 };
 
-/**
- * ขอลบบัญชีผู้ใช้ของลูกค้า (Soft Delete + Anonymize ข้อมูลส่วนบุคคลตาม PDPA)
- * - ต้องไม่มีการจองที่ค้างอยู่ (pending, paid, approved ที่ยังไม่ได้ check_out หรือไม่ได้ cancelled/rejected)
- * - ถ้ามีรหัสผ่าน ให้ตรวจยืนยัน password เพื่อความปลอดภัย
- * - เปลี่ยนข้อมูลส่วนบุคคลเป็นนิรนาม (Anonymized) และปลด email/google_id
- * - ปิดสถานะบัญชี is_active = false, deleted_at = NOW()
- */
+// ลบบัญชีลูกค้าแบบ Soft Delete และทำข้อมูลส่วนบุคคลให้เป็นนิรนามตาม PDPA
 export const deleteAccount = async (req: Request, res: Response): Promise<void> => {
   const client = await pool.connect();
   try {
@@ -889,7 +922,6 @@ export const deleteAccount = async (req: Request, res: Response): Promise<void> 
 
     await client.query('BEGIN');
 
-    // 1. ตรวจสอบข้อมูลผู้ใช้
     const userRes = await client.query(
       'SELECT member_id, password, auth_provider, image_profile, email FROM members WHERE member_id = $1 FOR UPDATE',
       [authUser.id]
@@ -903,7 +935,6 @@ export const deleteAccount = async (req: Request, res: Response): Promise<void> 
 
     const member = userRes.rows[0];
 
-    // ถ้าบัญชีมีรหัสผ่าน ต้องตรวจความถูกต้องของรหัสผ่าน
     if (member.password) {
       if (!password || typeof password !== 'string') {
         await client.query('ROLLBACK');
@@ -918,7 +949,6 @@ export const deleteAccount = async (req: Request, res: Response): Promise<void> 
       }
     }
 
-    // 2. ตรวจสอบว่ามีการจองห้องพักที่ยังไม่เสร็จสิ้นหรือไม่
     const activeRoomBookings = await client.query(
       `SELECT room_booking_id FROM room_bookings
        WHERE member_id = $1 AND status IN ('pending', 'paid', 'approved')
@@ -935,7 +965,6 @@ export const deleteAccount = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // 3. ตรวจสอบว่ามีการจองเรือคายัคที่ยังไม่เสร็จสิ้นหรือไม่
     const activeBoatBookings = await client.query(
       `SELECT boat_booking_id FROM boat_bookings
        WHERE member_id = $1 AND status IN ('pending', 'paid', 'approved')
@@ -952,7 +981,6 @@ export const deleteAccount = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Keep wallet rows referenced by historical redemptions, including reusable saved coupons.
     await client.query(
       `DELETE FROM member_promotions mp
        WHERE mp.member_id = $1 AND mp.status = 'saved'
@@ -963,7 +991,6 @@ export const deleteAccount = async (req: Request, res: Response): Promise<void> 
       [authUser.id]
     );
 
-    // 6. ทำให้นิรนาม (Anonymize) และปิดบัญชี
     const anonymousEmail = `deleted_${authUser.id}_${Date.now()}@privacy.local`;
     await client.query(
       `UPDATE members
@@ -987,7 +1014,6 @@ export const deleteAccount = async (req: Request, res: Response): Promise<void> 
 
     await client.query('COMMIT');
 
-    // External media cannot be rolled back, so remove it only after the account transaction succeeds.
     if (member.image_profile) {
       const publicId = extractCloudinaryPublicId(member.image_profile);
       if (publicId) {
@@ -1010,7 +1036,7 @@ export const deleteAccount = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// ดึงรายชื่อสมาชิกทั้งหมด พร้อม filter ด้วย name/email และสถานะ
+// ดึงรายชื่อสมาชิกทั้งหมดพร้อมตัวกรองคำค้นหาและสถานะ
 export const getAllMembers = async (req: Request, res: Response): Promise<void> => {
   try {
     const { search, status } = req.query;
@@ -1023,8 +1049,11 @@ export const getAllMembers = async (req: Request, res: Response): Promise<void> 
       params.push(`%${search}%`);
       query += ` AND (first_name ILIKE $${params.length} OR last_name ILIKE $${params.length} OR email ILIKE $${params.length})`;
     }
-    if (status === 'active') { query += ` AND is_active = true`; }
-    else if (status === 'inactive') { query += ` AND is_active = false`; }
+    if (status === 'active') {
+      query += ` AND is_active = true`;
+    } else if (status === 'inactive') {
+      query += ` AND is_active = false`;
+    }
     query += ` ORDER BY created_at DESC`;
     const result = await pool.query(query, params);
     res.json({ success: true, data: result.rows });
@@ -1034,7 +1063,7 @@ export const getAllMembers = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// เปิด/ปิดการใช้งานบัญชีสมาชิก
+// เปิดหรือปิดสถานะการใช้งานบัญชีสมาชิกตามรหัส
 export const toggleMemberStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -1058,6 +1087,7 @@ export const toggleMemberStatus = async (req: Request, res: Response): Promise<v
   }
 };
 
+// สร้างรหัส OTP สำหรับรีเซ็ตรหัสผ่านและส่งไปยังอีเมลของผู้ใช้
 export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const accountType = req.body.account_type ?? 'customer';
@@ -1083,7 +1113,6 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     );
 
     if (memberResult.rows.length === 0) {
-      // ไม่เปิดเผยว่าอีเมลมีในระบบหรือไม่
       res.json({ success: true, message: genericForgotPasswordMessage, data: null });
       return;
     }
@@ -1105,7 +1134,6 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
         otpCode,
       });
     } catch (mailError) {
-      // ไม่บอกผู้เรียกว่าส่งไม่สำเร็จ เพื่อไม่ให้รู้ว่าอีเมลนี้มีในระบบหรือไม่
       console.error('Forgot password mail error:', mailError);
     }
 
@@ -1120,6 +1148,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
   }
 };
 
+// ตรวจสอบรหัส OTP และตั้งรหัสผ่านใหม่ให้กับบัญชีผู้ใช้
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   try {
     const accountType = req.body.account_type ?? 'customer';
@@ -1146,7 +1175,6 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     }
 
     const hashedOtp = crypto.createHash('sha256').update(otp).digest('hex');
-    // นับ OTP ที่กรอกผิดต่อบัญชีแบบ atomic เมื่อครบเกณฑ์แล้ว OTP นั้นใช้ไม่ได้ทันที (ต้องขอใหม่)
     const MAX_OTP_ATTEMPTS = 5;
     const pending = await pool.query(
       `SELECT ${idColumn} as member_id, reset_token
@@ -1161,7 +1189,6 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
       return;
     }
     if (pendingRow.reset_token !== hashedOtp) {
-      // เพิ่มตัวนับในคำสั่งเดียว (atomic) เพื่อไม่ให้ request ขนานทายได้ไม่จำกัด
       await pool.query(
         `UPDATE ${table}
          SET reset_attempts = reset_attempts + 1,
@@ -1175,7 +1202,6 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    // ใช้ token ได้ครั้งเดียว: request ขนานที่ผ่านการตรวจแล้วจะได้ 0 แถวในครั้งที่สอง
     const consumed = await pool.query(
       `UPDATE ${table}
        SET password = $1, reset_token = NULL, reset_token_expires_at = NULL, reset_attempts = 0, password_changed_at = NOW()

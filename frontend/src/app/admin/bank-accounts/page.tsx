@@ -20,6 +20,7 @@ interface BankAccount {
 
 const emptyForm = { bank_name: '', account_number: '', account_name: '', promptpay_id: '', is_primary: false };
 
+// หน้าจัดการข้อมูลบัญชีธนาคารและพร้อมเพย์สำหรับรับชำระเงิน
 export default function BankAccountsPage() {
   const { ready } = useAuthGuard({ allowedRoles: ['admin'] });
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -34,6 +35,7 @@ export default function BankAccountsPage() {
     fetchAccounts();
   }, [ready]);
 
+  // ดึงรายการบัญชีธนาคารทั้งหมดจากระบบ
   async function fetchAccounts() {
     setLoading(true);
     try {
@@ -46,12 +48,14 @@ export default function BankAccountsPage() {
     }
   }
 
+  // เปิดหน้าต่างสำหรับเพิ่มบัญชีธนาคารใหม่
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
     setModalOpen(true);
   };
 
+  // เปิดหน้าต่างสำหรับแก้ไขข้อมูลบัญชีธนาคารที่เลือก
   const openEdit = (acc: BankAccount) => {
     setEditing(acc);
     setForm({
@@ -64,6 +68,7 @@ export default function BankAccountsPage() {
     setModalOpen(true);
   };
 
+  // บันทึกการสร้างหรือแก้ไขบัญชีธนาคาร
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.bank_name || !form.account_number || !form.account_name) {
@@ -88,6 +93,7 @@ export default function BankAccountsPage() {
     }
   };
 
+  // ยืนยันและลบบัญชีธนาคารออกจากระบบ
   const handleDelete = (id: number) => {
     toastConfirm({
       title: 'ต้องการลบบัญชีธนาคารนี้หรือไม่?',
@@ -171,9 +177,9 @@ export default function BankAccountsPage() {
         )}
       </Panel>
 
-      <Modal 
-        open={modalOpen} 
-        onClose={() => setModalOpen(false)} 
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
         title={editing ? 'แก้ไขบัญชีธนาคาร' : 'เพิ่มบัญชีธนาคาร'}
       >
         <form onSubmit={handleSave} className="space-y-4">

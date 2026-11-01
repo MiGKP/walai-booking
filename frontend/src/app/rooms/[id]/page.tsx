@@ -93,6 +93,7 @@ interface Review {
 const CARD = 'rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)] transition-shadow duration-300 hover:shadow-[0_1px_2px_rgba(18,60,48,0.02),0_12px_28px_-8px_rgba(18,60,48,0.14)]';
 const SECTION_TITLE = 'font-sans text-lg font-semibold leading-tight text-forest-900';
 
+// แสดงหัวข้อส่วนต่าง ๆ พร้อมไอคอนและปุ่มดำเนินการด้านขวา
 function SectionHeading({ icon, title, action }: { icon: React.ReactNode; title: string; action?: React.ReactNode }): React.ReactElement {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -105,6 +106,7 @@ function SectionHeading({ icon, title, action }: { icon: React.ReactNode; title:
   );
 }
 
+// แปลงคะแนนรีวิวเป็นข้อความประเมินระดับความพึงพอใจ
 function ratingLabel(score: number): string {
   if (score >= 4.5) return 'ยอดเยี่ยม';
   if (score >= 4) return 'ดีมาก';
@@ -113,6 +115,7 @@ function ratingLabel(score: number): string {
   return 'ปานกลาง';
 }
 
+// แสดงไอคอนดาวตามคะแนนรีวิว
 function Stars({ value, size = 12 }: { value: number; size?: number }): React.ReactElement {
   return (
     <div className="flex gap-0.5">
@@ -123,10 +126,11 @@ function Stars({ value, size = 12 }: { value: number; size?: number }): React.Re
   );
 }
 
-
+// ปุ่มปรับเพิ่ม-ลดจำนวนตัวเลขพร้อมรองรับการพิมพ์ค่าโดยตรง
 function Stepper({ value, min = 0, max = 99, editable = true, onChange, ariaLabel }: { value: number; min?: number; max?: number; editable?: boolean; onChange: (next: number) => void; ariaLabel: string; }): React.ReactElement {
   const [draft, setDraft] = useState(String(value));
   useEffect(() => { setDraft(String(value)); }, [value]);
+  // ตรวจสอบและบันทึกค่าตัวเลขให้อยู่ในช่วงที่กำหนด
   const commit = (raw: string): void => {
     const parsed = parseInt(raw, 10);
     const safe = isNaN(parsed) ? min : Math.min(max, Math.max(min, parsed));
@@ -147,6 +151,7 @@ function Stepper({ value, min = 0, max = 99, editable = true, onChange, ariaLabe
   );
 }
 
+// แถวปรับจำนวนผู้เข้าพักแยกตามกลุ่มอายุ
 function GuestRow({ label, hint, value, min, max = 20, onChange }: { label: string; hint: string; value: number; min: number; max?: number; onChange: (next: number) => void; }): React.ReactElement {
   return (
     <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
@@ -168,6 +173,7 @@ interface ResortInfo {
   parking_info?: string | null;
 }
 
+// หน้ารายละเอียดห้องพัก แสดงแกลเลอรี ผังเลือกห้อง โปรโมชั่น รีวิว และนโยบาย
 export default function RoomDetailPage(): React.ReactElement {
   const routeParams = useParams<{ id: string }>();
   const id = routeParams.id;
@@ -193,6 +199,7 @@ export default function RoomDetailPage(): React.ReactElement {
   const promoScrollRef = useRef<HTMLDivElement>(null);
   const reviewScrollRef = useRef<HTMLDivElement>(null);
 
+  // เลื่อนสไลด์การ์ดรีวิวไปทางซ้ายหรือขวา
   const scrollReviews = (direction: 'left' | 'right') => {
     if (!reviewScrollRef.current) return;
     const container = reviewScrollRef.current;
@@ -215,6 +222,7 @@ export default function RoomDetailPage(): React.ReactElement {
   const [reviewThumbWidth, setReviewThumbWidth] = useState(35);
   const [canScrollReviews, setCanScrollReviews] = useState(false);
 
+  // คำนวณความคืบหน้าและขนาดแถบเลื่อนของรายการรีวิว
   const updateReviewScrollState = useCallback(() => {
     const el = reviewScrollRef.current;
     if (!el) return;
@@ -243,6 +251,7 @@ export default function RoomDetailPage(): React.ReactElement {
     };
   }, [updateReviewScrollState, filteredReviews, loading]);
 
+  // เลื่อนรายการรีวิวไปยังตำแหน่งที่คลิกบนแถบเลื่อน
   const handleSlidebarClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = reviewScrollRef.current;
     if (!el) return;
@@ -253,6 +262,7 @@ export default function RoomDetailPage(): React.ReactElement {
     el.scrollTo({ left: ratio * maxScroll, behavior: 'smooth' });
   };
 
+  // เลื่อนสไลด์รายการโปรโมชั่นไปทางซ้ายหรือขวา
   const scrollPromos = (direction: 'left' | 'right') => {
     if (!promoScrollRef.current) return;
     const amount = 320;
@@ -276,6 +286,7 @@ export default function RoomDetailPage(): React.ReactElement {
     });
   }, [searchParams, policy.childMaxAge, cart]);
 
+  // อัปเดตอายุของเด็กรายคนและซิงก์ลง URL query parameters
   const handleChildAgeChange = (index: number, age: number) => {
     const nextChildAges = [...childAges];
     nextChildAges[index] = age;
@@ -287,7 +298,6 @@ export default function RoomDetailPage(): React.ReactElement {
     params.set('child_ages', serialized);
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
-
 
   const guestInput = { adults: adultsCount, children: childrenCount, childAges, infantAge };
   const totalGuests = roomOccupancy({ ...guestInput, capacity: 0, roomCount: 0 }).occupyingGuests;
@@ -301,6 +311,7 @@ export default function RoomDetailPage(): React.ReactElement {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openPanel]);
 
+  // อัปเดตช่วงวันเช็คอิน-เช็คเอาต์จากปฏิทินและล้างตะกร้าหากเปลี่ยนวัน
   const handleRangeSelect = (next: DateRange | null): void => {
     if (!next?.end) {
       const params = new URLSearchParams(searchParams.toString());
@@ -323,6 +334,7 @@ export default function RoomDetailPage(): React.ReactElement {
     }
   };
 
+  // อัปเดตจำนวนผู้ใหญ่และเด็กใน URL query parameters
   const handleGuestsChange = (next: { adults: number; children: number; }): void => {
     if (next.children === 0) {
       setChildAgeError(false);
@@ -333,6 +345,7 @@ export default function RoomDetailPage(): React.ReactElement {
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
+  // ตรวจสอบความครบถ้วนของอายุเด็กก่อนปิดแผงเลือกผู้เข้าพัก
   const handleConfirmGuests = () => {
     const children = childrenCount;
     if (children > 0 && childAges.some((age) => age === null)) {
@@ -343,7 +356,7 @@ export default function RoomDetailPage(): React.ReactElement {
     setChildAgeError(false);
     setOpenPanel(null);
   };
-  // รีเซ็ตสถานะ "ดูเพิ่มเติม" ของโปรโมชั่นเวลาสลับไปดูห้องอื่น
+
   useEffect(() => {
     setExpandedPromoId(null);
   }, [id]);
@@ -366,7 +379,6 @@ export default function RoomDetailPage(): React.ReactElement {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    // Keep the calendar mounted while the guest is choosing check-out.
     if (loadedRoomId.current !== id || range.end) setLoading(true);
     api.get(`/rooms/${id}`, { params: range.start && range.end ? { check_in: range.start, check_out: range.end } : {} })
       .then(res => {
@@ -390,8 +402,6 @@ export default function RoomDetailPage(): React.ReactElement {
     }).catch(() => undefined);
   }, [id]);
 
-  // นำ Auto-scroll ไปยัง #room-picker ออก เพื่อให้ผู้ใช้ได้เห็นรูปภาพและรายละเอียดห้องก่อน
-
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
@@ -414,7 +424,6 @@ export default function RoomDetailPage(): React.ReactElement {
     );
   }, [room]);
 
-  // ผังห้องทั้งหมดในแพรีสอร์ต (แสดงเด่นเฉพาะห้องประเภทนี้, ห้องประเภทอื่นแสดงจางๆ)
   const allResortRaftRooms = useMemo(() => {
     if (!allRoomTypes.length) {
       return sortedPhysicalRooms.map((r) => ({
@@ -466,7 +475,7 @@ export default function RoomDetailPage(): React.ReactElement {
     return [room.main_image, ...(Array.isArray(room.images) ? room.images.filter((img) => img !== room.main_image) : [])].filter((img): img is string => Boolean(img));
   }, [room]);
 
-
+  // เลื่อนแกลเลอรีรูปภาพไปยังลำดับรูปที่ระบุ
   const scrollToImage = (index: number): void => {
     const el = galleryScrollRef.current;
     if (!el) return;
@@ -474,7 +483,6 @@ export default function RoomDetailPage(): React.ReactElement {
     el.scrollTo({ left: clamped * el.clientWidth, behavior: 'smooth' });
   };
 
-  // sync ตัวเลขรูป/จุดบอกตำแหน่งตามการเลื่อน (ลาก/สไวป์) ของผู้ใช้ ไม่ใช่แค่ตอนกดปุ่ม
   useEffect(() => {
     const el = galleryScrollRef.current;
     if (!el) return;
@@ -500,7 +508,6 @@ export default function RoomDetailPage(): React.ReactElement {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState<string>('overview');
 
-  // ค่อยๆ ดัน Navbar ขึ้นเมื่อแท็บนี้เลื่อนขึ้นมาแทน และค่อยๆ เลื่อน Navbar ลงมาเมื่อแท็บนี้เลื่อนลง
   useEffect(() => {
     if (loading) return;
     let wasStuck: boolean | null = null;
@@ -552,11 +559,9 @@ export default function RoomDetailPage(): React.ReactElement {
     ];
 
     const onScroll = () => {
-      // ลบ #hash ออกจาก URL เมื่อเลื่อนออกจาก section นั้น ๆ
       const syncHashWithSection = (activeId: string) => {
         if (typeof window === 'undefined' || !window.location.hash) return;
         const currentHash = window.location.hash.replace('#', '');
-        // ถ้า hash ปัจจุบันไม่ตรงกับ section ที่กำลังดูอยู่ ให้ลบ hash ออกจาก URL ทันที
         if (currentHash !== activeId) {
           window.history.replaceState(null, '', window.location.pathname + window.location.search);
         }
@@ -666,7 +671,6 @@ export default function RoomDetailPage(): React.ReactElement {
 
   return (
     <div className="min-h-screen bg-cream-100 pb-28 pt-20 lg:pb-20">
-      {/* ===== Gallery Section ===== */}
       <div className="mx-auto max-w-7xl px-4 pt-4">
         <div className="relative">
           <Link
@@ -742,11 +746,8 @@ export default function RoomDetailPage(): React.ReactElement {
         )}
       </div>
 
-      
-      {/* จุดตรวจสอบการเกาะขอบบนของแท็บเมนู */}
       <div ref={sentinelRef} className="h-0 w-full pointer-events-none" aria-hidden="true" />
 
-      {/* Sticky Navigation Bar (แทนที่ Navbar เมื่อเลื่อนหน้าจอลง) */}
       <div className="sticky top-0 z-40 border-b border-stone-200/80 bg-white/95 backdrop-blur-md shadow-xs transition-all duration-200">
         <div className="mx-auto max-w-7xl px-4">
           <div className="flex h-14 sm:h-16 items-center justify-between">
@@ -850,16 +851,12 @@ export default function RoomDetailPage(): React.ReactElement {
         </div>
       </div>
 
-      {/* ===== Main Content Area ===== */}
       <div className="mx-auto mt-8 max-w-7xl px-4">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          {/* ---- ฝั่งซ้าย: รายละเอียดห้อง ---- */}
           <div className="space-y-6 lg:col-span-8">
-            {/* Header Details */}
             <section id="overview" className={`${CARD} p-5 sm:p-7 scroll-mt-24`}>
               <div className="flex flex-col-reverse gap-6 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 flex-1 flex-col">
-                  {/* Title & Ratings */}
                   <h1 className="font-sans text-3xl font-bold tracking-tight text-forest-950 sm:text-[34px] lg:text-[40px] leading-[1.1]">{room.room_name}</h1>
                   
                   <div className="mt-4 flex flex-wrap items-center gap-y-2 gap-x-4 text-[15px] text-stone-600">
@@ -878,7 +875,6 @@ export default function RoomDetailPage(): React.ReactElement {
                     </div>
                   </div>
 
-                  {/* Description */}
                   {room.description && (
                     <p className="mt-5 text-sm leading-[1.8] text-stone-500 max-w-2xl">
                       {room.description}
@@ -886,7 +882,6 @@ export default function RoomDetailPage(): React.ReactElement {
                   )}
                 </div>
 
-                {/* Price & Availability (Desktop Right / Mobile Top) */}
                 <div className="flex shrink-0 flex-col items-start sm:items-end sm:pl-6 sm:border-l sm:border-stone-100">
                   <span className="mb-1 text-[12px] font-bold uppercase tracking-widest text-stone-400">ราคาเริ่มต้น</span>
                   <div className="flex items-baseline gap-1">
@@ -894,7 +889,6 @@ export default function RoomDetailPage(): React.ReactElement {
                     <span className="text-sm font-medium text-stone-500">/ คืน</span>
                   </div>
                   
-                  {/* Availability Badge */}
                   <div className="mt-3">
                     <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-bold ${
                       nights <= 0 || availableCount > 0
@@ -918,7 +912,6 @@ export default function RoomDetailPage(): React.ReactElement {
               </div>
             </section>
 
-            {/* Amenities */}
             {room.amenities && room.amenities.length > 0 && (
               <section id="amenities" className={`${CARD} p-5 sm:p-6 scroll-mt-24`}>
                 <SectionHeading icon={<Sparkles size={16} />} title="สิ่งอำนวยความสะดวก" />
@@ -933,11 +926,7 @@ export default function RoomDetailPage(): React.ReactElement {
               </section>
             )}
 
-
-
-            {/* Room Selection Grid */}
             <section id="room-picker" className={`${CARD} scroll-mt-24 p-5 sm:p-6`}>
-              {/* Dates & Guests Search Bar (อยู่กับที่ ไม่เลื่อนตาม) */}
               <div className="mb-8 w-full shadow-xs rounded-3xl" ref={pickerRef}>
                 <div className="flex w-full flex-col divide-y divide-stone-100 rounded-3xl border border-stone-200 bg-white shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.1)] transition-all duration-500 lg:flex-row lg:divide-x lg:divide-y-0 lg:rounded-full">
                   
@@ -955,7 +944,7 @@ export default function RoomDetailPage(): React.ReactElement {
                     </button>
                     {openPanel === "calendar" && (
                       <div
-                        className="animate-dropdown absolute left-0 top-full z-40 mt-3 w-full sm:w-[620px] md:w-[640px] max-w-[calc(100vw-2rem)] rounded-3xl border border-stone-200 bg-white p-4 sm:p-6 shadow-[0_20px_50px_rgba(18,60,48,0.18)] flex flex-col"
+                        className="fixed inset-0 z-50 flex flex-col bg-white p-4 sm:p-6 lg:absolute lg:inset-auto lg:left-0 lg:top-full lg:z-40 lg:mt-3 lg:w-[640px] lg:max-w-[calc(100vw-2rem)] lg:rounded-3xl lg:border lg:border-stone-200 lg:shadow-[0_20px_50px_rgba(18,60,48,0.18)] animate-dropdown"
                       >
                         <div className="mb-3 flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
                           <div>
@@ -984,7 +973,7 @@ export default function RoomDetailPage(): React.ReactElement {
                           </button>
                         </div>
 
-                        <div className="py-1 overflow-y-auto max-h-[75vh] sm:max-h-none sm:overflow-visible pr-1 sm:pr-0">
+                        <div className="py-1 flex-1 overflow-y-auto sm:max-h-none sm:overflow-visible pr-1 sm:pr-0">
                           <BookingCalendar
                             mode="range"
                             value={range.start ? range : null}
@@ -998,7 +987,7 @@ export default function RoomDetailPage(): React.ReactElement {
                           />
                         </div>
 
-                        <div className="pt-3 mt-2 border-t border-stone-100 flex items-center justify-between shrink-0">
+                        <div className="pt-3 mt-2 border-t border-stone-100 flex items-center justify-between shrink-0 gap-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
                           <button
                             type="button"
                             onClick={() => handleRangeSelect(null)}
@@ -1006,11 +995,20 @@ export default function RoomDetailPage(): React.ReactElement {
                           >
                             ล้างวันที่เลือก
                           </button>
-                          {nights > 0 && (
-                            <span className="text-xs font-semibold text-forest-800">
-                              เข้าพัก {nights} คืน
-                            </span>
-                          )}
+                          <div className="flex items-center gap-3">
+                            {nights > 0 && (
+                              <span className="hidden lg:inline text-xs font-semibold text-forest-800">
+                                เข้าพัก {nights} คืน
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setOpenPanel(null)}
+                              className="lg:hidden rounded-xl bg-forest-800 hover:bg-forest-900 active:scale-95 text-white font-bold text-xs sm:text-sm px-4 py-2 sm:px-5 sm:py-2.5 shadow-sm transition-all"
+                            >
+                              ดูห้องว่าง {nights > 0 ? `(${nights} คืน)` : ''}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1132,7 +1130,6 @@ export default function RoomDetailPage(): React.ReactElement {
                 }
               />
 
-              {/* Capacity guidance note (Agoda style) */}
               {room && minimumRooms > 1 && (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-200/90 bg-amber-50/80 p-3 text-xs text-amber-900">
                   <div className="flex items-center gap-2">
@@ -1157,7 +1154,6 @@ export default function RoomDetailPage(): React.ReactElement {
               </div>
             </section>
 
-            {/* Special Offers (Advertisement) */}
             {room.available_promotions && room.available_promotions.length > 0 && (
               <div id="promotions" className="mt-4 scroll-mt-24 rounded-2xl bg-stone-50/50 border border-stone-100 p-4">
                 <div className="flex items-center justify-between gap-2 mb-3">
@@ -1171,7 +1167,6 @@ export default function RoomDetailPage(): React.ReactElement {
                     </span>
                   </div>
 
-                  {/* Left / Right Scroll Buttons */}
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
@@ -1192,7 +1187,6 @@ export default function RoomDetailPage(): React.ReactElement {
                   </div>
                 </div>
 
-                {/* Horizontal Scroll Container */}
                 <div
                   ref={promoScrollRef}
                   className="flex items-start gap-3 overflow-x-auto scroll-smooth pb-2 pt-1 snap-x snap-mandatory [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden"
@@ -1234,7 +1228,7 @@ export default function RoomDetailPage(): React.ReactElement {
                               </p>
                               <ul className="space-y-1 text-stone-500">
                                 <li className="flex items-center gap-1.5">
-                                  <span className="text-stone-400 font-medium">โค้ด:</span>
+                                  <span className="text-stone-400 font-medium">โปรโมชั่น:</span>
                                   <span className="font-bold text-forest-800 bg-white px-1.5 py-0.5 rounded border border-stone-200">
                                     {promo.code}
                                   </span>
@@ -1264,7 +1258,6 @@ export default function RoomDetailPage(): React.ReactElement {
               </div>
             )}
 
-            {/* Reviews */}
             <section id="reviews" className={`${CARD} p-5 sm:p-7 scroll-mt-24`}>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-stone-100 pb-4">
                 <div>
@@ -1284,7 +1277,6 @@ export default function RoomDetailPage(): React.ReactElement {
                     </div>
                   )}
 
-                  {/* Navigation Arrows for Review Slider */}
                   {filteredReviews.length > 2 && (
                     <div className="flex items-center gap-1.5 pl-2 border-l border-stone-200">
                       <button
@@ -1310,7 +1302,6 @@ export default function RoomDetailPage(): React.ReactElement {
                 </div>
               </div>
 
-              {/* Rating Filter Pills */}
               {reviews.length > 0 && (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <span className="text-xs font-medium text-stone-500 mr-1">กรองรีวิว:</span>
@@ -1349,7 +1340,6 @@ export default function RoomDetailPage(): React.ReactElement {
                 </div>
               )}
 
-              {/* Reviews Horizontal Slidebar */}
               {reviews.length === 0 ? (
                 <div className="mt-8 flex flex-col items-center justify-center py-10 text-center">
                   <div className="grid h-12 w-12 place-items-center rounded-full bg-forest-50 text-forest-600 mb-3">
@@ -1386,7 +1376,6 @@ export default function RoomDetailPage(): React.ReactElement {
                           className="w-full shrink-0 snap-start flex flex-col justify-between rounded-2xl border border-stone-200/80 bg-gradient-to-b from-stone-50/50 to-white p-4 shadow-2xs hover:border-forest-300 hover:shadow-xs transition-all h-[135px] sm:h-[145px]"
                         >
                           <div>
-                            {/* Card Header: Avatar, Name, Rating */}
                             <div className="flex items-start justify-between gap-2.5">
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-forest-100 text-xs font-bold text-forest-900 border border-forest-200/60 shadow-2xs">
@@ -1416,7 +1405,6 @@ export default function RoomDetailPage(): React.ReactElement {
                               </div>
                             </div>
 
-                            {/* Comment */}
                             {review.comment && (
                               <p className="mt-2 text-xs sm:text-[13px] leading-relaxed text-charcoal-700 italic font-normal line-clamp-2 sm:line-clamp-3">
                                 &ldquo;{review.comment}&rdquo;
@@ -1428,7 +1416,6 @@ export default function RoomDetailPage(): React.ReactElement {
                     })}
                   </div>
 
-                  {/* Reviews Slidebar */}
                   {filteredReviews.length > 2 && (
                     <div className="mt-3.5 flex items-center justify-center">
                       <div
@@ -1454,13 +1441,10 @@ export default function RoomDetailPage(): React.ReactElement {
               )}
             </section>
 
-            {/* Policies & Useful Info (Dynamic from Database) */}
             <section id="policies" className={`${CARD} p-5 sm:p-6 bg-stone-50/50 border-none scroll-mt-24`}>
               <SectionHeading icon={<AlertCircle size={16} />} title="ข้อมูลที่เป็นประโยชน์และนโยบาย" />
               
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-charcoal-600">
-                
-                {/* Check-in / Check-out */}
                 <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-xs">
                   <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Clock size={16} className="text-forest-600" />เวลาเช็คอิน / เช็คเอาต์</p>
                   <ul className="space-y-1.5">
@@ -1477,7 +1461,6 @@ export default function RoomDetailPage(): React.ReactElement {
                   </ul>
                 </div>
 
-                {/* Important Details */}
                 <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-xs">
                   <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><AlertCircle size={16} className="text-forest-600" />ข้อมูลสำคัญที่พัก</p>
                   <ul className="list-disc list-outside ml-4 space-y-1.5 text-stone-500">
@@ -1487,7 +1470,6 @@ export default function RoomDetailPage(): React.ReactElement {
                   </ul>
                 </div>
 
-                {/* Kids & Extra Beds */}
                 <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-xs">
                   <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Users size={16} className="text-forest-600" />นโยบายเด็กและเตียงเสริม</p>
                   <ul className="list-disc list-outside ml-4 space-y-1.5 text-stone-500">
@@ -1501,19 +1483,16 @@ export default function RoomDetailPage(): React.ReactElement {
                   </ul>
                 </div>
 
-                {/* Getting there & Parking */}
                 <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-xs">
                   <p className="font-bold text-forest-900 mb-3 flex items-center gap-2"><Car size={16} className="text-forest-600" />การเดินทางและที่จอดรถ</p>
                   <p className="text-stone-500 leading-relaxed whitespace-pre-line">
                     {resortInfo?.parking_info || 'มีลานจอดรถส่วนตัวให้บริการฟรีในบริเวณสวนวลัยรุกขเวช (ไม่ต้องจองล่วงหน้า) แขกผู้เข้าพักสามารถขับรถมาจอดและเดินไปยังห้องพักได้โดยตรง'}
                   </p>
                 </div>
-
               </div>
             </section>
           </div>
 
-          {/* ---- ฝั่งขวา: การ์ดสรุปการจอง ---- */}
           <aside className="lg:col-span-4">
             <div className="mb-8 lg:sticky lg:top-[96px]">
               <BookingSummaryCard  />

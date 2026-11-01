@@ -3,6 +3,7 @@ import { bangkokToday } from '../utils/bangkok-date';
 
 interface QueryClient { query: Pool['query']; }
 
+// แปลงข้อความเวลา (HH:MM หรือ HH:MM:SS) เป็นจำนวนวินาทีนับจากเที่ยงคืน
 function timeSeconds(value: string): number | null {
   const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value);
   if (!match) return null;
@@ -11,7 +12,7 @@ function timeSeconds(value: string): number | null {
   return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
 }
 
-// Both ordinary bookings and room addons must obey the same server policy.
+// ตรวจสอบวันที่ เวลาทำการ และระยะเวลาจองล่วงหน้าสำหรับการจองเรือคายัค
 export async function validateBoatBookingTime(
   client: QueryClient, date: string, start: string, end: string, now: Date = new Date(),
 ): Promise<string | null> {

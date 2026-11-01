@@ -2,17 +2,6 @@ import { googleMapsEmbedUrl, googleMapsSearchUrl, parseLatLng } from './coordina
 
 export type ResortPrefer = 'main' | 'room' | 'boat';
 
-export function getResortLocation(data: unknown): { address: string | undefined; phone: string | undefined; hours: string | undefined; mapSrc: string | undefined } {
-  const info = pickResortInfo(data, 'main');
-  const coords = parseLatLng(info.coordinates);
-  return {
-    address: info.address,
-    phone: info.phone,
-    hours: [info.operating_days, info.operating_hours].filter(Boolean).join(' ') || undefined,
-    mapSrc: coords ? googleMapsEmbedUrl(coords) : info.address ? googleMapsSearchUrl(info.address) : undefined,
-  };
-}
-
 export interface ResortInfoRecord {
   id?: number;
   name?: string;
@@ -34,20 +23,32 @@ export interface ResortInfoRecord {
   [key: string]: unknown;
 }
 
+// แปลงและสกัดข้อมูลที่ตั้ง เบอร์โทร เวลาทำการ และลิงก์แผนที่ของรีสอร์ต
+export function getResortLocation(data: unknown): {
+  address: string | undefined;
+  phone: string | undefined;
+  hours: string | undefined;
+  mapSrc: string | undefined;
+} {
+  const info = pickResortInfo(data, 'main');
+  const coords = parseLatLng(info.coordinates);
+  return {
+    address: info.address,
+    phone: info.phone,
+    hours: [info.operating_days, info.operating_hours].filter(Boolean).join(' ') || undefined,
+    mapSrc: coords ? googleMapsEmbedUrl(coords) : info.address ? googleMapsSearchUrl(info.address) : undefined,
+  };
+}
+
+// แปลงค่าทั่วไปให้เป็นสตริงที่ไม่ว่างเปล่า
 function cleanString(value: unknown): string | undefined {
   if (value == null) return undefined;
   const text = String(value);
   return text.length > 0 ? text : undefined;
 }
 
-/**
- * GET /settings/resort may return one object (?id=) or an array (main=3, room=4, boat=5).
- * Public pages expect a single object — pick the right row.
- */
-export function pickResortInfo(
-  data: unknown,
-  prefer: ResortPrefer = 'main'
-): ResortInfoRecord {
+// เลือกแถวข้อมูลการตั้งค่ารีสอร์ตตามหมวดหมู่ที่ต้องการ (หลัก ห้องพัก หรือเรือ)
+export function pickResortInfo(data: unknown, prefer: ResortPrefer = 'main'): ResortInfoRecord {
   if (data == null) return {};
   const raw: ResortInfoRecord = !Array.isArray(data)
     ? (data as ResortInfoRecord)

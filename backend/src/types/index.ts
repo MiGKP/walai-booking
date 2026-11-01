@@ -1,3 +1,4 @@
+// ข้อมูลสมาชิก (ลูกค้า)
 export interface Member {
   member_id: number;
   first_name?: string;
@@ -16,6 +17,7 @@ export interface Member {
   updated_at: Date;
 }
 
+// ข้อมูลพนักงานและผู้ดูแลระบบ
 export interface Staff {
   staff_id: number;
   first_name?: string;
@@ -33,6 +35,7 @@ export interface Staff {
   created_at: Date;
 }
 
+// ข้อมูลประเภทห้องพัก
 export interface RoomType {
   id: number;
   room_image?: string;
@@ -45,6 +48,7 @@ export interface RoomType {
   status: boolean;
 }
 
+// ข้อมูลห้องพักรายห้อง
 export interface Room {
   room_id: number;
   room_type_id: number;
@@ -52,6 +56,7 @@ export interface Room {
   status: 'available' | 'occupied' | 'maintenance';
 }
 
+// ข้อมูลประเภทเรือคายัค
 export interface BoatType {
   boat_type_id: number;
   type_name?: string;
@@ -62,6 +67,7 @@ export interface BoatType {
   is_active: boolean;
 }
 
+// ข้อมูลรอบเวลาให้บริการเรือคายัค
 export interface BoatRound {
   boat_round_id: number;
   boat_type_id: number;
@@ -71,6 +77,7 @@ export interface BoatRound {
   is_active: boolean;
 }
 
+// ข้อมูลการจองห้องพัก
 export interface RoomBooking {
   room_booking_id: number;
   member_id: number;
@@ -91,6 +98,7 @@ export interface RoomBooking {
   created_at: Date;
 }
 
+// ข้อมูลการจองเรือคายัค
 export interface BoatBooking {
   boat_booking_id: number;
   member_id: number;
@@ -106,6 +114,7 @@ export interface BoatBooking {
   created_at: Date;
 }
 
+// ข้อมูลรายการย่อยของการจองเรือคายัคแต่ละประเภท
 export interface BookingBoatLine {
   booking_boat_id: number;
   boat_booking_id: number;
@@ -119,6 +128,7 @@ export interface BookingBoatLine {
   type_name?: string;
 }
 
+// ข้อมูลผู้ใช้ที่ถอดรหัสจาก JWT token
 export interface AuthPayload {
   id: number;
   email: string;
@@ -126,10 +136,10 @@ export interface AuthPayload {
   issued_at_ms?: number;
 }
 
+// โครงสร้างข้อมูลตอบกลับมาตรฐานของ API
 export interface ApiResponse<T = any> {
   success: boolean;
   message: string;
   data?: T;
   error?: string;
 }
-

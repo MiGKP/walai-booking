@@ -8,15 +8,12 @@ import {
   cartEstimatedTotal,
   roomOccupancy,
   cartRoomCount,
-  setCartItemQuantity,
 } from '@/lib/room-cart';
-import { formatThaiDate, nightsBetween } from '@/lib/date';
+import { formatThaiDate, nightsBetween, todayISO, MonthCursor } from '@/lib/date';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { todayISO } from '@/lib/date';
 import PromoPriceBreakdown from '@/components/booking/PromoPriceBreakdown';
 import BookingCalendar, { DateRange, DayStatus } from '@/components/booking/BookingCalendar';
-import { MonthCursor } from '@/lib/date';
 import { useInfantAgePolicy } from '@/hooks/useInfantAgePolicy';
 
 interface AppliedPromo {
@@ -34,7 +31,6 @@ interface RoomCartPanelProps {
   onCheckout: (options?: { promotion_id?: number }) => void;
   checkoutLoading?: boolean;
   autoAppliedPromoCode?: string | null;
-  // Calendar props for inline editing
   range: DateRange | null;
   onRangeSelect: (range: DateRange | null) => void;
   cursor: MonthCursor;
@@ -43,6 +39,7 @@ interface RoomCartPanelProps {
   calendarLoading: boolean;
 }
 
+// แสดงแผงตะกร้าการจองห้องพักพร้อมตัวเลือกวันเข้าพัก จำนวนผู้เข้าพัก และคูปองส่วนลด
 export default function RoomCartPanel({
   cart,
   onChange,
@@ -62,9 +59,16 @@ export default function RoomCartPanel({
   const infantAge = useInfantAgePolicy();
   const baseTotal = cartEstimatedTotal(cart);
   const roomCount = cartRoomCount(cart);
-  const overCapacity = !roomOccupancy({ adults: cart.adults, children: cart.children, childAges: cart.child_ages ?? [], infantAge, capacity, roomCount }).fits;
+  const overCapacity = !roomOccupancy({
+    adults: cart.adults,
+    children: cart.children,
+    childAges: cart.child_ages ?? [],
+    infantAge,
+    capacity,
+    roomCount,
+  }).fits;
   const empty = cart.items.length === 0;
-  const roomTypeIds = Array.from(new Set(cart.items.map(item => item.room_type_id)));
+  const roomTypeIds = Array.from(new Set(cart.items.map((item) => item.room_type_id)));
   const roomTypeKey = roomTypeIds.join(',');
 
   const [promoCode, setPromoCode] = useState('');
@@ -73,10 +77,10 @@ export default function RoomCartPanel({
   const [showCalendar, setShowCalendar] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
 
-  // Sync with autoAppliedPromoCode from Room Cards
   useEffect(() => {
     if (autoAppliedPromoCode) {
       setPromoCode(autoAppliedPromoCode);
+      // ตรวจสอบและใช้รหัสโปรโมชั่นอัตโนมัติเมื่อเลือกจากหน้าการ์ดห้องพัก
       const triggerApply = async () => {
         if (baseTotal <= 0 || nights <= 0) return;
         setPromoLoading(true);
@@ -90,7 +94,7 @@ export default function RoomCartPanel({
           });
           const data = res.data.data as AppliedPromo;
           setAppliedPromo(data);
-        } catch (error) {
+        } catch {
           setAppliedPromo(null);
         } finally {
           setPromoLoading(false);
@@ -111,6 +115,7 @@ export default function RoomCartPanel({
   }, [cart.check_in, cart.check_out]);
 
   useEffect(() => {
+    // ปิดปฏิทินเลือกวันที่เมื่อคลิกด้านนอก
     const handleClickOutside = (e: MouseEvent) => {
       if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
         setShowCalendar(false);
@@ -120,6 +125,7 @@ export default function RoomCartPanel({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showCalendar]);
 
+  // ตรวจสอบความถูกต้องของคูปองส่วนลดและคำนวณราคาหลังหักส่วนลด
   const handleApplyPromo = async (): Promise<void> => {
     if (!promoCode.trim() || baseTotal <= 0 || nights <= 0) return;
     setPromoLoading(true);
@@ -133,14 +139,14 @@ export default function RoomCartPanel({
       });
       const data = res.data.data as AppliedPromo;
       setAppliedPromo(data);
-      
     } catch (error: unknown) {
-      toast.error(getApiErrorMessage(error, 'โค้ดส่วนลดไม่ถูกต้องหรือหมดอายุ'));
+      toast.error(getApiErrorMessage(error, 'คูปองส่วนลดไม่ถูกต้องหรือหมดอายุ'));
     } finally {
       setPromoLoading(false);
     }
   };
 
+  // อัปเดตจำนวนผู้ใหญ่และเด็กในตะกร้าห้องพัก
   const updateGuests = (adults: number, children: number) => {
     onChange({
       ...cart,
@@ -188,7 +194,7 @@ export default function RoomCartPanel({
         </button>
 
         {showCalendar && (
-          <div 
+          <div
             ref={calendarRef}
             className="absolute left-0 top-full z-50 mt-2 w-full min-w-[320px] lg:-left-20 lg:w-[450px] rounded-2xl border border-stone-200 bg-white p-4 shadow-2xl animate-dropdown"
           >
@@ -211,10 +217,8 @@ export default function RoomCartPanel({
         )}
       </div>
 
-      {/* Side-by-side Guest Steppers */}
       <div className="mb-6 rounded-xl border border-stone-100 bg-stone-50/50 p-3">
         <div className="flex items-center divide-x divide-stone-200">
-          {/* Adults */}
           <div className="flex-1 px-1">
             <p className="mb-2 text-center text-xs font-bold uppercase tracking-wider text-charcoal-400">ผู้ใหญ่</p>
             <div className="flex items-center justify-center gap-3">
@@ -236,7 +240,6 @@ export default function RoomCartPanel({
               </button>
             </div>
           </div>
-          {/* Children */}
           <div className="flex-1 px-1">
             <p className="mb-2 text-center text-xs font-bold uppercase tracking-wider text-charcoal-400">เด็ก</p>
             <div className="flex items-center justify-center gap-3">
@@ -314,7 +317,7 @@ export default function RoomCartPanel({
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-charcoal-500">
               <Tag size={13} className="text-forest-600" />
-              โค้ดส่วนลด
+              โปรโมชั่นส่วนลด
             </label>
             {appliedPromo ? (
               <div className="flex items-center justify-between rounded-xl bg-forest-50 px-3 py-2.5 border border-forest-100 shadow-xs">
@@ -342,7 +345,7 @@ export default function RoomCartPanel({
               <div className="flex gap-2">
                 <input
                   className="w-full rounded-xl border border-stone-200 bg-stone-50/30 px-3 py-2 text-sm font-medium placeholder:text-stone-300 focus:border-forest-500 focus:outline-hidden transition-all"
-                  placeholder="กรอกโค้ด"
+                  placeholder="กรอกชื่อโปรโมชั่น"
                   value={promoCode}
                   onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                 />

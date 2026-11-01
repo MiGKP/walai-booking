@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Home, 
-  Sailboat, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  Home,
+  Sailboat,
   Calendar as CalendarIcon,
   User,
   Phone,
@@ -30,16 +30,13 @@ import { resolveMediaUrl } from '@/lib/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { notify } from "@/lib/admin-notify";
 import { Modal, CustomSelect } from '@/components/admin/ui';
-import { 
-  formatThaiDateShort, 
-  formatThaiDateLong, 
-  BANGKOK_TIMEZONE 
+import {
+  formatThaiDateShort,
+  formatThaiDateLong,
+  BANGKOK_TIMEZONE
 } from '@/lib/date';
 
-// ----------------------------------------------------------------------
-// ฟังก์ชันจัดการวันที่และ Timezone +7 (เวลาไทย)
-// ----------------------------------------------------------------------
-
+// แปลงค่าวันที่จากรูปแบบต่างๆ ให้เป็น YYYY-MM-DD ตามเวลาประเทศไทย
 const parseDateToYYYYMMDD = (dateInput: any): string => {
   if (!dateInput) return '';
   if (typeof dateInput === 'string') {
@@ -55,6 +52,7 @@ const parseDateToYYYYMMDD = (dateInput: any): string => {
   return `${y}-${m}-${day}`;
 };
 
+// จัดรูปแบบอ็อบเจกต์ Date ให้เป็นสตริง YYYY-MM-DD
 const formatDateToYYYYMMDD = (d: Date): string => {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -87,6 +85,7 @@ interface DaySummary {
   roomsCount: number;
 }
 
+// หน้าปฏิทินรวมแสดงคิวเข้าพัก เช็คเอาต์ และรอบจองเรือรายเดือน
 export default function AdminCalendarPage() {
   const { ready } = useAuthGuard({ allowedRoles: ['admin', 'room_staff', 'boat_staff', 'staff'] });
 
@@ -95,8 +94,7 @@ export default function AdminCalendarPage() {
   const [roomBookings, setRoomBookings] = useState<any[]>([]);
   const [kayakBookings, setKayakBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Modal states
+
   const [selectedDayData, setSelectedDayData] = useState<DaySummary | null>(null);
   const [activeModalTab, setActiveModalTab] = useState<StatusTabType>('checkins');
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
@@ -107,6 +105,7 @@ export default function AdminCalendarPage() {
     fetchBookings();
   }, [ready]);
 
+  // ดึงข้อมูลการจองห้องพักและการจองเรือทั้งหมดเพื่อแสดงบนปฏิทิน
   async function fetchBookings() {
     setLoading(true);
     try {
@@ -123,20 +122,27 @@ export default function AdminCalendarPage() {
     }
   }
 
-  // ---------------- Calendar Calculation Logic ----------------
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = new Date(year, month, 1).getDay();
 
+  // เลื่อนปฏิทินไปยังเดือนก่อนหน้า
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+
+  // เลื่อนปฏิทินไปยังเดือนถัดไป
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+
+  // เลื่อนปฏิทินกลับมาที่เดือนปัจจุบัน
   const goToToday = () => setCurrentDate(new Date());
+
+  // เปลี่ยนเดือนที่แสดงบนปฏิทินตามค่าที่เลือก
   const changeMonth = (newMonth: number) => setCurrentDate(new Date(year, newMonth, 1));
+
+  // เปลี่ยนปีที่แสดงบนปฏิทินตามค่าที่เลือก
   const changeYear = (newYear: number) => setCurrentDate(new Date(newYear, month, 1));
 
-  // ---------------- Process Daily Breakdowns (No พักต่อเนื่อง) ----------------
   const dailyDataMap = useMemo(() => {
     const map: Record<string, DaySummary> = {};
 
@@ -153,7 +159,6 @@ export default function AdminCalendarPage() {
       return map[dateStr];
     };
 
-    // 1. Process Rooms (Check-ins and Check-outs only)
     roomBookings.forEach((b) => {
       const isApprovedStatus = b.status === 'approved' || b.status === 'checked_in' || b.status === 'checked_out';
       if (!isApprovedStatus || !b.check_in) return;
@@ -191,18 +196,15 @@ export default function AdminCalendarPage() {
         raw: b
       };
 
-      // Check-in day
       const checkinDay = getOrCreate(checkInStr);
       checkinDay.checkins.push(baseInfo);
 
-      // Check-out day
       if (checkOutStr && checkOutStr !== checkInStr) {
         const checkoutDay = getOrCreate(checkOutStr);
         checkoutDay.checkouts.push(baseInfo);
       }
     });
 
-    // 2. Process Boats
     kayakBookings.forEach((b) => {
       const isApprovedStatus = b.status === 'approved' || b.status === 'checked_out';
       if (!isApprovedStatus || !b.booking_date) return;
@@ -213,8 +215,8 @@ export default function AdminCalendarPage() {
       const bookingId = b.boat_booking_id || b.kayak_booking_id || b.id;
       const customerName = b.user_name || b.guest_name || b.customer_name || 'ลูกค้าทั่วไป';
       const boatTitle = b.kayak_name || b.boat_name || 'เรือ';
-      
-      const timeFormatted = b.start_time 
+
+      const timeFormatted = b.start_time
         ? (b.end_time ? `${b.start_time.slice(0, 5)} - ${b.end_time.slice(0, 5)} น.` : `${b.start_time.slice(0, 5)} น.`)
         : '';
 
@@ -240,7 +242,6 @@ export default function AdminCalendarPage() {
       boatDay.boats.push(baseInfo);
     });
 
-    // Compute rooms count per day
     Object.values(map).forEach((d) => {
       d.roomsCount = d.checkins.length + d.checkouts.length;
     });
@@ -248,7 +249,7 @@ export default function AdminCalendarPage() {
     return map;
   }, [roomBookings, kayakBookings]);
 
-  // สรุปสถิติประจำเดือนที่เลือก & วันนี้
+  // สรุปสถิติประจำเดือน
   const stats = useMemo(() => {
     const currentMonthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
     const todayStr = formatDateToYYYYMMDD(new Date());
@@ -287,7 +288,7 @@ export default function AdminCalendarPage() {
     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
   ];
 
-  // Helper เพื่อเปิด Modal วัน และเลือก Tab ทันที
+  // เปิดหน้าต่างสรุปรายการจองประจำวันพร้อมกำหนดแท็บเริ่มต้น
   const handleOpenDayModal = (dayData: DaySummary, initialTab: StatusTabType) => {
     setSelectedDayData(dayData);
     setActiveModalTab(initialTab);
@@ -298,7 +299,6 @@ export default function AdminCalendarPage() {
 
   return (
     <div className="space-y-6 pb-16 max-w-[1600px] mx-auto">
-      {/* Top Header Card (Match Checkin Page Style) */}
       <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 relative">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
           <div className="flex items-center gap-3 flex-wrap">
@@ -312,9 +312,7 @@ export default function AdminCalendarPage() {
             </div>
           </div>
 
-          {/* Quick Filters & Actions */}
           <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Filter Segmented Control */}
             <div className="bg-cream-100/90 p-1 rounded-2xl flex items-center gap-1 border border-cream-300/80 shadow-xs">
               <button
                 onClick={() => setFilterType('all')}
@@ -350,7 +348,6 @@ export default function AdminCalendarPage() {
               </button>
             </div>
 
-            {/* Jump to Today Button (No Icon) */}
             <button
               onClick={goToToday}
               className="px-3.5 py-2 bg-white hover:bg-forest-50/50 hover:border-forest-200 text-charcoal-700 rounded-2xl border border-charcoal-200/80 shadow-xs transition-all text-xs font-semibold active:scale-95"
@@ -359,7 +356,6 @@ export default function AdminCalendarPage() {
               วันนี้
             </button>
 
-            {/* Refresh Button */}
             <button
               onClick={fetchBookings}
               className="px-3.5 py-2 text-charcoal-700 bg-white hover:bg-forest-50/50 hover:border-forest-200 rounded-2xl border border-charcoal-200/80 shadow-xs transition-all text-xs font-semibold flex items-center gap-1.5 active:scale-95"
@@ -372,9 +368,7 @@ export default function AdminCalendarPage() {
         </div>
       </div>
 
-      {/* 4 Stat Overview Cards (Monthly Summary with Icons) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        {/* Card 1: Check-ins this Month */}
         <div className="p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel flex items-start justify-between">
           <div>
             <p className="text-xs font-semibold text-forest-700 uppercase tracking-wider">เช็คอินเดือนนี้</p>
@@ -388,7 +382,6 @@ export default function AdminCalendarPage() {
           </div>
         </div>
 
-        {/* Card 2: Check-outs this Month */}
         <div className="p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel flex items-start justify-between">
           <div>
             <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">เช็คเอาต์เดือนนี้</p>
@@ -402,7 +395,6 @@ export default function AdminCalendarPage() {
           </div>
         </div>
 
-        {/* Card 3: Kayaks this Month */}
         <div className="p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel flex items-start justify-between">
           <div>
             <p className="text-xs font-semibold text-lagoon-700 uppercase tracking-wider">กิจกรรมเรือเดือนนี้</p>
@@ -416,7 +408,6 @@ export default function AdminCalendarPage() {
           </div>
         </div>
 
-        {/* Card 4: Total Activities this Month */}
         <div className="p-4 sm:p-5 rounded-3xl bg-white border border-cream-200/90 shadow-panel flex items-start justify-between">
           <div>
             <p className="text-xs font-semibold text-charcoal-600 uppercase tracking-wider">กิจกรรมทั้งหมดเดือนนี้</p>
@@ -431,9 +422,7 @@ export default function AdminCalendarPage() {
         </div>
       </div>
 
-      {/* Main Calendar Panel */}
       <div className="bg-white rounded-3xl shadow-panel border border-cream-200/80 overflow-hidden">
-        {/* Calendar Month & Navigation Header */}
         <div className="p-4 sm:p-5 border-b border-cream-200/80 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="font-display text-xl sm:text-2xl font-bold text-forest-900 tracking-tight">
@@ -445,9 +434,7 @@ export default function AdminCalendarPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            {/* Quick Month & Year Select Dropdowns */}
             <div className="flex items-center gap-1.5 bg-cream-50/80 p-1 rounded-2xl border border-cream-200 shadow-2xs">
-              {/* Month Selector */}
               <CustomSelect
                 width="w-28 sm:w-32"
                 value={month}
@@ -459,7 +446,6 @@ export default function AdminCalendarPage() {
                 buttonClassName="w-full flex items-center justify-between gap-1.5 px-3 py-1.5 bg-white hover:bg-cream-50/80 border border-cream-200/90 hover:border-forest-300 rounded-xl text-xs font-semibold text-forest-900 transition-all focus:outline-none focus:ring-2 focus:ring-forest-800/20 shadow-2xs"
               />
 
-              {/* Year Selector */}
               <CustomSelect
                 width="w-24 sm:w-28"
                 value={year}
@@ -475,7 +461,6 @@ export default function AdminCalendarPage() {
               />
             </div>
 
-            {/* Prev / Next Month Buttons */}
             <div className="flex items-center gap-1">
               <button
                 onClick={prevMonth}
@@ -497,7 +482,6 @@ export default function AdminCalendarPage() {
           </div>
         </div>
 
-        {/* Days of Week Header */}
         <div className="grid grid-cols-7 border-b border-cream-200/80 bg-cream-50/70 text-center py-2.5 sm:py-3 text-xs font-bold">
           <div className="text-rose-600/90">อา.</div>
           <div className="text-charcoal-600">จ.</div>
@@ -508,19 +492,16 @@ export default function AdminCalendarPage() {
           <div className="text-forest-800">ส.</div>
         </div>
 
-        {/* Days Cells Grid */}
         <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y divide-cream-200/70">
-          {/* Empty cells before month start */}
           {Array.from({ length: firstDayOfMonth }).map((_, i) => (
             <div key={`empty-${i}`} className="min-h-[110px] sm:min-h-[125px] bg-cream-50/30 p-2" />
           ))}
 
-          {/* Active days in month */}
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const dayNum = i + 1;
             const dateObj = new Date(year, month, dayNum);
             const formattedDateStr = formatDateToYYYYMMDD(dateObj);
-            
+
             const isToday = new Date().toDateString() === dateObj.toDateString();
             const dayData = dailyDataMap[formattedDateStr] || {
               dateStr: formattedDateStr,
@@ -534,7 +515,7 @@ export default function AdminCalendarPage() {
             const showBoats = (filterType === 'all' || filterType === 'kayaks') && dayData.boats.length > 0;
             const hasActivity = showRooms || showBoats;
 
-            const defaultInitialTab: StatusTabType = 
+            const defaultInitialTab: StatusTabType =
               dayData.checkins.length > 0 ? 'checkins' :
               dayData.checkouts.length > 0 ? 'checkouts' :
               dayData.boats.length > 0 ? 'boats' : 'all';
@@ -550,17 +531,16 @@ export default function AdminCalendarPage() {
                 className={`min-h-[110px] sm:min-h-[125px] p-2 transition-all flex flex-col justify-start relative group ${
                   hasActivity ? 'cursor-pointer' : ''
                 } ${
-                  isToday 
-                    ? 'bg-forest-50/30 ring-1 ring-inset ring-forest-600/30' 
+                  isToday
+                    ? 'bg-forest-50/30 ring-1 ring-inset ring-forest-600/30'
                     : 'bg-white hover:bg-cream-50/60'
                 }`}
               >
-                {/* Day Header Inside Cell */}
                 <div className="flex items-center justify-between mb-2">
                   <span
                     className={`text-xs font-bold w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full transition-all ${
-                      isToday 
-                        ? 'bg-forest-800 text-white shadow-xs shadow-forest-800/20' 
+                      isToday
+                        ? 'bg-forest-800 text-white shadow-xs shadow-forest-800/20'
                         : 'text-charcoal-700 group-hover:text-forest-900'
                     }`}
                   >
@@ -574,9 +554,7 @@ export default function AdminCalendarPage() {
                   )}
                 </div>
 
-                {/* Clean 2-Line Summary on Calendar */}
                 <div className="space-y-1.5">
-                  {/* Rooms Summary Line */}
                   {showRooms && (
                     <div
                       onClick={(e) => {
@@ -595,7 +573,6 @@ export default function AdminCalendarPage() {
                     </div>
                   )}
 
-                  {/* Boats Summary Line */}
                   {showBoats && (
                     <div
                       onClick={(e) => {
@@ -620,10 +597,7 @@ export default function AdminCalendarPage() {
         </div>
       </div>
 
-      {/* ---------------------------------------------------- */}
-      {/* 1. Modal สรุปรายการจองรายวัน (Daily Breakdown with 4 Tabs) */}
-      {/* ---------------------------------------------------- */}
-      <Modal 
+      <Modal
         open={!!selectedDayData && !selectedEvent}
         title={`สรุปรายการจองประจำวัน — ${selectedDayData ? formatThaiDateLong(selectedDayData.dateStr) : ''}`}
         onClose={() => setSelectedDayData(null)}
@@ -651,9 +625,7 @@ export default function AdminCalendarPage() {
       >
         {selectedDayData && (
           <div className="h-[460px] flex flex-col text-xs text-charcoal-600">
-            {/* 4 Interactive Filter Tabs (ทั้งหมด / เช็คอินเข้า / เช็คเอาต์ออก / คิวเรือพาย) */}
             <div className="bg-cream-100/90 p-1 rounded-2xl flex items-center gap-1 border border-cream-200/90 shadow-2xs shrink-0 mb-3">
-              {/* Tab 0: All */}
               <button
                 type="button"
                 onClick={() => setActiveModalTab('all')}
@@ -671,7 +643,6 @@ export default function AdminCalendarPage() {
                 </span>
               </button>
 
-              {/* Tab 1: Check-ins */}
               <button
                 type="button"
                 onClick={() => setActiveModalTab('checkins')}
@@ -689,7 +660,6 @@ export default function AdminCalendarPage() {
                 </span>
               </button>
 
-              {/* Tab 2: Check-outs */}
               <button
                 type="button"
                 onClick={() => setActiveModalTab('checkouts')}
@@ -707,7 +677,6 @@ export default function AdminCalendarPage() {
                 </span>
               </button>
 
-              {/* Tab 3: Boats */}
               <button
                 type="button"
                 onClick={() => setActiveModalTab('boats')}
@@ -726,9 +695,7 @@ export default function AdminCalendarPage() {
               </button>
             </div>
 
-            {/* Tab Content Area (Single Smooth Minimal Scrollbar, Fixed Height) */}
             <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-              {/* ---------------- Section 1: Check-ins ---------------- */}
               {(activeModalTab === 'all' || activeModalTab === 'checkins') && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-forest-900 font-bold text-xs pt-1 px-1">
@@ -765,7 +732,6 @@ export default function AdminCalendarPage() {
                             )}
                           </div>
 
-                          {/* Actions */}
                           <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                             <button
                               type="button"
@@ -791,7 +757,6 @@ export default function AdminCalendarPage() {
                 </div>
               )}
 
-              {/* ---------------- Section 2: Check-outs ---------------- */}
               {(activeModalTab === 'all' || activeModalTab === 'checkouts') && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-forest-900 font-bold text-xs pt-1 px-1">
@@ -823,7 +788,6 @@ export default function AdminCalendarPage() {
                             </div>
                           </div>
 
-                          {/* Actions */}
                           <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                             <button
                               type="button"
@@ -849,7 +813,6 @@ export default function AdminCalendarPage() {
                 </div>
               )}
 
-              {/* ---------------- Section 3: Boats (View-only) ---------------- */}
               {(activeModalTab === 'all' || activeModalTab === 'boats') && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-forest-900 font-bold text-xs pt-1 px-1">
@@ -880,7 +843,6 @@ export default function AdminCalendarPage() {
                             </div>
                           </div>
 
-                          {/* View Details Only for Boats */}
                           <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                             <button
                               type="button"
@@ -902,16 +864,12 @@ export default function AdminCalendarPage() {
         )}
       </Modal>
 
-      {/* ---------------------------------------------------- */}
-      {/* 2. Modal รายละเอียดการจองเดี่ยว (Booking Detail Modal with Back Button) */}
-      {/* ---------------------------------------------------- */}
-      <Modal 
+      <Modal
         open={!!selectedEvent}
         title={selectedEvent?.type === 'room' ? 'รายละเอียดการจองห้องพัก' : 'รายละเอียดการจองเรือพาย'}
         onClose={() => setSelectedEvent(null)}
         footer={
           <div className="w-full flex items-center justify-between gap-2 flex-wrap">
-            {/* Prominent Back Button (Takes user back to the Day Summary) */}
             <button
               type="button"
               onClick={() => setSelectedEvent(null)}
@@ -936,7 +894,6 @@ export default function AdminCalendarPage() {
       >
         {selectedEvent && (
           <div className="space-y-3.5 text-xs text-charcoal-600 mt-2">
-            {/* Header Tag with ID */}
             <div className="flex items-center justify-between bg-cream-50/70 border border-cream-200/80 rounded-2xl p-3">
               <div className="flex items-center gap-2.5">
                 {selectedEvent.type === 'room' ? (
@@ -958,15 +915,12 @@ export default function AdminCalendarPage() {
                 </div>
               </div>
 
-              {/* Status Badge */}
               <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${statusClass[selectedEvent.raw.status] || 'bg-forest-100/90 text-forest-800 border-forest-200/90'}`}>
                 {statusLabel[selectedEvent.raw.status] || 'ยืนยันแล้ว'}
               </span>
             </div>
 
-            {/* Info Container */}
             <div className="bg-cream-50/50 border border-cream-200/70 rounded-2xl p-4 space-y-3">
-              {/* Customer Name */}
               <div className="flex items-start gap-2.5">
                 <User size={15} className="text-forest-700 shrink-0 mt-0.5" />
                 <div className="min-w-0">
@@ -978,7 +932,6 @@ export default function AdminCalendarPage() {
                 </div>
               </div>
 
-              {/* Phone */}
               <div className="flex items-start gap-2.5">
                 <Phone size={15} className="text-forest-700 shrink-0 mt-0.5" />
                 <div>
@@ -987,7 +940,6 @@ export default function AdminCalendarPage() {
                 </div>
               </div>
 
-              {/* Room Specific Info */}
               {selectedEvent.type === 'room' && (
                 <>
                   {selectedEvent.roomTitle && (
@@ -1013,7 +965,7 @@ export default function AdminCalendarPage() {
                     <div>
                       <span className="text-charcoal-400 text-[11px] block">ช่วงเวลาเข้าพัก</span>
                       <span className="font-semibold text-charcoal-900 text-xs">
-                        {selectedEvent.checkInStr ? formatThaiDateShort(selectedEvent.checkInStr) : '-'} 
+                        {selectedEvent.checkInStr ? formatThaiDateShort(selectedEvent.checkInStr) : '-'}
                         {' ถึง '}
                         {selectedEvent.checkOutStr ? formatThaiDateShort(selectedEvent.checkOutStr) : '-'}
                         <span className="text-forest-800 font-bold ml-1.5">
@@ -1025,7 +977,6 @@ export default function AdminCalendarPage() {
                 </>
               )}
 
-              {/* Kayak Specific Info */}
               {selectedEvent.type === 'kayak' && (
                 <>
                   <div className="flex items-start gap-2.5">
@@ -1049,7 +1000,6 @@ export default function AdminCalendarPage() {
               )}
             </div>
 
-            {/* Special Request */}
             {selectedEvent.specialRequest && (
               <div className="flex items-start gap-2.5 bg-cream-100/70 p-3 rounded-2xl border border-cream-200/80">
                 <FileText size={15} className="text-forest-700 shrink-0 mt-0.5" />
@@ -1060,7 +1010,6 @@ export default function AdminCalendarPage() {
               </div>
             )}
 
-            {/* Payment Slip Button */}
             {selectedEvent.paymentSlip && (
               <div className="pt-1">
                 <button
@@ -1079,7 +1028,6 @@ export default function AdminCalendarPage() {
               </div>
             )}
 
-            {/* Price Total Card */}
             <div className="p-3.5 bg-cream-100/80 rounded-2xl border border-cream-200/80 flex justify-between items-center text-sm">
               <span className="font-semibold text-charcoal-700 text-xs">ยอดรวมทั้งสิ้น:</span>
               <span className="font-display font-bold text-forest-900 text-base sm:text-lg">
@@ -1090,9 +1038,6 @@ export default function AdminCalendarPage() {
         )}
       </Modal>
 
-      {/* ---------------------------------------------------- */}
-      {/* 3. Modal ดูสลิปชำระเงิน (Slip View Modal) */}
-      {/* ---------------------------------------------------- */}
       <Modal
         open={slipModal.open}
         title={`สลิปการชำระเงิน — ${slipModal.name}`}
@@ -1100,12 +1045,12 @@ export default function AdminCalendarPage() {
       >
         <div className="pt-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img 
-            src={slipModal.url} 
-            alt="payment slip" 
+          <img
+            src={slipModal.url}
+            alt="payment slip"
             className="w-full rounded-2xl object-contain max-h-[65vh] mx-auto border border-cream-200/80 shadow-panel"
             referrerPolicy="no-referrer"
-            crossOrigin="anonymous" 
+            crossOrigin="anonymous"
           />
         </div>
       </Modal>

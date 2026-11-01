@@ -3,14 +3,12 @@ import jwt from 'jsonwebtoken';
 import pool from '../config/database';
 import { AuthPayload } from '../types';
 
-// ขยาย type ของ Express Request เพื่อให้ middleware แนบข้อมูล user จาก JWT ไปใช้ต่อใน controller ได้อย่างปลอดภัย
+// ขยาย Express Request เพื่อแนบข้อมูลผู้ใช้ที่ผ่านการยืนยันตัวตนแล้ว
 export interface AuthRequest extends Request {
   user?: AuthPayload;
 }
 
-// ตรวจสอบ Bearer token จาก header, ถอดรหัส JWT และแนบ payload ของผู้ใช้ไว้ใน req.user
-// ตรวจสอบสถานะบัญชี role ล่าสุด และเวลาเปลี่ยนรหัสผ่านจากฐานข้อมูลทุกครั้ง
-// token ที่ออกก่อนเวลาเปลี่ยนรหัสผ่านจะถูกปฏิเสธ (ยกเลิก session เดิมอัตโนมัติ)
+// ตรวจสอบสถานะบัญชี บทบาทล่าสุด และเวลาเปลี่ยนรหัสผ่านจากฐานข้อมูล
 const resolveActiveAccount = async (
   payload: AuthPayload
 ): Promise<{ role: string; email?: string; passwordChangedAtMs: number | null } | null> => {
@@ -37,7 +35,7 @@ const resolveActiveAccount = async (
   };
 };
 
-// ตรวจสอบ Bearer token จาก header, ถอดรหัส JWT, เช็คบัญชีในฐานข้อมูล แล้วแนบ payload ของผู้ใช้ไว้ใน req.user
+// ตรวจสอบ Bearer token และแนบข้อมูลผู้ใช้ลงใน req.user
 export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers.authorization;
 
@@ -67,8 +65,6 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       res.status(401).json({ success: false, message: 'Account is disabled or no longer exists' });
       return;
     }
-    // New tokens carry signed millisecond precision. Legacy tokens retain the
-    // conservative second-resolution check, including their entire reset second.
     const issuedAtSecondsMs = Number(decoded.iat ?? 0) * 1000;
     if (decoded.issued_at_ms !== undefined && (
       !Number.isSafeInteger(decoded.issued_at_ms) ||
@@ -91,7 +87,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
-/** Same as authenticate, but missing header continues as anonymous. Invalid token still 401. */
+// ตรวจสอบ token แบบไม่บังคับ หากไม่มีหรือถอดรหัสไม่ได้จะทำงานต่อแบบผู้ใช้ทั่วไป
 export const optionalAuthenticate = (
   req: Request,
   res: Response,
@@ -111,13 +107,11 @@ export const optionalAuthenticate = (
   authenticate(req, res, next);
 };
 
-// สร้าง middleware สำหรับตรวจสอบสิทธิ์ตาม role
+// ตรวจสอบสิทธิ์การเข้าถึงตามบทบาทของผู้ใช้ (Role-based access control)
 export const authorize = (...roles: (string | string[])[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     const authReq = req as AuthRequest;
-    
-    // แปลงอาร์เรย์สองชั้นให้เป็นมิติเดียว ป้องกันบั๊กกรณีเผลอใส่ [ ] ใน router
-    const allowedRoles = roles.flat(); 
+    const allowedRoles = roles.flat();
 
     if (!authReq.user || !allowedRoles.includes(authReq.user.role)) {
       res.status(403).json({ success: false, message: 'Forbidden' });

@@ -4,9 +4,7 @@ import { mapDbError } from '../utils/db-errors';
 import { parsePositiveInt } from '../utils/ids';
 import { parsePagination, paginationMeta } from '../utils/pagination';
 
-// ─── Members Management ────────────────────────────────────────────────────────
-
-// ดึงรายการสมาชิกทั้งหมด (พร้อมแบ่งหน้า หรือค้นหา)
+// ดึงรายการสมาชิกทั้งหมดพร้อมตัวกรองและการแบ่งหน้า
 export const getAllMembers = async (req: Request, res: Response): Promise<void> => {
   try {
     const pagination = parsePagination(req.query);
@@ -21,16 +19,19 @@ export const getAllMembers = async (req: Request, res: Response): Promise<void> 
     const bookingStatus = req.query.booking_status;
     const service = req.query.booking_service ?? 'all';
     const statuses = ['pending', 'paid', 'approved', 'checked_out', 'cancelled', 'rejected'];
-    if (!['all', 'room', 'boat'].includes(String(service)) ||
-        (bookingStatus !== undefined && !['all', 'none', ...statuses].includes(String(bookingStatus)))) {
+    if (
+      !['all', 'room', 'boat'].includes(String(service)) ||
+      (bookingStatus !== undefined && !['all', 'none', ...statuses].includes(String(bookingStatus)))
+    ) {
       res.status(400).json({ success: false, message: 'ตัวกรองการจองไม่ถูกต้อง' });
       return;
     }
     if (bookingStatus && bookingStatus !== 'all') {
       if (bookingStatus !== 'none') params.push(String(bookingStatus));
       const condition = bookingStatus === 'none' ? '' : ` AND b.status = $${params.length}`;
-      const predicates = (service === 'room' ? ['room_bookings'] : service === 'boat' ? ['boat_bookings'] : ['room_bookings', 'boat_bookings'])
-        .map(table => `EXISTS (SELECT 1 FROM ${table} b WHERE b.member_id = members.member_id${condition})`);
+      const predicates = (
+        service === 'room' ? ['room_bookings'] : service === 'boat' ? ['boat_bookings'] : ['room_bookings', 'boat_bookings']
+      ).map((table) => `EXISTS (SELECT 1 FROM ${table} b WHERE b.member_id = members.member_id${condition})`);
       where += bookingStatus === 'none' ? ` AND NOT (${predicates.join(' OR ')})` : ` AND (${predicates.join(' OR ')})`;
     } else if (service !== 'all') {
       const table = service === 'room' ? 'room_bookings' : 'boat_bookings';
@@ -43,8 +44,10 @@ export const getAllMembers = async (req: Request, res: Response): Promise<void> 
         COUNT(*) FILTER (WHERE is_active IS DISTINCT FROM false) AS active,
         COUNT(*) FILTER (WHERE is_active = false) AS inactive FROM members`);
       const totals = summary.rows[0];
-      extra = { pagination: paginationMeta(pagination, Number(count.rows[0].total)),
-        summary: { total: Number(totals.total), active: Number(totals.active), inactive: Number(totals.inactive) } };
+      extra = {
+        pagination: paginationMeta(pagination, Number(count.rows[0].total)),
+        summary: { total: Number(totals.total), active: Number(totals.active), inactive: Number(totals.inactive) },
+      };
     }
     const result = await pool.query(
       `SELECT member_id, member_id AS id, first_name, last_name, email, phone, is_active,
@@ -63,7 +66,7 @@ export const getAllMembers = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// สลับสถานะการใช้งานของสมาชิก (is_active) โดย admin ต้องส่งค่าเป็น boolean เท่านั้น
+// เปิดหรือปิดสถานะการใช้งานบัญชีสมาชิกโดยผู้ดูแลระบบ
 export const toggleMemberStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const memberId = parsePositiveInt(req.params.id);

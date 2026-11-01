@@ -106,8 +106,7 @@ const defaultForm = {
   boat_addon_price: "",
 };
 
-// Component Custom Dropdown
-// Component MultiSelect Dropdown with Checklist สำหรับประเภทห้องพัก
+// คอมโพเนนต์ดรอปดาวน์เลือกประเภทห้องพักได้หลายรายการสำหรับโปรโมชั่น
 function RoomTypeMultiSelect({
   roomTypes,
   selectedIds,
@@ -122,16 +121,17 @@ function RoomTypeMultiSelect({
   const [openUpward, setOpenUpward] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // คำนวณทิศทางการเปิดเมนูตามพื้นที่ด้านล่างของหน้าจอ
   const updateDirection = () => {
     if (dropdownRef.current) {
       const rect = dropdownRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
-      // หากพื้นที่ด้านล่างน้อยกว่า 300px ให้เปิดขึ้นด้านบน เพื่อไม่ให้ล้นโมดอล
       setOpenUpward(spaceBelow < 300);
     }
   };
 
   useEffect(() => {
+    // ปิดเมนูดรอปดาวน์เมื่อคลิกนอกพื้นที่คอมโพเนนต์
     function handleClickOutside(event: MouseEvent) {
       if (
         dropdownRef.current &&
@@ -152,6 +152,7 @@ function RoomTypeMultiSelect({
     return name.toLowerCase().includes(searchTerm.toLowerCase().trim());
   });
 
+  // สร้างข้อความสรุปรายการประเภทห้องพักที่ถูกเลือก
   const getDisplayText = () => {
     if (selectedIds.length === 0) {
       return "ทุกประเภทห้องพัก (ใช้ได้ทั้งหมด)";
@@ -171,6 +172,7 @@ function RoomTypeMultiSelect({
     return names.slice(0, 2).join(", ") + " (+" + (names.length - 2) + " ประเภท)";
   };
 
+  // สลับสถานะการเลือกประเภทห้องพักแต่ละรายการ
   const toggleRoomType = (id: number) => {
     if (selectedIds.length === 0) {
       const next = roomTypes.filter((room) => room.id !== id).map((room) => room.id);
@@ -224,7 +226,6 @@ function RoomTypeMultiSelect({
             openUpward ? "bottom-full mb-1.5" : "top-full mt-1.5"
           }`}
         >
-          {/* Header Bar with Master Checkbox & Quick Actions */}
           <div className="flex items-center justify-between pb-2 border-b border-cream-100">
             <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-charcoal-800">
               <input
@@ -254,7 +255,6 @@ function RoomTypeMultiSelect({
             </div>
           </div>
 
-          {/* Search Box (เมื่อมีประเภทห้องตั้งแต่ 4 ประเภทขึ้นไป) */}
           {roomTypes.length >= 4 && (
             <div className="relative">
               <Search
@@ -271,7 +271,6 @@ function RoomTypeMultiSelect({
             </div>
           )}
 
-          {/* Checklist of Room Types */}
           <div className="max-h-48 overflow-y-auto space-y-1 pr-0.5">
             {filteredRoomTypes.map((rt) => {
               const isChecked = selectedIds.length === 0 || selectedIds.includes(rt.id);
@@ -312,7 +311,6 @@ function RoomTypeMultiSelect({
             })}
           </div>
 
-          {/* Footer Bar */}
           <p className="text-[11px] text-charcoal-500">เลือกอย่างน้อยหนึ่งประเภท หรือเลือกใช้ได้กับทุกประเภทห้องพัก</p>
           <div className="flex items-center justify-between pt-1.5 border-t border-cream-100 text-[11px]">
             <span className="text-charcoal-500 font-medium">
@@ -334,6 +332,7 @@ function RoomTypeMultiSelect({
   );
 }
 
+// คอมโพเนนต์ดรอปดาวน์ตัวเลือกแบบกำหนดเองสำหรับฟอร์มโปรโมชั่น
 function CustomSelect({
   options,
   value,
@@ -359,6 +358,7 @@ function CustomSelect({
   );
 
   useEffect(() => {
+    // ปิดรายการดรอปดาวน์เมื่อคลิกนอกพื้นที่คอมโพเนนต์
     function handleClickOutside(event: MouseEvent) {
       if (
         dropdownRef.current &&
@@ -428,7 +428,7 @@ function CustomSelect({
   );
 }
 
-// ฟังก์ชันแปลง Date String ให้เหมาะกับ <input type="date" />
+// แปลงวันที่เป็นรูปแบบ YYYY-MM-DD สำหรับแสดงในฟิลด์เลือกวันที่
 const formatDateForInput = (dateStr?: string) => {
   if (!dateStr) return "";
   try {
@@ -443,10 +443,10 @@ const formatDateForInput = (dateStr?: string) => {
   }
 };
 
+// หน้าจัดการโปรโมชั่นและคูปองส่วนลดสำหรับผู้ดูแลระบบและพนักงานห้องพัก
 export default function PromotionsPage() {
   const { ready } = useAuthGuard({ allowedRoles: ["admin", "room_staff"] });
   const { user } = useAuth();
-  // พนักงานห้องพักดูและดูผู้ใช้โปรได้ แต่สร้าง แก้ ลบ หรือเปิดปิดไม่ได้
   const canEdit = user?.role === "admin";
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
@@ -465,7 +465,6 @@ export default function PromotionsPage() {
   const [form, setForm] = useState(defaultForm);
   const [saving, setSaving] = useState(false);
 
-  // State สำหรับ ป๊อบอัพยืนยันการลบ
   const [deletingPromotion, setDeletingPromotion] = useState<Promotion | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [redemptionPromo, setRedemptionPromo] = useState<Promotion | null>(null);
@@ -505,6 +504,7 @@ export default function PromotionsPage() {
     setCurrentPage(1);
   }, [search]);
 
+  // ดึงรายการโปรโมชั่นทั้งหมดจากระบบ
   async function fetchPromotions() {
     setLoading(true);
     try {
@@ -517,6 +517,7 @@ export default function PromotionsPage() {
     }
   }
 
+  // ดึงรายการประเภทห้องพักทั้งหมดสำหรับผูกเงื่อนไขโปรโมชั่น
   async function fetchRoomTypes() {
     try {
       const res = await api.get("/rooms");
@@ -534,6 +535,7 @@ export default function PromotionsPage() {
     })),
   ];
 
+  // เปิดหน้าต่างสร้างโปรโมชั่นใหม่พร้อมรีเซ็ตค่าฟอร์มเริ่มต้น
   const openCreate = () => {
     setEditingId(null);
     setForm({
@@ -547,9 +549,10 @@ export default function PromotionsPage() {
     setShowModal(true);
   };
 
+  // เปิดหน้าต่างแก้ไขโปรโมชั่นพร้อมนำข้อมูลเดิมมาใส่ในฟอร์ม
   const openEdit = (p: Promotion) => {
     if (p.applies_to === "kayak") {
-      notify.error("โค้ดส่วนลดเรือยกเลิกแล้ว กรุณาสร้างโปรโมชั่นห้องพักรายการใหม่");
+      notify.error("คูปองส่วนลดเรือยกเลิกแล้ว กรุณาสร้างโปรโมชั่นห้องพักรายการใหม่");
       return;
     }
     setEditingId(p.id);
@@ -589,6 +592,7 @@ export default function PromotionsPage() {
     setShowModal(true);
   };
 
+  // บันทึกการสร้างหรือแก้ไขโปรโมชั่นลงฐานข้อมูล
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -636,6 +640,7 @@ export default function PromotionsPage() {
     }
   };
 
+  // สลับสถานะเปิดหรือปิดการใช้งานโปรโมชั่น
   const handleToggle = async (p: Promotion) => {
     try {
       await api.put(`/promotions/${p.id}/toggle`);
@@ -646,6 +651,7 @@ export default function PromotionsPage() {
     }
   };
 
+  // ดึงและแสดงประวัติการเก็บและใช้งานคูปองของสมาชิก
   const openRedemptions = async (p: Promotion): Promise<void> => {
     setRedemptionPromo(p);
     setRedemptionsLoading(true);
@@ -661,7 +667,7 @@ export default function PromotionsPage() {
     }
   };
 
-  // ฟังก์ชันกดยืนยันลบจริง
+  // ยืนยันการลบโปรโมชั่นออกจากระบบ
   const confirmDelete = async () => {
     if (!deletingPromotion) return;
     setDeleting(true);
@@ -736,7 +742,6 @@ export default function PromotionsPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Header & Page Title */}
       <div className="bg-white rounded-3xl p-6 shadow-panel border border-cream-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-forest-800 text-white flex items-center justify-center shadow-md shadow-forest-800/10">
@@ -759,9 +764,7 @@ export default function PromotionsPage() {
         </button>
       </div>
 
-      {/* Stats & Filter Cards (5 Columns) — Clickable Filter Selector */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-        {/* Card 1: ทั้งหมด */}
         <button
           type="button"
           onClick={() => {
@@ -795,7 +798,6 @@ export default function PromotionsPage() {
           </div>
         </button>
 
-        {/* Card 2: กำลังเปิดใช้งาน */}
         <button
           type="button"
           onClick={() => {
@@ -829,7 +831,6 @@ export default function PromotionsPage() {
           </div>
         </button>
 
-        {/* Card 3: ปิดใช้งาน */}
         <button
           type="button"
           onClick={() => {
@@ -863,7 +864,6 @@ export default function PromotionsPage() {
           </div>
         </button>
 
-        {/* Card 4: หมดอายุ / สิทธิ์เต็ม */}
         <button
           type="button"
           onClick={() => {
@@ -897,7 +897,6 @@ export default function PromotionsPage() {
           </div>
         </button>
 
-        {/* Card 5: ถูกใช้งานแล้ว */}
         <button
           type="button"
           onClick={() => {
@@ -938,9 +937,7 @@ export default function PromotionsPage() {
         </button>
       </div>
 
-      {/* Main Table Container */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[660px]">
-        {/* Panel Header & Search Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-cream-200">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="w-2.5 h-2.5 rounded-full bg-forest-800" />
@@ -986,7 +983,7 @@ export default function PromotionsPage() {
             <input
               type="text"
               className="w-full pl-9 pr-8 py-2 bg-cream-50/70 hover:bg-cream-50 focus:bg-white border border-cream-300 rounded-2xl text-xs font-medium text-charcoal-800 placeholder-charcoal-400 focus:outline-hidden focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 transition-all shadow-2xs"
-              placeholder="ค้นหาชื่อหรือโค้ดโปรโมชั่น..."
+              placeholder="ค้นหาชื่อโปรโมชั่นหรือคูปอง..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -1006,12 +1003,11 @@ export default function PromotionsPage() {
           </div>
         </div>
 
-        {/* Table Wrapper (Fixed Height) */}
         <div className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs mt-4 flex-1 flex flex-col min-h-[460px] bg-white">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-cream-200 bg-cream-50/80 text-xs font-bold text-charcoal-600 uppercase tracking-wider select-none shadow-2xs">
-                <th className="px-4 py-3.5 whitespace-nowrap">โค้ด</th>
+                <th className="px-4 py-3.5 whitespace-nowrap">คูปอง</th>
                 <th className="px-4 py-3.5">ชื่อโปรโมชั่น</th>
                 <th className="px-4 py-3.5">ห้องพัก & บัตรเสริมเรือ</th>
                 <th className="px-4 py-3.5 whitespace-nowrap">ส่วนลด</th>
@@ -1086,10 +1082,10 @@ export default function PromotionsPage() {
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(p.code);
-                              notify.success("คัดลอกโค้ดเรียบร้อย");
+                              notify.success("คัดลอกคูปองเรียบร้อย");
                             }}
                             className="text-charcoal-400 hover:text-forest-800 p-1 rounded-md hover:bg-forest-50 transition-colors cursor-pointer"
-                            title="คัดลอกโค้ด"
+                            title="คัดลอกคูปอง"
                           >
                             <Copy size={13} />
                           </button>
@@ -1272,7 +1268,6 @@ export default function PromotionsPage() {
           </table>
         </div>
 
-        {/* Pagination Footer */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-auto border-t border-cream-200 text-xs text-charcoal-500">
           <div>
             แสดง {filtered.length === 0 ? 0 : (safeCurrentPage - 1) * itemsPerPage + 1} -{" "}
@@ -1352,7 +1347,6 @@ export default function PromotionsPage() {
         </div>
       </div>
 
-      {/* Redemption History Card */}
       {redemptionPromo && (
         <div className="rounded-3xl border border-cream-200/90 bg-white p-5 sm:p-6 shadow-panel">
           <div className="mb-4 flex items-center justify-between gap-3 pb-3 border-b border-cream-200">
@@ -1379,7 +1373,7 @@ export default function PromotionsPage() {
               <span>กำลังโหลด...</span>
             </div>
           ) : redemptions == null || redemptions.redemptions.length === 0 ? (
-            <p className="text-xs text-charcoal-400 text-center py-6">ยังไม่มีคนใช้โค้ดนี้</p>
+            <p className="text-xs text-charcoal-400 text-center py-6">ยังไม่มีคนใช้คูปองนี้</p>
           ) : (
             <>
               <p className="mb-3 text-xs text-charcoal-500">
@@ -1428,7 +1422,6 @@ export default function PromotionsPage() {
         </div>
       )}
 
-      {/* Modal Form */}
       <Modal
         open={showModal}
         title={editingId ? "แก้ไขโปรโมชั่น" : "เพิ่มโปรโมชั่นใหม่"}
@@ -1436,11 +1429,8 @@ export default function PromotionsPage() {
         widthClass="max-w-6xl"
       >
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-3">
-
-          {/* TAB 1: โปรโมชั่นห้องพัก (Side-by-side 2-column layout) */}
           {promoTab === "room" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-start animate-in fade-in duration-150">
-              {/* คอลัมน์ซ้าย: ข้อมูลส่วนลดห้องพัก */}
               <div className="bg-cream-50/50 p-3.5 rounded-2xl border border-cream-200/80 space-y-2.5">
                 <div className="flex items-center gap-2 pb-1.5 border-b border-cream-200/70">
                   <Bed size={14} className="text-forest-700" />
@@ -1452,7 +1442,7 @@ export default function PromotionsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-[11px] font-bold text-charcoal-700 mb-0.5">
-                      โค้ดส่วนลด <span className="text-rose-500">*</span>
+                      คูปองส่วนลด <span className="text-rose-500">*</span>
                     </label>
                     <input
                       className="w-full bg-white border border-cream-200 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold uppercase text-charcoal-800 focus:outline-none focus:ring-2 focus:ring-forest-800/20 focus:border-forest-800 shadow-2xs"
@@ -1563,7 +1553,6 @@ export default function PromotionsPage() {
                     />
                   </div>
 
-                  {/* ประเภทห้องพักที่ใช้ได้ - Checklist Dropdown */}
                   <div className="sm:col-span-2">
                     <label className="block text-[11px] font-bold text-charcoal-700 mb-0.5">
                       ประเภทห้องพักที่ใช้ได้
@@ -1577,7 +1566,6 @@ export default function PromotionsPage() {
                 </div>
               </div>
 
-              {/* คอลัมน์ขวา: เงื่อนไขและระยะเวลา + Add-on เสริมเรือ */}
               <div className="bg-cream-50/50 p-3.5 rounded-2xl border border-cream-200/80 space-y-2.5">
                 <div className="flex items-center gap-2 pb-1.5 border-b border-cream-200/70">
                   <Calendar size={14} className="text-forest-700" />
@@ -1697,7 +1685,6 @@ export default function PromotionsPage() {
                     <p className="mt-1 text-xs text-charcoal-400">ทุกโปรโมชั่นต้องเก็บคูปองก่อนใช้ ไม่สามารถปิดเงื่อนไขนี้ได้</p>
                   </div>
 
-                  {/* Add-on เสริมเรือ (ทางเลือก) - การ์ดคอนทราสต์ชัดเจน มองเห็นช่องกรอกชัดเจน ไม่กลืนกับพื้นหลัง */}
                   <div className="sm:col-span-2 pt-1 border-t border-cream-200/70">
                     <div className={`p-2.5 rounded-xl border transition-all ${
                       hasBoatAddon
@@ -1721,7 +1708,6 @@ export default function PromotionsPage() {
                           </div>
                         </div>
 
-                        {/* ปุ่มเปิด/ปิด Add-on ชัดเจน มองเห็นง่าย ไม่จม */}
                         <button
                           type="button"
                           onClick={() => {
@@ -1843,7 +1829,6 @@ export default function PromotionsPage() {
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-cream-200">
             <button
               type="button"
@@ -1868,7 +1853,6 @@ export default function PromotionsPage() {
         </form>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <Modal
         open={!!deletingPromotion}
         title="ยืนยันการลบโปรโมชั่น"
@@ -1891,7 +1875,7 @@ export default function PromotionsPage() {
             <span className="font-bold text-rose-700">
               "{deletingPromotion?.name}"
             </span>{" "}
-            (โค้ด:{" "}
+            (คูปอง:{" "}
             <span className="font-mono font-bold text-forest-900">
               {deletingPromotion?.code}
             </span>

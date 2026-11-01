@@ -32,10 +32,7 @@ const THAI_MONTHS_SHORT: readonly string[] = [
 
 export const THAI_WEEKDAYS_SHORT: readonly string[] = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
 
-/**
- * แปลง Date Object เป็นสตริง YYYY-MM-DD ตามเขตเวลาประเทศไทย (Asia/Bangkok, UTC+7) เสมอ
- * เพื่อป้องกันปัญหา Browser Timezone ต่างประเทศเลื่อนวัน
- */
+// แปลง Date เป็นสตริง YYYY-MM-DD ตามเขตเวลาประเทศไทย
 export const toISODate = (date: Date = new Date()): string => {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: BANGKOK_TIMEZONE,
@@ -45,6 +42,7 @@ export const toISODate = (date: Date = new Date()): string => {
   }).format(date);
 };
 
+// แปลงสตริงวันที่ ISO ให้เป็นอ็อบเจกต์ Date
 export const fromISODate = (iso: string): Date => {
   if (!iso) return new Date();
   const clean = String(iso).split('T')[0].split(' ')[0].trim();
@@ -56,19 +54,21 @@ export const fromISODate = (iso: string): Date => {
   return new Date(year, (month ?? 1) - 1, day ?? 1);
 };
 
-/** Date-only values keep their calendar components; they are not instants in Bangkok. */
+// แปลงอ็อบเจกต์ Date เป็นสตริง YYYY-MM-DD ตามค่าปีเดือนวันของปฏิทินโดยตรง
 export const toCalendarISODate = (date: Date): string =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-/** วันที่ปัจจุบันในประเทศไทย (Asia/Bangkok) รูปแบบ YYYY-MM-DD */
+// คืนค่าวันที่ปัจจุบันของไทยในรูปแบบ YYYY-MM-DD
 export const todayISO = (): string => toISODate(new Date());
 
+// บวกหรือลบจำนวนวันจากสตริงวันที่ YYYY-MM-DD
 export const addDaysISO = (iso: string, days: number): string => {
   const date = fromISODate(iso);
   date.setDate(date.getDate() + days);
   return toCalendarISODate(date);
 };
 
+// คำนวณจำนวนคืนระหว่างวันเช็คอินและเช็คเอาต์
 export const nightsBetween = (checkInISO?: string | null, checkOutISO?: string | null): number => {
   if (!checkInISO || !checkOutISO) return 0;
   const inDate = fromISODate(checkInISO);
@@ -79,7 +79,7 @@ export const nightsBetween = (checkInISO?: string | null, checkOutISO?: string |
   return isNaN(res) || res < 0 ? 0 : res;
 };
 
-/** ทุกคืนที่ถูกใช้จริงในช่วงจอง — คืนสุดท้ายคือวันก่อน check-out */
+// สร้างรายการวันที่ของทุกคืนที่เข้าพักระหว่างวันเช็คอินถึงก่อนวันเช็คเอาต์
 export const nightsInRange = (checkInISO: string, checkOutISO: string): string[] => {
   const nights: string[] = [];
   const total = nightsBetween(checkInISO, checkOutISO);
@@ -94,33 +94,33 @@ export interface MonthCursor {
   month: number;
 }
 
+// แปลงสตริงวันที่ ISO เป็นตัวชี้เดือนและปีของปฏิทิน
 export const monthCursorFromISO = (iso: string): MonthCursor => {
   const date = fromISODate(iso);
   return { year: date.getFullYear(), month: date.getMonth() };
 };
 
+// เลื่อนตัวชี้เดือนของปฏิทินไปข้างหน้าหรือย้อนหลังตามจำนวนเดือน
 export const shiftMonth = (cursor: MonthCursor, delta: number): MonthCursor => {
   const date = new Date(cursor.year, cursor.month + delta, 1);
   return { year: date.getFullYear(), month: date.getMonth() };
 };
 
+// คืนค่าวันแรกและวันสุดท้ายของเดือนในรูปแบบ YYYY-MM-DD
 export const monthRangeISO = (cursor: MonthCursor): { start: string; end: string } => ({
   start: toCalendarISODate(new Date(cursor.year, cursor.month, 1)),
   end: toCalendarISODate(new Date(cursor.year, cursor.month + 1, 0)),
 });
 
-/** Inclusive range covering `monthCount` months starting at cursor (for dual-month calendars). */
-export const multiMonthRangeISO = (
-  cursor: MonthCursor,
-  monthCount: number
-): { start: string; end: string } => {
+// คืนค่าช่วงวันแรกและวันสุดท้ายครอบคลุมหลายเดือนต่อเนื่องกัน
+export const multiMonthRangeISO = (cursor: MonthCursor, monthCount: number): { start: string; end: string } => {
   const count = Math.max(1, Math.floor(monthCount));
   const start = monthRangeISO(cursor).start;
   const end = monthRangeISO(shiftMonth(cursor, count - 1)).end;
   return { start, end };
 };
 
-/** ตารางเดือนแบบ 7 คอลัมน์ อาทิตย์ต้นสัปดาห์ — null คือช่องว่างก่อน/หลังเดือน */
+// สร้างตารางวันที่ของเดือนแบบ 7 คอลัมน์สำหรับแสดงผลปฏิทิน
 export const buildMonthGrid = (cursor: MonthCursor): (string | null)[] => {
   const firstDay = new Date(cursor.year, cursor.month, 1);
   const daysInMonth = new Date(cursor.year, cursor.month + 1, 0).getDate();
@@ -136,13 +136,10 @@ export const buildMonthGrid = (cursor: MonthCursor): (string | null)[] => {
   return cells;
 };
 
-export const formatMonthLabel = (cursor: MonthCursor): string =>
-  `${THAI_MONTHS[cursor.month]} ${cursor.year + 543}`;
+// แปลงตัวชี้เดือนเป็นชื่อเดือนภาษาไทยพร้อมปี พ.ศ.
+export const formatMonthLabel = (cursor: MonthCursor): string => `${THAI_MONTHS[cursor.month]} ${cursor.year + 543}`;
 
-/**
- * แสดงผลวันที่ภาษาไทยตามเขตเวลาประเทศไทย (Asia/Bangkok)
- * เช่น "7 ต.ค. 2569" หรือ "7 ต.ค. 69"
- */
+// จัดรูปแบบวันที่เป็นภาษาไทยตามเขตเวลาประเทศไทย
 export const formatThaiDate = (
   isoOrDate?: string | Date | null,
   yearFormat: 'numeric' | '2-digit' = 'numeric'
@@ -158,16 +155,12 @@ export const formatThaiDate = (
   });
 };
 
-/**
- * แสดงผลวันที่ภาษาไทยแบบสั้น เช่น "7 ต.ค. 69"
- */
+// จัดรูปแบบวันที่เป็นภาษาไทยแบบย่อปี พ.ศ. 2 หลัก
 export const formatThaiDateShort = (isoOrDate?: string | Date | null): string => {
   return formatThaiDate(isoOrDate, '2-digit');
 };
 
-/**
- * แสดงผลวันที่ภาษาไทยแบบเต็ม เช่น "7 ตุลาคม 2569"
- */
+// จัดรูปแบบวันที่เป็นภาษาไทยแบบชื่อเดือนเต็ม
 export const formatThaiDateLong = (isoOrDate?: string | Date | null): string => {
   if (!isoOrDate) return '-';
   const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
@@ -180,10 +173,7 @@ export const formatThaiDateLong = (isoOrDate?: string | Date | null): string => 
   });
 };
 
-/**
- * แสดงผลเวลาตามเขตเวลาประเทศไทย (Asia/Bangkok)
- * เช่น "14:30 น."
- */
+// จัดรูปแบบเวลาเป็นภาษาไทยตามเขตเวลาประเทศไทย
 export const formatThaiTime = (isoOrDate?: string | Date | null): string => {
   if (!isoOrDate) return '-';
   const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
@@ -195,10 +185,7 @@ export const formatThaiTime = (isoOrDate?: string | Date | null): string => {
   })} น.`;
 };
 
-/**
- * แสดงผลวันและเวลาตามเขตเวลาประเทศไทย (Asia/Bangkok)
- * เช่น "7 ต.ค. 69 14:30 น."
- */
+// จัดรูปแบบทั้งวันที่และเวลาเป็นภาษาไทยตามเขตเวลาประเทศไทย
 export const formatThaiDateTime = (isoOrDate?: string | Date | null): string => {
   if (!isoOrDate) return '-';
   const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
@@ -217,30 +204,23 @@ export const formatThaiDateTime = (isoOrDate?: string | Date | null): string => 
   return `${dateStr} ${timeStr} น.`;
 };
 
+// จัดรูปแบบช่วงเวลาเริ่มต้นถึงสิ้นสุด
 export const formatTimeRange = (startTime: string, endTime: string): string => {
   const start = (startTime ?? '').slice(0, 5);
   const end = (endTime ?? '').slice(0, 5);
   return `${start} – ${end} น.`;
 };
 
-/**
- * แปลง Date หรือ Date String ท้องถิ่นไทยให้เป็นสากล (UTC ISO String)
- * ใช้เรียกทุกครั้งก่อนส่ง payload ข้อมูลวันเวลาไปยัง Backend API
- * เช่น "2026-10-07T16:00:00.000Z"
- */
+// แปลงวันที่หรือสตริงเวลาเป็น UTC ISO string
 export const toUTCISOString = (dateOrISO?: Date | string | null): string => {
   if (!dateOrISO) return new Date().toISOString();
   const d = typeof dateOrISO === 'string' ? new Date(dateOrISO) : dateOrISO;
   return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
 };
 
-/**
- * รวมวันที่ไทย YYYY-MM-DD และเวลา HH:MM แล้วแปลงเป็นเวลาสากล UTC ISO String
- * เช่น thaiDateAndTimeToUTC("2026-10-07", "14:00") -> "2026-10-07T07:00:00.000Z" (UTC = Thai - 7h)
- */
+// รวมวันที่และเวลาตามเวลาไทยแล้วแปลงเป็น UTC ISO string
 export const thaiDateAndTimeToUTC = (dateStr: string, timeStr = '00:00'): string => {
   if (!dateStr) return new Date().toISOString();
-  // ประกอบ string แบบมี offset +07:00
   const normalizedTime = timeStr.length === 5 ? `${timeStr}:00` : timeStr;
   const isoWithOffset = `${dateStr}T${normalizedTime}+07:00`;
   const date = new Date(isoWithOffset);

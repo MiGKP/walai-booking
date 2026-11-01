@@ -58,9 +58,6 @@ import {
 } from "@/lib/admin-booking-list";
 import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 
-
-
-// ตัวเลือกเหตุผลในการปฏิเสธ
 const REJECT_REASONS = [
   "สลิปไม่ชัดเจน / อ่านข้อมูลไม่ได้",
   "ยอดเงินไม่ถูกต้อง / ไม่ครบถ้วน",
@@ -70,7 +67,6 @@ const REJECT_REASONS = [
   "อื่นๆ",
 ];
 
-// Mapping สถานะสำหรับ UI
 const statusLabel: Record<string, string> = {
   pending: "รอดำเนินการ",
   paid: "รอตรวจสอบสลิป",
@@ -116,6 +112,7 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string }> =
 
 type FilterType = BookingListFilter;
 
+// เนื้อหาหลักแดชบอร์ดจัดการรายการจองเรือ ตรวจสอบสลิป และอนุมัติหรือปฏิเสธการจอง
 function BoatStaffDashboardContent() {
   const router = useRouter();
   const pathname = usePathname();
@@ -134,7 +131,6 @@ function BoatStaffDashboardContent() {
   const tableRef = useRef<HTMLDivElement>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
 
-  // อ่านค่า State จาก URL Query Parameters
   const filter = readBookingFilter(searchParams.get("filter"));
   const sort = readBookingSort(searchParams.get("sort"));
   const itemsPerPage = readBookingPageSize(searchParams.get("limit"));
@@ -145,10 +141,8 @@ function BoatStaffDashboardContent() {
   const pageParam = Number(searchParams.get("page"));
   const currentPage = Number.isSafeInteger(pageParam) && pageParam > 0 ? pageParam : 1;
 
-  // Search Debounce State
   const [searchInput, setSearchInput] = useState(searchParam);
 
-  // Modal สลิป และ รายละเอียด
   const [slipModal, setSlipModal] = useState<{
     open: boolean;
     url: string;
@@ -161,7 +155,6 @@ function BoatStaffDashboardContent() {
   }>({ open: false, booking: null });
 
   const [resort, setResort] = useState<ResortInfoRecord | null>(null);
-  // ข้อควรทราบของเรือแยกจากของห้องพัก (แถว boat id 5)
   const [boatTerms, setBoatTerms] = useState<string | null>(null);
   useEffect(() => {
     if (!detailsModal.open || resort) return;
@@ -173,7 +166,6 @@ function BoatStaffDashboardContent() {
       .catch(() => undefined);
   }, [detailsModal.open, resort]);
 
-  // Modal ยืนยันการทำงานทั่วไป
   const [confirmModal, setConfirmModal] = useState<{
     open: boolean;
     title: string;
@@ -192,7 +184,6 @@ function BoatStaffDashboardContent() {
     onConfirm: () => {},
   });
 
-  // Modal กรณีปฏิเสธการจอง (ใช้เลือกรายการ + กรอกเหตุผลเพิ่มเติม)
   const [rejectModal, setRejectModal] = useState<{
     open: boolean;
     bookingId: number | null;
@@ -201,16 +192,14 @@ function BoatStaffDashboardContent() {
   }>({
     open: false,
     bookingId: null,
-    selectedReason: REJECT_REASONS[0], // ค่าเริ่มต้นตัวแรก
+    selectedReason: REJECT_REASONS[0],
     customReason: "",
   });
 
-  // ช่วงเวลาด่วน (วันนี้, สัปดาห์นี้, เดือนนี้)
   const quickDateRanges = useMemo(() => {
     const now = new Date();
     const today = toISODate(now);
 
-    // สัปดาห์นี้ (จันทร์ ถึง อาทิตย์)
     const dayOfWeek = now.getDay();
     const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     const monday = new Date(now);
@@ -222,7 +211,6 @@ function BoatStaffDashboardContent() {
     const startOfWeek = toISODate(monday);
     const endOfWeek = toISODate(sunday);
 
-    // เดือนนี้ (1 ถึง วันสุดท้ายของเดือน)
     const startOfMonth = toISODate(new Date(now.getFullYear(), now.getMonth(), 1));
     const endOfMonth = toISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
@@ -233,7 +221,7 @@ function BoatStaffDashboardContent() {
     };
   }, []);
 
-  // ฟังก์ชันช่วยอัปเดต Query String ใน URL
+  // อัปเดตพารามิเตอร์การกรองและเรียงลำดับใน URL
   const updateQueryParams = useCallback(
     (paramsToUpdate: Record<string, string | number | null>) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -251,7 +239,6 @@ function BoatStaffDashboardContent() {
     [searchParams, pathname, router],
   );
 
-  // Debounce การค้นหา
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchInput !== searchParam) {
@@ -261,29 +248,34 @@ function BoatStaffDashboardContent() {
     return () => clearTimeout(timer);
   }, [searchInput, searchParam, updateQueryParams]);
 
-  // ซิงค์ SearchInput หาก URL เปลี่ยนโดยตรง
   useEffect(() => {
     setSearchInput(searchParam);
   }, [searchParam]);
 
+  // เปลี่ยนตัวกรองสถานะการจองเรือและรีเซ็ตกลับไปหน้าแรก
   const handleFilterChange = (newFilter: FilterType) => {
     updateQueryParams({ filter: newFilter, page: 1 });
   };
 
+  // ล้างตัวกรองการค้นหาทั้งหมดกลับเป็นค่าเริ่มต้น
   const handleClearFilters = () => {
     setSearchInput("");
     router.replace(pathname, { scroll: false });
   };
 
   const boatTypeOptions = [{ value: "all", label: "ทั้งหมดทุกประเภท" }, ...catalogTypes.map(type => ({ value: type, label: type }))];
+
+  // อัปเดตช่วงวันที่เริ่มต้นและสิ้นสุดในการกรองข้อมูล
   const handleDateChange = (from: string, to: string): void => {
     updateQueryParams({ dateFrom: from, dateTo: to, page: 1 });
   };
 
+  // เปลี่ยนหน้าตารางรายการจองเรือ
   const handlePageChange = (page: number) => {
     updateQueryParams({ page });
   };
 
+  // ดึงรายการจองเรือและข้อมูลสรุปตามเงื่อนไขการกรองปัจจุบัน
   const fetchBookings = useCallback(
     async (silent = false): Promise<void> => {
       if (!ready) return;
@@ -336,7 +328,7 @@ function BoatStaffDashboardContent() {
     }).catch(() => notify.error("ไม่สามารถโหลดประเภทเรือได้"));
   }, [ready]);
 
-
+  // เปิดหน้าต่างยืนยันการทำรายการพร้อมกำหนดข้อความและฟังก์ชันเมื่อกดยืนยัน
   const openConfirmDialog = (
     title: string,
     text: string,
@@ -356,7 +348,7 @@ function BoatStaffDashboardContent() {
     });
   };
 
-  // handleApprove (อนุมัติ)
+  // ยืนยันและอนุมัติรายการจองเรือที่ชำระเงินแล้ว
   const handleApprove = (id: number) => {
     openConfirmDialog(
       "อนุมัติรายการจองเรือนี้?",
@@ -385,7 +377,7 @@ function BoatStaffDashboardContent() {
     );
   };
 
-  // handleRejectSubmit (ประมวลผลข้อความเหตุผลส่งให้ API)
+  // ส่งคำขอปฏิเสธการจองเรือพร้อมเหตุผลไปยังระบบ
   const handleRejectSubmit = async () => {
     if (!rejectModal.bookingId) return;
 
@@ -426,7 +418,7 @@ function BoatStaffDashboardContent() {
     }
   };
 
-  // handleCheckout (คืนเรือ)
+  // ยืนยันการคืนเรือและเปลี่ยนสถานะเป็นเช็คเอาต์
   const handleCheckout = (id: number) => {
     openConfirmDialog(
       "ยืนยันการคืนเรือ (Check-out)?",
@@ -457,6 +449,7 @@ function BoatStaffDashboardContent() {
     );
   };
 
+  // สั่งพิมพ์ใบยืนยันรายละเอียดการจองเรือ
   const handlePrintDetails = () => {
     window.print();
   };
@@ -464,6 +457,7 @@ function BoatStaffDashboardContent() {
   const totalPages = Math.max(1, pagination.totalPages);
   const paginatedBookings = bookings;
 
+  // คำนวณรายการหมายเลขหน้าสำหรับแสดงปุ่มเปลี่ยนหน้าตาราง
   const getPaginationRange = () => {
     const delta = 1;
     const range: (number | string)[] = [];
@@ -536,7 +530,6 @@ function BoatStaffDashboardContent() {
         }
       `}</style>
 
-      {/* Top Header Card with Integrated Revenue */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/80 relative print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -550,7 +543,6 @@ function BoatStaffDashboardContent() {
             </div>
           </div>
 
-          {/* Revenue Pill / Badge in Top Header */}
           <div className="flex items-center gap-3 bg-forest-50/70 border border-forest-100/90 px-4 py-2.5 rounded-2xl self-start sm:self-auto shrink-0 shadow-xs">
             <div className="w-9 h-9 rounded-xl bg-forest-800 text-white flex items-center justify-center shadow-xs shrink-0">
               <Wallet size={18} className="stroke-[2.2]" />
@@ -594,9 +586,7 @@ function BoatStaffDashboardContent() {
         ))}
       </section>
 
-      {/* Filter & Control Bar */}
       <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-panel border border-cream-200/90 space-y-3.5 print:hidden">
-        {/* Row 1: Actions & Active Filter indicator */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-charcoal-500">ตัวกรอง:</span>
@@ -627,7 +617,6 @@ function BoatStaffDashboardContent() {
             </span>
           </div>
 
-          {/* Action Buttons (Right) */}
           <div className="flex items-center gap-2 shrink-0">
             {hasActiveFilters && (
               <button
@@ -653,9 +642,7 @@ function BoatStaffDashboardContent() {
           </div>
         </div>
 
-        {/* Row 2: Secondary Filter Controls (Search, Type, Date Range, Sort, Limit & Presets) */}
         <div className="flex flex-wrap items-center gap-2.5 pt-2.5 border-t border-cream-100">
-          {/* Search Input */}
           <div className="relative flex-1 sm:w-64 min-w-[200px]">
             <Search
               size={16}
@@ -682,7 +669,6 @@ function BoatStaffDashboardContent() {
             )}
           </div>
 
-          {/* Boat Type Selector */}
           <div className="flex items-center gap-2 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
             <Ship size={14} className="text-forest-700" />
             <span className="font-medium text-charcoal-500 whitespace-nowrap">
@@ -698,7 +684,6 @@ function BoatStaffDashboardContent() {
             />
           </div>
 
-          {/* Date Range Selector */}
           <div className="flex items-center gap-2 bg-cream-50/80 px-3 py-1.5 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
             <CalendarDays size={14} className="text-forest-700 shrink-0" />
             <span className="font-medium text-charcoal-500 whitespace-nowrap">
@@ -717,7 +702,6 @@ function BoatStaffDashboardContent() {
             />
           </div>
 
-          {/* Sort Selector */}
           <div className="flex items-center gap-1.5 bg-cream-50/80 px-3 py-2 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
             <ArrowUpDown size={13} className="text-forest-700 shrink-0" />
             <span className="font-medium text-charcoal-500 whitespace-nowrap">เรียง:</span>
@@ -734,7 +718,6 @@ function BoatStaffDashboardContent() {
             </select>
           </div>
 
-          {/* Page Size Limit Selector */}
           <div className="flex items-center gap-1.5 bg-cream-50/80 px-3 py-2 rounded-2xl border border-cream-300 text-xs text-charcoal-700">
             <span className="font-medium text-charcoal-500 whitespace-nowrap">แสดง:</span>
             <select
@@ -751,7 +734,6 @@ function BoatStaffDashboardContent() {
             </select>
           </div>
 
-          {/* Quick Date Presets */}
           <div className="flex items-center gap-1 bg-cream-100 p-1 rounded-2xl">
             {(
               [
@@ -786,9 +768,7 @@ function BoatStaffDashboardContent() {
         </div>
       </div>
 
-      {/* Bookings Table Panel (Fixed consistent height with min-h-[660px]) */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-panel border border-cream-200/90 overflow-hidden flex flex-col min-h-[660px] print:hidden">
-        {/* Table Panel Header */}
         <div className="pb-4 mb-4 border-b border-cream-200/80 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-2.5 h-2.5 rounded-full bg-forest-800" />
@@ -801,7 +781,6 @@ function BoatStaffDashboardContent() {
           </div>
         </div>
 
-        {/* Table Container */}
         <div ref={tableRef} className="overflow-x-auto border border-cream-200/90 rounded-2xl shadow-2xs">
           <table className="w-full text-left text-xs md:text-sm">
             <thead>
@@ -908,7 +887,7 @@ function BoatStaffDashboardContent() {
                           {b.is_addon && (
                             <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-lagoon-50 border border-lagoon-200/80 text-lagoon-800 text-[10px] font-semibold">
-                                <span>แพ็กเกจห้องพัก #{b.room_booking_id}</span>
+                                <span>โปรโมชั่นห้องพัก #{b.room_booking_id}</span>
                                 <span className="text-lagoon-600 font-normal">
                                   • {b.addon_mode === "free" ? "สิทธิ์ฟรี" : "ชำระรวมกับห้อง"}
                                 </span>
@@ -962,8 +941,6 @@ function BoatStaffDashboardContent() {
                             )}
                         </div>
                       </td>
-
-
 
                       <td className="px-3.5 py-3.5 whitespace-nowrap">
                           {b.payment_slip ? (
@@ -1061,7 +1038,6 @@ function BoatStaffDashboardContent() {
           </table>
         </div>
 
-        {/* Pagination Footer */}
         {pagination.total > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-auto border-t border-cream-200/80 text-xs text-charcoal-500 print:hidden">
             <span>
@@ -1144,11 +1120,9 @@ function BoatStaffDashboardContent() {
         )}
       </div>
 
-
-      {/* Slip Modal */}
-      <Modal 
-        open={slipModal.open} 
-        title={`หลักฐานการชำระเงิน (${slipModal.name})`} 
+      <Modal
+        open={slipModal.open}
+        title={`หลักฐานการชำระเงิน (${slipModal.name})`}
         onClose={() => setSlipModal({ open: false, url: "", name: "" })}
         footer={
           <button
@@ -1168,7 +1142,6 @@ function BoatStaffDashboardContent() {
         </div>
       </Modal>
 
-      {/* Details Modal */}
       {detailsModal.open && detailsModal.booking && (() => {
         const booking = detailsModal.booking;
 
@@ -1312,7 +1285,6 @@ function BoatStaffDashboardContent() {
         );
       })()}
 
-      {/* Reject Modal */}
       <Modal
         open={rejectModal.open}
         title="ปฏิเสธรายการจองนี้?"
@@ -1368,7 +1340,6 @@ function BoatStaffDashboardContent() {
         </div>
       </Modal>
 
-      {/* Confirm Modal */}
       <Modal
         open={confirmModal.open}
         title={confirmModal.title}
@@ -1396,12 +1367,11 @@ function BoatStaffDashboardContent() {
       >
         <p className="text-sm text-charcoal-600">{confirmModal.text}</p>
       </Modal>
-
-      {/* Toast Notification */}
     </div>
   );
 }
 
+// หน้าจัดการการจองเรือพร้อม Suspense รองรับพารามิเตอร์จาก URL
 export default function AdminBoatsPage() {
   return (
     <Suspense

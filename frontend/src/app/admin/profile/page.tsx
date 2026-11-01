@@ -1,7 +1,6 @@
 "use client";
 
-import { getNewPasswordError } from '@/lib/password-policy';
-
+import { getNewPasswordError } from "@/lib/password-policy";
 import { useState, useEffect } from "react";
 import {
   User,
@@ -11,13 +10,15 @@ import {
   Lock,
   ShieldCheck,
   MessageSquare,
-  MapPin} from 'lucide-react';
-import { SiFacebook as Facebook } from '@icons-pack/react-simple-icons';
+  MapPin,
+} from "lucide-react";
+import { SiFacebook as Facebook } from "@icons-pack/react-simple-icons";
 import api, { getApiErrorMessage } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { notify } from "@/lib/admin-notify";
 
+// หน้าจัดการข้อมูลส่วนตัวและเปลี่ยนรหัสผ่านสำหรับผู้ดูแลระบบและพนักงาน
 export default function AdminProfilePage() {
   const { ready, user } = useAuthGuard();
   const { updateUser } = useAuth();
@@ -39,7 +40,6 @@ export default function AdminProfilePage() {
     confirm: "",
   });
 
-
   const [saving, setSaving] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
 
@@ -56,6 +56,7 @@ export default function AdminProfilePage() {
     });
   }, [ready, user]);
 
+  // บันทึกการเปลี่ยนแปลงข้อมูลส่วนตัวลงระบบ
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -71,6 +72,7 @@ export default function AdminProfilePage() {
     }
   };
 
+  // ตรวจสอบความถูกต้องและบันทึกการเปลี่ยนรหัสผ่านใหม่
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwords.new_password !== passwords.confirm) {
@@ -100,9 +102,7 @@ export default function AdminProfilePage() {
   if (!ready || !user) return null;
 
   return (
-    /* ปรับ p-2 md:p-3 ให้ชิดขอบบนมากขึ้น และ space-y-3 ให้ช่องว่างระหว่างการ์ดแคบลง */
     <div className="w-full p-2 md:p-3 space-y-3 font-sans">
-      {/* Header Card - Compact */}
       <div className="bg-white rounded-2xl p-3.5 md:p-4 border border-stone-200/80 shadow-xs flex items-center gap-3.5">
         <div className="w-10 h-10 rounded-xl bg-[#133E31]/10 flex items-center justify-center text-[#133E31] shrink-0">
           <ShieldCheck size={24} />
@@ -110,7 +110,7 @@ export default function AdminProfilePage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold text-[#133E31]">
-              {user.first_name || "ผู้ใช้แอดมิน"} 
+              {user.first_name || "ผู้ใช้แอดมิน"}
             </h1>
             <span className="bg-[#133E31] text-white text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wide">
               {user.role === "room_staff" ? "พนักงานห้องพัก" : user.role === "boat_staff" ? "พนักงานเรือ" : "ผู้ดูแลระบบ"}
@@ -120,9 +120,7 @@ export default function AdminProfilePage() {
         </div>
       </div>
 
-      {/* Grid 2 ฝั่ง - ชิดบนมากขึ้น */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 items-start">
-        {/* การ์ดฝั่งซ้าย: ข้อมูลส่วนตัว */}
         <div className="bg-white rounded-2xl p-4 md:p-5 border border-stone-200/80 shadow-xs">
           <div className="flex items-center gap-2 pb-2.5 mb-3 border-b border-stone-100">
             <User className="text-[#133E31]" size={18} />
@@ -235,7 +233,7 @@ export default function AdminProfilePage() {
                     className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                     placeholder="line_admin"
                     aria-label="LINE ID"
-                  value={profile.line_id}
+                    value={profile.line_id}
                     onChange={(e) =>
                       setProfile({ ...profile, line_id: e.target.value })
                     }
@@ -256,7 +254,7 @@ export default function AdminProfilePage() {
                     className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#133E31]/20 focus:border-[#133E31] transition-all bg-stone-50/30"
                     placeholder="ชื่อ Facebook"
                     aria-label="Facebook"
-                  value={profile.facebook}
+                    value={profile.facebook}
                     onChange={(e) =>
                       setProfile({ ...profile, facebook: e.target.value })
                     }
@@ -300,7 +298,6 @@ export default function AdminProfilePage() {
           </form>
         </div>
 
-        {/* การ์ดฝั่งขวา: เปลี่ยนรหัสผ่าน */}
         <div className="bg-white rounded-2xl p-4 md:p-5 border border-stone-200/80 shadow-xs">
           <div className="flex items-center gap-2 pb-2.5 mb-3 border-b border-stone-100">
             <Lock className="text-[#133E31]" size={18} />

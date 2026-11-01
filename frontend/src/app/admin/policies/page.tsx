@@ -24,6 +24,7 @@ import KidsPolicyEditor from "@/components/admin/KidsPolicyEditor";
 
 type PolicyTab = "all" | "room" | "boat" | "refund";
 
+// หน้าตั้งค่านโยบายและข้อกำหนดการเข้าพักและการบริการเรือ
 export default function PoliciesSettingsPage() {
   const { ready, user } = useAuthGuard({
     allowedRoles: ["admin", "room_staff", "boat_staff"],
@@ -32,7 +33,6 @@ export default function PoliciesSettingsPage() {
   const [activeTab, setActiveTab] = useState<PolicyTab>("all");
 
   const [form, setForm] = useState({
-    // นโยบายห้องพัก
     checkin_time_from: "14:00",
     checkin_time_to: "23:00",
     checkout_time: "12:00",
@@ -40,7 +40,6 @@ export default function PoliciesSettingsPage() {
     kids_policy: "",
     infant_max_age_exclusive: "6",
     parking_info: "",
-    // นโยบายเรือ
     boat_terms: "",
     boat_checkin_advance_minutes: 15,
     room_max_advance_days: "365",
@@ -51,14 +50,15 @@ export default function PoliciesSettingsPage() {
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // ดึงข้อมูลนโยบายห้องพักและบริการเรือจากฐานข้อมูล
   async function fetchPolicies() {
     try {
       setLoading(true);
       setLoadError(false);
       const { data } = await api.get("/settings/resort");
-      const roomInfo = pickResortInfo(data.data, "room"); // id 4
-      const mainInfo = pickResortInfo(data.data, "main"); // id 3
-      const boatInfo = pickResortInfo(data.data, "boat"); // id 5
+      const roomInfo = pickResortInfo(data.data, "room");
+      const mainInfo = pickResortInfo(data.data, "main");
+      const boatInfo = pickResortInfo(data.data, "boat");
 
       setForm({
         checkin_time_from: (roomInfo?.checkin_time_from as string) || "14:00",
@@ -88,6 +88,7 @@ export default function PoliciesSettingsPage() {
     }
   }, [ready]);
 
+  // ตรวจสอบความถูกต้องและบันทึกการเปลี่ยนแปลงนโยบายทั้งหมดลงฐานข้อมูล
   const handleSave = async () => {
     const infantAge = Number(form.infant_max_age_exclusive);
     if (
@@ -115,7 +116,6 @@ export default function PoliciesSettingsPage() {
     try {
       setSaving(true);
       const promises: Promise<unknown>[] = [
-        // บันทึกนโยบายห้องพัก (id: 4)
         api.put("/settings/resort", {
           id: 4,
           checkin_time_from: form.checkin_time_from,
@@ -126,7 +126,6 @@ export default function PoliciesSettingsPage() {
           parking_info: form.parking_info,
           room_max_advance_days: roomDays,
         }),
-        // บันทึกข้อกำหนดและกฎความปลอดภัยเรือ + เวลาเช็คอินก่อนรอบเรือ (id: 5)
         api.put("/settings/resort", {
           id: 5,
           additional_terms: form.boat_terms,
@@ -170,7 +169,6 @@ export default function PoliciesSettingsPage() {
 
   return (
     <div className="space-y-6 pb-16 max-w-[1600px] mx-auto">
-      {/* Top Header Card with Soft Icon, Title & Quick Actions */}
       <div className="bg-white rounded-3xl p-6 sm:p-7 shadow-panel border border-cream-200/80 relative">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="space-y-1">
@@ -186,7 +184,6 @@ export default function PoliciesSettingsPage() {
             </div>
           </div>
 
-          {/* Save Action */}
           <div className="flex items-center gap-2.5 self-end lg:self-auto">
             <button
               type="button"
@@ -201,7 +198,6 @@ export default function PoliciesSettingsPage() {
         </div>
       </div>
 
-      {/* Navigation Tabs (ตัวเลือกหมวดหมู่นโยบาย) */}
       <div className="flex items-center gap-1.5 p-1.5 bg-cream-100/80 rounded-2xl border border-cream-200/90 overflow-x-auto">
         <button
           type="button"
@@ -256,10 +252,8 @@ export default function PoliciesSettingsPage() {
         </button>
       </div>
 
-      {/* SECTION 1: นโยบายการยกเลิกและการคืนเงิน */}
       {showRefund && <CancellationPolicyCard scope={refundScope} />}
 
-      {/* SECTION 2: นโยบายและกฎระเบียบห้องพัก */}
       {showRoom && (
         <section className="bg-white rounded-3xl p-6 sm:p-7 shadow-panel border border-cream-200/90 space-y-6">
           <div className="flex items-center gap-3 pb-4 border-b border-cream-200/80">
@@ -276,7 +270,6 @@ export default function PoliciesSettingsPage() {
             </div>
           </div>
 
-          {/* Check-in / Check-out */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
               <Clock size={16} className="text-forest-700" />
@@ -323,7 +316,6 @@ export default function PoliciesSettingsPage() {
             </div>
           </div>
 
-          {/* Important Info */}
           <div className="space-y-4 pt-4 border-t border-cream-200/80">
             <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
               <AlertCircle size={16} className="text-forest-700" />
@@ -336,7 +328,6 @@ export default function PoliciesSettingsPage() {
             />
           </div>
 
-          {/* Kids Policy */}
           <div className="space-y-4 pt-4 border-t border-cream-200/80">
             <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
               <Users size={16} className="text-forest-700" />
@@ -377,7 +368,6 @@ export default function PoliciesSettingsPage() {
             />
           </div>
 
-          {/* จองห้องพักล่วงหน้าได้สูงสุด */}
           <div className="space-y-4 pt-4 border-t border-cream-200/80">
             <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
               <Clock size={16} className="text-forest-700" />
@@ -408,7 +398,6 @@ export default function PoliciesSettingsPage() {
             </div>
           </div>
 
-          {/* Parking Info */}
           <div className="space-y-4 pt-4 border-t border-cream-200/80">
             <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
               <Car size={16} className="text-forest-700" />
@@ -432,7 +421,6 @@ export default function PoliciesSettingsPage() {
         </section>
       )}
 
-      {/* SECTION 3: นโยบายและกฎความปลอดภัยบริการเรือ */}
       {showBoat && (
         <section className="bg-white rounded-3xl p-6 sm:p-7 shadow-panel border border-cream-200/90 space-y-6">
           <div className="flex items-center gap-3 pb-4 border-b border-cream-200/80">
@@ -467,7 +455,6 @@ export default function PoliciesSettingsPage() {
             </div>
           </div>
 
-          {/* จองเรือล่วงหน้าได้สูงสุด */}
           <div className="space-y-4 pt-4 border-t border-cream-200/80">
             <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
               <Clock size={16} className="text-forest-700" />
@@ -498,7 +485,6 @@ export default function PoliciesSettingsPage() {
             </div>
           </div>
 
-          {/* เวลาเช็คอิน / รายงานตัวก่อนรอบเรือ */}
           <div className="space-y-4 pt-4 border-t border-cream-200/80">
             <div className="flex items-center gap-2 text-forest-900 font-bold text-xs sm:text-sm">
               <Clock size={16} className="text-forest-700" />
@@ -559,7 +545,6 @@ export default function PoliciesSettingsPage() {
                 </span>
               </div>
 
-              {/* Quick presets */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-cream-200/60">
                 <span className="text-[11px] text-charcoal-400 font-medium">ตัวเลือกด่วน:</span>
                 {[
@@ -590,7 +575,6 @@ export default function PoliciesSettingsPage() {
                 })}
               </div>
 
-              {/* Dynamic Example Preview */}
               <div className="text-[11px] sm:text-xs text-forest-900 bg-forest-50/80 border border-forest-200/70 rounded-2xl px-4 py-3 flex items-center gap-2.5">
                 <span className="shrink-0 text-base">💡</span>
                 <span>

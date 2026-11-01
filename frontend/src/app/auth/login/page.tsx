@@ -40,6 +40,7 @@ interface LoginErrorResponse {
   message?: string;
 }
 
+// ดึงข้อความแจ้งเตือนข้อผิดพลาดจากการเข้าสู่ระบบ
 const getLoginErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError<LoginErrorResponse>(error)) {
     const message = error.response?.data?.message;
@@ -48,6 +49,7 @@ const getLoginErrorMessage = (error: unknown): string => {
   return getNetworkErrorMessage(error) ?? "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
 };
 
+// แปลงรหัสข้อผิดพลาดจากการเข้าสู่ระบบด้วย Google เป็นข้อความภาษาไทย
 const getGoogleLoginErrorMessage = (code: string): string => {
   switch (code) {
     case "no_email":
@@ -62,6 +64,7 @@ const getGoogleLoginErrorMessage = (code: string): string => {
   }
 };
 
+// แสดงข้อความแจ้งเตือนเมื่อการเข้าสู่ระบบด้วย Google ล้มเหลว
 function GoogleAuthErrorToast(): React.ReactElement | null {
   const searchParams = useSearchParams();
 
@@ -74,20 +77,20 @@ function GoogleAuthErrorToast(): React.ReactElement | null {
   return null;
 }
 
+// หน้าเข้าสู่ระบบสำหรับสมาชิกและเจ้าหน้าที่
 export default function LoginPage(): React.ReactElement | null {
   const router = useRouter();
   const { login } = useAuth();
-  // skipRedirect กันไม่ให้ guard แย่ง redirect ไป /dashboard (ตาม role) ตอน isAuthenticated เพิ่งเปลี่ยนเป็น true จาก login สำเร็จ
   const [isRedirecting, setIsRedirecting] = useState(false);
   const { ready } = useAuthGuard({ guestOnly: true, skipRedirect: isRedirecting });
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  // ข้อผิดพลาดการเข้าสู่ระบบแสดงในฟอร์ม ไม่ใช้ toast เพื่อให้ผู้ใช้เห็นตรงจุดที่ต้องแก้
   const [formError, setFormError] = useState<string | null>(null);
 
   if (!ready) return null;
 
+  // ส่งข้อมูลอีเมลและรหัสผ่านเพื่อยืนยันตัวตนและเปลี่ยนเส้นทางตามสิทธิ์ผู้ใช้
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>,
   ): Promise<void> => {
@@ -99,20 +102,16 @@ export default function LoginPage(): React.ReactElement | null {
       const response = await api.post<LoginResponse>("/auth/login", form);
       const { token, redirectUrl, user } = response.data.data;
       await login(token);
-      // admin และพนักงานต้องเริ่มที่หน้าภาพรวมของตัวเสมอ (ไม่ย้อนไปหน้าเดิมที่เคยเปิดค้างไว้)
       const isStaffOrAdmin = user.role !== undefined && user.role !== "customer";
       if (isStaffOrAdmin) {
         consumePostLoginRedirect();
         router.push(redirectUrl || "/");
         return;
       }
-      // backend คำนวณปลายทางตาม role ให้แล้ว (เช่น admin -> /admin, staff -> หน้า dashboard ของตัวเอง)
-      // explicitRedirect (query param ?redirect=) มาก่อนเสมอ เผื่อผู้ใช้ถูกเด้งมา login ระหว่างทำอย่างอื่นอยู่
       const explicitRedirect = new URLSearchParams(window.location.search).get("redirect");
       const safeExplicit = explicitRedirect && isSafeInternalPath(explicitRedirect) ? explicitRedirect : null;
-      // ถ้าก่อนหน้านี้ถูกเด้งมาล็อกอินจากหน้าอื่น (เช่น เก็บคูปองที่ /promotions) ให้กลับไปหน้านั้น
-      const storedRedirect = consumePostLoginRedirect();
-      router.push(safeExplicit || storedRedirect || redirectUrl || "/");
+      consumePostLoginRedirect();
+      router.push(safeExplicit || redirectUrl || "/");
     } catch (error: unknown) {
       setFormError(getLoginErrorMessage(error));
       setIsRedirecting(false);
@@ -121,6 +120,7 @@ export default function LoginPage(): React.ReactElement | null {
     }
   };
 
+  // เปลี่ยนเส้นทางไปยังหน้าเข้าสู่ระบบด้วยบัญชี Google
   const handleGoogleLogin = (): void => {
     window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
   };

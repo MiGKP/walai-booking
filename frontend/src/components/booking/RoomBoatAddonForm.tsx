@@ -20,6 +20,7 @@ interface Props {
   onCreated: () => void | Promise<void>;
 }
 
+// แสดงฟอร์มเลือกวัน ประเภทเรือ และรอบเวลาสำหรับจองเรือเสริมจากสิทธิ์ห้องพัก
 export default function RoomBoatAddonForm({ bookingRoomId, info, onCreated }: Props): React.ReactElement | null {
   const today = todayISO();
   const firstDate = info.valid_from && info.valid_from > today ? info.valid_from : today;
@@ -37,13 +38,21 @@ export default function RoomBoatAddonForm({ bookingRoomId, info, onCreated }: Pr
   useEffect(() => {
     if (!eligible) return;
     let active = true;
-    api.get('/kayaks').then(({ data }) => {
-      if (active) setBoats(Array.isArray(data?.data) ? data.data : []);
-    }).catch((error: unknown) => toast.error(getApiErrorMessage(error, 'โหลดประเภทเรือไม่สำเร็จ')));
-    api.get('/settings/boat-hours').then(({ data }) => {
-      if (active) setBoatHours(Array.isArray(data?.data) ? data.data : []);
-    }).catch(() => undefined);
-    return () => { active = false; };
+    api
+      .get('/kayaks')
+      .then(({ data }) => {
+        if (active) setBoats(Array.isArray(data?.data) ? data.data : []);
+      })
+      .catch((error: unknown) => toast.error(getApiErrorMessage(error, 'โหลดประเภทเรือไม่สำเร็จ')));
+    api
+      .get('/settings/boat-hours')
+      .then(({ data }) => {
+        if (active) setBoatHours(Array.isArray(data?.data) ? data.data : []);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
   }, [eligible]);
 
   useEffect(() => {
@@ -52,12 +61,19 @@ export default function RoomBoatAddonForm({ bookingRoomId, info, onCreated }: Pr
     setRounds([]);
     setRoundId('');
     setRoundsLoading(true);
-    fetchKayakRounds({ kayakId: Number(boatId), bookingDate: date }).then((next) => {
-      if (active) setRounds(next);
-    }).catch((error: unknown) => {
-      if (active) toast.error(getApiErrorMessage(error, 'โหลดรอบเรือไม่สำเร็จ'));
-    }).finally(() => { if (active) setRoundsLoading(false); });
-    return () => { active = false; };
+    fetchKayakRounds({ kayakId: Number(boatId), bookingDate: date })
+      .then((next) => {
+        if (active) setRounds(next);
+      })
+      .catch((error: unknown) => {
+        if (active) toast.error(getApiErrorMessage(error, 'โหลดรอบเรือไม่สำเร็จ'));
+      })
+      .finally(() => {
+        if (active) setRoundsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [eligible, boatId, date]);
 
   if (!eligible) return null;
@@ -65,11 +81,16 @@ export default function RoomBoatAddonForm({ bookingRoomId, info, onCreated }: Pr
   const boatCount = Math.ceil(passengers / Math.max(1, Number(selectedBoat?.capacity ?? 1)));
   const maxPassengers = Number(selectedBoat?.capacity ?? 1) * Number(info.balance);
   const selectedRound = rounds.find((round) => round.boat_round_id === Number(roundId));
-  const selectedDayHours = boatHours.find((hours) => hours.day_of_week === new Date(`${date}T12:00:00+07:00`).getUTCDay());
+  const selectedDayHours = boatHours.find(
+    (hours) => hours.day_of_week === new Date(`${date}T12:00:00+07:00`).getUTCDay()
+  );
   const advanceMinutes = selectedDayHours?.advance_booking_minutes ?? boatHours[0]?.advance_booking_minutes ?? 60;
-  const availableRound = !!selectedRound?.available && selectedRound.remaining >= boatCount
-    && isBoatSlotBookable(date, selectedRound.start_time, selectedRound.end_time, selectedDayHours, advanceMinutes);
+  const availableRound =
+    !!selectedRound?.available &&
+    selectedRound.remaining >= boatCount &&
+    isBoatSlotBookable(date, selectedRound.start_time, selectedRound.end_time, selectedDayHours, advanceMinutes);
 
+  // ตรวจสอบความถูกต้องของข้อมูลและส่งคำขอสร้างรายการจองเรือเสริม
   const handleSubmit = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
     if (!selectedBoat || !availableRound || boatCount > info.balance || date < firstDate || date > (info.valid_to ?? '')) {
@@ -82,7 +103,12 @@ export default function RoomBoatAddonForm({ bookingRoomId, info, onCreated }: Pr
     }
     setSubmitting(true);
     try {
-      await createRoomBoatAddon(bookingRoomId, { boat_type_id: Number(boatId), boat_round_id: Number(roundId), booking_date: date, num_passengers: passengers });
+      await createRoomBoatAddon(bookingRoomId, {
+        boat_type_id: Number(boatId),
+        boat_round_id: Number(roundId),
+        booking_date: date,
+        num_passengers: passengers,
+      });
       toast.success('จองรอบเรือด้วยสิทธิ์ห้องพักสำเร็จ');
       setRoundId('');
       await onCreated();
@@ -100,27 +126,91 @@ export default function RoomBoatAddonForm({ bookingRoomId, info, onCreated }: Pr
       </p>
       <p className="text-xs text-charcoal-500">ใช้ได้เฉพาะวันพักระหว่างวันเช็คอินและเช็คเอาต์ 1 สิทธิ์ต่อเรือ 1 ลำ</p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-xs font-semibold text-charcoal-600">วันที่ใช้บริการ
-          <input type="date" className="input-field mt-1" value={date} min={firstDate} max={info.valid_to ?? undefined} onChange={(event) => { setDate(event.target.value); setRoundId(''); }} required />
+        <label className="text-xs font-semibold text-charcoal-600">
+          วันที่ใช้บริการ
+          <input
+            type="date"
+            className="input-field mt-1"
+            value={date}
+            min={firstDate}
+            max={info.valid_to ?? undefined}
+            onChange={(event) => {
+              setDate(event.target.value);
+              setRoundId('');
+            }}
+            required
+          />
         </label>
-        <label className="text-xs font-semibold text-charcoal-600">ประเภทเรือ
-          <select className="input-field mt-1" value={boatId} onChange={(event) => { setBoatId(event.target.value); setRoundId(''); setPassengers(1); }} required>
+        <label className="text-xs font-semibold text-charcoal-600">
+          ประเภทเรือ
+          <select
+            className="input-field mt-1"
+            value={boatId}
+            onChange={(event) => {
+              setBoatId(event.target.value);
+              setRoundId('');
+              setPassengers(1);
+            }}
+            required
+          >
             <option value="">เลือกประเภทเรือ</option>
-            {boats.map((boat) => <option key={boat.id} value={boat.id}>{boat.name} ({boat.capacity} ที่นั่ง)</option>)}
+            {boats.map((boat) => (
+              <option key={boat.id} value={boat.id}>
+                {boat.name} ({boat.capacity} ที่นั่ง)
+              </option>
+            ))}
           </select>
         </label>
-        <label className="text-xs font-semibold text-charcoal-600">จำนวนผู้โดยสาร
-          <input type="number" className="input-field mt-1" value={passengers} min={1} max={maxPassengers} disabled={!selectedBoat} onChange={(event) => { setPassengers(Math.max(1, Math.min(maxPassengers, Math.floor(Number(event.target.value) || 1)))); setRoundId(''); }} required />
+        <label className="text-xs font-semibold text-charcoal-600">
+          จำนวนผู้โดยสาร
+          <input
+            type="number"
+            className="input-field mt-1"
+            value={passengers}
+            min={1}
+            max={maxPassengers}
+            disabled={!selectedBoat}
+            onChange={(event) => {
+              setPassengers(Math.max(1, Math.min(maxPassengers, Math.floor(Number(event.target.value) || 1))));
+              setRoundId('');
+            }}
+            required
+          />
         </label>
-        <label className="text-xs font-semibold text-charcoal-600">รอบเวลา
-          <select className="input-field mt-1" value={roundId} onChange={(event) => setRoundId(event.target.value)} disabled={!boatId || roundsLoading} required>
+        <label className="text-xs font-semibold text-charcoal-600">
+          รอบเวลา
+          <select
+            className="input-field mt-1"
+            value={roundId}
+            onChange={(event) => setRoundId(event.target.value)}
+            disabled={!boatId || roundsLoading}
+            required
+          >
             <option value="">{roundsLoading ? 'กำลังโหลดรอบ...' : 'เลือกรอบเวลา'}</option>
-            {rounds.map((round) => <option key={round.boat_round_id} value={round.boat_round_id} disabled={!round.available || round.remaining < boatCount || !isBoatSlotBookable(date, round.start_time, round.end_time, selectedDayHours, advanceMinutes)}>{formatTimeRange(round.start_time, round.end_time)} · เหลือ {round.remaining} ลำ</option>)}
+            {rounds.map((round) => (
+              <option
+                key={round.boat_round_id}
+                value={round.boat_round_id}
+                disabled={
+                  !round.available ||
+                  round.remaining < boatCount ||
+                  !isBoatSlotBookable(date, round.start_time, round.end_time, selectedDayHours, advanceMinutes)
+                }
+              >
+                {formatTimeRange(round.start_time, round.end_time)} · เหลือ {round.remaining} ลำ
+              </option>
+            ))}
           </select>
         </label>
       </div>
-      {info.mode === 'paid' && <p className="text-xs text-charcoal-600">เพิ่มค่าบริการ ฿{(Number(info.unit_price) * boatCount).toLocaleString()} ในยอดชำระห้องพัก</p>}
-      <button type="submit" className="btn-primary text-sm disabled:opacity-50" disabled={submitting || roundsLoading || !availableRound}>{submitting ? 'กำลังจอง...' : 'จองรอบเรือด้วยสิทธิ์นี้'}</button>
+      {info.mode === 'paid' && (
+        <p className="text-xs text-charcoal-600">
+          เพิ่มค่าบริการ ฿{(Number(info.unit_price) * boatCount).toLocaleString()} ในยอดชำระห้องพัก
+        </p>
+      )}
+      <button type="submit" className="btn-primary text-sm disabled:opacity-50" disabled={submitting || roundsLoading || !availableRound}>
+        {submitting ? 'กำลังจอง...' : 'จองรอบเรือด้วยสิทธิ์นี้'}
+      </button>
     </form>
   );
 }

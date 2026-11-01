@@ -12,13 +12,9 @@ interface ReminderRow {
   type_name: string | null;
 }
 
-// ส่ง email แจ้งเตือนให้รีวิวหลัง check-out
-// - เลือกบิลที่ approved/checked_out, ทุกห้องที่ไม่ได้ยกเลิก checked_out แล้ว, และยังไม่เคยส่งเตือน
-// - ข้ามบิลก็ต่อเมื่อ "ทุกประเภทห้อง" ในบิลมีรีวิวแล้ว (ถ้ายังมีประเภทที่ยังไม่รีวิว ยังส่งเตือน)
-// - claim flag review_reminder_sent ก่อนส่ง เพื่อกันส่งซ้ำ และคืน flag เป็น false ถ้าส่งไม่สำเร็จ
+// ค้นหาบิลที่เช็คเอาท์แล้วและส่งอีเมลเชิญชวนให้ลูกค้ารีวิวห้องพัก
 export const sendPendingReviewReminders = async (): Promise<void> => {
   try {
-    // หา booking ที่ check_out ผ่านมาแล้ว (เมื่อวานหรือวันนี้) และยังต้องเตือนรีวิว
     const result = await pool.query(
       `SELECT rb.room_booking_id, rb.check_in, rb.check_out,
               m.email, m.first_name, m.last_name,
@@ -74,7 +70,6 @@ export const sendPendingReviewReminders = async (): Promise<void> => {
 
     for (const row of rows) {
       try {
-        // claim: เฉพาะรอบที่ UPDATE สำเร็จเท่านั้นที่ได้ส่ง
         const claim = await pool.query(
           `UPDATE room_bookings SET review_reminder_sent = true
            WHERE room_booking_id = $1 AND review_reminder_sent IS NOT TRUE
@@ -95,7 +90,6 @@ export const sendPendingReviewReminders = async (): Promise<void> => {
           console.log(`[Review Reminder] Sent to ${row.email} for booking #${row.room_booking_id}`);
         } catch (mailErr) {
           console.error(`[Review Reminder] Failed to send to ${row.email}:`, mailErr);
-          // ส่งไม่สำเร็จ: คืนสิทธิ์ให้รอบถัดไปลองใหม่
           await pool.query(
             `UPDATE room_bookings SET review_reminder_sent = false WHERE room_booking_id = $1`,
             [row.room_booking_id]
@@ -112,10 +106,10 @@ export const sendPendingReviewReminders = async (): Promise<void> => {
   }
 };
 
-// เริ่ม interval ส่ง review reminder ทุก 1 ชั่วโมง
+// เริ่มต้นงานเบื้องหลังส่งอีเมลเตือนรีวิวทุก 1 ชั่วโมง
 export const startReviewReminderJob = (): void => {
-  const INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+  const INTERVAL_MS = 60 * 60 * 1000;
   console.log('[Review Reminder] Job started — runs every 1 hour');
-  sendPendingReviewReminders(); // run once on startup
+  sendPendingReviewReminders();
   setInterval(sendPendingReviewReminders, INTERVAL_MS);
 };

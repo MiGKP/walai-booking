@@ -6,12 +6,12 @@ import Link from 'next/link';
 import { Ticket, SlidersHorizontal, X, Star, Sailboat, Home, Check } from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
-import { setPostLoginRedirect } from '@/lib/auth-redirect';
 import { type CatalogPromo, parseAppliesTo } from '@/lib/promotions';
 import { PromoCollectAction, PromoVoucher } from '@/components/promotions/PromoVoucher';
 
 type AppliesFilter = 'all' | 'room' | 'kayak' | 'both';
 
+// แสดงรายการโปรโมชั่นทั้งหมดที่เปิดให้ลูกค้าเก็บคูปอง
 export default function PromotionsPage(): React.ReactElement {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
@@ -21,16 +21,15 @@ export default function PromotionsPage(): React.ReactElement {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
 
-  // แจ้งผลในหน้านี้เอง แล้วซ่อนอัตโนมัติหลัง 10 วินาที
   useEffect(() => {
     if (notice == null) return;
     const timer = setTimeout(() => setNotice(null), 10_000);
     return () => clearTimeout(timer);
   }, [notice]);
 
-  // Filters — เฉพาะ "ใช้ได้กับ" เท่านั้น
   const [appliesFilter, setAppliesFilter] = useState<AppliesFilter>('all');
 
+  // ดึงรายการโปรโมชั่นที่กำลังเปิดใช้งานจากระบบ
   const loadPromos = useCallback(async (): Promise<void> => {
     try {
       const res = await api.get<{ data: CatalogPromo[] }>('/promotions/active');
@@ -46,11 +45,12 @@ export default function PromotionsPage(): React.ReactElement {
     void loadPromos();
   }, [loadPromos]);
 
+  // เปลี่ยนเส้นทางไปยังหน้าเข้าสู่ระบบ
   const goLogin = (): void => {
-    setPostLoginRedirect('/promotions');
     router.push('/auth/login');
   };
 
+  // เก็บคูปองโปรโมชั่นเข้ากระเป๋าของลูกค้า
   const handleCollect = async (id: number): Promise<void> => {
     setCollectingId(id);
     try {
@@ -67,7 +67,6 @@ export default function PromotionsPage(): React.ReactElement {
   const filtered = useMemo(() => {
     return promos.filter((p) => {
       const scope = parseAppliesTo(p.applies_to);
-      // โปร "ห้องพักและเรือ" ต้องแสดงในตัวกรองห้องพักและเรือด้วย เพราะใช้ได้กับทั้งสองอย่าง
       if (scope === 'kayak') return false;
       if (appliesFilter === 'all') return true;
       if (appliesFilter === 'room' || appliesFilter === 'kayak') return scope === appliesFilter || scope === 'both';
@@ -78,13 +77,14 @@ export default function PromotionsPage(): React.ReactElement {
 
   const activeFiltersCount = [appliesFilter !== 'all'].filter(Boolean).length;
 
+  // ล้างตัวกรองโปรโมชั่นกลับเป็นค่าเริ่มต้น
   const resetFilters = (): void => {
     setAppliesFilter('all');
   };
 
+  // แสดงแผงตัวกรองประเภทโปรโมชั่น
   const renderFilterPanel = (): React.ReactElement => (
     <div className="space-y-4">
-      {/* ใช้ได้กับ */}
       <div>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-forest-800">
           ใช้ได้กับ
@@ -127,8 +127,6 @@ export default function PromotionsPage(): React.ReactElement {
   return (
     <div className="min-h-screen bg-cream-100 pb-24 pt-4">
       <div className="container mx-auto px-4 pt-16 sm:pt-20">
-
-        {/* Mobile Filter Toggle */}
         <div className="mb-4 flex items-center gap-3 md:hidden">
           <button
             type="button"
@@ -151,7 +149,6 @@ export default function PromotionsPage(): React.ReactElement {
           )}
         </div>
 
-        {/* Mobile Filter Drawer */}
         {sidebarOpen && (
           <div className="fixed inset-0 z-50 flex md:hidden">
             <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
@@ -168,7 +165,6 @@ export default function PromotionsPage(): React.ReactElement {
         )}
 
         <div className="flex gap-8">
-          {/* Left Sidebar — Desktop */}
           <aside className="hidden w-52 shrink-0 md:block">
             <div className="sticky top-28 rounded-2xl border border-stone-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(18,60,48,0.02),0_8px_24px_-8px_rgba(18,60,48,0.08)]">
               <div className="mb-4 flex items-center justify-between">
@@ -186,7 +182,6 @@ export default function PromotionsPage(): React.ReactElement {
             </div>
           </aside>
 
-          {/* Main Content */}
           <div className="flex-1 min-w-0">
             {notice && (
               <div
@@ -199,7 +194,6 @@ export default function PromotionsPage(): React.ReactElement {
                 )}
               </div>
             )}
-            {/* Result count + active chips */}
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <p className="text-sm text-charcoal-400">
                 {filtered.length} รายการ

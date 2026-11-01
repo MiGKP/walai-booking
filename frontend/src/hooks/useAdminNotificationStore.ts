@@ -1,5 +1,5 @@
-import { create } from "zustand";
-import api from "@/lib/api";
+import { create } from 'zustand';
+import api from '@/lib/api';
 
 export interface PendingNotificationItem {
   id: string;
@@ -30,9 +30,9 @@ interface AdminNotificationState {
   fetchNotifications: (silent?: boolean) => Promise<void>;
 }
 
-// If a booking changes while a request is in flight, refresh once more afterwards.
 let refreshQueued = false;
 
+// จัดการสถานะและดึงข้อมูลการแจ้งเตือนงานค้างของแอดมินและพนักงาน
 export const useAdminNotificationStore = create<AdminNotificationState>((set, get) => ({
   counts: {
     room_slips: 0,
@@ -47,6 +47,7 @@ export const useAdminNotificationStore = create<AdminNotificationState>((set, ge
   isFetching: false,
   lastFetchedAt: null,
 
+  // ดึงรายการแจ้งเตือนล่าสุดจากเซิร์ฟเวอร์
   fetchNotifications: async (silent = false) => {
     if (get().isFetching) {
       refreshQueued = true;
@@ -54,10 +55,12 @@ export const useAdminNotificationStore = create<AdminNotificationState>((set, ge
     }
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     if (!token) return;
+
     set({ isFetching: true });
     if (!silent) {
       set({ isLoading: true });
     }
+
     try {
       const res = await api.get<{
         success: boolean;
@@ -65,7 +68,7 @@ export const useAdminNotificationStore = create<AdminNotificationState>((set, ge
           counts: NotificationCounts;
           recent_items: PendingNotificationItem[];
         };
-      }>("/settings/notifications/pending", { timeout: 10000 });
+      }>('/settings/notifications/pending', { timeout: 10000 });
 
       if (res.data?.success && res.data.data && localStorage.getItem('token') === token) {
         set({
@@ -75,7 +78,7 @@ export const useAdminNotificationStore = create<AdminNotificationState>((set, ge
         });
       }
     } catch {
-      // Ignore background fetch errors to prevent disrupting user UI
+      // ข้าม error จากการดึงข้อมูลเบื้องหลัง
     } finally {
       set({ isLoading: false, isFetching: false });
       if (refreshQueued) {

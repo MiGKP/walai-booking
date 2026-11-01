@@ -31,6 +31,7 @@ interface MyReview {
   check_out: string;
 }
 
+// แสดงและเลือกคะแนนดาวสำหรับรีวิวห้องพัก
 function StarRating({ value, onChange, readonly = false }: { value: number; onChange?: (v: number) => void; readonly?: boolean }) {
   const [hovered, setHovered] = useState(0);
   return (
@@ -47,7 +48,7 @@ function StarRating({ value, onChange, readonly = false }: { value: number; onCh
         >
           <Star
             size={readonly ? 15 : 26}
-            className={`transition-colors ${(hovered || value) >= star ? 'text-bamboo-500 fill-bamboo-500' : 'text-stone-300'}`}
+            className={`transition-colors ${(hovered || value) >= star ? 'fill-bamboo-500 text-bamboo-500' : 'text-stone-300'}`}
           />
         </button>
       ))}
@@ -55,11 +56,12 @@ function StarRating({ value, onChange, readonly = false }: { value: number; onCh
   );
 }
 
+// แปลงวันที่เป็นรูปแบบภาษาไทยแบบย่อ
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// แท็บ "รีวิวของฉัน" แบบฝังในหน้า dashboard เดียวกัน ไม่ต้องสลับไปหน้า /reviews
+// แสดงแท็บจัดการรีวิวของลูกค้าทั้งรายการรอรีวิวและรีวิวที่เขียนแล้ว
 export default function MyReviewsSection(): React.ReactElement {
   const [tab, setTab] = useState<'pending' | 'done'>('pending');
   const [reviewable, setReviewable] = useState<ReviewableBooking[]>([]);
@@ -78,6 +80,7 @@ export default function MyReviewsSection(): React.ReactElement {
     fetchAll();
   }, []);
 
+  // โหลดรายการที่สามารถรีวิวได้และรายการรีวิวของฉันทั้งหมด
   async function fetchAll() {
     setLoading(true);
     try {
@@ -94,14 +97,19 @@ export default function MyReviewsSection(): React.ReactElement {
     }
   }
 
+  // เปิดหน้าต่างเขียนรีวิวใหม่สำหรับการจองที่เลือก
   const openCreate = (booking: ReviewableBooking) => {
     setCreating(booking);
     setForm({ rating: 0, comment: '' });
   };
 
+  // ส่งข้อมูลรีวิวใหม่ไปยังเซิร์ฟเวอร์
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.rating === 0) { toast.error('กรุณาเลือกคะแนน'); return; }
+    if (form.rating === 0) {
+      toast.error('กรุณาเลือกคะแนน');
+      return;
+    }
     setSubmitting(true);
     try {
       await api.post('/reviews', {
@@ -120,14 +128,19 @@ export default function MyReviewsSection(): React.ReactElement {
     }
   };
 
+  // เปิดหน้าต่างแก้ไขรีวิวที่มีอยู่
   const openEdit = (review: MyReview) => {
     setEditing(review);
     setEditForm({ rating: review.rating, comment: review.comment || '' });
   };
 
+  // บันทึกการแก้ไขรีวิวไปยังเซิร์ฟเวอร์
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editForm.rating === 0) { toast.error('กรุณาเลือกคะแนน'); return; }
+    if (editForm.rating === 0) {
+      toast.error('กรุณาเลือกคะแนน');
+      return;
+    }
     setEditSubmitting(true);
     try {
       await api.put(`/reviews/${editing!.review_id}`, editForm);
@@ -141,6 +154,7 @@ export default function MyReviewsSection(): React.ReactElement {
     }
   };
 
+  // ยืนยันและลบรีวิวออกจากระบบ
   const handleDelete = (reviewId: number) => {
     toastConfirm({
       title: 'ต้องการลบรีวิวนี้หรือไม่?',
@@ -153,10 +167,11 @@ export default function MyReviewsSection(): React.ReactElement {
         } catch {
           toast.error('ลบรีวิวไม่สำเร็จ');
         }
-      }
+      },
     });
   };
 
+  // แปลงตัวเลขคะแนนเป็นข้อความประเมินภาษาไทย
   const ratingLabel = (r: number) => ['', 'แย่มาก', 'แย่', 'พอใช้', 'ดี', 'ดีมาก'][r] || '';
 
   return (
@@ -181,7 +196,9 @@ export default function MyReviewsSection(): React.ReactElement {
 
       {loading ? (
         <div className="space-y-3">
-          {[1, 2].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-stone-100" />)}
+          {[1, 2].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-2xl bg-stone-100" />
+          ))}
         </div>
       ) : tab === 'pending' ? (
         reviewable.length === 0 ? (
@@ -198,11 +215,15 @@ export default function MyReviewsSection(): React.ReactElement {
                   {booking.room_image ? (
                     <img src={resolveMediaUrl(booking.room_image)} alt={booking.room_name} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="grid h-full w-full place-items-center text-forest-300"><Waves size={28} /></div>
+                    <div className="grid h-full w-full place-items-center text-forest-300">
+                      <Waves size={28} />
+                    </div>
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-forest-900">{booking.room_name} {booking.type_name ? `(${booking.type_name})` : ''}</p>
+                  <p className="text-sm font-bold text-forest-900">
+                    {booking.room_name} {booking.type_name ? `(${booking.type_name})` : ''}
+                  </p>
                   <p className="mt-0.5 text-xs text-charcoal-400">
                     เช็คอิน {formatDate(booking.check_in)} — เช็คเอาต์ {formatDate(booking.check_out)}
                   </p>
@@ -232,17 +253,27 @@ export default function MyReviewsSection(): React.ReactElement {
                   {review.room_image ? (
                     <img src={resolveMediaUrl(review.room_image)} alt={review.room_name} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="grid h-full w-full place-items-center text-forest-300"><Waves size={28} /></div>
+                    <div className="grid h-full w-full place-items-center text-forest-300">
+                      <Waves size={28} />
+                    </div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="truncate text-sm font-bold text-forest-900">{review.room_name} {review.type_name ? `(${review.type_name})` : ''}</p>
+                    <p className="truncate text-sm font-bold text-forest-900">
+                      {review.room_name} {review.type_name ? `(${review.type_name})` : ''}
+                    </p>
                     <div className="flex shrink-0 gap-1">
-                      <button onClick={() => openEdit(review)} className="rounded-lg p-1.5 text-charcoal-400 transition-colors hover:bg-stone-50 hover:text-forest-700">
+                      <button
+                        onClick={() => openEdit(review)}
+                        className="rounded-lg p-1.5 text-charcoal-400 transition-colors hover:bg-stone-50 hover:text-forest-700"
+                      >
                         <PenLine size={14} />
                       </button>
-                      <button onClick={() => handleDelete(review.review_id)} className="rounded-lg p-1.5 text-charcoal-400 transition-colors hover:bg-stone-50 hover:text-red-600">
+                      <button
+                        onClick={() => handleDelete(review.review_id)}
+                        className="rounded-lg p-1.5 text-charcoal-400 transition-colors hover:bg-stone-50 hover:text-red-600"
+                      >
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -265,9 +296,11 @@ export default function MyReviewsSection(): React.ReactElement {
         </div>
       )}
 
-      {/* Create Review Modal */}
       {creating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-xs" onClick={() => setCreating(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-xs"
+          onClick={() => setCreating(null)}
+        >
           <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-stone-100 bg-stone-50 px-6 py-4">
               <h3 className="font-sans text-base font-bold text-forest-900">เขียนรีวิว</h3>
@@ -276,12 +309,18 @@ export default function MyReviewsSection(): React.ReactElement {
               </button>
             </div>
             <div className="px-6 pb-2 pt-4">
-              <p className="text-sm font-semibold text-charcoal-700">{creating.room_name} {creating.type_name ? `(${creating.type_name})` : ''}</p>
-              <p className="text-xs text-charcoal-400">{formatDate(creating.check_in)} — {formatDate(creating.check_out)}</p>
+              <p className="text-sm font-semibold text-charcoal-700">
+                {creating.room_name} {creating.type_name ? `(${creating.type_name})` : ''}
+              </p>
+              <p className="text-xs text-charcoal-400">
+                {formatDate(creating.check_in)} — {formatDate(creating.check_out)}
+              </p>
             </div>
             <form onSubmit={handleCreate} className="space-y-4 p-6 pt-3">
               <div>
-                <label className="mb-2 block text-xs font-semibold text-charcoal-600">คะแนน <span className="text-red-500">*</span></label>
+                <label className="mb-2 block text-xs font-semibold text-charcoal-600">
+                  คะแนน <span className="text-red-500">*</span>
+                </label>
                 <div className="flex items-center gap-3">
                   <StarRating value={form.rating} onChange={(v) => setForm({ ...form, rating: v })} />
                   {form.rating > 0 && <span className="text-xs font-semibold text-bamboo-600">{ratingLabel(form.rating)}</span>}
@@ -298,8 +337,18 @@ export default function MyReviewsSection(): React.ReactElement {
                 />
               </div>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setCreating(null)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-sm font-bold text-charcoal-600 transition-colors hover:bg-stone-50">ยกเลิก</button>
-                <button type="submit" disabled={submitting || form.rating === 0} className="btn-primary flex-1 disabled:cursor-not-allowed disabled:opacity-60">
+                <button
+                  type="button"
+                  onClick={() => setCreating(null)}
+                  className="flex-1 rounded-xl border border-stone-200 py-2.5 text-sm font-bold text-charcoal-600 transition-colors hover:bg-stone-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || form.rating === 0}
+                  className="btn-primary flex-1 disabled:cursor-not-allowed disabled:opacity-60"
+                >
                   {submitting ? 'กำลังบันทึก...' : 'ส่งรีวิว'}
                 </button>
               </div>
@@ -308,9 +357,11 @@ export default function MyReviewsSection(): React.ReactElement {
         </div>
       )}
 
-      {/* Edit Review Modal */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-xs" onClick={() => setEditing(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-forest-950/40 p-4 backdrop-blur-xs"
+          onClick={() => setEditing(null)}
+        >
           <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-stone-100 bg-stone-50 px-6 py-4">
               <h3 className="font-sans text-base font-bold text-forest-900">แก้ไขรีวิว</h3>
@@ -319,12 +370,18 @@ export default function MyReviewsSection(): React.ReactElement {
               </button>
             </div>
             <div className="px-6 pb-2 pt-4">
-              <p className="text-sm font-semibold text-charcoal-700">{editing.room_name} {editing.type_name ? `(${editing.type_name})` : ''}</p>
-              <p className="text-xs text-charcoal-400">{formatDate(editing.check_in)} — {formatDate(editing.check_out)}</p>
+              <p className="text-sm font-semibold text-charcoal-700">
+                {editing.room_name} {editing.type_name ? `(${editing.type_name})` : ''}
+              </p>
+              <p className="text-xs text-charcoal-400">
+                {formatDate(editing.check_in)} — {formatDate(editing.check_out)}
+              </p>
             </div>
             <form onSubmit={handleEdit} className="space-y-4 p-6 pt-3">
               <div>
-                <label className="mb-2 block text-xs font-semibold text-charcoal-600">คะแนน <span className="text-red-500">*</span></label>
+                <label className="mb-2 block text-xs font-semibold text-charcoal-600">
+                  คะแนน <span className="text-red-500">*</span>
+                </label>
                 <div className="flex items-center gap-3">
                   <StarRating value={editForm.rating} onChange={(v) => setEditForm({ ...editForm, rating: v })} />
                   {editForm.rating > 0 && <span className="text-xs font-semibold text-bamboo-600">{ratingLabel(editForm.rating)}</span>}
@@ -341,8 +398,18 @@ export default function MyReviewsSection(): React.ReactElement {
                 />
               </div>
               <div className="flex gap-2">
-                <button type="button" onClick={() => setEditing(null)} className="flex-1 rounded-xl border border-stone-200 py-2.5 text-sm font-bold text-charcoal-600 transition-colors hover:bg-stone-50">ยกเลิก</button>
-                <button type="submit" disabled={editSubmitting || editForm.rating === 0} className="btn-primary flex-1 disabled:cursor-not-allowed disabled:opacity-60">
+                <button
+                  type="button"
+                  onClick={() => setEditing(null)}
+                  className="flex-1 rounded-xl border border-stone-200 py-2.5 text-sm font-bold text-charcoal-600 transition-colors hover:bg-stone-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSubmitting || editForm.rating === 0}
+                  className="btn-primary flex-1 disabled:cursor-not-allowed disabled:opacity-60"
+                >
                   {editSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
                 </button>
               </div>

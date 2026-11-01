@@ -1,18 +1,19 @@
-import { Request, Response } from "express";
+import { Request, Response } from 'express';
+import type { PoolClient } from 'pg';
+import pool from '../config/database';
+import { AuthRequest } from '../middleware/auth.middleware';
+import { deleteCloudinaryImage } from '../services/cloudinary.service';
+import { mapDbError } from '../utils/db-errors';
+import { parsePositiveInt } from '../utils/ids';
 import { safeRollback } from '../utils/safe-rollback';
-import pool from "../config/database";
-import { deleteCloudinaryImage } from "../services/cloudinary.service";
-import { AuthRequest } from "../middleware/auth.middleware";
-import type { PoolClient } from "pg";
-import { mapDbError } from "../utils/db-errors";
-import { parsePositiveInt } from "../utils/ids";
 
-// is_admin=true จะแสดงห้อง/ประเภทห้องที่ปิดใช้งานได้ เฉพาะเมื่อผู้เรียกมี JWT ของ staff ที่มีสิทธิ์เท่านั้น
+// ตรวจสอบว่าผู้เรียกมีสิทธิ์ดูประเภทห้องพักที่ปิดใช้งานหรือไม่
 const canViewInactiveRooms = (req: Request): boolean => {
   const role = (req as AuthRequest).user?.role;
-  return role === "admin" || role === "room_staff";
+  return role === 'admin' || role === 'room_staff';
 };
 
+// แปลงรายการรหัสสิ่งอำนวยความสะดวกให้เป็นอาร์เรย์ของจำนวนเต็มบวก
 const normalizeAmenityIds = (value: unknown): number[] => {
   if (!Array.isArray(value)) {
     return [];
@@ -23,39 +24,39 @@ const normalizeAmenityIds = (value: unknown): number[] => {
     .filter((item) => Number.isInteger(item) && item > 0);
 };
 
-// References live in an integer array, so coordinate writers with amenity deletion explicitly.
+// ล็อกแถวสิ่งอำนวยความสะดวกเพื่อตรวจสอบว่ายังมีอยู่จริงก่อนบันทึกความสัมพันธ์
 const lockRoomAmenities = async (client: PoolClient, ids: number[]): Promise<boolean> => {
   const uniqueIds = [...new Set(ids)].sort((a, b) => a - b);
   if (uniqueIds.length === 0) return true;
   const result = await client.query(
     'SELECT id FROM room_amenities WHERE id = ANY($1::integer[]) ORDER BY id FOR SHARE',
-    [uniqueIds],
+    [uniqueIds]
   );
   return result.rows.length === uniqueIds.length;
 };
 
+// แปลงรายการลิงก์รูปภาพให้เป็นอาร์เรย์ของสตริงที่ไม่ว่าง
 const normalizeImagePaths = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value
-    .map((item) => String(item || "").trim())
+    .map((item) => String(item || '').trim())
     .filter((item) => item.length > 0);
 };
 
+// ลบไฟล์รูปภาพห้องพักที่ถูกนำออกแล้วออกจาก Cloudinary
 const cleanupRemovedRoomImages = async (urls: string[]): Promise<void> => {
-  const results = await Promise.allSettled(
-    urls.map((url) => deleteCloudinaryImage(url)),
-  );
+  const results = await Promise.allSettled(urls.map((url) => deleteCloudinaryImage(url)));
   results.forEach((result) => {
-    if (result.status === "rejected") {
-      console.error("Removed room image cleanup error:", result.reason);
+    if (result.status === 'rejected') {
+      console.error('Removed room image cleanup error:', result.reason);
     }
   });
 };
 
-// ตอบ error กลับตามรหัส PostgreSQL ถ้าเป็นความผิดพลาดจากข้อมูลผู้ใช้ มิฉะนั้นตอบ 500 แบบไม่เปิดเผยรายละเอียด
+// ส่งข้อความตอบกลับตามรหัสข้อผิดพลาดของฐานข้อมูลหรือตอบกลับ 500
 const respondWithDbError = (res: Response, error: unknown, label: string): void => {
   const mapped = mapDbError(error);
   if (mapped) {
@@ -63,19 +64,19 @@ const respondWithDbError = (res: Response, error: unknown, label: string): void 
     return;
   }
   console.error(label, error);
-  res.status(500).json({ success: false, message: "Internal server error" });
+  res.status(500).json({ success: false, message: 'Internal server error' });
 };
 
-// ยกเลิก transaction ที่ค้างอยู่ โดยไม่ให้ error ของ ROLLBACK บดบัง error เดิม
+// ยกเลิก transaction ที่ค้างอยู่โดยไม่ให้ error ของการ rollback บดบัง error หลัก
 const rollbackQuietly = async (client: PoolClient): Promise<void> => {
   try {
     await safeRollback(client);
   } catch (rollbackError) {
-    console.error("Rollback error:", rollbackError);
+    console.error('Rollback error:', rollbackError);
   }
 };
 
-// หมายเลขห้องที่ซ้ำกันเองภายในคำขอเดียวกัน
+// ค้นหารายการหมายเลขห้องที่ซ้ำกันเองภายในคำขอเดียวกัน
 const findDuplicateNumbers = (roomNumbers: string[]): string[] => {
   const seen = new Set<string>();
   const duplicates = new Set<string>();
@@ -86,10 +87,10 @@ const findDuplicateNumbers = (roomNumbers: string[]): string[] => {
   return Array.from(duplicates);
 };
 
-// ตรวจว่าค่าที่ส่งมาเป็นตัวเลขที่ใช้ได้ (ไม่ว่างและไม่ใช่ NaN)
+// ตรวจสอบว่าค่าที่ส่งมาสามารถแปลงเป็นตัวเลขที่ใช้งานได้หรือไม่
 const isNumberInput = (value: unknown): boolean => {
-  if (typeof value === "number") return Number.isFinite(value);
-  if (typeof value === "string") return value.trim() !== "" && Number.isFinite(Number(value));
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value === 'string') return value.trim() !== '' && Number.isFinite(Number(value));
   return false;
 };
 
@@ -105,16 +106,12 @@ interface RoomTypeRow {
   status: boolean;
 }
 
-// ดึงรายการประเภทห้องพักทั้งหมดที่เปิดใช้งานอยู่ พร้อมรูป, จำนวนห้องว่าง และสิ่งอำนวยความสะดวกสำหรับหน้าแสดงผลฝั่งลูกค้า
-export const getAllRooms = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// ดึงรายการประเภทห้องพักทั้งหมดพร้อมจำนวนห้องว่าง สิ่งอำนวยความสะดวก และโปรโมชั่น
+export const getAllRooms = async (req: Request, res: Response): Promise<void> => {
   try {
     const { min_price, max_price, capacity, check_in, check_out } = req.query;
-    const isAdmin = req.query.is_admin === "true" && canViewInactiveRooms(req);
+    const isAdmin = req.query.is_admin === 'true' && canViewInactiveRooms(req);
 
-    // ยึด $1 เป็น isAdmin เสมอ
     const params: any[] = [isAdmin];
     let idx = 2;
 
@@ -137,7 +134,6 @@ export const getAllRooms = async (
       availableCountSubquery = `(SELECT COUNT(*) FROM rooms r WHERE r.room_type_id = rt.id AND r.status = 'available')`;
     }
 
-    // ในไฟล์ Backend Controller (getAllRooms)
     let query = `
   SELECT rt.id, rt.room_name, rt.type_name, rt.description,
          rt.price as price_per_night, rt.capacity, rt.room_image as main_image, rt.status,
@@ -194,7 +190,7 @@ export const getAllRooms = async (
                     WHERE br.status NOT IN ('cancelled', 'rejected', 'checked_out')
                     AND rb.check_in < $2 AND rb.check_out > $3
                   )`
-               : ""
+               : ''
            }
          ) as rooms
   FROM room_types rt
@@ -214,29 +210,26 @@ export const getAllRooms = async (
       params.push(Number(capacity));
     }
 
-    query += " ORDER BY rt.price ASC";
+    query += ' ORDER BY rt.price ASC';
 
     const result = await pool.query(query, params);
     res.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error("Get rooms error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Get rooms error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// ดึงรายละเอียดของห้องพักตาม room type id
-export const getRoomById = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// ดึงรายละเอียดของประเภทห้องพักตามรหัสพร้อมรายการห้องย่อยและโปรโมชั่นที่ใช้ได้
+export const getRoomById = async (req: Request, res: Response): Promise<void> => {
   try {
     const roomTypeId = parsePositiveInt(req.params.id);
     if (roomTypeId === null) {
-      res.status(400).json({ success: false, message: "Invalid id" });
+      res.status(400).json({ success: false, message: 'Invalid id' });
       return;
     }
     const { check_in, check_out } = req.query;
-    const isAdmin = req.query.is_admin === "true" && canViewInactiveRooms(req);
+    const isAdmin = req.query.is_admin === 'true' && canViewInactiveRooms(req);
 
     let roomsSubquery: string;
     const params: any[] = [roomTypeId, isAdmin];
@@ -291,18 +284,18 @@ export const getRoomById = async (
       FROM room_types rt
       WHERE rt.id = $1 AND ($2::boolean IS TRUE OR rt.status = true)
     `,
-      params,
+      params
     );
 
     if (rtResult.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Room type not found" });
+      res.status(404).json({ success: false, message: 'Room type not found' });
       return;
     }
 
     res.json({ success: true, data: rtResult.rows[0] });
   } catch (error) {
-    console.error("Get room error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Get room error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
@@ -316,25 +309,21 @@ interface CalendarDay {
   is_full: boolean;
 }
 
-// ดึงสถานะห้องว่างรายคืนสำหรับปฏิทินจอง — ถ้าไม่ส่ง room_type_id จะรวมทุกประเภท
-// นับ 1 คืน = ช่วง check_in <= วันนั้น < check_out ให้ตรงกับเงื่อนไขตอนสร้าง booking
-export const getRoomCalendar = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// ดึงจำนวนห้องว่างรายคืนตามช่วงวันที่สำหรับแสดงบนปฏิทินการจอง
+export const getRoomCalendar = async (req: Request, res: Response): Promise<void> => {
   try {
     const { room_type_id, start, end } = req.query;
 
     if (
-      typeof start !== "string" ||
-      typeof end !== "string" ||
+      typeof start !== 'string' ||
+      typeof end !== 'string' ||
       !ISO_DATE_PATTERN.test(start) ||
       !ISO_DATE_PATTERN.test(end)
     ) {
       res.status(400).json({
         success: false,
-        message: "start และ end ต้องเป็นวันที่รูปแบบ YYYY-MM-DD",
-        code: "INVALID_RANGE",
+        message: 'start และ end ต้องเป็นวันที่รูปแบบ YYYY-MM-DD',
+        code: 'INVALID_RANGE',
       });
       return;
     }
@@ -342,39 +331,31 @@ export const getRoomCalendar = async (
     const startDate = new Date(`${start}T00:00:00Z`);
     const endDate = new Date(`${end}T00:00:00Z`);
 
-    if (
-      Number.isNaN(startDate.getTime()) ||
-      Number.isNaN(endDate.getTime()) ||
-      endDate < startDate
-    ) {
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate < startDate) {
       res.status(400).json({
         success: false,
-        message: "ช่วงวันที่ไม่ถูกต้อง",
-        code: "INVALID_RANGE",
+        message: 'ช่วงวันที่ไม่ถูกต้อง',
+        code: 'INVALID_RANGE',
       });
       return;
     }
 
-    const spanDays =
-      Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
+    const spanDays = Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
     if (spanDays > MAX_CALENDAR_DAYS) {
       res.status(400).json({
         success: false,
         message: `ขอข้อมูลได้ไม่เกิน ${MAX_CALENDAR_DAYS} วันต่อครั้ง`,
-        code: "RANGE_TOO_LARGE",
+        code: 'RANGE_TOO_LARGE',
       });
       return;
     }
 
-    const roomTypeId =
-      room_type_id === undefined || room_type_id === ""
-        ? null
-        : Number(room_type_id);
+    const roomTypeId = room_type_id === undefined || room_type_id === '' ? null : Number(room_type_id);
     if (roomTypeId !== null && !Number.isInteger(roomTypeId)) {
       res.status(400).json({
         success: false,
-        message: "room_type_id ไม่ถูกต้อง",
-        code: "INVALID_ROOM_TYPE",
+        message: 'room_type_id ไม่ถูกต้อง',
+        code: 'INVALID_ROOM_TYPE',
       });
       return;
     }
@@ -408,7 +389,7 @@ export const getRoomCalendar = async (
        FROM days d
        CROSS JOIN stock s
        ORDER BY d.day`,
-      [roomTypeId, start, end],
+      [roomTypeId, start, end]
     );
 
     const days: CalendarDay[] = result.rows.map((row) => {
@@ -432,29 +413,25 @@ export const getRoomCalendar = async (
       },
     });
   } catch (error) {
-    console.error("Get room calendar error:", error);
+    console.error('Get room calendar error:', error);
     res.status(500).json({
       success: false,
-      message: "Internal server error",
-      code: "SERVER_ERROR",
+      message: 'Internal server error',
+      code: 'SERVER_ERROR',
     });
   }
 };
 
-// ตรวจสอบว่าห้องประเภทที่เลือกยังมีห้องว่างในช่วงวันที่ต้องการหรือไม่ โดยตัดรายการที่ชนกับ booking เดิมออก
-export const checkRoomAvailability = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// ตรวจสอบว่าประเภทห้องพักที่เลือกมีห้องว่างในช่วงวันเช็คอินและเช็คเอาต์หรือไม่
+export const checkRoomAvailability = async (req: Request, res: Response): Promise<void> => {
   try {
     const { room_type_id, check_in_date, check_out_date } = req.query;
 
     if (!room_type_id || !check_in_date || !check_out_date) {
-      res.status(400).json({ success: false, message: "Missing parameters" });
+      res.status(400).json({ success: false, message: 'Missing parameters' });
       return;
     }
 
-    // Find a room of this type that is NOT booked during this period
     const availableRoom = await pool.query(
       `SELECT r.room_id, r.room_number
        FROM rooms r
@@ -466,7 +443,7 @@ export const checkRoomAvailability = async (
          WHERE br.status NOT IN ('cancelled', 'rejected', 'checked_out')
          AND (rb.check_in < $3 AND rb.check_out > $2)
        ) LIMIT 1`,
-      [room_type_id, check_in_date, check_out_date],
+      [room_type_id, check_in_date, check_out_date]
     );
 
     res.json({
@@ -477,56 +454,38 @@ export const checkRoomAvailability = async (
       },
     });
   } catch (error) {
-    console.error("Check availability error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Check availability error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// สร้างประเภทห้องพักใหม่ในระบบ และบันทึกความสัมพันธ์กับสิ่งอำนวยความสะดวกที่เลือกไว้
-export const createRoom = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// สร้างประเภทห้องพักใหม่พร้อมบันทึกรูปภาพแกลเลอรีและสิ่งอำนวยความสะดวก
+export const createRoom = async (req: Request, res: Response): Promise<void> => {
   let client: PoolClient | null = null;
   try {
-    const {
-      type_name,
-      description,
-      capacity,
-      price,
-      room_image,
-      amenities,
-      gallery_images,
-    } = req.body;
+    const { type_name, description, capacity, price, room_image, amenities, gallery_images } = req.body;
     const amenityIds = normalizeAmenityIds(amenities);
     const galleryImages = normalizeImagePaths(gallery_images);
 
     if (!room_image) {
-      res
-        .status(400)
-        .json({ success: false, message: "Room cover image is required" });
+      res.status(400).json({ success: false, message: 'Room cover image is required' });
       return;
     }
 
     client = await pool.connect();
-    await client.query("BEGIN");
-    if (!await lockRoomAmenities(client, amenityIds)) {
+    await client.query('BEGIN');
+    if (!(await lockRoomAmenities(client, amenityIds))) {
       await rollbackQuietly(client);
-      res.status(400).json({ success: false, message: "มีสิ่งอำนวยความสะดวกที่ถูกลบแล้ว กรุณาโหลดรายการใหม่" });
+      res.status(400).json({
+        success: false,
+        message: 'มีสิ่งอำนวยความสะดวกที่ถูกลบแล้ว กรุณาโหลดรายการใหม่',
+      });
       return;
     }
     const result = await client.query(
       `INSERT INTO room_types (room_name, type_name, description, capacity, price, room_image, amenity_ids, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, true) RETURNING *`,
-      [
-        type_name,
-        type_name,
-        description,
-        capacity,
-        price,
-        room_image,
-        amenityIds,
-      ],
+      [type_name, type_name, description, capacity, price, room_image, amenityIds]
     );
 
     const roomType = result.rows[0];
@@ -535,142 +494,110 @@ export const createRoom = async (
       await client.query(
         `INSERT INTO room_images (room_type_id, image_path)
          VALUES ($1, $2)`,
-        [roomType.id, imagePath],
+        [roomType.id, imagePath]
       );
     }
-    await client.query("COMMIT");
+    await client.query('COMMIT');
 
-    res
-      .status(201)
-      .json({ success: true, message: "Room type created", data: roomType });
+    res.status(201).json({ success: true, message: 'Room type created', data: roomType });
   } catch (error) {
     if (client) await rollbackQuietly(client);
-    respondWithDbError(res, error, "Create room error:");
+    respondWithDbError(res, error, 'Create room error:');
   } finally {
     client?.release();
   }
 };
 
-// สร้างห้องจริงรายห้องภายใต้ประเภทห้องที่มีอยู่แล้ว เช่น ห้องหมายเลข 101, 102 เพื่อใช้จองจริงในระบบ
-export const createSingleRoom = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// สร้างห้องพักจริงรายห้องภายใต้ประเภทห้องพักที่ระบุ
+export const createSingleRoom = async (req: Request, res: Response): Promise<void> => {
   try {
     const { room_type_id, room_number } = req.body;
 
-    if (!String(room_number ?? "").trim()) {
-      res.status(400).json({ success: false, message: "กรุณาระบุหมายเลขห้อง" });
+    if (!String(room_number ?? '').trim()) {
+      res.status(400).json({ success: false, message: 'กรุณาระบุหมายเลขห้อง' });
       return;
     }
 
-    // คำสั่ง INSERT เดียวเป็น atomic อยู่แล้ว จึงไม่ต้องครอบด้วย transaction
     const result = await pool.query(
       `INSERT INTO rooms (room_type_id, room_number, status) VALUES ($1, $2, 'available') RETURNING *`,
-      [room_type_id, room_number],
+      [room_type_id, room_number]
     );
 
-    res
-      .status(201)
-      .json({ success: true, message: "Room created", data: result.rows[0] });
+    res.status(201).json({ success: true, message: 'Room created', data: result.rows[0] });
   } catch (error) {
-    respondWithDbError(res, error, "Create single room error:");
+    respondWithDbError(res, error, 'Create single room error:');
   }
 };
 
-// สร้างสิ่งอำนวยความสะดวกใหม่
-export const createRoomAmenity = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// สร้างรายการสิ่งอำนวยความสะดวกใหม่สำหรับห้องพัก
+export const createRoomAmenity = async (req: Request, res: Response): Promise<void> => {
   try {
-    // 1. รับค่า status เพิ่มเติมจาก req.body (กำหนดค่าเริ่มต้นเป็น true หากไม่ได้ส่งมา)
     const { name, status = true } = req.body;
 
-    if (!String(name || "").trim()) {
-      res
-        .status(400)
-        .json({ success: false, message: "Amenity name is required" });
+    if (!String(name || '').trim()) {
+      res.status(400).json({ success: false, message: 'Amenity name is required' });
       return;
     }
 
-    // 2. เปลี่ยนตรง VALUES จาก true เป็น $2 เพื่อบันทึกค่าตามที่ส่งมาจากหน้าเว็บ
-    const result = await pool.query(
-      `INSERT INTO room_amenities (name, status) VALUES ($1, $2) RETURNING *`,
-      [String(name).trim(), Boolean(status)],
-    );
+    const result = await pool.query(`INSERT INTO room_amenities (name, status) VALUES ($1, $2) RETURNING *`, [
+      String(name).trim(),
+      Boolean(status),
+    ]);
 
     res.status(201).json({
       success: true,
-      message: "Amenity created",
+      message: 'Amenity created',
       data: result.rows[0],
     });
   } catch (error) {
-    console.error("Create amenity error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Create amenity error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// อัปเดตข้อมูลประเภทห้องพักเดิม แก้เฉพาะฟิลด์ที่ส่งมา ฟิลด์ที่ไม่ได้ส่งจะคงค่าเดิมไว้ (ส่ง null เพื่อล้างค่าได้เฉพาะฟิลด์ข้อความบางตัว)
-export const updateRoom = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// อัปเดตข้อมูลประเภทห้องพัก รูปภาพแกลเลอรี และลบไฟล์รูปที่ถูกนำออกจาก Cloudinary
+export const updateRoom = async (req: Request, res: Response): Promise<void> => {
   const roomTypeId = parsePositiveInt(req.params.id);
   if (roomTypeId === null) {
-    res.status(400).json({ success: false, message: "Invalid id" });
+    res.status(400).json({ success: false, message: 'Invalid id' });
     return;
   }
 
   let client: PoolClient | null = null;
   try {
     const body = req.body as Record<string, unknown>;
-    const has = (key: string): boolean =>
-      Object.prototype.hasOwnProperty.call(body, key);
+    const has = (key: string): boolean => Object.prototype.hasOwnProperty.call(body, key);
     const textOrNull = (key: string): string | null => {
       const raw = body[key];
-      return raw === null || raw === undefined || raw === ""
-        ? null
-        : String(raw);
+      return raw === null || raw === undefined || raw === '' ? null : String(raw);
     };
 
-    if (
-      (has("capacity") && !isNumberInput(body.capacity)) ||
-      (has("price") && !isNumberInput(body.price))
-    ) {
-      res
-        .status(400)
-        .json({ success: false, message: "ราคาและความจุต้องเป็นตัวเลข" });
+    if ((has('capacity') && !isNumberInput(body.capacity)) || (has('price') && !isNumberInput(body.price))) {
+      res.status(400).json({ success: false, message: 'ราคาและความจุต้องเป็นตัวเลข' });
       return;
     }
 
     client = await pool.connect();
-    await client.query("BEGIN");
+    await client.query('BEGIN');
 
-    const currentResult = await client.query<RoomTypeRow>(
-      "SELECT * FROM room_types WHERE id = $1 FOR UPDATE",
-      [roomTypeId],
-    );
+    const currentResult = await client.query<RoomTypeRow>('SELECT * FROM room_types WHERE id = $1 FOR UPDATE', [
+      roomTypeId,
+    ]);
     if (currentResult.rows.length === 0) {
       await rollbackQuietly(client);
-      res.status(404).json({ success: false, message: "Room type not found" });
+      res.status(404).json({ success: false, message: 'Room type not found' });
       return;
     }
     const current = currentResult.rows[0];
 
     const currentGalleryResult = await client.query<{ image_path: string }>(
-      "SELECT image_path FROM room_images WHERE room_type_id = $1",
-      [roomTypeId],
+      'SELECT image_path FROM room_images WHERE room_type_id = $1',
+      [roomTypeId]
     );
-    const previousGallery = currentGalleryResult.rows.map(
-      (row) => row.image_path,
-    );
+    const previousGallery = currentGalleryResult.rows.map((row) => row.image_path);
 
-    // gallery_images ไม่ได้ส่งมา = คงรูปเดิมไว้ ส่งมาแล้ว = แทนที่ทั้งชุด
-    const replaceGallery = has("gallery_images");
-    const galleryImages = replaceGallery
-      ? normalizeImagePaths(body.gallery_images)
-      : previousGallery;
+    const replaceGallery = has('gallery_images');
+    const galleryImages = replaceGallery ? normalizeImagePaths(body.gallery_images) : previousGallery;
 
     const requestedAmenities = body.amenity_ids ?? body.amenities;
     const amenityIds =
@@ -678,287 +605,231 @@ export const updateRoom = async (
         ? normalizeAmenityIds(current.amenity_ids)
         : normalizeAmenityIds(requestedAmenities);
 
-    const roomName = textOrNull("room_name") ?? current.room_name;
-    const typeName = textOrNull("type_name") ?? current.type_name;
-    const description = has("description")
-      ? textOrNull("description")
-      : current.description;
-    const capacity = has("capacity") ? Number(body.capacity) : current.capacity;
-    const price = has("price") ? Number(body.price) : current.price;
-    const roomImage = textOrNull("room_image") ?? current.room_image;
-    const status = has("status")
-      ? body.status === true || body.status === "true"
-      : current.status;
+    const roomName = textOrNull('room_name') ?? current.room_name;
+    const typeName = textOrNull('type_name') ?? current.type_name;
+    const description = has('description') ? textOrNull('description') : current.description;
+    const capacity = has('capacity') ? Number(body.capacity) : current.capacity;
+    const price = has('price') ? Number(body.price) : current.price;
+    const roomImage = textOrNull('room_image') ?? current.room_image;
+    const status = has('status') ? body.status === true || body.status === 'true' : current.status;
 
-    if (!await lockRoomAmenities(client, amenityIds)) {
+    if (!(await lockRoomAmenities(client, amenityIds))) {
       await rollbackQuietly(client);
-      res.status(400).json({ success: false, message: "มีสิ่งอำนวยความสะดวกที่ถูกลบแล้ว กรุณาโหลดรายการใหม่" });
+      res.status(400).json({
+        success: false,
+        message: 'มีสิ่งอำนวยความสะดวกที่ถูกลบแล้ว กรุณาโหลดรายการใหม่',
+      });
       return;
     }
     const result = await client.query(
       `UPDATE room_types SET room_name=$1, type_name=$2, description=$3, capacity=$4, price=$5,
        room_image=$6, amenity_ids=$7, status=$8
        WHERE id=$9 RETURNING *`,
-      [
-        roomName,
-        typeName,
-        description,
-        capacity,
-        price,
-        roomImage,
-        amenityIds,
-        status,
-        roomTypeId,
-      ],
+      [roomName, typeName, description, capacity, price, roomImage, amenityIds, status, roomTypeId]
     );
 
     if (replaceGallery) {
-      await client.query("DELETE FROM room_images WHERE room_type_id = $1", [
-        roomTypeId,
-      ]);
+      await client.query('DELETE FROM room_images WHERE room_type_id = $1', [roomTypeId]);
       for (const imagePath of galleryImages) {
         await client.query(
           `INSERT INTO room_images (room_type_id, image_path)
            VALUES ($1, $2)`,
-          [roomTypeId, imagePath],
+          [roomTypeId, imagePath]
         );
       }
     }
-    await client.query("COMMIT");
+    await client.query('COMMIT');
 
-    // ลบรูปจาก Cloudinary เฉพาะหลัง COMMIT สำเร็จ
-    const previousImages = [current.room_image ?? "", ...previousGallery].filter(
-      Boolean,
-    );
-    const retainedImages = new Set([roomImage ?? "", ...galleryImages]);
-    const removedImages = previousImages.filter(
-      (imagePath) => !retainedImages.has(imagePath),
-    );
+    const previousImages = [current.room_image ?? '', ...previousGallery].filter(Boolean);
+    const retainedImages = new Set([roomImage ?? '', ...galleryImages]);
+    const removedImages = previousImages.filter((imagePath) => !retainedImages.has(imagePath));
     await cleanupRemovedRoomImages(removedImages);
 
     res.json({
       success: true,
-      message: "Room type updated",
+      message: 'Room type updated',
       data: result.rows[0],
     });
   } catch (error) {
     if (client) await rollbackQuietly(client);
-    respondWithDbError(res, error, "Update room error:");
+    respondWithDbError(res, error, 'Update room error:');
   } finally {
     client?.release();
   }
 };
 
-// ลบประเภทห้องพัก (สั่งลบรูปภาพออกจาก Cloudinary หลัง COMMIT สำเร็จเท่านั้น)
-export const deleteRoom = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// ปิดการใช้งานประเภทห้องพักแทนการลบเพื่อรักษาประวัติการจอง
+export const deleteRoom = async (req: Request, res: Response): Promise<void> => {
   const roomTypeId = parsePositiveInt(req.params.id);
   if (roomTypeId === null) {
-    res.status(400).json({ success: false, message: "Invalid id" });
+    res.status(400).json({ success: false, message: 'Invalid id' });
     return;
   }
 
   try {
-    // ปิดใช้งานแทนการลบ: คงประวัติการจองไว้และไม่ติด foreign key (หน้าบ้านซ่อนประเภทที่ status = false)
-    const result = await pool.query(
-      "UPDATE room_types SET status = false WHERE id = $1",
-      [roomTypeId],
-    );
+    const result = await pool.query('UPDATE room_types SET status = false WHERE id = $1', [roomTypeId]);
     if (result.rowCount === 0) {
-      res.status(404).json({ success: false, message: "Room type not found" });
+      res.status(404).json({ success: false, message: 'Room type not found' });
       return;
     }
-    res.json({ success: true, message: "ปิดใช้งานประเภทห้องแล้ว" });
+    res.json({ success: true, message: 'ปิดใช้งานประเภทห้องแล้ว' });
   } catch (error) {
-    console.error("Deactivate room type error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Deactivate room type error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// ดึงรายการสิ่งอำนวยความสะดวกทั้งหมดเพื่อใช้ในหน้า form ฝั่ง admin และหน้าแสดงรายละเอียดห้องพัก
-export const getAmenities = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// ดึงรายการสิ่งอำนวยความสะดวกทั้งหมดพร้อมจำนวนประเภทห้องที่ใช้งานอยู่
+export const getAmenities = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(
       `SELECT a.id, a.name, a.status,
               (SELECT COUNT(*)::int FROM room_types rt WHERE a.id = ANY(rt.amenity_ids)) AS usage_count
-       FROM room_amenities a ORDER BY a.id ASC`,
+       FROM room_amenities a ORDER BY a.id ASC`
     );
     res.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error("Get amenities error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Get amenities error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// อัปเดตข้อมูลห้องย่อย เช่น หมายเลขห้อง สถานะ และประเภทห้อง
-export const updateSingleRoom = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// อัปเดตข้อมูลห้องพักย่อย เช่น หมายเลขห้อง สถานะ และประเภทห้อง
+export const updateSingleRoom = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { room_number, status, room_type_id } = req.body; // 👈 เพิ่ม room_type_id
+    const { room_number, status, room_type_id } = req.body;
 
-    // คำสั่ง UPDATE เดียวเป็น atomic อยู่แล้ว จึงไม่ต้องครอบด้วย transaction
     const result = await pool.query(
       `UPDATE rooms
        SET room_number = COALESCE($1, room_number),
            status = COALESCE($2, status),
            room_type_id = COALESCE($3, room_type_id)
        WHERE room_id = $4 RETURNING *`,
-      [room_number || null, status || null, room_type_id || null, id], // 👈 ส่ง parameter ให้ครบ 4 ตัว
+      [room_number || null, status || null, room_type_id || null, id]
     );
 
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Room not found" });
+      res.status(404).json({ success: false, message: 'Room not found' });
       return;
     }
-    res.json({ success: true, message: "Room updated", data: result.rows[0] });
+    res.json({ success: true, message: 'Room updated', data: result.rows[0] });
   } catch (error) {
-    respondWithDbError(res, error, "Update single room error:");
+    respondWithDbError(res, error, 'Update single room error:');
   }
 };
 
-// ลบห้องย่อยออกจากระบบ
-export const deleteSingleRoom = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// ลบห้องพักย่อยที่ไม่มีรายการจองค้างอยู่ออกจากระบบ
+export const deleteSingleRoom = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const bookingCheck = await pool.query(
       `SELECT COUNT(*) as count FROM booking_room WHERE room_id = $1 AND status NOT IN ('cancelled', 'rejected')`,
-      [id],
+      [id]
     );
     if (Number(bookingCheck.rows[0].count) > 0) {
       res.status(400).json({
         success: false,
-        message: "ไม่สามารถลบได้ เนื่องจากมีการจองที่ยังค้างอยู่",
+        message: 'ไม่สามารถลบได้ เนื่องจากมีการจองที่ยังค้างอยู่',
       });
       return;
     }
-    const result = await pool.query(
-      "DELETE FROM rooms WHERE room_id = $1 RETURNING *",
-      [id],
-    );
+    const result = await pool.query('DELETE FROM rooms WHERE room_id = $1 RETURNING *', [id]);
     if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: "Room not found" });
+      res.status(404).json({ success: false, message: 'Room not found' });
       return;
     }
-    res.json({ success: true, message: "Room deleted" });
+    res.json({ success: true, message: 'Room deleted' });
   } catch (error) {
-    console.error("Delete single room error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Delete single room error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// อัปเดตข้อมูลสิ่งอำนวยความสะดวก (ชื่อ และ สถานะ)
-export const updateAmenity = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// อัปเดตชื่อและสถานะของสิ่งอำนวยความสะดวกตามรหัส
+export const updateAmenity = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { name, status } = req.body;
 
-    if (!String(name || "").trim()) {
-      res
-        .status(400)
-        .json({ success: false, message: "Amenity name is required" });
+    if (!String(name || '').trim()) {
+      res.status(400).json({ success: false, message: 'Amenity name is required' });
       return;
     }
 
-    // UPDATE ทั้ง name และ status (แปลงค่า status เป็น boolean ก่อนอัปเดต)
     const result = await pool.query(
       `UPDATE room_amenities
        SET name = $1, status = COALESCE($2, status)
        WHERE id = $3
        RETURNING *`,
-      [String(name).trim(), status === undefined ? null : status === true || status === 'true', Number(id)],
+      [String(name).trim(), status === undefined ? null : status === true || status === 'true', Number(id)]
     );
 
     if (result.rowCount === 0) {
-      res.status(404).json({ success: false, message: "Amenity not found" });
+      res.status(404).json({ success: false, message: 'Amenity not found' });
       return;
     }
 
     res.json({
       success: true,
-      message: "Amenity updated successfully",
+      message: 'Amenity updated successfully',
       data: result.rows[0],
     });
   } catch (error) {
-    console.error("Update amenity error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Update amenity error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// ลบได้เฉพาะรายการที่ไม่มีประเภทห้องใช้งานอยู่ รวมถึงประเภทห้องที่ปิดใช้งาน
-export const deleteAmenity = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// ลบสิ่งอำนวยความสะดวกที่ไม่ได้ถูกอ้างอิงโดยประเภทห้องพักใดเลย
+export const deleteAmenity = async (req: Request, res: Response): Promise<void> => {
   const amenityId = parsePositiveInt(req.params.id);
   if (amenityId === null) {
-    res.status(400).json({ success: false, message: "Invalid id" });
+    res.status(400).json({ success: false, message: 'Invalid id' });
     return;
   }
 
   let client: PoolClient | null = null;
   try {
     client = await pool.connect();
-    await client.query("BEGIN");
+    await client.query('BEGIN');
 
-    const amenity = await client.query(
-      "SELECT id FROM room_amenities WHERE id = $1 FOR UPDATE",
-      [amenityId],
-    );
+    const amenity = await client.query('SELECT id FROM room_amenities WHERE id = $1 FOR UPDATE', [amenityId]);
 
     if (amenity.rows.length === 0) {
       await rollbackQuietly(client);
-      res.status(404).json({ success: false, message: "Amenity not found" });
+      res.status(404).json({ success: false, message: 'Amenity not found' });
       return;
     }
 
     const usage = await client.query(
       `SELECT id, COALESCE(type_name, room_name) AS name
        FROM room_types WHERE $1::integer = ANY(amenity_ids) ORDER BY id`,
-      [amenityId],
+      [amenityId]
     );
     if (usage.rows.length > 0) {
       await rollbackQuietly(client);
       res.status(409).json({
         success: false,
-        message: "ไม่สามารถลบได้ เนื่องจากยังมีประเภทห้องใช้งานอยู่ กรุณานำออกจากประเภทห้องก่อน",
+        message: 'ไม่สามารถลบได้ เนื่องจากยังมีประเภทห้องใช้งานอยู่ กรุณานำออกจากประเภทห้องก่อน',
         data: { used_by: usage.rows },
       });
       return;
     }
-    await client.query(
-      "DELETE FROM room_amenities WHERE id = $1",
-      [amenityId],
-    );
-    await client.query("COMMIT");
+    await client.query('DELETE FROM room_amenities WHERE id = $1', [amenityId]);
+    await client.query('COMMIT');
 
-    res.json({ success: true, message: "Amenity deleted" });
+    res.json({ success: true, message: 'Amenity deleted' });
   } catch (error) {
     if (client) await rollbackQuietly(client);
-    respondWithDbError(res, error, "Delete amenity error:");
+    respondWithDbError(res, error, 'Delete amenity error:');
   } finally {
     client?.release();
   }
 };
 
-// ดึงห้องย่อยทั้งหมดในระบบพร้อมชื่อประเภทห้อง
-export const getAllSingleRooms = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// ดึงรายการห้องพักย่อยทั้งหมดในระบบพร้อมข้อมูลประเภทห้องพัก
+export const getAllSingleRooms = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(`
       SELECT
@@ -974,30 +845,25 @@ export const getAllSingleRooms = async (
     `);
     res.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error("Get single rooms error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Get single rooms error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// 📌 อัปเดตสถานะ เปิด/ปิด การใช้งานประเภทห้องพัก (Toggle Status)
-export const toggleRoomTypeStatus = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// เปิดหรือปิดสถานะการใช้งานประเภทห้องพักตามรหัส
+export const toggleRoomTypeStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    // ตรวจสอบค่า status ที่ส่งมา
-    if (typeof status !== "boolean") {
+    if (typeof status !== 'boolean') {
       res.status(400).json({
         success: false,
-        message: "กรุณาระบุค่า status เป็น boolean (true/false)",
+        message: 'กรุณาระบุค่า status เป็น boolean (true/false)',
       });
       return;
     }
 
-    // UPDATE ข้อมูลตาราง room_types (ประเภทห้องพัก)
     const query = `
       UPDATE room_types
       SET status = $1
@@ -1006,76 +872,69 @@ export const toggleRoomTypeStatus = async (
     `;
     const result = await pool.query(query, [status, Number(id)]);
 
-    // กรณีไม่พบประเภทห้องตาม ID ที่ระบุ
     if (result.rowCount === 0) {
       res.status(404).json({
         success: false,
-        message: "ไม่พบข้อมูลประเภทห้องพักที่ต้องการอัปเดต",
+        message: 'ไม่พบข้อมูลประเภทห้องพักที่ต้องการอัปเดต',
       });
       return;
     }
 
     res.status(200).json({
       success: true,
-      message: "อัปเดตสถานะประเภทห้องพักสำเร็จ",
+      message: 'อัปเดตสถานะประเภทห้องพักสำเร็จ',
       data: result.rows[0],
     });
   } catch (error) {
-    console.error("Toggle room type status error:", error);
+    console.error('Toggle room type status error:', error);
     res.status(500).json({
       success: false,
-      message: "เกิดข้อผิดพลาดในการอัปเดตสถานะ",
+      message: 'เกิดข้อผิดพลาดในการอัปเดตสถานะ',
     });
   }
 };
 
-// 📌 อัปเดตสถานะ เปิด/ปิด การใช้งานสิ่งอำนวยความสะดวก (Toggle Amenity Status)
-export const toggleAmenityStatus = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// เปิดหรือปิดสถานะการใช้งานสิ่งอำนวยความสะดวกตามรหัส
+export const toggleAmenityStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    // ตรวจสอบค่า status ที่ส่งมา
-    if (typeof status !== "boolean") {
+    if (typeof status !== 'boolean') {
       res.status(400).json({
         success: false,
-        message: "กรุณาระบุค่า status เป็น boolean (true/false)",
+        message: 'กรุณาระบุค่า status เป็น boolean (true/false)',
       });
       return;
     }
 
-    // UPDATE ข้อมูลตาราง room_amenities สำหรับ PostgreSQL
-    const result = await pool.query(
-      `UPDATE room_amenities SET status = $1 WHERE id = $2 RETURNING *`,
-      [status, Number(id)],
-    );
+    const result = await pool.query(`UPDATE room_amenities SET status = $1 WHERE id = $2 RETURNING *`, [
+      status,
+      Number(id),
+    ]);
 
     if (result.rowCount === 0) {
       res.status(404).json({
         success: false,
-        message: "ไม่พบข้อมูลสิ่งอำนวยความสะดวกที่ต้องการอัปเดต",
+        message: 'ไม่พบข้อมูลสิ่งอำนวยความสะดวกที่ต้องการอัปเดต',
       });
       return;
     }
 
     res.json({
       success: true,
-      message: "อัปเดตสถานะสิ่งอำนวยความสะดวกสำเร็จ",
+      message: 'อัปเดตสถานะสิ่งอำนวยความสะดวกสำเร็จ',
       data: result.rows[0],
     });
   } catch (error) {
-    console.error("Toggle amenity status error:", error);
+    console.error('Toggle amenity status error:', error);
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: 'Internal server error',
     });
   }
 };
 
-// จำนวนห้องสูงสุดที่สร้างได้ในการเรียกหนึ่งครั้ง (Auto-Run)
 const MAX_BATCH_ROOM_QUANTITY = 50;
 
 interface BatchRoomInput {
@@ -1083,33 +942,28 @@ interface BatchRoomInput {
   room_number?: unknown;
 }
 
-// บันทึกห้องพักย่อยแบบหลายห้อง (รองรับทั้ง Hybrid Smart Mapping และ Auto-Run เดิม)
-export const createBatchSingleRooms = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// สร้างห้องพักย่อยพร้อมกันหลายห้องทั้งแบบระบุรายการเองและแบบรันเลขห้องอัตโนมัติ
+export const createBatchSingleRooms = async (req: Request, res: Response): Promise<void> => {
   let client: PoolClient | null = null;
   try {
     client = await pool.connect();
     const { rooms, room_type_id, quantity, start_number = 1, prefix: customPrefix } = req.body;
     const roomsToInsert: { roomTypeId: number; roomNumber: string }[] = [];
 
-    // --- กรณีที่ 1: รับข้อมูลแบบ Mapped Array จากหน้า Visual Preview บน Frontend ---
     if (Array.isArray(rooms) && rooms.length > 0) {
       for (const item of rooms as BatchRoomInput[]) {
         const roomTypeId = parsePositiveInt(item?.room_type_id);
-        const roomNumber = String(item?.room_number ?? "").trim();
-        if (roomTypeId === null || roomNumber === "") {
+        const roomNumber = String(item?.room_number ?? '').trim();
+        if (roomTypeId === null || roomNumber === '') {
           res.status(400).json({
             success: false,
-            message: "ข้อมูลห้องพักไม่ถูกต้อง กรุณาระบุประเภทห้องและหมายเลขห้อง",
+            message: 'ข้อมูลห้องพักไม่ถูกต้อง กรุณาระบุประเภทห้องและหมายเลขห้อง',
           });
           return;
         }
         roomsToInsert.push({ roomTypeId, roomNumber });
       }
     } else {
-      // --- กรณีที่ 2: Auto-Run แบบเดิม (Fallback) ---
       const parsedRoomTypeId = parsePositiveInt(room_type_id);
       const parsedQuantity = parsePositiveInt(quantity);
       const parsedStartNumber = parsePositiveInt(start_number);
@@ -1117,7 +971,7 @@ export const createBatchSingleRooms = async (
       if (parsedRoomTypeId === null || parsedQuantity === null) {
         res.status(400).json({
           success: false,
-          message: "กรุณาระบุประเภทห้องพักและจำนวนห้องที่ถูกต้อง",
+          message: 'กรุณาระบุประเภทห้องพักและจำนวนห้องที่ถูกต้อง',
         });
         return;
       }
@@ -1131,36 +985,34 @@ export const createBatchSingleRooms = async (
       if (parsedStartNumber === null) {
         res.status(400).json({
           success: false,
-          message: "เลขเริ่มต้นต้องเป็นจำนวนเต็มบวก",
+          message: 'เลขเริ่มต้นต้องเป็นจำนวนเต็มบวก',
         });
         return;
       }
 
-      const typeCheck = await client.query(
-        `SELECT type_name FROM room_types WHERE id = $1`,
-        [parsedRoomTypeId],
-      );
+      const typeCheck = await client.query(`SELECT type_name FROM room_types WHERE id = $1`, [parsedRoomTypeId]);
 
       if (typeCheck.rows.length === 0) {
         res.status(404).json({
           success: false,
-          message: "ไม่พบประเภทห้องพักที่ระบุในระบบ",
+          message: 'ไม่พบประเภทห้องพักที่ระบุในระบบ',
         });
         return;
       }
 
-      let cleanPrefix = "";
-      if (typeof customPrefix === "string") {
+      let cleanPrefix = '';
+      if (typeof customPrefix === 'string') {
         cleanPrefix = customPrefix.trim().toUpperCase();
       } else {
-        // หาจากห้องเดิมในประเภทนี้
         const existingRoomsRes = await client.query(
           `SELECT room_number FROM rooms WHERE room_type_id = $1 ORDER BY room_id DESC LIMIT 20`,
-          [parsedRoomTypeId],
+          [parsedRoomTypeId]
         );
         let detected: string | null = null;
         for (const row of existingRoomsRes.rows) {
-          const m = String(row.room_number || "").trim().match(/^([A-Za-z_-]+)(\d+)$/);
+          const m = String(row.room_number || '')
+            .trim()
+            .match(/^([A-Za-z_-]+)(\d+)$/);
           if (m && m[1]) {
             detected = m[1].toUpperCase();
             break;
@@ -1169,9 +1021,9 @@ export const createBatchSingleRooms = async (
         if (detected !== null) {
           cleanPrefix = detected;
         } else {
-          const typeName = typeCheck.rows[0].type_name || "";
+          const typeName = typeCheck.rows[0].type_name || '';
           const englishMatch = typeName.match(/[A-Za-z]/);
-          cleanPrefix = englishMatch ? englishMatch[0].toUpperCase() : "";
+          cleanPrefix = englishMatch ? englishMatch[0].toUpperCase() : '';
         }
       }
 
@@ -1183,27 +1035,22 @@ export const createBatchSingleRooms = async (
       }
     }
 
-    const duplicatesInRequest = findDuplicateNumbers(
-      roomsToInsert.map((room) => room.roomNumber),
-    );
+    const duplicatesInRequest = findDuplicateNumbers(roomsToInsert.map((room) => room.roomNumber));
     if (duplicatesInRequest.length > 0) {
       res.status(400).json({
         success: false,
-        message: `ไม่สามารถสร้างได้ เนื่องจากมีหมายเลขห้องซ้ำกันในคำขอเดียวกัน: ${duplicatesInRequest.join(", ")}`,
+        message: `ไม่สามารถสร้างได้ เนื่องจากมีหมายเลขห้องซ้ำกันในคำขอเดียวกัน: ${duplicatesInRequest.join(', ')}`,
       });
       return;
     }
 
-    // ตรวจหมายเลขห้องซ้ำกับข้อมูลในระบบ (ชั้นสุดท้ายคือ unique constraint ซึ่งจะได้ 23505 -> 409)
     const existingCheck = await client.query<{ room_number: string }>(
       `SELECT room_number FROM rooms WHERE room_number = ANY($1::text[])`,
-      [roomsToInsert.map((room) => room.roomNumber)],
+      [roomsToInsert.map((room) => room.roomNumber)]
     );
 
     if (existingCheck.rows.length > 0) {
-      const duplicateRooms = existingCheck.rows
-        .map((r) => r.room_number)
-        .join(", ");
+      const duplicateRooms = existingCheck.rows.map((r) => r.room_number).join(', ');
       res.status(400).json({
         success: false,
         message: `ไม่สามารถสร้างได้ เนื่องจากมีหมายเลขห้องซ้ำในระบบ: ${duplicateRooms}`,
@@ -1211,18 +1058,18 @@ export const createBatchSingleRooms = async (
       return;
     }
 
-    await client.query("BEGIN");
+    await client.query('BEGIN');
     const insertedRooms: unknown[] = [];
     for (const room of roomsToInsert) {
       const result = await client.query(
         `INSERT INTO rooms (room_type_id, room_number, status)
          VALUES ($1, $2, 'available')
          RETURNING *`,
-        [room.roomTypeId, room.roomNumber],
+        [room.roomTypeId, room.roomNumber]
       );
       insertedRooms.push(result.rows[0]);
     }
-    await client.query("COMMIT");
+    await client.query('COMMIT');
 
     res.status(201).json({
       success: true,
@@ -1231,57 +1078,46 @@ export const createBatchSingleRooms = async (
     });
   } catch (error) {
     if (client) await rollbackQuietly(client);
-    respondWithDbError(res, error, "Create batch single rooms error details:");
+    respondWithDbError(res, error, 'Create batch single rooms error details:');
   } finally {
     client?.release();
   }
 };
 
-// ดึงข้อมูล Prefix และ เลขห้องถัดไปอัตโนมัติ ตามประเภทห้อง
-export const getNextRoomNumber = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+// คำนวณอักษรนำหน้าและหมายเลขห้องถัดไปอัตโนมัติตามประเภทห้องพัก
+export const getNextRoomNumber = async (req: Request, res: Response): Promise<void> => {
   try {
     const { room_type_id, prefix: requestedPrefix } = req.query;
 
     if (!room_type_id) {
-      res
-        .status(400)
-        .json({ success: false, message: "กรุณาระบุ room_type_id" });
+      res.status(400).json({ success: false, message: 'กรุณาระบุ room_type_id' });
       return;
     }
 
-    // 1. ดึงประเภทห้องเพื่อตรวจสอบความถูกต้อง
-    const typeRes = await pool.query(
-      `SELECT type_name FROM room_types WHERE id = $1`,
-      [room_type_id],
-    );
+    const typeRes = await pool.query(`SELECT type_name FROM room_types WHERE id = $1`, [room_type_id]);
 
     if (typeRes.rows.length === 0) {
-      res.status(404).json({ success: false, message: "ไม่พบประเภทห้องพัก" });
+      res.status(404).json({ success: false, message: 'ไม่พบประเภทห้องพัก' });
       return;
     }
 
-    let prefix = "";
+    let prefix = '';
 
-    // กรณี A: ถ้าผู้ใช้ระบุ prefix มาเอง (เช่น จากการพิมพ์ใน Frontend)
-    if (typeof requestedPrefix === "string") {
+    if (typeof requestedPrefix === 'string') {
       prefix = requestedPrefix.trim().toUpperCase();
     } else {
-      // กรณี B: ตรวจจับอัตโนมัติจากห้องพักเดิมที่มีอยู่จริงของประเภทนี้ (Smart Auto-Detect)
       const existingRoomsRes = await pool.query(
         `SELECT room_number
          FROM rooms
          WHERE room_type_id = $1
          ORDER BY room_id DESC
          LIMIT 20`,
-        [room_type_id],
+        [room_type_id]
       );
 
       let detectedPrefix: string | null = null;
       for (const row of existingRoomsRes.rows) {
-        const numStr = String(row.room_number || "").trim();
+        const numStr = String(row.room_number || '').trim();
         const match = numStr.match(/^([A-Za-z_-]+)(\d+)$/);
         if (match && match[1]) {
           detectedPrefix = match[1].toUpperCase();
@@ -1292,19 +1128,16 @@ export const getNextRoomNumber = async (
       if (detectedPrefix !== null) {
         prefix = detectedPrefix;
       } else {
-        // หากยังไม่เคยมีห้องเดิมในประเภทนี้ ให้หาตัวอักษรภาษาอังกฤษแรกในชื่อประเภท (ถ้ามี)
-        const typeName = typeRes.rows[0].type_name || "";
+        const typeName = typeRes.rows[0].type_name || '';
         const englishMatch = typeName.match(/[A-Za-z]/);
         if (englishMatch) {
           prefix = englishMatch[0].toUpperCase();
         } else {
-          // หากเป็นภาษาไทยล้วน เช่น "ห้องธรรมดา" ให้เป็นค่าว่าง (ไม่นำตัวอักษรไทยตัวแรกมาเดา)
-          prefix = "";
+          prefix = '';
         }
       }
     }
 
-    // 2. ค้นหาเลขห้องล่าสุดที่ขึ้นต้นด้วย Prefix นี้
     let nextNumber = 1;
     if (prefix) {
       const result = await pool.query(
@@ -1313,7 +1146,7 @@ export const getNextRoomNumber = async (
          WHERE room_number ~* ('^' || $1 || '[0-9]+$')
          ORDER BY CAST(SUBSTRING(room_number FROM LENGTH($1) + 1) AS INTEGER) DESC
          LIMIT 1`,
-        [prefix],
+        [prefix]
       );
 
       if (result.rows.length > 0) {
@@ -1324,13 +1157,12 @@ export const getNextRoomNumber = async (
         }
       }
     } else {
-      // กรณีไม่มี Prefix (ห้องเป็นตัวเลขล้วน เช่น 101, 102)
       const result = await pool.query(
         `SELECT room_number
          FROM rooms
          WHERE room_number ~ '^[0-9]+$'
          ORDER BY CAST(room_number AS INTEGER) DESC
-         LIMIT 1`,
+         LIMIT 1`
       );
 
       if (result.rows.length > 0) {
@@ -1349,7 +1181,7 @@ export const getNextRoomNumber = async (
       },
     });
   } catch (error: any) {
-    console.error("Get next room number error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error('Get next room number error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

@@ -1,5 +1,5 @@
 "use client";
-import { getNewPasswordError, PASSWORD_HINT } from '@/lib/password-policy';
+import { getNewPasswordError, getPasswordStrength, PASSWORD_HINT } from '@/lib/password-policy';
 
 import { Suspense, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -21,6 +21,7 @@ import toast from 'react-hot-toast';
 
 const MIN_PASSWORD_LENGTH = 8;
 
+// ฟอร์มกรอกรหัส OTP และตั้งรหัสผ่านใหม่
 function ResetPasswordContent(): React.ReactElement | null {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,10 +43,12 @@ function ResetPasswordContent(): React.ReactElement | null {
 
   if (!ready) return null;
 
+  // อัปเดตค่าข้อมูลในฟอร์มตามชื่อฟิลด์
   const updateField = (field: keyof typeof form, value: string): void => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  // ตรวจสอบรหัส OTP และบันทึกรหัสผ่านใหม่ลงระบบ
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>
   ): Promise<void> => {
@@ -69,6 +72,7 @@ function ResetPasswordContent(): React.ReactElement | null {
     try {
       await api.post('/auth/reset-password', {
         email: form.email.trim().toLowerCase(),
+        accountType,
         account_type: accountType,
         otp: form.otp,
         new_password: form.new_password,
@@ -204,7 +208,31 @@ function ResetPasswordContent(): React.ReactElement | null {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              <p className="mt-2 text-xs text-stone-400">{PASSWORD_HINT}</p>
+              {(() => {
+                const strength = getPasswordStrength(form.new_password);
+                return (
+                  <div className="mt-2.5 space-y-1.5">
+                    <div className="grid grid-cols-4 gap-1.5" aria-hidden="true">
+                      {[1, 2, 3, 4].map((step) => (
+                        <div
+                          key={step}
+                          className={`h-1.5 rounded-full transition-colors duration-200 ${
+                            step <= strength.level ? strength.barColor : 'bg-stone-200'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs">
+                      <span className="text-stone-500">{PASSWORD_HINT}</span>
+                      {strength.label ? (
+                        <span className={`font-semibold ${strength.textColor}`}>
+                          {strength.label}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div>
@@ -304,6 +332,7 @@ function ResetPasswordContent(): React.ReactElement | null {
   );
 }
 
+// หน้าตั้งรหัสผ่านใหม่พร้อมรองรับพารามิเตอร์จาก URL
 export default function ResetPasswordPage(): React.ReactElement {
   return (
     <Suspense

@@ -15,6 +15,7 @@ interface ConfirmState extends ConfirmOptions {
   closeConfirm: () => void;
 }
 
+// จัดการสถานะของหน้าต่างยืนยันการทำงานส่วนกลาง (Global Confirm Modal)
 export const useConfirmStore = create<ConfirmState>((set) => ({
   isOpen: false,
   title: '',
@@ -23,15 +24,18 @@ export const useConfirmStore = create<ConfirmState>((set) => ({
   cancelText: 'ยกเลิก',
   danger: true,
   onConfirm: () => {},
-  
-  openConfirm: (options) => set({ 
-    isOpen: true, 
-    ...options,
-    confirmText: options.confirmText || 'ยืนยัน',
-    cancelText: options.cancelText || 'ยกเลิก',
-    danger: options.danger ?? true,
-    description: options.description || 'การกระทำนี้ไม่สามารถย้อนกลับได้ คุณแน่ใจหรือไม่?'
-  }),
-  
+
+  // เปิดหน้าต่างยืนยันพร้อมตั้งค่าข้อความและฟังก์ชันเมื่อกดยืนยัน
+  openConfirm: (options) =>
+    set({
+      isOpen: true,
+      ...options,
+      confirmText: options.confirmText || 'ยืนยัน',
+      cancelText: options.cancelText || 'ยกเลิก',
+      danger: options.danger ?? true,
+      description: options.description || 'การกระทำนี้ไม่สามารถย้อนกลับได้ คุณแน่ใจหรือไม่?',
+    }),
+
+  // ปิดหน้าต่างยืนยัน
   closeConfirm: () => set({ isOpen: false }),
 }));

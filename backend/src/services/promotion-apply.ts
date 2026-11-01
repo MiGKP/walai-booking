@@ -1,3 +1,4 @@
+// ข้อผิดพลาดเฉพาะสำหรับการตรวจสอบและคำนวณส่วนลดโปรโมชั่น
 export class PromoApplyError extends Error {
   constructor(message: string) {
     super(message);
@@ -60,22 +61,26 @@ export interface ApplyResult {
   headerPromotionId: number | null;
 }
 
+// แปลงค่าเป็นจำนวนเต็มบวกหรือคืนค่า null หากไม่ถูกต้อง
 function toPositiveInt(value: unknown): number | null {
   const n = Number(value);
   if (!Number.isInteger(n) || n < 1) return null;
   return n;
 }
 
+// แปลงค่าขอบเขตการใช้โปรโมชั่นให้เป็นชนิดข้อมูลที่ถูกต้อง
 export function parseAppliesTo(value: unknown): PromoAppliesTo {
   if (value === 'room' || value === 'kayak' || value === 'both') return value;
   return 'both';
 }
 
+// แปลงค่าประเภทการจอง (room หรือ kayak) จากข้อมูลขาเข้า
 export function parseBookingScope(value: unknown): BookingPromoScope | undefined {
   if (value === 'room' || value === 'kayak') return value;
   return undefined;
 }
 
+// ตรวจสอบว่าโปรโมชั่นสามารถใช้กับประเภทการจองที่ระบุได้หรือไม่
 export function promoAllowsScope(
   appliesTo: PromoAppliesTo,
   scope: BookingPromoScope | undefined
@@ -84,12 +89,14 @@ export function promoAllowsScope(
   return appliesTo === 'both' || appliesTo === scope;
 }
 
+// คืนข้อความแจ้งข้อผิดพลาดเมื่อใช้คูปองผิดประเภทการจอง
 export function promoScopeError(appliesTo: PromoAppliesTo): string {
-  if (appliesTo === 'room') return 'โค้ดนี้ใช้กับห้องพักเท่านั้น';
-  if (appliesTo === 'kayak') return 'โค้ดนี้ใช้กับเรือคายัคเท่านั้น';
-  return 'โค้ดนี้ใช้กับรายการนี้ไม่ได้';
+  if (appliesTo === 'room') return 'คูปองนี้ใช้กับห้องพักเท่านั้น';
+  if (appliesTo === 'kayak') return 'คูปองนี้ใช้กับเรือคายัคเท่านั้น';
+  return 'คูปองนี้ใช้กับรายการนี้ไม่ได้';
 }
 
+// ดึงรหัสโปรโมชั่นทั้งหมดจาก request body
 export function parsePromotionIds(body: Record<string, unknown>): number[] {
   if (Array.isArray(body.promotion_ids)) {
     const ids: number[] = [];
@@ -103,12 +110,12 @@ export function parsePromotionIds(body: Record<string, unknown>): number[] {
   return one != null ? [one] : [];
 }
 
-// วันปฏิทินตามเวลาไทย (Asia/Bangkok = UTC+7, ไม่มี DST) เทียบกับคอลัมน์ start_date/end_date (DATE)
+// แปลงเวลาเป็นวันที่ตามเวลาประเทศไทย (YYYY-MM-DD)
 function bangkokDayKey(d: Date): string {
   return new Date(d.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-// pg คืนค่า DATE เป็น Date เที่ยงคืนตาม timezone ของเซิร์ฟเวอร์ จึงอ่านวันจาก local components
+// แปลงค่าวันที่จากฐานข้อมูลเป็นรูปแบบ YYYY-MM-DD
 function dateColumnDayKey(value: string | Date): string {
   if (typeof value === 'string') return value.slice(0, 10);
   const y = value.getFullYear();
@@ -117,6 +124,7 @@ function dateColumnDayKey(value: string | Date): string {
   return `${y}-${m}-${dd}`;
 }
 
+// ตรวจสอบว่าโปรโมชั่นเปิดใช้งานอยู่ในช่วงวันที่กำหนดและยังมีสิทธิ์คงเหลือ
 export function isPromoInWindow(promo: CatalogPromo, now: Date): boolean {
   if (!promo.is_active) return false;
   const today = bangkokDayKey(now);
@@ -126,15 +134,18 @@ export function isPromoInWindow(promo: CatalogPromo, now: Date): boolean {
   return true;
 }
 
+// คืนรหัสโปรโมชั่นสำหรับเก็บที่หัวบิลเมื่อใช้คูปองเพียงใบเดียว
 export function headerPromotionId(ids: number[]): number | null {
   if (ids.length === 1) return ids[0];
   return null;
 }
 
+// ตรวจสอบว่าสถานะเดิมของบิลควรได้รับโควตาโปรโมชั่นคืนเมื่อยกเลิกหรือไม่
 export function shouldRestoreQuota(previousStatus: string): boolean {
   return previousStatus === 'pending' || previousStatus === 'paid';
 }
 
+// คำนวณสถานะของคูปองในกระเป๋าหลังใช้งานตามจำนวนสิทธิ์ต่อสมาชิก
 export function walletStatusAfterUse(
   limit: number | null,
   usedAfter: number
@@ -143,6 +154,7 @@ export function walletStatusAfterUse(
   return usedAfter >= limit ? 'used' : 'saved';
 }
 
+// คำนวณยอดส่วนลดและราคาคงเหลือของโปรโมชั่น 1 รายการ
 export function singleDiscount(
   promo: CatalogPromo,
   remaining: number,
@@ -170,27 +182,25 @@ export function singleDiscount(
   return { discountAmount, nextTotal };
 }
 
+// ตรวจสอบเงื่อนไขและคำนวณส่วนลดรวมสำหรับรายการโปรโมชั่นทั้งหมดที่เลือกใช้
 export function applyPromotionList(
   promosInOrder: CatalogPromo[],
   ctx: ApplyContext
 ): ApplyResult {
   const ids = promosInOrder.map((p) => p.id);
   if (new Set(ids).size !== ids.length) {
-    throw new PromoApplyError('ไม่สามารถใช้โค้ดซ้ำในบิลเดียวกันได้');
+    throw new PromoApplyError('ไม่สามารถใช้คูปองซ้ำในบิลเดียวกันได้');
   }
   if (promosInOrder.length > 1) {
     const allStackable = promosInOrder.every((p) => p.stackable);
     if (!allStackable) {
-      throw new PromoApplyError('โค้ดนี้ใช้ร่วมกับโปรโมชั่นอื่นไม่ได้');
+      throw new PromoApplyError('คูปองส่วนลดนี้ใช้ร่วมกับโปรโมชั่นอื่นไม่ได้');
     }
   }
 
   let remaining = ctx.basePrice;
   const lines: ApplyLine[] = [];
 
-  // จัดลำดับโปรโมชั่นอย่างคงที่ (deterministic):
-  // หักส่วนลดแบบจำนวนเงินคงที่ (fixed) ก่อน เพื่อให้ส่วนลดแบบเปอร์เซ็นต์ (percent) คิดจากยอดคงเหลือสุทธิ
-  // ป้องกันไม่ให้ client สลับลำดับเพื่อเอายอดลดเปอร์เซ็นต์จากฐานราคาเต็ม
   const sortedPromos = [...promosInOrder].sort((a, b) => {
     if (a.discount_type !== b.discount_type) {
       return a.discount_type === 'fixed' ? -1 : 1;
@@ -226,7 +236,7 @@ export function applyPromotionList(
     const wallet = ctx.walletsByPromoId[row.id];
     if (row.is_collectible) {
       if (wallet == null || wallet.status === 'expired') {
-        throw new PromoApplyError('ต้องเก็บโค้ดนี้ก่อนใช้');
+        throw new PromoApplyError('ต้องเก็บคูปองนี้ก่อนใช้');
       }
     }
     const used = ctx.memberUsedCountByPromoId[row.id] ?? 0;
@@ -234,7 +244,7 @@ export function applyPromotionList(
       row.usage_limit_per_member != null &&
       used >= row.usage_limit_per_member
     ) {
-      throw new PromoApplyError('ใช้โค้ดนี้ครบจำนวนครั้งแล้ว');
+      throw new PromoApplyError('ใช้คูปองนี้ครบจำนวนครั้งแล้ว');
     }
     const { discountAmount, nextTotal } = singleDiscount(
       ctx.skipMinPrice ? { ...row, min_price: null } : row,

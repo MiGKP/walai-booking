@@ -43,7 +43,6 @@ import {
   todayISO,
 } from "@/lib/date";
 
-
 interface Promotion extends CheckoutPromotion {}
 
 interface PhysicalRoom {
@@ -72,6 +71,7 @@ interface RoomType {
   rooms?: PhysicalRoom[] | null;
 }
 
+// หน้าค้นหาและแสดงรายการประเภทห้องพักทั้งหมด
 export default function RoomsPage() {
   return (
     <Suspense fallback={
@@ -84,6 +84,7 @@ export default function RoomsPage() {
   );
 }
 
+// เนื้อหาหลักสำหรับค้นหาห้องว่างตามช่วงวันที่และประเภทห้องพัก
 function RoomsPageContent(): React.ReactElement {
   const { user } = useAuth();
   const router = useRouter();
@@ -137,6 +138,7 @@ function RoomsPageContent(): React.ReactElement {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openPanel]);
 
+  // อัปเดตช่วงวันที่เข้าพักใน URL และล้างตะกร้าหากวันที่เปลี่ยน
   const handleRangeSelect = (next: DateRange | null): void => {
     if (typeof setDraftRange === 'function') {
       setDraftRange(next);
@@ -184,6 +186,7 @@ function RoomsPageContent(): React.ReactElement {
     }
   };
 
+  // ล้างตัวกรองประเภทห้องและวันที่ทั้งหมดกลับเป็นค่าเริ่มต้น
   const handleClearFilters = () => {
     setTypeFilter("all");
     setDraftRange(null);
@@ -200,6 +203,7 @@ function RoomsPageContent(): React.ReactElement {
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
+  // ยืนยันการค้นหาห้องว่างตามช่วงวันที่ที่เลือก
   const handleSearchSubmit = () => {
     const targetRange = draftRange;
     if (!targetRange?.end || nightsBetween(targetRange.start, targetRange.end) <= 0) {
@@ -217,9 +221,6 @@ function RoomsPageContent(): React.ReactElement {
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
     setOpenPanel(null);
   };
-
-  // การกดจองที่พักจากหน้ารายการจะพาไปเลือกเลขห้องที่หน้ารายละเอียดแทน (ดู Link "จองที่พัก" ด้านล่าง)
-  // เพื่อให้ลูกค้าเลือกห้องเจาะจงเองเสมอ แทนที่จะให้ระบบสุ่ม/auto-assign ห้องแรกที่ว่างให้แบบเดิม
 
   useEffect(() => {
     let cancelled = false;
@@ -297,7 +298,7 @@ function RoomsPageContent(): React.ReactElement {
                 </button>
                 {openPanel === "calendar" && (
                   <div
-                    className="animate-dropdown absolute left-0 top-full z-40 mt-3 w-full sm:w-[620px] md:w-[640px] max-w-[calc(100vw-2rem)] rounded-3xl border border-stone-200 bg-white p-4 sm:p-6 shadow-[0_20px_50px_rgba(18,60,48,0.18)] flex flex-col"
+                    className="fixed inset-0 z-50 flex flex-col bg-white p-4 sm:p-6 lg:absolute lg:inset-auto lg:left-0 lg:top-full lg:z-40 lg:mt-3 lg:w-[640px] lg:max-w-[calc(100vw-2rem)] lg:rounded-3xl lg:border lg:border-stone-200 lg:shadow-[0_20px_50px_rgba(18,60,48,0.18)] animate-dropdown"
                   >
                     <div className="mb-3 flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
                       <div>
@@ -326,7 +327,7 @@ function RoomsPageContent(): React.ReactElement {
                       </button>
                     </div>
 
-                    <div className="py-1 overflow-y-auto max-h-[75vh] sm:max-h-none sm:overflow-visible pr-1 sm:pr-0">
+                    <div className="py-1 flex-1 overflow-y-auto sm:max-h-none sm:overflow-visible pr-1 sm:pr-0">
                       <BookingCalendar
                         mode="range"
                         value={activeRange?.start ? activeRange : null}
@@ -340,7 +341,7 @@ function RoomsPageContent(): React.ReactElement {
                       />
                     </div>
 
-                    <div className="pt-3 mt-2 border-t border-stone-100 flex items-center justify-between shrink-0">
+                    <div className="pt-3 mt-2 border-t border-stone-100 flex items-center justify-between shrink-0 gap-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
                       <button
                         type="button"
                         onClick={() => handleRangeSelect(null)}
@@ -348,11 +349,20 @@ function RoomsPageContent(): React.ReactElement {
                       >
                         ล้างวันที่เลือก
                       </button>
-                      {activeNights > 0 && (
-                        <span className="text-xs font-semibold text-forest-800">
-                          เข้าพัก {activeNights} คืน
-                        </span>
-                      )}
+                      <div className="flex items-center gap-3">
+                        {activeNights > 0 && (
+                          <span className="hidden lg:inline text-xs font-semibold text-forest-800">
+                            เข้าพัก {activeNights} คืน
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setOpenPanel(null)}
+                          className="lg:hidden rounded-xl bg-forest-800 hover:bg-forest-900 active:scale-95 text-white font-bold text-xs sm:text-sm px-4 py-2 sm:px-5 sm:py-2.5 shadow-sm transition-all"
+                        >
+                          ค้นหาห้องว่าง {activeNights > 0 ? `(${activeNights} คืน)` : ''}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -475,7 +485,6 @@ function RoomsPageContent(): React.ReactElement {
             )}
           </section>
           
-          {/* Booking Summary: Desktop Sidebar & Mobile Sticky Bar */}
           {cart && cart.items && cart.items.length > 0 && (
             <>
               <aside className="hidden xl:block xl:w-[360px] shrink-0">
@@ -483,7 +492,6 @@ function RoomsPageContent(): React.ReactElement {
                   <BookingSummaryCard />
                 </div>
               </aside>
-              {/* Mobile sticky bar only: hide desktop card on mobile, show mobile bar */}
               <div className="xl:hidden [&>div:first-child]:hidden">
                 <BookingSummaryCard />
               </div>

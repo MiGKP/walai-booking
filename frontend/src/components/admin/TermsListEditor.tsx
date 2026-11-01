@@ -4,18 +4,19 @@ import { useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface TermsListEditorProps {
-  /** ข้อกำหนดทั้งหมดเก็บเป็นข้อความเดียว คั่นแต่ละข้อด้วยการขึ้นบรรทัดใหม่ (ตามคอลัมน์ additional_terms) */
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
   placeholder?: string;
 }
 
+// แปลงข้อความข้อกำหนดที่คั่นด้วยบรรทัดใหม่ให้เป็นอาร์เรย์ของแต่ละข้อ
 const parseTerms = (value: string): string[] => {
   const items = value ? value.split('\n').map((item) => item.trim()) : [];
   return items.length > 0 ? items : [''];
 };
 
+// แสดงรายการช่องกรอกข้อกำหนดเพิ่มเติมแบบเพิ่มและลบรายข้อได้
 export default function TermsListEditor({
   value,
   onChange,
@@ -24,24 +25,27 @@ export default function TermsListEditor({
 }: TermsListEditorProps): React.ReactElement {
   const [items, setItems] = useState<string[]>(() => parseTerms(value));
 
-  // รับค่าจากภายนอก (เช่น โหลดข้อมูลเสร็จ) โดยไม่รีเซ็ตแถวว่างที่ผู้ใช้กำลังพิมพ์
   useEffect(() => {
     setItems((prev) => (prev.filter(Boolean).join('\n') === value ? prev : parseTerms(value)));
   }, [value]);
 
+  // บันทึกรายการข้อกำหนดและส่งค่าที่รวมเป็นข้อความกลับไปยังฟอร์มหลัก
   const commit = (next: string[]): void => {
     setItems(next);
     onChange(next.filter(Boolean).join('\n'));
   };
 
+  // อัปเดตข้อความของข้อกำหนดในลำดับที่แก้ไข
   const handleChange = (index: number, text: string): void => {
     commit(items.map((item, i) => (i === index ? text : item)));
   };
 
+  // เพิ่มช่องกรอกข้อกำหนดใหม่ต่อท้ายรายการ
   const handleAdd = (): void => {
     setItems([...items, '']);
   };
 
+  // ลบข้อกำหนดในลำดับที่เลือกออกจากรายการ
   const handleRemove = (index: number): void => {
     const next = items.filter((_, i) => i !== index);
     commit(next.length > 0 ? next : ['']);

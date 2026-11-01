@@ -2,10 +2,16 @@
 @import 'leaflet/dist/leaflet.css' layer(components);
 @config '../../tailwind.config.ts';
 
-/* Preserve the existing v3 defaults during the v4 migration. */
+/* Preserve the existing v3 defaults during the v4 migration + readable type scale for Thai script. */
 @theme {
   --default-ring-width: 3px;
   --default-ring-color: var(--color-blue-500);
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.375rem;
+  --color-stone-400: #78736A;
+  --color-stone-500: #57534E;
 }
 
 :root {
@@ -20,7 +26,7 @@
   --color-stone-100: #F5F2EC;
   --color-stone-200: #E8E3DA;
   --color-stone-300: #D4CEC3;
-  --color-stone-400: #ADA89D;
+  --color-stone-400: #78736A;
 
   /* Easing */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);

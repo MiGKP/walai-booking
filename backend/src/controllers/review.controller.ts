@@ -5,7 +5,7 @@ import { mapDbError } from '../utils/db-errors';
 import { parsePositiveInt } from '../utils/ids';
 import { parsePagination, paginationMeta } from '../utils/pagination';
 
-// ดึงรีวิวล่าสุดสำหรับหน้าแรก (public)
+// ดึงรีวิวล่าสุดสำหรับแสดงผลบนหน้าแรก
 export const getPublicReviews = async (req: Request, res: Response): Promise<void> => {
   try {
     const limit = Math.min(Math.max(Number(req.query.limit) || 6, 1), 20);
@@ -28,7 +28,7 @@ export const getPublicReviews = async (req: Request, res: Response): Promise<voi
   }
 };
 
-// ดึงรีวิวทั้งหมดของ room_type นั้น (public) พร้อมชื่อผู้รีวิว
+// ดึงรีวิวทั้งหมดของประเภทห้องพักที่ระบุพร้อมคะแนนเฉลี่ย
 export const getReviewsByRoomType = async (req: Request, res: Response): Promise<void> => {
   try {
     const roomTypeId = parsePositiveInt(req.params.room_type_id);
@@ -47,17 +47,23 @@ export const getReviewsByRoomType = async (req: Request, res: Response): Promise
        ORDER BY rv.review_date DESC`,
       [roomTypeId]
     );
-    const avg = result.rows.length > 0
-      ? result.rows.reduce((sum: number, r: any) => sum + Number(r.rating), 0) / result.rows.length
-      : null;
-    res.json({ success: true, data: result.rows, avg_rating: avg ? Math.round(avg * 10) / 10 : null, total: result.rows.length });
+    const avg =
+      result.rows.length > 0
+        ? result.rows.reduce((sum: number, r: any) => sum + Number(r.rating), 0) / result.rows.length
+        : null;
+    res.json({
+      success: true,
+      data: result.rows,
+      avg_rating: avg ? Math.round(avg * 10) / 10 : null,
+      total: result.rows.length,
+    });
   } catch (error) {
     console.error('Get reviews error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// ดึงรีวิวของ member ที่ login อยู่ทั้งหมด
+// ดึงรายการรีวิวทั้งหมดของสมาชิกที่เข้าสู่ระบบอยู่
 export const getMyReviews = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -79,12 +85,10 @@ export const getMyReviews = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// ดึงประเภทห้องที่สมาชิกใช้บริการสิ้นสุดแล้วและยังไม่ได้รีวิว
+// ดึงรายการประเภทห้องพักที่สมาชิกเข้าพักเสร็จสิ้นแล้วและยังไม่ได้เขียนรีวิว
 export const getReviewableBookings = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
-    // หนึ่งแถวต่อ "ประเภทห้อง" ที่มีอยู่ในบิลนั้น (ไม่ใช่ต่อบิล) เพื่อให้รีวิวแยกตามประเภทห้องได้
-    // เมื่อจองหลายประเภทห้องรวมกันในบิลเดียว (เช่น 1 Standard + 1 Deluxe)
     const result = await pool.query(
       `SELECT DISTINCT rb.room_booking_id, rt.id AS room_type_id, rt.room_name, rt.type_name, rt.room_image,
               rb.check_in, rb.check_out
@@ -117,16 +121,25 @@ export const getReviewableBookings = async (req: Request, res: Response): Promis
   }
 };
 
-// ดึงรีวิวทั้งหมด (admin only)
+// ดึงรายการรีวิวทั้งหมดในระบบสำหรับผู้ดูแลระบบพร้อมตัวกรองและสรุปคะแนน
 export const getAllReviews = async (req: Request, res: Response): Promise<void> => {
   try {
     const { room_type_id, min_rating, max_rating, search } = req.query;
     const pagination = parsePagination(req.query);
     let whereClause = 'WHERE 1=1';
     const params: (string | number)[] = [];
-    if (room_type_id) { params.push(Number(room_type_id)); whereClause += ` AND rv.room_type_id = $${params.length}`; }
-    if (min_rating) { params.push(Number(min_rating)); whereClause += ` AND rv.rating >= $${params.length}`; }
-    if (max_rating) { params.push(Number(max_rating)); whereClause += ` AND rv.rating <= $${params.length}`; }
+    if (room_type_id) {
+      params.push(Number(room_type_id));
+      whereClause += ` AND rv.room_type_id = $${params.length}`;
+    }
+    if (min_rating) {
+      params.push(Number(min_rating));
+      whereClause += ` AND rv.rating >= $${params.length}`;
+    }
+    if (max_rating) {
+      params.push(Number(max_rating));
+      whereClause += ` AND rv.rating <= $${params.length}`;
+    }
     if (typeof search === 'string' && search.trim()) {
       params.push(`%${search.trim()}%`);
       whereClause += ` AND (CONCAT_WS(' ', m.first_name, m.last_name) ILIKE $${params.length}
@@ -140,15 +153,27 @@ export const getAllReviews = async (req: Request, res: Response): Promise<void> 
        ${whereClause}`;
     let aggregate: { total: number; avg_rating: number | null; ratingCounts: Record<number, number> } | undefined;
     if (pagination) {
-      const stats = await pool.query(`SELECT COUNT(*) AS total, AVG(rv.rating) AS avg_rating,
-        COUNT(*) FILTER (WHERE rv.rating = 5) AS rating_5,
-        COUNT(*) FILTER (WHERE rv.rating = 4) AS rating_4,
-        COUNT(*) FILTER (WHERE rv.rating = 3) AS rating_3,
-        COUNT(*) FILTER (WHERE rv.rating = 2) AS rating_2,
-        COUNT(*) FILTER (WHERE rv.rating = 1) AS rating_1 ${fromClause}`, params);
+      const stats = await pool.query(
+        `SELECT COUNT(*) AS total, AVG(rv.rating) AS avg_rating,
+          COUNT(*) FILTER (WHERE rv.rating = 5) AS rating_5,
+          COUNT(*) FILTER (WHERE rv.rating = 4) AS rating_4,
+          COUNT(*) FILTER (WHERE rv.rating = 3) AS rating_3,
+          COUNT(*) FILTER (WHERE rv.rating = 2) AS rating_2,
+          COUNT(*) FILTER (WHERE rv.rating = 1) AS rating_1 ${fromClause}`,
+        params
+      );
       const row = stats.rows[0];
-      aggregate = { total: Number(row.total), avg_rating: row.avg_rating == null ? null : Math.round(Number(row.avg_rating) * 10) / 10,
-        ratingCounts: { 1: Number(row.rating_1), 2: Number(row.rating_2), 3: Number(row.rating_3), 4: Number(row.rating_4), 5: Number(row.rating_5) } };
+      aggregate = {
+        total: Number(row.total),
+        avg_rating: row.avg_rating == null ? null : Math.round(Number(row.avg_rating) * 10) / 10,
+        ratingCounts: {
+          1: Number(row.rating_1),
+          2: Number(row.rating_2),
+          3: Number(row.rating_3),
+          4: Number(row.rating_4),
+          5: Number(row.rating_5),
+        },
+      };
     }
     const result = await pool.query(
       `SELECT rv.review_id, rv.rating, rv.comment, rv.review_date,
@@ -160,19 +185,24 @@ export const getAllReviews = async (req: Request, res: Response): Promise<void> 
        ${pagination ? `LIMIT $${params.length + 1} OFFSET $${params.length + 2}` : ''}`,
       pagination ? [...params, pagination.limit, pagination.offset] : params
     );
-    const avg = result.rows.length > 0
-      ? result.rows.reduce((sum: number, row: { rating: number }) => sum + Number(row.rating), 0) / result.rows.length : null;
-    res.json({ success: true, data: result.rows,
+    const avg =
+      result.rows.length > 0
+        ? result.rows.reduce((sum: number, row: { rating: number }) => sum + Number(row.rating), 0) / result.rows.length
+        : null;
+    res.json({
+      success: true,
+      data: result.rows,
       avg_rating: aggregate ? aggregate.avg_rating : avg == null ? null : Math.round(avg * 10) / 10,
       total: aggregate ? aggregate.total : result.rows.length,
-      ...(pagination && aggregate ? { pagination: paginationMeta(pagination, aggregate.total), summary: aggregate } : {}) });
+      ...(pagination && aggregate ? { pagination: paginationMeta(pagination, aggregate.total), summary: aggregate } : {}),
+    });
   } catch (error) {
     console.error('Get all reviews error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// ลบรีวิว (admin) — ลบได้ทุก review
+// ลบรีวิวใดๆ ในระบบโดยผู้ดูแลระบบ
 export const adminDeleteReview = async (req: Request, res: Response): Promise<void> => {
   try {
     const reviewId = parsePositiveInt(req.params.id);
@@ -180,10 +210,7 @@ export const adminDeleteReview = async (req: Request, res: Response): Promise<vo
       res.status(400).json({ success: false, message: 'รหัสรีวิวไม่ถูกต้อง' });
       return;
     }
-    const result = await pool.query(
-      'DELETE FROM reviews WHERE review_id=$1 RETURNING review_id',
-      [reviewId]
-    );
+    const result = await pool.query('DELETE FROM reviews WHERE review_id=$1 RETURNING review_id', [reviewId]);
     if (result.rows.length === 0) {
       res.status(404).json({ success: false, message: 'ไม่พบรีวิว' });
       return;
@@ -195,7 +222,7 @@ export const adminDeleteReview = async (req: Request, res: Response): Promise<vo
   }
 };
 
-// สร้างรีวิวใหม่ — หนึ่งรีวิวต่อประเภทห้องในการจองของสมาชิก
+// สร้างรีวิวใหม่สำหรับประเภทห้องพักที่สมาชิกเข้าพักเสร็จสิ้นแล้ว
 export const createReview = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -212,8 +239,6 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // ตรวจสอบว่า booking เป็นของ member, status เหมาะสม, และมีห้องประเภทนี้อยู่ในบิลจริง
-    // (จองหลายประเภทห้องในบิลเดียวกันได้ จึงต้องเช็คว่า room_type_id ที่ส่งมาตรงกับห้องเส้นใดเส้นหนึ่งในบิลนี้จริง)
     const bookingCheck = await pool.query(
       `SELECT 1 FROM room_bookings rb
        JOIN booking_room br ON br.room_booking_id = rb.room_booking_id
@@ -237,7 +262,6 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // ตรวจสอบว่ายังไม่เคยรีวิวห้องประเภทนี้ในบิลนี้ (ประเภทอื่นในบิลเดียวกันยังรีวิวแยกได้)
     const existing = await pool.query(
       'SELECT review_id FROM reviews WHERE room_booking_id = $1 AND member_id = $2 AND room_type_id = $3',
       [bookingId, user.id, roomTypeId]
@@ -265,7 +289,7 @@ export const createReview = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// แก้ไขรีวิว — เฉพาะเจ้าของเท่านั้น
+// แก้ไขคะแนนและข้อความรีวิวของสมาชิกที่เป็นเจ้าของ
 export const updateReview = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -297,7 +321,7 @@ export const updateReview = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// ลบรีวิว — เฉพาะเจ้าของเท่านั้น
+// ลบรีวิวของสมาชิกที่เป็นเจ้าของรีวิวนั้น
 export const deleteReview = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;

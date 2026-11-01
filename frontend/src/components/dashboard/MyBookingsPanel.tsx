@@ -1,7 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CalendarDays, Anchor, XCircle, CreditCard, Timer, Star, LayoutGrid, Clock3, ChevronDown, RefreshCw, CheckCircle2, Tag, MessageSquareWarning, AlertTriangle, LogIn, LogOut, Wallet, Users } from 'lucide-react';
+import {
+  CalendarDays,
+  Anchor,
+  XCircle,
+  CreditCard,
+  Timer,
+  Star,
+  LayoutGrid,
+  Clock3,
+  ChevronDown,
+  RefreshCw,
+  CheckCircle2,
+  Tag,
+  MessageSquareWarning,
+  AlertTriangle,
+  LogIn,
+  LogOut,
+  Wallet,
+  Users,
+} from 'lucide-react';
 import api, { getApiErrorMessage } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { toastConfirm } from '@/lib/toastConfirm';
@@ -13,6 +32,7 @@ import type { BoatTicketSummary } from '@/lib/room-boat-addon';
 type BookingType = 'room' | 'kayak';
 type TabKey = 'all' | BookingType;
 
+// แสดงวันครบกำหนดชำระเงินหรือสถานะหมดเวลา
 function DeadlineCell({ createdAt, dueDays }: { createdAt: string; dueDays: number }) {
   const deadlineMs = new Date(createdAt).getTime() + dueDays * 24 * 60 * 60 * 1000;
   const deadline = new Date(deadlineMs);
@@ -25,12 +45,25 @@ function DeadlineCell({ createdAt, dueDays }: { createdAt: string; dueDays: numb
   );
 }
 
-const statusLabel: Record<string, string> = { pending: 'รอดำเนินการ', paid: 'รอตรวจสอบชำระเงิน', approved: 'ยืนยันแล้ว', cancelled: 'ยกเลิก', rejected: 'ถูกปฏิเสธ', checked_out: 'เช็คเอาต์แล้ว' };
-const statusClass: Record<string, string> = { pending: 'bg-orange-50 text-orange-700', paid: 'bg-lagoon-50 text-lagoon-700', approved: 'bg-forest-50 text-forest-700', cancelled: 'bg-stone-100 text-stone-500', rejected: 'bg-red-50 text-red-600', checked_out: 'bg-bamboo-50 text-bamboo-600' };
+const statusLabel: Record<string, string> = {
+  pending: 'รอดำเนินการ',
+  paid: 'รอตรวจสอบชำระเงิน',
+  approved: 'ยืนยันแล้ว',
+  cancelled: 'ยกเลิก',
+  rejected: 'ถูกปฏิเสธ',
+  checked_out: 'เช็คเอาต์แล้ว',
+};
+const statusClass: Record<string, string> = {
+  pending: 'bg-orange-50 text-orange-700',
+  paid: 'bg-lagoon-50 text-lagoon-700',
+  approved: 'bg-forest-50 text-forest-700',
+  cancelled: 'bg-stone-100 text-stone-500',
+  rejected: 'bg-red-50 text-red-600',
+  checked_out: 'bg-bamboo-50 text-bamboo-600',
+};
 const paymentStatusLabel: Record<string, string> = { pending: 'ยังไม่ชำระ', paid: 'ชำระแล้ว' };
 
-// payment_status ค้างเป็น 'paid' ตลอดหลังส่งสลิป ไม่ถูกอัปเดตเมื่อเจ้าหน้าที่ปฏิเสธ/ยกเลิกภายหลัง
-// ถ้าโชว์คู่กับป้ายสถานะ "ถูกปฏิเสธ"/"ยกเลิก" จะดูขัดแย้งกันเอง จึงซ่อนไว้เมื่อ booking จบสถานะแล้วแบบนี้
+// ตรวจสอบว่าการจองถูกยกเลิกหรือถูกปฏิเสธเพื่อซ่อนสถานะการชำระเงินที่ค้างอยู่
 const isPaymentStatusStale = (status: string): boolean => status === 'rejected' || status === 'cancelled';
 
 interface BookingRecord {
@@ -75,11 +108,12 @@ interface ReviewRecord {
   room_name?: string | null;
 }
 
+// ดึงรหัสการจองจากโครงสร้างข้อมูลห้องพักหรือเรือ
 function bookingId(b: BookingRecord): number {
   return b.id || b.boat_booking_id || b.room_booking_id || 0;
 }
 
-// แถวรายละเอียด label + value ใช้จัด grid ให้อ่านง่าย
+// แสดงแถวข้อมูลรายละเอียดพร้อมไอคอนและหัวข้อ
 function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2">
@@ -92,8 +126,7 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
   );
 }
 
-// รายการ "การจองของฉัน" (ห้องพัก/เรือ) แบบ self-contained — แสดงคู่กับโปรไฟล์ในหน้า /dashboard
-// stickyTabs: ใช้เมื่อ panel นี้อยู่ในกล่องที่ overflow-y-auto ของตัวเอง (เช่นหน้า /dashboard) เพื่อให้แถบ filter ทั้งหมด/ห้องพัก/เรือ ค้างอยู่ด้านบนเวลาเลื่อนรายการ
+// แสดงรายการการจองห้องพักและเรือของลูกค้าพร้อมตัวกรองและปุ่มจัดการ
 export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: boolean; stickyTabs?: boolean }) {
   const [tab, setTab] = useState<TabKey>('all');
   const [roomBookings, setRoomBookings] = useState<BookingRecord[]>([]);
@@ -102,9 +135,9 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  // ต่อ booking หนึ่งบิลอาจมีหลายประเภทห้อง แต่ละประเภทรีวิวแยกกันได้ — เก็บเป็น room_booking_id -> เซตของประเภทห้องที่รีวิวแล้ว
   const [reviewedTypesByBooking, setReviewedTypesByBooking] = useState<Map<number, Set<string>>>(new Map());
 
+  // สลับการเปิด/ปิดรายละเอียดของการ์ดการจอง
   const toggleExpanded = (key: string) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -119,6 +152,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
     fetchBookings();
   }, [ready]);
 
+  // โหลดรายการจองห้องพัก เรือ และประวัติการรีวิวจากเซิร์ฟเวอร์
   async function fetchBookings(isManualRefresh = false) {
     if (isManualRefresh) setRefreshing(true);
     else setLoading(true);
@@ -147,6 +181,7 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
     }
   }
 
+  // ยืนยันและส่งคำขอยกเลิกการจองห้องพักหรือเรือ
   const handleCancel = (type: BookingType, id: number) => {
     toastConfirm({
       title: 'ต้องการยกเลิกการจองนี้ใช่หรือไม่?',
@@ -160,19 +195,21 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
         } catch (err: unknown) {
           toast.error(getApiErrorMessage(err, 'ยกเลิกไม่สำเร็จ'));
         }
-      }
+      },
     });
   };
 
-  // เรียงลำดับจากการจองล่าสุด (ใหม่ไปเก่า) ตามความต้องการของผู้ใช้งาน
-  const combined = [...roomBookings.map((b) => ({ ...b, __type: 'room' as BookingType })), ...kayakBookings.map((b) => ({ ...b, __type: 'kayak' as BookingType }))]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const combined = [
+    ...roomBookings.map((b) => ({ ...b, __type: 'room' as BookingType })),
+    ...kayakBookings.map((b) => ({ ...b, __type: 'kayak' as BookingType })),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const sortedRooms = [...roomBookings].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const sortedKayaks = [...kayakBookings].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const bookings: BookingRecord[] = tab === 'all' ? combined : tab === 'room' ? sortedRooms : sortedKayaks;
 
+  // เรนเดอร์การ์ดแสดงข้อมูลการจองแต่ละรายการ
   const renderBookingCard = (b: BookingRecord, type: BookingType) => {
     const bid = bookingId(b);
     const key = `${type}-${bid}`;
@@ -184,7 +221,6 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
 
     return (
       <div key={key} className="rounded-2xl border border-stone-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(18,60,48,0.02)]">
-        {/* หัวข้อสังเขป — กดเพื่อดูรายละเอียดเพิ่มเติม */}
         <button
           type="button"
           onClick={() => toggleExpanded(key)}
@@ -219,7 +255,6 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
 
         {isExpanded && (
           <div className="mt-3 space-y-3 border-t border-stone-100 pt-3">
-            {/* ข้อมูลสังเขปแบบ grid อ่านง่าย */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
               {type === 'room' ? (
                 <>
@@ -286,7 +321,6 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
               )}
             </div>
 
-            {/* รายการห้อง/เรือ */}
             {type === 'room' && Array.isArray(b.rooms) && b.rooms.length > 0 && (
               <ul className="space-y-1 text-xs text-charcoal-500">
                 {b.rooms.map((line: { booking_room_id: number; room_name: string; room_number: string; status: string }) => (
@@ -297,15 +331,17 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
                 ))}
               </ul>
             )}
-            {/* บัตรเสริมเรือของแต่ละห้อง — แสดงเฉพาะบิลที่ยังไม่จบ */}
-            {type === 'room' && ['pending', 'paid', 'approved'].includes(b.status) && Array.isArray(b.rooms) && b.rooms.map((line) => (
-              <BoatAddonSection
-                key={`addon-${line.booking_room_id}`}
-                bookingRoomId={line.booking_room_id}
-                roomBookingStatus={b.status}
-                onChanged={() => fetchBookings(true)}
-              />
-            ))}
+            {type === 'room' &&
+              ['pending', 'paid', 'approved'].includes(b.status) &&
+              Array.isArray(b.rooms) &&
+              b.rooms.map((line) => (
+                <BoatAddonSection
+                  key={`addon-${line.booking_room_id}`}
+                  bookingRoomId={line.booking_room_id}
+                  roomBookingStatus={b.status}
+                  onChanged={() => fetchBookings(true)}
+                />
+              ))}
             {type === 'kayak' && Array.isArray(b.boats) && b.boats.length > 0 && (
               <ul className="space-y-1 text-xs text-charcoal-500">
                 {b.boats.map((line: { booking_boat_id: number; type_name?: string; num_passengers?: number; boat_count?: number }) => (
@@ -316,7 +352,6 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
               </ul>
             )}
 
-            {/* โปรโมชั่นที่ใช้ */}
             {type === 'room' && Array.isArray(b.promotions) && b.promotions.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {b.promotions.map((promo: { name?: string; code?: string; discount_amount: number }, i: number) => (
@@ -330,95 +365,114 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
               </div>
             )}
 
-            {/* คำขอพิเศษ */}
             {type === 'room' && b.special_request && (
               <div className="flex items-start gap-2 rounded-xl bg-stone-50 p-2.5 text-xs text-charcoal-600">
                 <MessageSquareWarning size={14} className="mt-0.5 shrink-0 text-charcoal-400" />
-                <p><span className="font-semibold">คำขอพิเศษ:</span> {b.special_request}</p>
+                <p>
+                  <span className="font-semibold">คำขอพิเศษ:</span> {b.special_request}
+                </p>
               </div>
             )}
 
-            {/* เหตุผลที่ถูกปฏิเสธ */}
             {b.status === 'rejected' && b.reject_reason && (
               <div className="flex items-start gap-2 rounded-xl bg-red-50 p-2.5 text-xs text-red-700">
                 <AlertTriangle size={14} className="mt-0.5 shrink-0 text-red-500" />
-                <p><span className="font-semibold">เหตุผลที่ถูกปฏิเสธ:</span> {b.reject_reason}</p>
+                <p>
+                  <span className="font-semibold">เหตุผลที่ถูกปฏิเสธ:</span> {b.reject_reason}
+                </p>
               </div>
             )}
 
-            {type === 'room' && ['approved', 'checked_out'].includes(b.status) && (() => {
-              // จองหลายประเภทห้องในบิลเดียวได้ ต้องรีวิวครบทุกประเภทถึงจะถือว่า "รีวิวแล้ว"
-              const distinctTypes = new Set(
-                (Array.isArray(b.rooms) ? b.rooms : [])
-                  .filter((line) => !['cancelled', 'rejected'].includes(line.status))
-                  .map((line) => line.type_name || line.room_name)
-              );
-              const reviewedTypes = reviewedTypesByBooking.get(bid) ?? new Set<string>();
-              const allTypesReviewed = distinctTypes.size > 0 && [...distinctTypes].every((t) => reviewedTypes.has(t as string));
-              return (
-              <div>
-                {allTypesReviewed ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-forest-50 px-4 py-2 text-xs font-bold text-forest-700">
-                    <CheckCircle2 size={14} /> รีวิวการพักนี้แล้ว
-                  </span>
-                ) : (
-                  <Link
-                    href="/dashboard?tab=reviews"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 px-4 py-2 text-xs font-bold text-amber-600 transition-colors hover:bg-amber-100"
-                  >
-                    <Star size={14} className="fill-amber-400 text-amber-400" /> เขียนรีวิวการพักนี้
-                  </Link>
-                )}
-              </div>
-              );
-            })()}
+            {type === 'room' &&
+              ['approved', 'checked_out'].includes(b.status) &&
+              (() => {
+                const distinctTypes = new Set(
+                  (Array.isArray(b.rooms) ? b.rooms : [])
+                    .filter((line) => !['cancelled', 'rejected'].includes(line.status))
+                    .map((line) => line.type_name || line.room_name)
+                );
+                const reviewedTypes = reviewedTypesByBooking.get(bid) ?? new Set<string>();
+                const allTypesReviewed = distinctTypes.size > 0 && [...distinctTypes].every((t) => reviewedTypes.has(t as string));
+                return (
+                  <div>
+                    {allTypesReviewed ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-forest-50 px-4 py-2 text-xs font-bold text-forest-700">
+                        <CheckCircle2 size={14} /> รีวิวการพักนี้แล้ว
+                      </span>
+                    ) : (
+                      <Link
+                        href="/dashboard?tab=reviews"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50 px-4 py-2 text-xs font-bold text-amber-600 transition-colors hover:bg-amber-100"
+                      >
+                        <Star size={14} className="fill-amber-400 text-amber-400" /> เขียนรีวิวการพักนี้
+                      </Link>
+                    )}
+                  </div>
+                );
+              })()}
           </div>
         )}
 
-        {type === 'room' && (b.boat_ticket_summary?.total_tickets || b.has_unused_boat_tickets) && <div className="mt-4"><RoomBoatTicketSummary summary={b.boat_ticket_summary} bookingId={bid} bookingStatus={b.status} hasTickets={b.has_unused_boat_tickets} /></div>}
-        {type === 'kayak' && b.is_addon && <p className="mt-3 text-xs leading-relaxed text-forest-800">
-          เรือจากโปรโมชั่นห้องพัก{b.addon_mode === 'free' ? ' · สิทธิ์ฟรี' : b.addon_mode === 'paid' ? ' · มีค่าใช้จ่ายรวมกับค่าห้องพัก' : ''}
-          {b.room_booking_id && <Link href={`/kayaks/room-addon?room_booking_id=${b.room_booking_id}`} className="ml-2 underline underline-offset-2">{`การจองห้องพัก #${b.room_booking_id}`}</Link>}
-        </p>}
+        {type === 'room' && (b.boat_ticket_summary?.total_tickets || b.has_unused_boat_tickets) && (
+          <div className="mt-4">
+            <RoomBoatTicketSummary
+              summary={b.boat_ticket_summary}
+              bookingId={bid}
+              bookingStatus={b.status}
+              hasTickets={b.has_unused_boat_tickets}
+            />
+          </div>
+        )}
+        {type === 'kayak' && b.is_addon && (
+          <p className="mt-3 text-xs leading-relaxed text-forest-800">
+            เรือจากโปรโมชั่นห้องพัก{b.addon_mode === 'free' ? ' · สิทธิ์ฟรี' : b.addon_mode === 'paid' ? ' · มีค่าใช้จ่ายรวมกับค่าห้องพัก' : ''}
+            {b.room_booking_id && (
+              <Link href={`/kayaks/room-addon?room_booking_id=${b.room_booking_id}`} className="ml-2 underline underline-offset-2">
+                {`การจองห้องพัก #${b.room_booking_id}`}
+              </Link>
+            )}
+          </p>
+        )}
 
-        {b.status === 'pending' && !b.is_addon && (() => {
-          const createdAt = b.created_at;
-          const deadlineMs = new Date(createdAt).getTime() + paymentDueDays * 24 * 60 * 60 * 1000;
-          const isExpired = Date.now() > deadlineMs;
-          return (
-            <div className="mt-4 space-y-3 border-t border-stone-100 pt-4">
-              {/* Deadline */}
-              <div className="flex items-center justify-between rounded-xl bg-orange-50 px-4 py-2.5">
-                <span className="flex items-center gap-1.5 text-xs font-bold text-orange-700"><Clock3 size={13} /> ชำระเงินภายใน</span>
-                <DeadlineCell createdAt={createdAt} dueDays={paymentDueDays} />
-              </div>
-              {/* Action Buttons */}
-              {!isExpired && (
-                <div className="flex gap-3">
-                  <Link
-                    href={`/payment?booking_type=${type}&booking_id=${bid}`}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800"
-                  >
-                    <CreditCard size={15} /> ชำระเงิน
-                  </Link>
-                  <button
-                    onClick={() => handleCancel(type, bid)}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
-                  >
-                    <XCircle size={15} /> ยกเลิก
-                  </button>
+        {b.status === 'pending' &&
+          !b.is_addon &&
+          (() => {
+            const createdAt = b.created_at;
+            const deadlineMs = new Date(createdAt).getTime() + paymentDueDays * 24 * 60 * 60 * 1000;
+            const isExpired = Date.now() > deadlineMs;
+            return (
+              <div className="mt-4 space-y-3 border-t border-stone-100 pt-4">
+                <div className="flex items-center justify-between rounded-xl bg-orange-50 px-4 py-2.5">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-orange-700">
+                    <Clock3 size={13} /> ชำระเงินภายใน
+                  </span>
+                  <DeadlineCell createdAt={createdAt} dueDays={paymentDueDays} />
                 </div>
-              )}
-            </div>
-          );
-        })()}
+                {!isExpired && (
+                  <div className="flex gap-3">
+                    <Link
+                      href={`/payment?booking_type=${type}&booking_id=${bid}`}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-forest-900 py-2.5 text-sm font-bold text-white transition-colors hover:bg-forest-800"
+                    >
+                      <CreditCard size={15} /> ชำระเงิน
+                    </Link>
+                    <button
+                      onClick={() => handleCancel(type, bid)}
+                      className="flex items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50"
+                    >
+                      <XCircle size={15} /> ยกเลิก
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
       </div>
     );
   };
 
   return (
     <div>
-      {/* Booking Type Tabs */}
       <div className={`mb-5 flex items-center justify-between gap-4 border-b border-stone-100 bg-white ${stickyTabs ? 'sticky top-0 z-10' : ''}`}>
         <div className="flex gap-4">
           <button
@@ -454,11 +508,17 @@ export default function MyBookingsPanel({ ready, stickyTabs = false }: { ready: 
 
       {loading ? (
         <div className="space-y-3">
-          {[1, 2].map((i) => <div key={i} className="h-32 animate-pulse rounded-2xl bg-stone-100" />)}
+          {[1, 2].map((i) => (
+            <div key={i} className="h-32 animate-pulse rounded-2xl bg-stone-100" />
+          ))}
         </div>
       ) : bookings.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-200 py-16 text-center">
-          {tab === 'kayak' ? <Anchor size={40} className="mx-auto mb-3 text-stone-300" /> : <CalendarDays size={40} className="mx-auto mb-3 text-stone-300" />}
+          {tab === 'kayak' ? (
+            <Anchor size={40} className="mx-auto mb-3 text-stone-300" />
+          ) : (
+            <CalendarDays size={40} className="mx-auto mb-3 text-stone-300" />
+          )}
           <p className="mb-4 text-sm text-charcoal-400">ยังไม่มีการจอง</p>
           <Link href={tab === 'kayak' ? '/kayaks' : '/rooms'} className="btn-primary">
             {tab === 'kayak' ? 'จองเรือ' : 'จองห้องพัก'}

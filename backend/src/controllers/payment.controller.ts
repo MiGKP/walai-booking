@@ -1,21 +1,21 @@
-import { notifyBookingStatus } from '../services/booking-notifications';
-import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
+import { Request, Response } from 'express';
 import { PoolClient } from 'pg';
-import { safeRollback } from '../utils/safe-rollback';
-import QRCode from 'qrcode';
 import generatePayload from 'promptpay-qr';
+import QRCode from 'qrcode';
 import pool from '../config/database';
-import { AuthPayload } from '../types';
-import { sendPaymentSlipNotificationEmail } from '../services/mail.service';
-import { mapDbError } from '../utils/db-errors';
-import { parsePositiveInt } from '../utils/ids';
 import { approveBoatAddonsForRoomBooking } from '../services/boat-booking-lifecycle';
+import { notifyBookingStatus } from '../services/booking-notifications';
 import {
   CloudinaryUploadResult,
   deleteCloudinaryImage,
   uploadImage,
 } from '../services/cloudinary.service';
+import { sendPaymentSlipNotificationEmail } from '../services/mail.service';
+import { AuthPayload } from '../types';
+import { mapDbError } from '../utils/db-errors';
+import { parsePositiveInt } from '../utils/ids';
+import { safeRollback } from '../utils/safe-rollback';
 
 interface PaymentBookingRow {
   total_price: number | string;
@@ -27,13 +27,12 @@ interface PaymentBookingRow {
   is_addon?: boolean;
 }
 
-// สร้างข้อมูลสำหรับหน้าชำระเงินของการจองห้องหรือเรือ โดยดึงยอดจริงจากฐานข้อมูลและสร้าง PromptPay QR Code แบบ Data URL
+// ดึงยอดชำระเงินจากฐานข้อมูลและสร้าง PromptPay QR Code สำหรับหน้าชำระเงิน
 export const createPayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
     const { booking_type, booking_id } = req.body;
 
-    // ดึงข้อมูลบัญชีธนาคารจาก resort_info (admin แก้ไขได้ผ่าน /admin/site-info)
     const resortRes = await pool.query(`SELECT bank_account_no, bank_account_name, promptpay_id FROM resort_info ORDER BY id ASC LIMIT 1`);
     const resort = resortRes.rows[0] || {};
     const bankInfo = {
@@ -87,8 +86,6 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
         booking_id,
         amount: booking.total_price,
         status: booking.payment_status,
-        // สถานะจริงของการจอง (pending/paid/approved/rejected/cancelled/checked_out) — ต้องใช้ตัวนี้แยกกรณีถูกปฏิเสธ/ยกเลิก
-        // เพราะ payment_status จะค้างเป็น 'paid' ตลอดหลังอัปโหลดสลิป ไม่ว่าเจ้าหน้าที่จะอนุมัติหรือปฏิเสธในภายหลัง
         booking_status: booking.status,
         reject_reason: booking.reject_reason ?? null,
         slip_image: booking.payment_slip,
@@ -108,8 +105,7 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// รับไฟล์สลิปจาก member แล้วผูกสลิปเข้ากับรายการจองที่เป็นเจ้าของอยู่ พร้อมอัปเดตสถานะเป็นรอตรวจสอบการชำระเงิน
-// และส่งอีเมลแจ้ง admin/staff ให้มาตรวจสอบสลิป
+// อัปโหลดสลิปการโอนเงินไปยัง Cloudinary อัปเดตสถานะเป็น paid และแจ้งเตือนเจ้าหน้าที่ทางอีเมล
 export const uploadPaymentSlip = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -122,7 +118,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const { id } = req.params; // format: room_123 or kayak_456
+    const { id } = req.params;
     if (typeof id !== 'string') {
       res.status(400).json({ success: false, message: 'Invalid id' });
       return;
@@ -144,22 +140,23 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const existing = bType === 'room'
-      ? await pool.query(
-        `SELECT rb.status, rb.total_price, m.first_name, m.last_name,
-                COALESCE(rb.guest_name, CONCAT_WS(' ', m.first_name, m.last_name)) AS customer_name
-         FROM room_bookings rb
-         JOIN members m ON rb.member_id = m.member_id
-         WHERE rb.room_booking_id = $1 AND rb.member_id = $2`,
-        [bId, user.id]
-      )
-      : await pool.query(
-        `SELECT bb.status, bb.total_price, bb.is_addon, m.first_name, m.last_name
-         FROM boat_bookings bb
-         JOIN members m ON bb.member_id = m.member_id
-         WHERE bb.boat_booking_id = $1 AND bb.member_id = $2`,
-        [bId, user.id]
-      );
+    const existing =
+      bType === 'room'
+        ? await pool.query(
+            `SELECT rb.status, rb.total_price, m.first_name, m.last_name,
+                    COALESCE(rb.guest_name, CONCAT_WS(' ', m.first_name, m.last_name)) AS customer_name
+             FROM room_bookings rb
+             JOIN members m ON rb.member_id = m.member_id
+             WHERE rb.room_booking_id = $1 AND rb.member_id = $2`,
+            [bId, user.id]
+          )
+        : await pool.query(
+            `SELECT bb.status, bb.total_price, bb.is_addon, m.first_name, m.last_name
+             FROM boat_bookings bb
+             JOIN members m ON bb.member_id = m.member_id
+             WHERE bb.boat_booking_id = $1 AND bb.member_id = $2`,
+            [bId, user.id]
+          );
 
     if (existing.rowCount === 0) {
       res.status(404).json({ success: false, message: 'ไม่พบรายการจองหรือไม่มีสิทธิ์เข้าถึง' });
@@ -194,6 +191,7 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
       return;
     }
 
+    // ลบไฟล์สลิปที่อัปโหลดขึ้น Cloudinary แล้วหากการบันทึกฐานข้อมูลไม่สำเร็จ
     const removeUploadedSlip = async (): Promise<void> => {
       await deleteCloudinaryImage(uploadedSlip.url).catch((cleanupError: unknown) => {
         console.error('Payment slip cleanup error:', cleanupError);
@@ -232,7 +230,6 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
           res.status(409).json({ success: false, message: 'สถานะการจองเปลี่ยนไปแล้ว กรุณาตรวจสอบอีกครั้ง' });
           return;
         }
-        // เฉพาะรายการที่ยัง pending เท่านั้น เพื่อไม่ให้รายการที่ถูกยกเลิกกลับมาใช้งานอีก
         await client.query(
           `UPDATE booking_boat SET status = 'paid', updated_at = NOW()
            WHERE boat_booking_id = $1 AND status = 'pending'`,
@@ -251,32 +248,29 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
     const totalPrice = Number(booking.total_price);
     const memberName = booking.customer_name || `${booking.first_name || ''} ${booking.last_name || ''}`.trim();
 
-    // ส่งอีเมลแจ้งเตือน admin / staff ให้มาตรวจสอบสลิป (fire-and-forget)
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const dashboardUrl = bType === 'room'
-      ? `${frontendUrl}/admin/rooms/dashboard`
-      : `${frontendUrl}/admin/boats/dashboard`;
+    const dashboardUrl =
+      bType === 'room' ? `${frontendUrl}/admin/rooms/dashboard` : `${frontendUrl}/admin/boats/dashboard`;
 
-    // ดึง email ของ admin และ staff ที่เกี่ยวข้องเพื่อส่งแจ้งเตือน
     const staffRole = bType === 'room' ? ['admin', 'room_staff'] : ['admin', 'boat_staff'];
-    pool.query(
-      `SELECT email FROM staff WHERE role = ANY($1) AND status = true`,
-      [staffRole]
-    ).then(staffRes => {
-      const emails = staffRes.rows
-        .map((row: { email?: string }) => row.email)
-        .filter((email: string | undefined): email is string => Boolean(email));
-      if (emails.length > 0) {
-        sendPaymentSlipNotificationEmail({
-          to: emails.join(','),
-          customerName: memberName || user.email,
-          bookingType: bType as 'room' | 'kayak',
-          bookingId: Number(bId),
-          amount: totalPrice,
-          adminDashboardUrl: dashboardUrl,
-        }).catch(console.error);
-      }
-    }).catch(console.error);
+    pool
+      .query(`SELECT email FROM staff WHERE role = ANY($1) AND status = true`, [staffRole])
+      .then((staffRes) => {
+        const emails = staffRes.rows
+          .map((row: { email?: string }) => row.email)
+          .filter((email: string | undefined): email is string => Boolean(email));
+        if (emails.length > 0) {
+          sendPaymentSlipNotificationEmail({
+            to: emails.join(','),
+            customerName: memberName || user.email,
+            bookingType: bType as 'room' | 'kayak',
+            bookingId: Number(bId),
+            amount: totalPrice,
+            adminDashboardUrl: dashboardUrl,
+          }).catch(console.error);
+        }
+      })
+      .catch(console.error);
 
     res.json({
       success: true,
@@ -294,12 +288,12 @@ export const uploadPaymentSlip = async (req: Request, res: Response): Promise<vo
   }
 };
 
-// ให้เจ้าหน้าที่หรือผู้ดูแลระบบยืนยันการชำระเงิน แล้วเปลี่ยนสถานะ booking จาก paid ไปเป็น approved
+// ยืนยันการชำระเงินโดยเจ้าหน้าที่หรือผู้ดูแลระบบและเปลี่ยนสถานะการจองเป็น approved
 export const confirmPayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const authUser = req.user as AuthPayload;
-    
+
     if (typeof id !== 'string') {
       res.status(400).json({ success: false, message: 'Invalid id' });
       return;
@@ -364,7 +358,6 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
            WHERE room_booking_id = $1 AND status <> 'checked_out'`,
           [bId]
         );
-        // อนุมัติบัตรเสริมเรือคายัคที่ผูกกับห้องพักนี้ไปพร้อมกัน
         await approveBoatAddonsForRoomBooking(client, Number(bId));
       } else {
         const headerUpdate = await client.query(
@@ -408,7 +401,7 @@ export const confirmPayment = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// ดึงข้อมูลการชำระเงินรายรายการตาม id เพื่อใช้ดูสถานะ, สลิป และรายละเอียดประกอบการตรวจสอบหรือแสดงผล
+// ดึงรายละเอียดการชำระเงินตามรหัสรายการพร้อมข้อมูลบัญชีธนาคาร
 export const getPaymentById = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
@@ -471,18 +464,21 @@ export const getPaymentById = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// ดึงประวัติการชำระเงินทั้งหมดของ member คนที่ login อยู่ โดยรวมทั้งการจองห้องและการจองเรือไว้ในรายการเดียว
+// ดึงประวัติการชำระเงินทั้งหมดของสมาชิกที่เข้าสู่ระบบอยู่
 export const getUserPayments = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as AuthPayload;
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       SELECT 'room_' || room_booking_id as id, 'room' as booking_type, total_price as amount, payment_status as status, created_at
       FROM room_bookings WHERE member_id = $1 AND payment_slip IS NOT NULL
       UNION ALL
       SELECT 'kayak_' || boat_booking_id as id, 'kayak' as booking_type, total_price as amount, payment_status as status, created_at
       FROM boat_bookings WHERE member_id = $1 AND payment_slip IS NOT NULL
       ORDER BY created_at DESC
-    `, [user.id]);
+    `,
+      [user.id]
+    );
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Get user payments error:', error);
@@ -495,7 +491,7 @@ export const getUserPayments = async (req: Request, res: Response): Promise<void
   }
 };
 
-// ดึงรายการชำระเงินทั้งหมดในระบบสำหรับฝั่งผู้ดูแลหรือเจ้าหน้าที่ เพื่อใช้ตรวจสอบสลิปและสถานะการชำระเงินรวม
+// ดึงรายการชำระเงินที่มีสลิปทั้งหมดในระบบสำหรับเจ้าหน้าที่และผู้ดูแลระบบ
 export const getAllPayments = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(
@@ -537,4 +533,3 @@ export const getAllPayments = async (req: Request, res: Response): Promise<void>
     res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดของระบบ กรุณาลองใหม่อีกครั้ง' });
   }
 };
-

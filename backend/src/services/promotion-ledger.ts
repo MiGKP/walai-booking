@@ -11,12 +11,14 @@ import {
 
 type QueryClient = { query: Pool['query'] };
 
+// แปลงค่าตัวเลขที่อาจเป็นค่าว่างให้เป็น number หรือ null
 function toNullableNumber(value: unknown): number | null {
   if (value == null || value === '') return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
 
+// แปลงแถวข้อมูลโปรโมชั่นจากฐานข้อมูลให้อยู่ในรูปแบบ CatalogPromo
 function mapCatalogRow(row: Record<string, unknown>): CatalogPromo {
   const discountType = row.discount_type === 'fixed' ? 'fixed' : 'percent';
   return {
@@ -45,6 +47,7 @@ function mapCatalogRow(row: Record<string, unknown>): CatalogPromo {
   };
 }
 
+// ดึงข้อมูลโปรโมชั่นตามรายการรหัสที่ต้องการใช้งานจากฐานข้อมูล
 export async function loadPromosForApply(
   client: QueryClient,
   ids: number[]
@@ -75,6 +78,7 @@ export async function loadPromosForApply(
   return ordered;
 }
 
+// ดึงประวัติจำนวนครั้งที่ใช้และสถานะคูปองในกระเป๋าของสมาชิกสำหรับโปรโมชั่นที่เลือก
 export async function loadApplyContext(
   client: QueryClient,
   memberId: number,
@@ -114,6 +118,7 @@ export async function loadApplyContext(
   return { memberUsedCountByPromoId, walletsByPromoId };
 }
 
+// บันทึกประวัติการใช้โปรโมชั่น ตัดโควตารวม และอัปเดตสถานะคูปองในกระเป๋าของสมาชิก
 export async function persistBookingPromotions(
   client: QueryClient,
   args: {
@@ -123,7 +128,6 @@ export async function persistBookingPromotions(
     result: ApplyResult;
   }
 ): Promise<void> {
-  // Both applying and restoring multiple codes acquire quota rows in this order.
   for (const line of [...args.result.lines].sort((a, b) => a.promotion_id - b.promotion_id)) {
     await client.query(
       `INSERT INTO booking_promotions (
@@ -140,8 +144,6 @@ export async function persistBookingPromotions(
       ]
     );
 
-    // จองโควตาโปรรวม: UPDATE ที่มีเงื่อนไข usage_limit จะล็อกแถว promotions จนจบ transaction
-    // จึงกันการจองพร้อมกันไม่ให้เกิน usage_limit
     const quota = await client.query(
       `UPDATE promotions SET usage_count = usage_count + 1, updated_at = NOW()
        WHERE id = $1 AND (usage_limit IS NULL OR usage_count < usage_limit)
@@ -152,7 +154,6 @@ export async function persistBookingPromotions(
       throw new PromoApplyError('โปรโมชั่นนี้ถูกใช้ครบจำนวนแล้ว');
     }
 
-    // เช็คโควตาต่อสมาชิกหลังบันทึก (แถว promotions ถูกล็อกอยู่ จึงนับค่าล่าสุดที่ commit แล้วได้ถูกต้อง)
     const cap = await client.query(
       `SELECT p.usage_limit_per_member,
               (SELECT COUNT(*)::int FROM booking_promotions bp
@@ -166,12 +167,11 @@ export async function persistBookingPromotions(
         ? null
         : Number(cap.rows[0].usage_limit_per_member);
     if (limit != null && used > limit) {
-      throw new PromoApplyError('ใช้โค้ดนี้ครบจำนวนครั้งแล้ว');
+      throw new PromoApplyError('ใช้คูปองนี้ครบจำนวนครั้งแล้ว');
     }
 
     if (line.member_promotion_id != null) {
       const next = walletStatusAfterUse(limit, used);
-      // expired ไม่ถูกเขียนทับ (คงสถานะหมดอายุไว้)
       await client.query(
         `UPDATE member_promotions
          SET status = $1::varchar, used_at = CASE WHEN $1::varchar = 'used' THEN COALESCE(used_at, NOW()) ELSE NULL END
@@ -182,6 +182,7 @@ export async function persistBookingPromotions(
   }
 }
 
+// คืนโควตาโปรโมชั่นและสถานะคูปองในกระเป๋าเมื่อรายการจองถูกยกเลิกหรือปฏิเสธ
 export async function restoreBookingPromotions(
   client: QueryClient,
   args: {
@@ -224,7 +225,6 @@ export async function restoreBookingPromotions(
           ? null
           : Number(cap.rows[0].usage_limit_per_member);
       const next = walletStatusAfterUse(limit, used);
-      // expired ไม่ถูกเขียนทับ: คืนได้เฉพาะสลับระหว่าง saved/used
       await client.query(
         `UPDATE member_promotions
          SET status = $1::varchar, used_at = CASE WHEN $1::varchar = 'used' THEN COALESCE(used_at, NOW()) ELSE NULL END

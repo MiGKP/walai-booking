@@ -9,6 +9,7 @@ interface AnimatedRing {
   offset: number;
 }
 
+// คืนหน่วยความจำวัสดุ 3D เมื่อเลิกใช้งาน
 const disposeMaterial = (material: Material | Material[]): void => {
   if (Array.isArray(material)) {
     material.forEach((item) => item.dispose());
@@ -17,6 +18,7 @@ const disposeMaterial = (material: Material | Material[]): void => {
   material.dispose();
 };
 
+// แสดงฉากสามมิติของบ้านลอยน้ำ เรือคายัค และเกาะต้นไม้สำหรับหน้าสมัครสมาชิก
 export default function Scene3D(): React.ReactElement {
   const mountRef = useRef<HTMLDivElement>(null);
 
@@ -27,14 +29,12 @@ export default function Scene3D(): React.ReactElement {
     let disposed = false;
     let cleanup = (): void => {};
 
+    // สร้างและตั้งค่าฉาก 3D ทั้งหมดพร้อมระบบควบคุมการลากหมุนและแอนิเมชัน
     const initializeScene = async (): Promise<void> => {
       try {
         const THREE = await import("three");
         if (disposed) return;
 
-        // -----------------------------------------------------------------
-        // 1. Scene / Camera / Renderer Setup
-        // -----------------------------------------------------------------
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0xbcdad4, 0.032);
 
@@ -63,9 +63,6 @@ export default function Scene3D(): React.ReactElement {
         const worldGroup = new THREE.Group();
         scene.add(worldGroup);
 
-        // -----------------------------------------------------------------
-        // 2. Materials
-        // -----------------------------------------------------------------
         const materials = {
           landTerrain: new THREE.MeshStandardMaterial({
             color: 0x315f4f,
@@ -148,13 +145,6 @@ export default function Scene3D(): React.ReactElement {
           }),
         };
 
-        // -----------------------------------------------------------------
-        // 3. Water Base (ผิวน้ำ)
-        // -----------------------------------------------------------------
-        /**
-         * รัศมี 44 คือระยะที่ FogExp2 density 0.032 กลืนขอบวงกลมไปเกือบหมด
-         * รัศมีสั้นกว่านี้จะเห็นขอบผิวน้ำเป็นเส้นโค้งคมกลางภาพ
-         */
         const water = new THREE.Mesh(
           new THREE.CircleGeometry(44, 96),
           materials.water,
@@ -164,7 +154,6 @@ export default function Scene3D(): React.ReactElement {
         water.receiveShadow = true;
         worldGroup.add(water);
 
-        // พื้นใต้น้ำสีเข้ม ทำให้ผิวน้ำโปร่งแสงอ่านเป็นความลึกแทนที่จะเป็นแผ่นสีเรียบ
         const waterBed = new THREE.Mesh(
           new THREE.CircleGeometry(42, 64),
           materials.deepWater,
@@ -173,9 +162,6 @@ export default function Scene3D(): React.ReactElement {
         waterBed.position.y = -1.15;
         worldGroup.add(waterBed);
 
-        // -----------------------------------------------------------------
-        // 4. Land & Forest
-        // -----------------------------------------------------------------
         const landGroup = new THREE.Group();
         landGroup.position.set(-4.8, -0.2, -3.2);
         worldGroup.add(landGroup);
@@ -197,6 +183,7 @@ export default function Scene3D(): React.ReactElement {
         grassTop.castShadow = true;
         landGroup.add(grassTop);
 
+        // สร้างต้นไม้แบบหลายชั้นใบตามตำแหน่งและขนาดที่กำหนด
         const createTree = (x: number, z: number, scale: number) => {
           const tree = new THREE.Group();
           tree.position.set(x, 0.15, z);
@@ -236,14 +223,10 @@ export default function Scene3D(): React.ReactElement {
         createTree(1.2, 0.4, 0.75);
         createTree(0.1, 1.1, 1.05);
 
-        // -----------------------------------------------------------------
-        // 5. Floating House (บ้านลอยน้ำ)
-        // -----------------------------------------------------------------
         const houseGroup = new THREE.Group();
         houseGroup.position.set(-0.2, 0, 0.2);
         worldGroup.add(houseGroup);
 
-        // ทุ่นลอยน้ำใต้ตัวบ้าน
         [-1.4, 0, 1.4].forEach((x) => {
           const pontoon = new THREE.Mesh(
             new THREE.CylinderGeometry(0.22, 0.22, 4.2, 16),
@@ -254,7 +237,6 @@ export default function Scene3D(): React.ReactElement {
           houseGroup.add(pontoon);
         });
 
-        // พื้นไม้
         const mainDeck = new THREE.Mesh(
           new THREE.BoxGeometry(4.2, 0.18, 4.4),
           materials.woodDeck,
@@ -264,7 +246,6 @@ export default function Scene3D(): React.ReactElement {
         mainDeck.receiveShadow = true;
         houseGroup.add(mainDeck);
 
-        // ตัวบ้าน
         const houseBody = new THREE.Mesh(
           new THREE.BoxGeometry(3.0, 2.2, 2.6),
           materials.houseWall,
@@ -274,7 +255,6 @@ export default function Scene3D(): React.ReactElement {
         houseBody.receiveShadow = true;
         houseGroup.add(houseBody);
 
-        // หลังคา
         const roof = new THREE.Mesh(
           new THREE.BoxGeometry(3.5, 0.12, 3.2),
           materials.metalRoof,
@@ -284,14 +264,11 @@ export default function Scene3D(): React.ReactElement {
         roof.castShadow = true;
         houseGroup.add(roof);
 
-        // -------------------------------------------------------------
-        // 🚪 งานประตูบ้าน & 🪟 หน้าต่าง
-        // -------------------------------------------------------------
         const frameMat = materials.woodDeck;
         const glassMat = materials.windowGlass;
         const handleMat = materials.paddleShaft;
 
-        // 1. ฟังก์ชันสร้างประตูสมจริง (มีกรอบ, คิ้วบานซอย, มือจับ)
+        // สร้างประตูบ้านพร้อมกรอบและมือจับ
         const createDoor = (x: number, y: number, z: number, w: number, h: number) => {
           const doorGroup = new THREE.Group();
           doorGroup.position.set(x, y, z);
@@ -352,7 +329,7 @@ export default function Scene3D(): React.ReactElement {
 
         createDoor(0.8, 0.95, 0.91, 0.75, 1.65);
 
-        // 2. ฟังก์ชันสร้างหน้าต่าง
+        // สร้างหน้าต่างพร้อมกรอบไม้รอบด้าน
         const createWindow = (
           x: number,
           y: number,
@@ -397,14 +374,10 @@ export default function Scene3D(): React.ReactElement {
         createWindow(-1.81, 1.2, -0.4, 0.9, 0.9, -Math.PI / 2);
         createWindow(1.21, 1.2, -0.4, 0.9, 0.9, Math.PI / 2);
 
-        // แสงไฟอบอุ่นส่องสว่างออกมาจากภายในบ้าน
         const houseLight = new THREE.PointLight(0xffaa44, 8, 6, 1.8);
         houseLight.position.set(-0.3, 1.2, -0.2);
         houseGroup.add(houseLight);
 
-        // -----------------------------------------------------------------
-        // 6. Kayak Boat
-        // -----------------------------------------------------------------
         const kayakGroup = new THREE.Group();
         kayakGroup.position.set(3.6, -0.28, 1.6);
         kayakGroup.rotation.y = -0.42;
@@ -430,7 +403,7 @@ export default function Scene3D(): React.ReactElement {
 
             let x = Math.sin(theta) * Math.cos(phi) * (length / 2);
             let y = Math.cos(theta) * height;
-            let z = Math.sin(theta) * Math.sin(phi) * width;
+            const z = Math.sin(theta) * Math.sin(phi) * width;
 
             if (y > 0) {
               y *= 0.2;
@@ -481,6 +454,7 @@ export default function Scene3D(): React.ReactElement {
           kayakGroup.add(holeMesh);
         });
 
+        // สร้างไม้พายวางพาดบนตัวเรือคายัค
         const createPaddle = (posX: number, rotY: number) => {
           const paddle = new THREE.Group();
           paddle.position.set(posX, 0.06, 0);
@@ -510,9 +484,6 @@ export default function Scene3D(): React.ReactElement {
         kayakGroup.add(createPaddle(-0.65, 0.1));
         kayakGroup.add(createPaddle(0.55, -0.08));
 
-        // -----------------------------------------------------------------
-        // 7. Environment Details
-        // -----------------------------------------------------------------
         [
           [-4.2, -0.28, -0.5, 0.45],
           [-4.9, -0.22, -0.8, 0.32],
@@ -546,9 +517,6 @@ export default function Scene3D(): React.ReactElement {
           return { mesh, material, offset: index / 3 };
         });
 
-        // -----------------------------------------------------------------
-        // 8. Lights
-        // -----------------------------------------------------------------
         const hemisphereLight = new THREE.HemisphereLight(
           0xeef7f6,
           0x1b382b,
@@ -569,9 +537,6 @@ export default function Scene3D(): React.ReactElement {
         fillLight.position.set(-8, 4, -6);
         scene.add(fillLight);
 
-        // -----------------------------------------------------------------
-        // 9. Controls / Physics / Animation Logic
-        // -----------------------------------------------------------------
         const motionQuery = window.matchMedia(
           "(prefers-reduced-motion: reduce)",
         );
@@ -592,10 +557,12 @@ export default function Scene3D(): React.ReactElement {
         const MAX_ROTATION = Math.PI / 2;
         const MIN_ROTATION = -Math.PI / 2;
 
+        // วาดฉาก 3D ลงบน Canvas
         const renderScene = (): void => {
           renderer.render(scene, camera);
         };
 
+        // ปรับขนาดกล้องและสเกลฉากเมื่อขนาดหน้าจอเปลี่ยน
         const resize = (): void => {
           const width = Math.max(mount.clientWidth, 1);
           const height = Math.max(mount.clientHeight, 1);
@@ -614,16 +581,19 @@ export default function Scene3D(): React.ReactElement {
           renderScene();
         };
 
+        // เริ่มสถานะการลากหมุนฉากด้วยเมาส์หรือนิ้ว
         const handlePointerDown = (event: PointerEvent): void => {
           isDragging = true;
           previousMouseX = event.clientX;
           velocityY = 0;
         };
 
+        // สิ้นสุดสถานะการลากหมุนฉาก
         const handlePointerUp = (): void => {
           isDragging = false;
         };
 
+        // คำนวณความเร็วการหมุนหรือตำแหน่งเมาส์เมื่อเลื่อนผ่านฉาก
         const handlePointerMove = (event: PointerEvent): void => {
           if (reducedMotion) return;
           const bounds = mount.getBoundingClientRect();
@@ -640,6 +610,7 @@ export default function Scene3D(): React.ReactElement {
           }
         };
 
+        // อัปเดตการเคลื่อนไหวของบ้าน เรือ และระลอกน้ำในแต่ละเฟรม
         const animate = (time: number): void => {
           if (disposed || reducedMotion || !tabVisible) {
             animationFrame = 0;
@@ -685,6 +656,7 @@ export default function Scene3D(): React.ReactElement {
           animationFrame = window.requestAnimationFrame(animate);
         };
 
+        // เริ่มลูปแอนิเมชันหากแท็บเปิดอยู่และไม่ได้ตั้งค่าลดการเคลื่อนไหว
         const startAnimation = (): void => {
           if (!animationFrame && !reducedMotion && tabVisible && !disposed) {
             animationFrame = window.requestAnimationFrame(animate);
@@ -693,6 +665,7 @@ export default function Scene3D(): React.ReactElement {
           }
         };
 
+        // หยุดหรือเริ่มแอนิเมชันใหม่เมื่อผู้ใช้สลับแท็บเบราว์เซอร์
         const handleVisibility = (): void => {
           tabVisible = !document.hidden;
           if (!tabVisible && animationFrame) {
@@ -702,6 +675,7 @@ export default function Scene3D(): React.ReactElement {
           startAnimation();
         };
 
+        // ปรับการทำงานของแอนิเมชันตามค่า prefers-reduced-motion ของระบบ
         const handleMotionChange = (event: MediaQueryListEvent): void => {
           reducedMotion = event.matches;
           if (reducedMotion && animationFrame) {
@@ -726,6 +700,7 @@ export default function Scene3D(): React.ReactElement {
         mount.dataset.sceneState = "ready";
         startAnimation();
 
+        // ล้าง Event Listener และคืนหน่วยความจำ WebGL เมื่อคอมโพเนนต์ถูกถอดออก
         cleanup = (): void => {
           resizeObserver.disconnect();
           mount.removeEventListener("pointerdown", handlePointerDown);

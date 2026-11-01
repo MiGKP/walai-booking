@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { X, Check } from 'lucide-react';
 
-// Import ตัวแผนที่แบบ Dynamic และปิด SSR (ป้องกัน window is not defined)
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
   loading: () => (
@@ -21,6 +20,7 @@ interface MapPickerModalProps {
   onSelectCoordinates: (coords: string) => void;
 }
 
+// แสดงหน้าต่างโมดอลสำหรับปักหมุดและเลือกพิกัดแผนที่
 export default function MapPickerModal({
   isOpen,
   onClose,
@@ -43,6 +43,7 @@ export default function MapPickerModal({
 
   if (!isOpen) return null;
 
+  // ยืนยันการใช้พิกัดที่เลือกและส่งค่ากลับในรูปแบบละติจูดและลองจิจูด
   const handleConfirm = () => {
     const formattedCoords = `${position[0].toFixed(6)}, ${position[1].toFixed(6)}`;
     onSelectCoordinates(formattedCoords);
@@ -52,8 +53,6 @@ export default function MapPickerModal({
   return (
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border border-cream-200 flex flex-col max-h-[90vh]">
-        
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-cream-200 bg-cream-50/50">
           <div>
             <h3 className="font-bold text-forest-900 text-base">ปักหมุดเลือกพิกัดแผนที่</h3>
@@ -68,12 +67,10 @@ export default function MapPickerModal({
           </button>
         </div>
 
-        {/* Map Body */}
         <div className="w-full h-[400px] relative">
           <LeafletMap position={position} setPosition={setPosition} showControls={true} />
         </div>
 
-        {/* Footer */}
         <div className="p-4 sm:px-6 border-t border-cream-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white">
           <div className="text-xs text-charcoal-700 font-mono bg-cream-50 border border-cream-200 px-3.5 py-2 rounded-xl w-full sm:w-auto text-center sm:text-left">
             พิกัดที่เลือก: <span className="font-bold text-forest-800">{position[0].toFixed(6)}, {position[1].toFixed(6)}</span>
@@ -97,7 +94,6 @@ export default function MapPickerModal({
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );

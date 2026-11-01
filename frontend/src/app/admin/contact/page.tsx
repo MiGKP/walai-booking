@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { pickResortInfo } from '@/lib/resort-info';
 import { PageHeader, Panel } from '@/components/admin/ui';
 
+// หน้าจัดการข้อมูลติดต่อและเวลาเปิดทำการของรีสอร์ท
 export default function ContactInfoPage() {
   const { ready, user } = useAuthGuard({ allowedRoles: ['admin', 'room_staff', 'boat_staff'] });
   const [form, setForm] = useState({
@@ -36,6 +37,7 @@ export default function ContactInfoPage() {
     }).catch(() => { setLoadError(true); notify.error('โหลดข้อมูลไม่สำเร็จ'); }).finally(() => setLoading(false));
   }, [ready]);
 
+  // บันทึกข้อมูลการติดต่อและเวลาทำการลงฐานข้อมูล
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -58,9 +60,7 @@ export default function ContactInfoPage() {
           <ArrowLeft size={20} className="text-gray-600" />
         </Link>
         <div className="flex-1">
-          <PageHeader 
-            title="ข้อมูลติดต่อ" 
-          />
+          <PageHeader title="ข้อมูลติดต่อ" />
         </div>
       </div>
 

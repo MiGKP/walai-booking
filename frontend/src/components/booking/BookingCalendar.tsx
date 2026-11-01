@@ -20,13 +20,11 @@ export type DayTone = "open" | "low" | "full";
 
 export interface DayStatus {
   tone: DayTone;
-  /** ข้อความอธิบายให้ screen reader และ tooltip เช่น "เหลือ 2 ห้อง" */
   hint?: string;
 }
 
 export interface DateRange {
   start: string;
-  /** Empty until the guest explicitly selects a check-out date. */
   end: string;
 }
 
@@ -37,10 +35,7 @@ interface BaseProps {
   loading?: boolean;
   minISO?: string;
   maxISO?: string;
-  /** จำนวนเดือนที่ยอมให้อนุญาตล่วงหน้า
-  เริ่มจากเดือนปัจจุบัน */
   maxMonthsAhead?: number;
-  /** จำนวนเดือนที่แสดงพร้อมกัน (ค่าเริ่มต้น 2 — แก้ปัญหาเลือกข้ามเดือน) */
   visibleMonths?: 1 | 2;
   className?: string;
 }
@@ -59,6 +54,7 @@ interface RangeModeProps extends BaseProps {
 
 type BookingCalendarProps = SingleModeProps | RangeModeProps;
 
+// คำนวณลำดับเดือนรวมจากปีและเดือนเพื่อใช้เปรียบเทียบช่วงเดือน
 const monthIndex = (cursor: MonthCursor): number =>
   cursor.year * 12 + cursor.month;
 
@@ -85,6 +81,7 @@ interface MonthPanelProps {
   canGoNext?: boolean;
 }
 
+// แสดงตารางวันที่ของหนึ่งเดือนพร้อมสถานะห้องว่างและไฮไลต์ช่วงวันที่เลือก
 function MonthPanel({
   cursor,
   dayStatus,
@@ -129,7 +126,7 @@ function MonthPanel({
           <p className="font-display text-sm sm:text-base font-bold text-forest-900 text-center flex-1">
             {formatMonthLabel(cursor)}
           </p>
-  
+
           {onNextMonth ? (
             <button
               type="button"
@@ -263,6 +260,7 @@ function MonthPanel({
   );
 }
 
+// แสดงปฏิทินเลือกวันจองแบบวันเดียวหรือช่วงวันพร้อมรองรับการควบคุมด้วยคีย์บอร์ด
 export default function BookingCalendar(
   props: BookingCalendarProps,
 ): React.ReactElement {
@@ -320,12 +318,12 @@ export default function BookingCalendar(
     target?.focus();
   }, [focusedISO, cursor, monthCount]);
 
+  // ตรวจสอบว่าวันที่ระบุไม่สามารถเลือกได้เนื่องจากอยู่นอกช่วงหรือห้องพักเต็ม
   const isDisabled = (iso: string): boolean => {
     if (iso < minISO) return true;
     if (props.maxISO && iso > props.maxISO) return true;
     if (props.mode === "range" && pendingStart && iso > pendingStart) {
-      // Checkout is not an occupied night: a sold-out checkout day is valid.
-      return nightsInRange(pendingStart, iso).some(night => dayStatus?.[night]?.tone === "full");
+      return nightsInRange(pendingStart, iso).some((night) => dayStatus?.[night]?.tone === "full");
     }
     return dayStatus?.[iso]?.tone === "full";
   };
@@ -345,6 +343,7 @@ export default function BookingCalendar(
     return new Set(nightsInRange(selectedStart, end));
   }, [selectedStart, selectedEnd, previewEnd]);
 
+  // จัดการเมื่อผู้ใช้คลิกเลือกวันที่ในโหมดวันเดียวหรือโหมดช่วงวันเข้าพัก
   const handleSelect = (iso: string): void => {
     if (isDisabled(iso)) return;
 
@@ -368,6 +367,7 @@ export default function BookingCalendar(
     props.onSelect({ start: pendingStart, end: iso });
   };
 
+  // เลื่อนโฟกัสไปยังวันที่ถัดไปหรือก่อนหน้าตามจำนวนวันที่กำหนดและเปลี่ยนเดือนอัตโนมัติ
   const moveFocus = (deltaDays: number): void => {
     const next = addDaysISO(focusedISO, deltaDays);
     if (next < minISO) return;
@@ -389,6 +389,7 @@ export default function BookingCalendar(
     }
   };
 
+  // จัดการการกดปุ่มลูกศรและ PageUp/PageDown เพื่อเลื่อนวันที่ด้วยคีย์บอร์ด
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
     const moves: Record<string, number> = {
       ArrowLeft: -1,
@@ -420,38 +421,40 @@ export default function BookingCalendar(
       onKeyDown={handleKeyDown}
       onMouseLeave={() => setHoveredISO(null)}
     >
-      {props.mode === "range" && <div className="mb-4" aria-live="polite">
-        <div className="grid grid-cols-2 gap-2">
-          <div className={`rounded-xl border p-3 ${!selectedStart || selectedEnd ? 'border-stone-200 bg-stone-50' : 'border-forest-600 bg-forest-50'}`}>
-            <p className="text-xs font-bold text-forest-800">1. วันเช็คอิน</p>
-            <p className="mt-1 text-sm text-forest-900">{selectedStart ? formatThaiDate(selectedStart) : 'เลือกวันเข้าพัก'}</p>
+      {props.mode === "range" && (
+        <div className="mb-4" aria-live="polite">
+          <div className="grid grid-cols-2 gap-2">
+            <div className={`rounded-xl border p-3 ${!selectedStart || selectedEnd ? "border-stone-200 bg-stone-50" : "border-forest-600 bg-forest-50"}`}>
+              <p className="text-xs font-bold text-forest-800">1. วันเช็คอิน</p>
+              <p className="mt-1 text-sm text-forest-900">{selectedStart ? formatThaiDate(selectedStart) : "เลือกวันเข้าพัก"}</p>
+            </div>
+            <div className={`rounded-xl border p-3 ${pendingStart ? "border-forest-600 bg-forest-50" : "border-stone-200 bg-stone-50"}`}>
+              <p className="text-xs font-bold text-forest-800">2. วันเช็คเอาต์</p>
+              <p className="mt-1 text-sm text-forest-900">
+                {selectedEnd ? (
+                  formatThaiDate(selectedEnd)
+                ) : previewEnd ? (
+                  <span className="text-forest-700 font-medium">
+                    {formatThaiDate(previewEnd)}{" "}
+                    <span className="text-xs text-forest-600 font-normal">({rangeNights.size} คืน)</span>
+                  </span>
+                ) : (
+                  "ยังไม่ได้เลือกวันออก"
+                )}
+              </p>
+            </div>
           </div>
-          <div className={`rounded-xl border p-3 ${pendingStart ? 'border-forest-600 bg-forest-50' : 'border-stone-200 bg-stone-50'}`}>
-            <p className="text-xs font-bold text-forest-800">2. วันเช็คเอาต์</p>
-            <p className="mt-1 text-sm text-forest-900">
-              {selectedEnd ? (
-                formatThaiDate(selectedEnd)
-              ) : previewEnd ? (
-                <span className="text-forest-700 font-medium">
-                  {formatThaiDate(previewEnd)}{' '}
-                  <span className="text-xs text-forest-600 font-normal">({rangeNights.size} คืน)</span>
-                </span>
-              ) : (
-                'ยังไม่ได้เลือกวันออก'
-              )}
-            </p>
-          </div>
+          <p className="mt-2 text-xs text-charcoal-500">
+            {pendingStart
+              ? previewEnd
+                ? `คลิกเพื่อเลือกวันเช็คเอาต์ ${formatThaiDate(previewEnd)} (รวม ${rangeNights.size} คืน)`
+                : "เลือกวันเช็คเอาต์หลังวันเช็คอิน ห้องพักคิดเป็นรายคืน"
+              : selectedEnd
+                ? "เลือกครบแล้ว · กดวันอื่นเพื่อเริ่มเลือกช่วงวันใหม่"
+                : "เริ่มจากเลือกวันเช็คอิน แล้วเลือกวันเช็คเอาต์"}
+          </p>
         </div>
-        <p className="mt-2 text-xs text-charcoal-500">
-          {pendingStart
-            ? previewEnd
-              ? `คลิกเพื่อเลือกวันเช็คเอาต์ ${formatThaiDate(previewEnd)} (รวม ${rangeNights.size} คืน)`
-              : 'เลือกวันเช็คเอาต์หลังวันเช็คอิน ห้องพักคิดเป็นรายคืน'
-            : selectedEnd
-              ? 'เลือกครบแล้ว · กดวันอื่นเพื่อเริ่มเลือกช่วงวันใหม่'
-              : 'เริ่มจากเลือกวันเช็คอิน แล้วเลือกวันเช็คเอาต์'}
-        </p>
-      </div>}
+      )}
       <div
         className={
           monthCount === 2
@@ -493,23 +496,6 @@ export default function BookingCalendar(
           </div>
         ))}
       </div>
-
-      {/* <div className="mt-4 border-t border-stone-100 pt-3">
-        <div className="flex flex-wrap items-center justify-start gap-4 text-xs text-charcoal-500">
-          <div className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-forest-800" />
-            <span>วันที่เลือก</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-bamboo-400" />
-            <span>เหลือน้อย</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-charcoal-300">
-            <span className="h-2.5 w-2.5 rounded-full bg-stone-300" />
-            <span className="line-through decoration-stone-400">เต็ม</span>
-          </div>
-        </div>
-      </div> */}
     </div>
   );
 }

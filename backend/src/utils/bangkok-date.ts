@@ -1,4 +1,4 @@
-// วันที่ปัจจุบันตามเวลาประเทศไทย (รูปแบบ YYYY-MM-DD) ใช้เทียบกับวันที่ที่ผู้ใช้เลือก
+// คืนค่าวันที่ปัจจุบันตามเวลาประเทศไทยในรูปแบบ YYYY-MM-DD
 export function bangkokToday(now: Date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Bangkok',

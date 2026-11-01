@@ -45,6 +45,7 @@ const EXACT_PATH_CRUMBS: Record<string, string[]> = {
   "/staff/boats/checkin": ["พนักงาน", "เรือ", "เช็คอินท่าเรือ"],
 };
 
+// แปลงเส้นทาง URL ปัจจุบันให้เป็นรายการข้อความสำหรับแสดง Breadcrumb
 function useBreadcrumb(pathname: string | null): string[] {
   if (!pathname) return [];
   if (EXACT_PATH_CRUMBS[pathname]) return EXACT_PATH_CRUMBS[pathname];
@@ -54,12 +55,11 @@ function useBreadcrumb(pathname: string | null): string[] {
     .map((seg) => SEGMENT_LABELS[seg] ?? seg);
 }
 
-/** เปลือกหน้าแอดมิน/พนักงาน: sidebar + breadcrumb + แบนเนอร์แจ้งเตือน + เนื้อหา (ใช้ทั้งโรล admin / room_staff / boat_staff) */
+// แสดงโครงสร้างหลักของหน้าแอดมินและพนักงานพร้อมแถบเมนูข้างและหัวเว็บ
 export default function AdminShell({ children }: { children: ReactNode }): React.ReactElement {
   const pathname = usePathname();
   const crumbs = useBreadcrumb(pathname);
 
-  // เมื่อเปลี่ยนหน้า ให้ล้างการแจ้งเตือน (แก้ปัญหาการแจ้งเตือนค้างข้ามหน้า)
   useEffect(() => {
     notify.dismiss();
   }, [pathname]);

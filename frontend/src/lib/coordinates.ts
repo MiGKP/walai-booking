@@ -3,10 +3,7 @@ export interface LatLng {
   lng: number;
 }
 
-/**
- * Parse "lat, lng" from admin resort settings.
- * If values look swapped (lng pasted first), swap them.
- */
+// แปลงข้อความพิกัดละติจูดและลองจิจูดเป็นอ็อบเจกต์ตัวเลข
 export function parseLatLng(raw: string | undefined | null): LatLng | null {
   if (raw == null) return null;
   const match = String(raw)
@@ -28,13 +25,14 @@ export function parseLatLng(raw: string | undefined | null): LatLng | null {
   return { lat, lng };
 }
 
-/** Google embed that centers on the pin (not a place-name search box). */
+// สร้าง URL สำหรับฝังแผนที่ Google Maps จากพิกัดละติจูดและลองจิจูด
 export function googleMapsEmbedUrl(coords: LatLng, zoom = 16): string {
   const q = `${coords.lat},${coords.lng}`;
   const encoded = encodeURIComponent(q);
   return `https://maps.google.com/maps?q=${encoded}&ll=${encoded}&z=${zoom}&t=k&hl=th&output=embed`;
 }
 
+// สร้าง URL สำหรับฝังแผนที่ Google Maps จากคำค้นหาสถานที่
 export function googleMapsSearchUrl(query: string, zoom = 16): string {
   return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=${zoom}&t=k&hl=th&output=embed`;
 }
